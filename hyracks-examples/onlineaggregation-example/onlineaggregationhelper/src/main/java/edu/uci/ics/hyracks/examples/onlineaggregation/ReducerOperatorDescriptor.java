@@ -139,9 +139,9 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
 
         final KVIterator kvi = new KVIterator();
         final TaskAttemptContext taskAttemptContext = new TaskAttemptContext(helper.getConfiguration(), null);
-        final RecordWriter<K3, V3> recordWriter;
+        final RecordWriter recordWriter;
         try {
-            recordWriter = (RecordWriter<K3, V3>) helper.getOutputFormat().getRecordWriter(taskAttemptContext);
+            recordWriter = helper.getOutputFormat().getRecordWriter(taskAttemptContext);
         } catch (Exception e) {
             throw new HyracksDataException(e);
         }
