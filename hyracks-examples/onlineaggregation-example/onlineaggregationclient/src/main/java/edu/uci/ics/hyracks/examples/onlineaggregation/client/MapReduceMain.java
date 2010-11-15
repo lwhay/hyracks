@@ -78,12 +78,14 @@ public class MapReduceMain {
         mConfig.set(conf);
         Job job = new Job(conf);
 
+        int jobId = (int) System.currentTimeMillis();
+
         MapperOperatorDescriptor<Writable, Writable, Writable, Writable> mapper = new MapperOperatorDescriptor<Writable, Writable, Writable, Writable>(
-                spec, mConfig, new DefaultInputSplitProviderFactory(mConfig));
+                spec, jobId, mConfig, new DefaultInputSplitProviderFactory(mConfig));
         mapper.setPartitionConstraint(new PartitionCountConstraint(options.numMaps));
 
         ReducerOperatorDescriptor<Writable, Writable, Writable, Writable> reducer = new ReducerOperatorDescriptor<Writable, Writable, Writable, Writable>(
-                spec, mConfig);
+                spec, jobId, mConfig);
         reducer.setPartitionConstraint(new PartitionCountConstraint(job.getNumReduceTasks()));
 
         HashPartitioningShuffleConnectorDescriptor conn = new HashPartitioningShuffleConnectorDescriptor(spec, mConfig);

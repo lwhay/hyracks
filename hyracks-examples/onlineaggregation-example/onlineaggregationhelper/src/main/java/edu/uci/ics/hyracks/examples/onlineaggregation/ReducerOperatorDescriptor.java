@@ -50,10 +50,13 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
         extends AbstractSingleActivityOperatorDescriptor {
     private static final long serialVersionUID = 1L;
 
+    private final int jobId;
+
     private MarshalledWritable<Configuration> mConfig;
 
-    public ReducerOperatorDescriptor(JobSpecification spec, MarshalledWritable<Configuration> mConfig) {
+    public ReducerOperatorDescriptor(JobSpecification spec, int jobId, MarshalledWritable<Configuration> mConfig) {
         super(spec, 1, 0);
+        this.jobId = jobId;
         this.mConfig = mConfig;
     }
 
@@ -154,7 +157,7 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
         }
 
         final KVIterator kvi = new KVIterator();
-        final TaskAttemptID taId = new TaskAttemptID("foo", 0, false, 0, 0);
+        final TaskAttemptID taId = new TaskAttemptID("foo", jobId, false, partition, 0);
         final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
         final RecordWriter recordWriter;
         try {
@@ -271,6 +274,11 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
             public void close() throws HyracksDataException {
                 if (groupStarted) {
                     reduce();
+                }
+                try {
+                    recordWriter.close(taskAttemptContext);
+                } catch (Exception e) {
+                    throw new HyracksDataException(e);
                 }
             }
         };

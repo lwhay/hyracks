@@ -46,12 +46,14 @@ import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortRunMerger;
 public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
         extends AbstractSingleActivityOperatorDescriptor {
     private static final long serialVersionUID = 1L;
+    private final int jobId;
     private final MarshalledWritable<Configuration> config;
     private final IInputSplitProviderFactory isProviderFactory;
 
-    public MapperOperatorDescriptor(JobSpecification spec, MarshalledWritable<Configuration> config,
+    public MapperOperatorDescriptor(JobSpecification spec, int jobId, MarshalledWritable<Configuration> config,
             IInputSplitProviderFactory isProviderFactory) throws HyracksDataException {
         super(spec, 0, 1);
+        this.jobId = jobId;
         this.config = config;
         this.isProviderFactory = isProviderFactory;
         HadoopHelper helper = new HadoopHelper(config);
@@ -67,7 +69,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
         final IInputSplitProvider isp = isProviderFactory.createInputSplitProvider();
-        final TaskAttemptID taId = new TaskAttemptID("foo", 0, true, 0, 0);
+        final TaskAttemptID taId = new TaskAttemptID("foo", jobId, true, partition, 0);
         final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
 
         final int framesLimit = helper.getSortFrameLimit(ctx);
