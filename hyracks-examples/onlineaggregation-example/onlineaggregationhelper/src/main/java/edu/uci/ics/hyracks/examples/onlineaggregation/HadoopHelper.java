@@ -22,10 +22,13 @@ import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.util.ReflectionUtils;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
@@ -51,11 +54,16 @@ public class HadoopHelper {
 
     public HadoopHelper(MarshalledWritable<Configuration> mConfig) throws HyracksDataException {
         this.mConfig = mConfig;
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
         try {
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
             config = mConfig.get();
+            config.setClassLoader(getClass().getClassLoader());
             job = new Job(config);
         } catch (Exception e) {
             throw new HyracksDataException(e);
+        } finally {
+            Thread.currentThread().setContextClassLoader(ctxCL);
         }
     }
 
@@ -70,6 +78,26 @@ public class HadoopHelper {
 
         } catch (Exception e) {
             throw new HyracksDataException(e);
+        }
+    }
+
+    public TaskAttemptContext createTaskAttemptContext(TaskAttemptID taId) {
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(config.getClassLoader());
+            return new TaskAttemptContext(config, taId);
+        } finally {
+            Thread.currentThread().setContextClassLoader(ctxCL);
+        }
+    }
+
+    public JobContext createJobContext() {
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(config.getClassLoader());
+            return new JobContext(config, null);
+        } finally {
+            Thread.currentThread().setContextClassLoader(ctxCL);
         }
     }
 

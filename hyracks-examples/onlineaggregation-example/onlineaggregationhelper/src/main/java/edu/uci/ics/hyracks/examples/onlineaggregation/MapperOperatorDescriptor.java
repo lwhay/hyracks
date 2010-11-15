@@ -26,6 +26,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
@@ -66,7 +67,8 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
         final IInputSplitProvider isp = isProviderFactory.createInputSplitProvider();
-        final TaskAttemptContext taskAttemptContext = new TaskAttemptContext(conf, null);
+        final TaskAttemptID taId = new TaskAttemptID("foo", 0, true, 0, 0);
+        final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
 
         final int framesLimit = helper.getSortFrameLimit(ctx);
         final IBinaryComparatorFactory[] comparatorFactories = helper.getSortComparatorFactories();
@@ -93,10 +95,6 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
 
             @Override
             public void close(TaskAttemptContext arg0) throws IOException, InterruptedException {
-                if (fta.getTupleCount() > 0) {
-                    runGen.nextFrame(frame);
-                    fta.reset(frame, true);
-                }
             }
 
             @Override
@@ -119,6 +117,11 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
             }
 
             public void sortAndFlushBlock(final IFrameWriter writer) throws HyracksDataException {
+                if (fta.getTupleCount() > 0) {
+                    runGen.nextFrame(frame);
+                    fta.reset(frame, true);
+                }
+                runGen.close();
                 IFrameWriter delegatingWriter = new IFrameWriter() {
                     @Override
                     public void open() throws HyracksDataException {
@@ -158,10 +161,18 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                         int blockId = isp.getBlockId();
                         try {
                             RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(is, taskAttemptContext);
+                            ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+                            try {
+                                Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+                                recordReader.initialize(is, taskAttemptContext);
+                            } finally {
+                                Thread.currentThread().setContextClassLoader(ctxCL);
+                            }
                             recordWriter.initBlock(blockId);
-                            Mapper<K1, V1, K2, V2>.Context mCtx = mapper.new Context(conf, null, recordReader,
+                            Mapper<K1, V1, K2, V2>.Context mCtx = mapper.new Context(conf, taId, recordReader,
                                     recordWriter, null, null, is);
                             mapper.run(mCtx);
+                            recordReader.close();
                             recordWriter.sortAndFlushBlock(writer);
                             writer.flush();
                         } catch (IOException e) {

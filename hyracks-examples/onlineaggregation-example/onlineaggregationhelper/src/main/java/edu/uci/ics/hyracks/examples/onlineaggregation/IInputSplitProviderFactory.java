@@ -14,8 +14,10 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
+import java.io.Serializable;
+
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public interface IInputSplitProviderFactory {
+public interface IInputSplitProviderFactory extends Serializable {
     public IInputSplitProvider createInputSplitProvider() throws HyracksDataException;
 }

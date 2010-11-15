@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
 import java.io.IOException;
@@ -10,9 +24,11 @@ import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.util.Progress;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
@@ -105,7 +121,7 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
                         return false;
                     }
                     ++tIdx;
-                    if (accessor.getTupleCount() >= tIdx) {
+                    if (accessor.getTupleCount() <= tIdx) {
                         ++bPtr;
                         if (bPtr >= bSize) {
                             eog = true;
@@ -138,7 +154,8 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
         }
 
         final KVIterator kvi = new KVIterator();
-        final TaskAttemptContext taskAttemptContext = new TaskAttemptContext(helper.getConfiguration(), null);
+        final TaskAttemptID taId = new TaskAttemptID("foo", 0, false, 0, 0);
+        final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
         final RecordWriter recordWriter;
         try {
             recordWriter = helper.getOutputFormat().getRecordWriter(taskAttemptContext);
@@ -152,6 +169,8 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
             private List<ByteBuffer> group;
             private int bPtr;
             private FrameTupleAppender fta;
+            private Counter keyCounter;
+            private Counter valueCounter;
 
             @Override
             public void open() throws HyracksDataException {
@@ -161,6 +180,10 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
                 bPtr = 0;
                 group.add(ctx.getResourceManager().allocateFrame());
                 fta = new FrameTupleAppender(ctx);
+                keyCounter = new Counter() {
+                };
+                valueCounter = new Counter() {
+                };
             }
 
             @Override
@@ -213,8 +236,8 @@ public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable,
             private void reduce() throws HyracksDataException {
                 kvi.reset(group, bPtr + 1);
                 try {
-                    Reducer<K2, V2, K3, V3>.Context rCtx = reducer.new Context(helper.getConfiguration(), null, kvi,
-                            null, null, recordWriter, null, null,
+                    Reducer<K2, V2, K3, V3>.Context rCtx = reducer.new Context(helper.getConfiguration(), taId, kvi,
+                            keyCounter, valueCounter, recordWriter, null, null,
                             (RawComparator<K2>) helper.getRawGroupingComparator(), (Class<K2>) helper.getJob()
                                     .getMapOutputKeyClass(), (Class<V2>) helper.getJob().getMapOutputValueClass());
                     reducer.run(rCtx);

@@ -193,7 +193,11 @@ public class ShuffleFrameReader implements IFrameReader {
             buffer.limit(buffer.capacity());
             buffer.position(0);
             try {
-                channel.write(buffer);
+                int remaining = buffer.remaining();
+                while (remaining > 0) {
+                    int wLen = channel.write(buffer);
+                    remaining -= wLen;
+                }
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }

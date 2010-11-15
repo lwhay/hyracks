@@ -19,11 +19,13 @@ import java.util.UUID;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.mapreduce.Job;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.client.HyracksRMIConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.constraints.PartitionCountConstraint;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.examples.onlineaggregation.DefaultInputSplitProviderFactory;
 import edu.uci.ics.hyracks.examples.onlineaggregation.HashPartitioningShuffleConnectorDescriptor;
@@ -44,6 +46,9 @@ public class MapReduceMain {
 
         @Option(name = "-conf", usage = "Configuration XML File", required = true)
         public File conf;
+
+        @Option(name = "-num-maps", usage = "Number of Map tasks (default: 1)")
+        public int numMaps = 1;
     }
 
     public static void main(String[] args) throws Exception {
@@ -56,7 +61,7 @@ public class MapReduceMain {
 
         IHyracksClientConnection hcc = new HyracksRMIConnection(options.host, options.port);
 
-        JobSpecification job = createJob(conf);
+        JobSpecification job = createJob(options, conf);
 
         long start = System.currentTimeMillis();
         UUID jobId = hcc.createJob(options.app, job);
@@ -66,16 +71,20 @@ public class MapReduceMain {
         System.err.println(start + " " + end + " " + (end - start));
     }
 
-    private static JobSpecification createJob(Configuration conf) throws Exception {
+    private static JobSpecification createJob(Options options, Configuration conf) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         MarshalledWritable<Configuration> mConfig = new MarshalledWritable<Configuration>();
         mConfig.set(conf);
+        Job job = new Job(conf);
+
         MapperOperatorDescriptor<Writable, Writable, Writable, Writable> mapper = new MapperOperatorDescriptor<Writable, Writable, Writable, Writable>(
                 spec, mConfig, new DefaultInputSplitProviderFactory(mConfig));
+        mapper.setPartitionConstraint(new PartitionCountConstraint(options.numMaps));
 
         ReducerOperatorDescriptor<Writable, Writable, Writable, Writable> reducer = new ReducerOperatorDescriptor<Writable, Writable, Writable, Writable>(
                 spec, mConfig);
+        reducer.setPartitionConstraint(new PartitionCountConstraint(job.getNumReduceTasks()));
 
         HashPartitioningShuffleConnectorDescriptor conn = new HashPartitioningShuffleConnectorDescriptor(spec, mConfig);
         spec.connect(conn, mapper, 0, reducer, 0);

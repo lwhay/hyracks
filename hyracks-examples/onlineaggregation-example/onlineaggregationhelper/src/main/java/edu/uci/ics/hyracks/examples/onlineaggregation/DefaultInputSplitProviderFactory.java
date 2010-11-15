@@ -23,6 +23,8 @@ import org.apache.hadoop.mapreduce.JobContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class DefaultInputSplitProviderFactory implements IInputSplitProviderFactory {
+    private static final long serialVersionUID = 1L;
+
     private MarshalledWritable<Configuration> mConfig;
 
     public DefaultInputSplitProviderFactory(MarshalledWritable<Configuration> mConfig) {
@@ -34,7 +36,7 @@ public class DefaultInputSplitProviderFactory implements IInputSplitProviderFact
         HadoopHelper helper = new HadoopHelper(mConfig);
         final List<InputSplit> splits;
         try {
-            JobContext jCtx = new JobContext(mConfig.get(), null);
+            JobContext jCtx = helper.createJobContext();
             splits = helper.getInputFormat().getSplits(jCtx);
         } catch (Exception e) {
             throw new HyracksDataException(e);

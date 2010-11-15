@@ -44,8 +44,12 @@
             <configuration>
               <programs>
                 <program>
-                  <mainClass>edu.uci.ics.hyracks.examples.onlineaggregation.client.WordCountMain</mainClass>
+                  <mainClass>edu.uci.ics.hyracks.examples.onlineaggregation.client.MapReduceMain</mainClass>
                   <name>onlineaggregationclient</name>
+                </program>
+                <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.onlineaggregation.client.WordCountJobGen</mainClass>
+                  <name>wcgen</name>
                 </program>
               </programs>
               <repositoryLayout>flat</repositoryLayout>
