@@ -59,7 +59,8 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
 
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksContext ctx, IOperatorEnvironment env,
-            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
+            IRecordDescriptorProvider recordDescProvider, final int partition, final int nPartitions)
+            throws HyracksDataException {
         HadoopHelper helper = new HadoopHelper(config);
         final Configuration conf = helper.getConfiguration();
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
@@ -152,7 +153,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                 writer.open();
                 try {
                     SortingRecordWriter recordWriter = new SortingRecordWriter();
-                    while (isp.next()) {
+                    while (isp.next(partition, nPartitions)) {
                         InputSplit is = isp.getInputSplit();
                         int blockId = isp.getBlockId();
                         try {

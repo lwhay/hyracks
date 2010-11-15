@@ -8,6 +8,7 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -29,7 +30,8 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 
-public class ReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractSingleActivityOperatorDescriptor {
+public class ReducerOperatorDescriptor<K2 extends Writable, V2 extends Writable, K3 extends Writable, V3 extends Writable>
+        extends AbstractSingleActivityOperatorDescriptor {
     private static final long serialVersionUID = 1L;
 
     private MarshalledWritable<Configuration> mConfig;

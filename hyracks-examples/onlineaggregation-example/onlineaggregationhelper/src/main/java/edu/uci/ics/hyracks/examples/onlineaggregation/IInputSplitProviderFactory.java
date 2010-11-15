@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+
 public interface IInputSplitProviderFactory {
-    public IInputSplitProvider createInputSplitProvider();
+    public IInputSplitProvider createInputSplitProvider() throws HyracksDataException;
 }
