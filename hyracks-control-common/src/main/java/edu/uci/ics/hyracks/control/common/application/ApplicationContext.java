@@ -14,14 +14,13 @@
  */
 package edu.uci.ics.hyracks.control.common.application;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -39,6 +38,7 @@ import org.apache.commons.io.IOUtils;
 
 import edu.uci.ics.hyracks.api.application.IApplicationContext;
 import edu.uci.ics.hyracks.api.application.IBootstrap;
+import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
 
 public class ApplicationContext implements IApplicationContext {
@@ -53,6 +53,7 @@ public class ApplicationContext implements IApplicationContext {
     private ApplicationStatus status;
     private Properties deploymentDescriptor;
     private IBootstrap bootstrap;
+    private Serializable distributedState;
 
     public ApplicationContext(ServerContext serverCtx, String appName) throws IOException {
         this.serverCtx = serverCtx;
@@ -66,11 +67,8 @@ public class ApplicationContext implements IApplicationContext {
     public String getApplicationName() {
         return appName;
     }
-
-    public void initialize() throws Exception {
-        if (status != ApplicationStatus.CREATED) {
-            throw new IllegalStateException();
-        }
+    
+    public void initializeClassPath() throws Exception {
         if (expandArchive()) {
             File expandedFolder = getExpandedFolder();
             List<URL> urls = new ArrayList<URL>();
@@ -83,7 +81,16 @@ public class ApplicationContext implements IApplicationContext {
             });
             classLoader = new URLClassLoader(urls.toArray(new URL[urls.size()]));
             deploymentDescriptor = parseDeploymentDescriptor();
+        } else {
+            classLoader = getClass().getClassLoader();
+        }        
+    }
 
+    public void initialize() throws Exception {
+        if (status != ApplicationStatus.CREATED) {
+            throw new IllegalStateException();
+        }
+        if (expandArchive()) {
             String bootstrapClass = null;
             switch (serverCtx.getServerType()) {
                 case CLUSTER_CONTROLLER: {
@@ -100,8 +107,6 @@ public class ApplicationContext implements IApplicationContext {
                 bootstrap.setApplicationContext(this);
                 bootstrap.start();
             }
-        } else {
-            classLoader = getClass().getClassLoader();
         }
         status = ApplicationStatus.INITIALIZED;
     }
@@ -169,8 +174,7 @@ public class ApplicationContext implements IApplicationContext {
     }
 
     public Object deserialize(byte[] bytes) throws IOException, ClassNotFoundException {
-        ObjectInputStream ois = new ClassLoaderObjectInputStream(new ByteArrayInputStream(bytes), classLoader);
-        return ois.readObject();
+        return JavaSerializationUtils.deserialize(bytes, classLoader);
     }
 
     public OutputStream getHarOutputStream() throws IOException {
@@ -187,5 +191,15 @@ public class ApplicationContext implements IApplicationContext {
 
     public boolean containsHar() {
         return getArchiveFile().exists();
+    }
+
+    @Override
+    public Serializable getDestributedState() {
+        return distributedState;
+    }
+
+    @Override
+    public void setDistributedState(Serializable state) {
+        this.distributedState = state;
     }
 }

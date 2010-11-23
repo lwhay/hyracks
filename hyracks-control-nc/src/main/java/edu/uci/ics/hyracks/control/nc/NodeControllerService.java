@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.control.nc;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.rmi.registry.LocateRegistry;
@@ -554,7 +555,8 @@ public class NodeControllerService extends AbstractRemoteService implements INod
     }
 
     @Override
-    public void createApplication(String appName, boolean deployHar) throws Exception {
+    public void createApplication(String appName, boolean deployHar, byte[] serializedDistributedState)
+            throws Exception {
         ApplicationContext appCtx;
         synchronized (applications) {
             if (applications.containsKey(appName)) {
@@ -577,6 +579,8 @@ public class NodeControllerService extends AbstractRemoteService implements INod
                 is.close();
             }
         }
+        appCtx.initializeClassPath();
+        appCtx.setDistributedState((Serializable) appCtx.deserialize(serializedDistributedState));
         appCtx.initialize();
     }
 

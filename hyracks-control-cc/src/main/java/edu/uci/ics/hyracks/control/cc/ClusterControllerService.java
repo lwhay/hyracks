@@ -24,7 +24,6 @@ import java.io.PrintWriter;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,7 +55,6 @@ import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import edu.uci.ics.hyracks.api.client.ClusterControllerInfo;
@@ -74,6 +72,7 @@ import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobPlan;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
+import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.cc.web.WebServer;
 import edu.uci.ics.hyracks.control.cc.web.handlers.util.IJSONOutputFunction;
 import edu.uci.ics.hyracks.control.cc.web.handlers.util.JSONOutputRequestHandler;
@@ -405,7 +404,9 @@ public class ClusterControllerService extends AbstractRemoteService implements I
     @Override
     public void startApplication(final String appName) throws Exception {
         ApplicationContext appCtx = applications.get(appName);
+        appCtx.initializeClassPath();
         appCtx.initialize();
+        final byte[] serializedDistributedState = JavaSerializationUtils.serialize(appCtx.getDestributedState());
         final boolean deployHar = appCtx.containsHar();
         RemoteOp<Void>[] ops;
         synchronized (this) {
@@ -419,7 +420,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
 
                     @Override
                     public Void execute(INodeController node) throws Exception {
-                        node.createApplication(appName, deployHar);
+                        node.createApplication(appName, deployHar, serializedDistributedState);
                         return null;
                     }
                 });
