@@ -27,10 +27,10 @@ import edu.uci.ics.hyracks.api.client.HyracksRMIConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.constraints.PartitionCountConstraint;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
-import edu.uci.ics.hyracks.examples.onlineaggregation.DefaultInputSplitProviderFactory;
 import edu.uci.ics.hyracks.examples.onlineaggregation.HashPartitioningShuffleConnectorDescriptor;
 import edu.uci.ics.hyracks.examples.onlineaggregation.MapperOperatorDescriptor;
 import edu.uci.ics.hyracks.examples.onlineaggregation.MarshalledWritable;
+import edu.uci.ics.hyracks.examples.onlineaggregation.OnlineInputSplitProviderFactory;
 import edu.uci.ics.hyracks.examples.onlineaggregation.ReducerOperatorDescriptor;
 
 public class MapReduceMain {
@@ -81,7 +81,7 @@ public class MapReduceMain {
         int jobId = (int) System.currentTimeMillis();
 
         MapperOperatorDescriptor<Writable, Writable, Writable, Writable> mapper = new MapperOperatorDescriptor<Writable, Writable, Writable, Writable>(
-                spec, jobId, mConfig, new DefaultInputSplitProviderFactory(mConfig));
+                spec, jobId, mConfig, new OnlineInputSplitProviderFactory(mConfig));
         mapper.setPartitionConstraint(new PartitionCountConstraint(options.numMaps));
 
         ReducerOperatorDescriptor<Writable, Writable, Writable, Writable> reducer = new ReducerOperatorDescriptor<Writable, Writable, Writable, Writable>(
