@@ -48,14 +48,14 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
     private static final long serialVersionUID = 1L;
     private final int jobId;
     private final MarshalledWritable<Configuration> config;
-    private final IInputSplitProviderFactory isProviderFactory;
+    private final OnlineInputSplitProviderFactory factory;
 
     public MapperOperatorDescriptor(JobSpecification spec, int jobId, MarshalledWritable<Configuration> config,
-            IInputSplitProviderFactory isProviderFactory) throws HyracksDataException {
+            OnlineInputSplitProviderFactory factory) throws HyracksDataException {
         super(spec, 0, 1);
         this.jobId = jobId;
         this.config = config;
-        this.isProviderFactory = isProviderFactory;
+        this.factory = factory;
         HadoopHelper helper = new HadoopHelper(config);
         recordDescriptors[0] = helper.getMapOutputRecordDescriptor();
     }
@@ -68,7 +68,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
         final Configuration conf = helper.getConfiguration();
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
-        final IInputSplitProvider isp = isProviderFactory.createInputSplitProvider();
+        final OnlineInputSplitProvider isp = factory.create(partition);
         final TaskAttemptID taId = new TaskAttemptID("foo", jobId, true, partition, 0);
         final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
 
@@ -158,21 +158,20 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                 writer.open();
                 try {
                     SortingRecordWriter recordWriter = new SortingRecordWriter();
-                    while (isp.next(partition, nPartitions)) {
-                        InputSplit is = isp.getInputSplit();
-                        int blockId = isp.getBlockId();
+                    OnlineFileSplit split = null;
+                    while ((split = isp.next()) != null) {
                         try {
-                            RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(is, taskAttemptContext);
+                            RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(split, taskAttemptContext);
                             ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
                             try {
                                 Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-                                recordReader.initialize(is, taskAttemptContext);
+                                recordReader.initialize(split, taskAttemptContext);
                             } finally {
                                 Thread.currentThread().setContextClassLoader(ctxCL);
                             }
-                            recordWriter.initBlock(blockId);
+                            recordWriter.initBlock((int) split.blockid());
                             Mapper<K1, V1, K2, V2>.Context mCtx = mapper.new Context(conf, taId, recordReader,
-                                    recordWriter, null, null, is);
+                                    recordWriter, null, null, split);
                             mapper.run(mCtx);
                             recordReader.close();
                             recordWriter.sortAndFlushBlock(writer);

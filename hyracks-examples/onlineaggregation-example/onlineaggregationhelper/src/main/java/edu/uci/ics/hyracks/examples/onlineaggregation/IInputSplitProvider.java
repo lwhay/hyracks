@@ -16,10 +16,7 @@ package edu.uci.ics.hyracks.examples.onlineaggregation;
 
 import org.apache.hadoop.mapreduce.InputSplit;
 
-public interface IInputSplitProvider {
-    public boolean next(int partition, int nPartitions);
 
-    public InputSplit getInputSplit();
-
-    public int getBlockId();
+public interface IInputSplitProvider<IS extends InputSplit> {
+    public IS next();
 }
