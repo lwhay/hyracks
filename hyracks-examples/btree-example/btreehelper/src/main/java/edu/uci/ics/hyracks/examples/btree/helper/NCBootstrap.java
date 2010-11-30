@@ -27,9 +27,4 @@ public class NCBootstrap implements INCBootstrap {
     public void setApplicationContext(INCApplicationContext appCtx) {
         this.appCtx = appCtx;
     }
-
-    @Override
-    public INCApplicationContext getApplicationContext() {
-        return appCtx;
-    }
 }

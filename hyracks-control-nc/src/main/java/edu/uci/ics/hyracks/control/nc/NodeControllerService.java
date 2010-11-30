@@ -220,7 +220,8 @@ public class NodeControllerService extends AbstractRemoteService implements INod
             Stagelet stagelet = new Stagelet(joblet, stageId, attempt, id);
             joblet.setStagelet(stageId, stagelet);
 
-            IHyracksContext stageletContext = new DelegateHyracksContext(ctx, jobId, stagelet.getStageletCounterContext());
+            IHyracksContext stageletContext = new DelegateHyracksContext(ctx, jobId,
+                    stagelet.getStageletCounterContext());
 
             final Map<PortInstanceId, Endpoint> portMap = new HashMap<PortInstanceId, Endpoint>();
             Map<OperatorInstanceId, OperatorRunnable> honMap = stagelet.getOperatorMap();
@@ -330,7 +331,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
 
             final Stagelet stagelet = (Stagelet) ji.getStagelet(stageId);
 
-            final IHyracksContext stageletContext = new DelegateHyracksContext(ctx,
+            final IHyracksContext stageletContext = new DelegateHyracksContext(ctx, jobId,
                     stagelet.getStageletCounterContext());
 
             final JobSpecification spec = plan.getJobSpecification();
