@@ -81,7 +81,7 @@ public class MapReduceMain {
         int jobId = (int) System.currentTimeMillis();
 
         MapperOperatorDescriptor<Writable, Writable, Writable, Writable> mapper = new MapperOperatorDescriptor<Writable, Writable, Writable, Writable>(
-                spec, jobId, mConfig, new OnlineInputSplitProviderFactory(mConfig));
+                spec, jobId, mConfig, new OnlineInputSplitProviderFactory());
         mapper.setPartitionConstraint(new PartitionCountConstraint(options.numMaps));
 
         ReducerOperatorDescriptor<Writable, Writable, Writable, Writable> reducer = new ReducerOperatorDescriptor<Writable, Writable, Writable, Writable>(

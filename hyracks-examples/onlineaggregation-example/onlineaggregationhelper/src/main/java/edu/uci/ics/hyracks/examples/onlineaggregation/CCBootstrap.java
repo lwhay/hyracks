@@ -1,26 +1,45 @@
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
-import edu.uci.ics.hyracks.api.application.IApplicationContext;
-import edu.uci.ics.hyracks.api.application.IBootstrap;
+import java.util.List;
+import java.util.UUID;
 
-public class CCBootstrap implements IBootstrap {
+import edu.uci.ics.hyracks.api.application.ICCApplicationContext;
+import edu.uci.ics.hyracks.api.application.ICCBootstrap;
+import edu.uci.ics.hyracks.api.job.IJobLifecycleListener;
+import edu.uci.ics.hyracks.api.job.JobSpecification;
 
-	@Override
-	public void start() throws Exception {
-		// TODO Auto-generated method stub
+public class CCBootstrap implements ICCBootstrap {
+    private ICCApplicationContext appCtx;
 
-	}
+    @Override
+    public void start() throws Exception {
+        final CentralInputSplitQueue queue = new CentralInputSplitQueue();
+        appCtx.setDistributedState(queue);
+        appCtx.addJobLifecycleListener(new IJobLifecycleListener() {
+            @Override
+            public void notifyJobStart(UUID jobId) {
+            }
 
-	@Override
-	public void stop() throws Exception {
-		// TODO Auto-generated method stub
+            @Override
+            public void notifyJobFinish(UUID jobId) {
+            }
 
-	}
+            @Override
+            public void notifyJobCreation(UUID jobId, JobSpecification jobSpec) {
+                List<OnlineFileSplit> splits = null;
+                // TODO: Add splits into the queue
+                queue.addSplits(jobId, splits);
+            }
+        });
+    }
 
-	@Override
-	public void setApplicationContext(IApplicationContext appCtx) {
-		// TODO Auto-generated method stub
+    @Override
+    public void stop() throws Exception {
 
-	}
+    }
 
+    @Override
+    public void setApplicationContext(ICCApplicationContext appCtx) {
+        this.appCtx = appCtx;
+    }
 }

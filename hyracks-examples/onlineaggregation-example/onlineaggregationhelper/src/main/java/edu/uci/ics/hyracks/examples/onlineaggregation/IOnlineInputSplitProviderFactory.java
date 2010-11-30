@@ -14,9 +14,11 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
-import org.apache.hadoop.mapreduce.InputSplit;
+import java.io.Serializable;
+import java.util.UUID;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public interface IInputSplitProvider<IS extends InputSplit> {
-    public IS next();
+public interface IOnlineInputSplitProviderFactory extends Serializable {
+    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id) throws HyracksDataException;
 }

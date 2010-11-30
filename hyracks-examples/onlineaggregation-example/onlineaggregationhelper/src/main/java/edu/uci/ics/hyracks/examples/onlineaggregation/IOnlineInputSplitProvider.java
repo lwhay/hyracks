@@ -14,12 +14,8 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
-import java.io.Serializable;
-
-import org.apache.hadoop.mapreduce.InputSplit;
-
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public interface IInputSplitProviderFactory<P extends IInputSplitProvider> extends Serializable {
-    public P create(int id) throws HyracksDataException;
+public interface IOnlineInputSplitProvider {
+    public OnlineFileSplit next() throws HyracksDataException;
 }

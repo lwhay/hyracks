@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputFormat;
-import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.RecordWriter;
@@ -48,10 +47,10 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
     private static final long serialVersionUID = 1L;
     private final int jobId;
     private final MarshalledWritable<Configuration> config;
-    private final OnlineInputSplitProviderFactory factory;
+    private final IOnlineInputSplitProviderFactory factory;
 
     public MapperOperatorDescriptor(JobSpecification spec, int jobId, MarshalledWritable<Configuration> config,
-            OnlineInputSplitProviderFactory factory) throws HyracksDataException {
+            IOnlineInputSplitProviderFactory factory) throws HyracksDataException {
         super(spec, 0, 1);
         this.jobId = jobId;
         this.config = config;
@@ -68,7 +67,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
         final Configuration conf = helper.getConfiguration();
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
-        final OnlineInputSplitProvider isp = factory.create(partition);
+        final IOnlineInputSplitProvider isp = factory.createInputSplitProvider(ctx.getJobId(), partition);
         final TaskAttemptID taId = new TaskAttemptID("foo", jobId, true, partition, 0);
         final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
 
@@ -161,7 +160,8 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                     OnlineFileSplit split = null;
                     while ((split = isp.next()) != null) {
                         try {
-                            RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(split, taskAttemptContext);
+                            RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(split,
+                                    taskAttemptContext);
                             ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
                             try {
                                 Thread.currentThread().setContextClassLoader(getClass().getClassLoader());

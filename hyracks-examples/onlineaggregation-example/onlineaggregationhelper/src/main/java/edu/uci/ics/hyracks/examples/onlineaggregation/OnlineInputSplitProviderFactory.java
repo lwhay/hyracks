@@ -14,36 +14,19 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
-import java.util.Queue;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapreduce.JobContext;
+import java.util.UUID;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public class OnlineInputSplitProviderFactory implements IInputSplitProviderFactory<OnlineInputSplitProvider> {
+public class OnlineInputSplitProviderFactory implements IOnlineInputSplitProviderFactory {
     private static final long serialVersionUID = 1L;
 
-    private MarshalledWritable<Configuration> mConfig;
-    
-    private Queue<OnlineFileSplit> splits;
-
-    public OnlineInputSplitProviderFactory(MarshalledWritable<Configuration> mConfig) throws HyracksDataException {
-        this.mConfig = mConfig;
-        this.splits = new LinkedBlockingQueue<OnlineFileSplit>();
-        
-        try {
-        	HadoopHelper helper = new HadoopHelper(mConfig);
-            JobContext jCtx = helper.createJobContext();
-            // TODO: this.splits.addAll(helper.getInputFormat().getSplits(jCtx));
-        } catch (Exception e) {
-            throw new HyracksDataException(e);
-        }
+    public OnlineInputSplitProviderFactory() {
     }
 
     @Override
-    public OnlineInputSplitProvider create(int id) throws HyracksDataException {
-    	return new OnlineInputSplitProvider(this.splits);
+    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id) throws HyracksDataException {
+        IInputSplitQueue queue = CentralQueueAccessor.getQueue();
+        return new OnlineInputSplitProvider(jobId, queue);
     }
 }
