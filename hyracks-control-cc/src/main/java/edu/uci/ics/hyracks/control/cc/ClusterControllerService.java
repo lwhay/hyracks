@@ -73,6 +73,7 @@ import edu.uci.ics.hyracks.api.job.JobPlan;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
+import edu.uci.ics.hyracks.control.cc.application.CCApplicationContext;
 import edu.uci.ics.hyracks.control.cc.web.WebServer;
 import edu.uci.ics.hyracks.control.cc.web.handlers.util.IJSONOutputFunction;
 import edu.uci.ics.hyracks.control.cc.web.handlers.util.JSONOutputRequestHandler;
@@ -91,7 +92,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
 
     private final Map<String, NodeControllerState> nodeRegistry;
 
-    private final Map<String, ApplicationContext> applications;
+    private final Map<String, CCApplicationContext> applications;
 
     private final ServerContext serverCtx;
 
@@ -110,7 +111,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
     public ClusterControllerService(CCConfig ccConfig) throws Exception {
         this.ccConfig = ccConfig;
         nodeRegistry = new LinkedHashMap<String, NodeControllerState>();
-        applications = new Hashtable<String, ApplicationContext>();
+        applications = new Hashtable<String, CCApplicationContext>();
         serverCtx = new ServerContext(ServerContext.ServerType.CLUSTER_CONTROLLER, new File(
                 ClusterControllerService.class.getName()));
         Set<DebugLevel> jolDebugLevel = LOGGER.isLoggable(Level.FINE) ? Runtime.DEBUG_ALL : new HashSet<DebugLevel>();
@@ -147,11 +148,19 @@ public class ClusterControllerService extends AbstractRemoteService implements I
 
     @Override
     public UUID createJob(String appName, byte[] jobSpec, EnumSet<JobFlag> jobFlags) throws Exception {
-        ApplicationContext appCtx = applications.get(appName);
+        CCApplicationContext appCtx = getApplicationContext(appName);
         if (appCtx == null) {
             throw new HyracksException("No application with id " + appName + " found");
         }
-        return jobManager.createJob(appName, (JobSpecification) appCtx.deserialize(jobSpec), jobFlags);
+        UUID jobId = UUID.randomUUID();
+        JobSpecification specification = appCtx.createJobSpecification(jobId, jobSpec);
+        jobManager.createJob(jobId, appName, specification, jobFlags);
+        appCtx.notifyJobCreation(jobId, specification);
+        return jobId;
+    }
+
+    public synchronized CCApplicationContext getApplicationContext(String appName) {
+        return applications.get(appName);
     }
 
     @Override
@@ -327,7 +336,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
                     }
                     String appName = parts[0];
                     ApplicationContext appCtx;
-                    appCtx = applications.get(appName);
+                    appCtx = getApplicationContext(appName);
                     if (appCtx != null) {
                         if (HttpMethods.PUT.equals(request.getMethod())) {
                             OutputStream os = appCtx.getHarOutputStream();
@@ -383,7 +392,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
             if (applications.containsKey(appName)) {
                 throw new HyracksException("Duplicate application with name: " + appName + " being created.");
             }
-            ApplicationContext appCtx = new ApplicationContext(serverCtx, appName);
+            CCApplicationContext appCtx = new CCApplicationContext(serverCtx, appName);
             applications.put(appName, appCtx);
         }
     }
@@ -403,7 +412,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
 
     @Override
     public void startApplication(final String appName) throws Exception {
-        ApplicationContext appCtx = applications.get(appName);
+        ApplicationContext appCtx = getApplicationContext(appName);
         appCtx.initializeClassPath();
         appCtx.initialize();
         final byte[] serializedDistributedState = JavaSerializationUtils.serialize(appCtx.getDestributedState());

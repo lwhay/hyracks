@@ -41,19 +41,19 @@ import edu.uci.ics.hyracks.api.application.IBootstrap;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
 
-public class ApplicationContext implements IApplicationContext {
+public abstract class ApplicationContext implements IApplicationContext {
     private static final String APPLICATION_ROOT = "applications";
     private static final String CLUSTER_CONTROLLER_BOOTSTRAP_CLASS_KEY = "cc.bootstrap.class";
     private static final String NODE_CONTROLLER_BOOTSTRAP_CLASS_KEY = "nc.bootstrap.class";
 
-    private ServerContext serverCtx;
-    private final String appName;
-    private final File applicationRootDir;
-    private ClassLoader classLoader;
-    private ApplicationStatus status;
-    private Properties deploymentDescriptor;
-    private IBootstrap bootstrap;
-    private Serializable distributedState;
+    protected ServerContext serverCtx;
+    protected final String appName;
+    protected final File applicationRootDir;
+    protected ClassLoader classLoader;
+    protected ApplicationStatus status;
+    protected Properties deploymentDescriptor;
+    protected IBootstrap bootstrap;
+    protected Serializable distributedState;
 
     public ApplicationContext(ServerContext serverCtx, String appName) throws IOException {
         this.serverCtx = serverCtx;
@@ -67,7 +67,7 @@ public class ApplicationContext implements IApplicationContext {
     public String getApplicationName() {
         return appName;
     }
-    
+
     public void initializeClassPath() throws Exception {
         if (expandArchive()) {
             File expandedFolder = getExpandedFolder();
@@ -83,7 +83,7 @@ public class ApplicationContext implements IApplicationContext {
             deploymentDescriptor = parseDeploymentDescriptor();
         } else {
             classLoader = getClass().getClassLoader();
-        }        
+        }
     }
 
     public void initialize() throws Exception {
@@ -104,12 +104,15 @@ public class ApplicationContext implements IApplicationContext {
             }
             if (bootstrapClass != null) {
                 bootstrap = (IBootstrap) classLoader.loadClass(bootstrapClass).newInstance();
-                bootstrap.setApplicationContext(this);
-                bootstrap.start();
+                start();
             }
         }
         status = ApplicationStatus.INITIALIZED;
     }
+
+    protected abstract void start() throws Exception;
+
+    protected abstract void stop() throws Exception;
 
     private void findJarFiles(File dir, List<URL> urls) throws MalformedURLException {
         for (File f : dir.listFiles()) {
@@ -166,9 +169,7 @@ public class ApplicationContext implements IApplicationContext {
 
     public void deinitialize() throws Exception {
         status = ApplicationStatus.DEINITIALIZED;
-        if (bootstrap != null) {
-            bootstrap.stop();
-        }
+        stop();
         File expandedFolder = getExpandedFolder();
         FileUtils.deleteDirectory(expandedFolder);
     }
@@ -199,7 +200,7 @@ public class ApplicationContext implements IApplicationContext {
     }
 
     @Override
-    public void setDistributedState(Serializable state) {
-        this.distributedState = state;
+    public ClassLoader getClassLoader() {
+        return classLoader;
     }
 }

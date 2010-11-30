@@ -77,6 +77,7 @@ import edu.uci.ics.hyracks.api.job.profiling.counters.ICounter;
 import edu.uci.ics.hyracks.control.common.AbstractRemoteService;
 import edu.uci.ics.hyracks.control.common.application.ApplicationContext;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
+import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.control.nc.comm.ConnectionManager;
 import edu.uci.ics.hyracks.control.nc.comm.DemuxDataReceiveListenerFactory;
 import edu.uci.ics.hyracks.control.nc.runtime.DelegateHyracksContext;
@@ -108,7 +109,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
 
     private final ServerContext serverCtx;
 
-    private final Map<String, ApplicationContext> applications;
+    private final Map<String, NCApplicationContext> applications;
 
     public NodeControllerService(NCConfig ncConfig) throws Exception {
         this.ncConfig = ncConfig;
@@ -124,7 +125,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
         timer = new Timer(true);
         serverCtx = new ServerContext(ServerContext.ServerType.NODE_CONTROLLER, new File(new File(
                 NodeControllerService.class.getName()), id));
-        applications = new Hashtable<String, ApplicationContext>();
+        applications = new Hashtable<String, NCApplicationContext>();
     }
 
     private static Logger LOGGER = Logger.getLogger(NodeControllerService.class.getName());
@@ -219,7 +220,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
             Stagelet stagelet = new Stagelet(joblet, stageId, attempt, id);
             joblet.setStagelet(stageId, stagelet);
 
-            IHyracksContext stageletContext = new DelegateHyracksContext(ctx, stagelet.getStageletCounterContext());
+            IHyracksContext stageletContext = new DelegateHyracksContext(ctx, jobId, stagelet.getStageletCounterContext());
 
             final Map<PortInstanceId, Endpoint> portMap = new HashMap<PortInstanceId, Endpoint>();
             Map<OperatorInstanceId, OperatorRunnable> honMap = stagelet.getOperatorMap();
@@ -557,12 +558,12 @@ public class NodeControllerService extends AbstractRemoteService implements INod
     @Override
     public void createApplication(String appName, boolean deployHar, byte[] serializedDistributedState)
             throws Exception {
-        ApplicationContext appCtx;
+        NCApplicationContext appCtx;
         synchronized (applications) {
             if (applications.containsKey(appName)) {
                 throw new HyracksException("Duplicate application with name: " + appName + " being created.");
             }
-            appCtx = new ApplicationContext(serverCtx, appName);
+            appCtx = new NCApplicationContext(serverCtx, appName);
             applications.put(appName, appCtx);
         }
         if (deployHar) {
