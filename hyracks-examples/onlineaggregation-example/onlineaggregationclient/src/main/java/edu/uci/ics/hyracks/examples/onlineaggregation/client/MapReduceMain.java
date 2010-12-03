@@ -78,6 +78,8 @@ public class MapReduceMain {
         mConfig.set(conf);
         Job job = new Job(conf);
 
+        spec.setProperty("jobconf", mConfig);
+
         int jobId = (int) System.currentTimeMillis();
 
         MapperOperatorDescriptor<Writable, Writable, Writable, Writable> mapper = new MapperOperatorDescriptor<Writable, Writable, Writable, Writable>(
