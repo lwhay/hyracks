@@ -51,6 +51,6 @@ public class HashPartitioningShuffleConnectorDescriptor extends AbstractConnecto
     public IFrameReader createReceiveSideReader(IHyracksContext ctx, RecordDescriptor recordDesc,
             IConnectionDemultiplexer demux, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException {
-        return new ShuffleFrameReader(ctx, demux, mConfig);
+        return new ShuffleFrameReader(ctx, index, demux, mConfig);
     }
 }

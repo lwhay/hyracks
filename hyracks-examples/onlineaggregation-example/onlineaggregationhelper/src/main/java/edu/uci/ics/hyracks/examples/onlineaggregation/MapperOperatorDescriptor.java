@@ -24,8 +24,10 @@ import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
@@ -36,7 +38,9 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.IOperatorEnvironment;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortRunGenerator;
@@ -63,7 +67,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
     public IOperatorNodePushable createPushRuntime(final IHyracksContext ctx, IOperatorEnvironment env,
             IRecordDescriptorProvider recordDescProvider, final int partition, final int nPartitions)
             throws HyracksDataException {
-        HadoopHelper helper = new HadoopHelper(config);
+        final HadoopHelper helper = new HadoopHelper(config);
         final Configuration conf = helper.getConfiguration();
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
@@ -82,15 +86,15 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
             private int blockId;
 
             public SortingRecordWriter() throws HyracksDataException {
-                tb = new ArrayTupleBuilder(3);
+                tb = new ArrayTupleBuilder(2);
                 frame = ctx.getResourceManager().allocateFrame();
                 fta = new FrameTupleAppender(ctx);
                 fta.reset(frame, true);
             }
 
-            public void initBlock(int blockId) {
+            public void initBlock(int blockId) throws HyracksDataException {
                 runGen = new ExternalSortRunGenerator(ctx, new int[] { 0 }, null, comparatorFactories,
-                        recordDescriptors[0], framesLimit);
+                        helper.getMapOutputRecordDescriptorWithoutExtraFields(), framesLimit);
                 this.blockId = blockId;
             }
 
@@ -105,8 +109,6 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                 key.write(dos);
                 tb.addFieldEndOffset();
                 value.write(dos);
-                tb.addFieldEndOffset();
-                dos.writeInt(blockId);
                 tb.addFieldEndOffset();
                 if (!fta.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                     runGen.nextFrame(frame);
@@ -124,14 +126,39 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                 }
                 runGen.close();
                 IFrameWriter delegatingWriter = new IFrameWriter() {
+                    private final FrameTupleAppender appender = new FrameTupleAppender(ctx);
+                    private final ByteBuffer outFrame = ctx.getResourceManager().allocateFrame();
+                    private final FrameTupleAccessor fta = new FrameTupleAccessor(ctx,
+                            helper.getMapOutputRecordDescriptorWithoutExtraFields());
+                    private final ArrayTupleBuilder tb = new ArrayTupleBuilder(3);
+
                     @Override
                     public void open() throws HyracksDataException {
-                        // do nothing
+                        appender.reset(outFrame, true);
                     }
 
                     @Override
                     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-                        writer.nextFrame(buffer);
+                        fta.reset(buffer);
+                        int n = fta.getTupleCount();
+                        for (int i = 0; i < n; ++i) {
+                            tb.reset();
+                            tb.addField(fta, i, 0);
+                            tb.addField(fta, i, 1);
+                            try {
+                                tb.getDataOutput().writeInt(blockId);
+                            } catch (IOException e) {
+                                throw new HyracksDataException(e);
+                            }
+                            tb.addFieldEndOffset();
+                            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+                                FrameUtils.flushFrame(outFrame, writer);
+                                appender.reset(outFrame, true);
+                                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+                                    throw new IllegalStateException();
+                                }
+                            }
+                        }
                     }
 
                     @Override
@@ -141,12 +168,59 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
 
                     @Override
                     public void close() throws HyracksDataException {
-                        // do nothing
+                        if (appender.getTupleCount() > 0) {
+                            FrameUtils.flushFrame(outFrame, writer);
+                        }
                     }
                 };
+                if (helper.hasCombiner()) {
+                    Reducer<K2, V2, K2, V2> combiner = helper.getCombiner();
+                    TaskAttemptID ctaId = new TaskAttemptID("foo", jobId, true, partition, 0);
+                    TaskAttemptContext ctaskAttemptContext = helper.createTaskAttemptContext(taId);
+                    final IFrameWriter outputWriter = delegatingWriter;
+                    RecordWriter<K2, V2> recordWriter = new RecordWriter<K2, V2>() {
+                        private final FrameTupleAppender fta = new FrameTupleAppender(ctx);
+                        private final ByteBuffer buffer = ctx.getResourceManager().allocateFrame();
+                        private final ArrayTupleBuilder tb = new ArrayTupleBuilder(2);
+
+                        {
+                            fta.reset(buffer, true);
+                            outputWriter.open();
+                        }
+
+                        @Override
+                        public void write(K2 key, V2 value) throws IOException, InterruptedException {
+                            DataOutput dos = tb.getDataOutput();
+                            tb.reset();
+                            key.write(dos);
+                            tb.addFieldEndOffset();
+                            value.write(dos);
+                            tb.addFieldEndOffset();
+                            if (!fta.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+                                FrameUtils.flushFrame(buffer, outputWriter);
+                                fta.reset(buffer, true);
+                                if (!fta.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+                                    throw new IllegalStateException();
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void close(TaskAttemptContext context) throws IOException, InterruptedException {
+                            if (fta.getTupleCount() > 0) {
+                                FrameUtils.flushFrame(buffer, outputWriter);
+                                outputWriter.close();
+                            }
+                        }
+                    };
+                    delegatingWriter = new ReduceWriter<K2, V2, K2, V2>(ctx, helper,
+                            new int[] { HadoopHelper.KEY_FIELD_INDEX }, helper.getGroupingComparatorFactories(),
+                            helper.getMapOutputRecordDescriptorWithoutExtraFields(), combiner, recordWriter, ctaId,
+                            ctaskAttemptContext);
+                }
                 ExternalSortRunMerger merger = new ExternalSortRunMerger(ctx, runGen.getFrameSorter(),
-                        runGen.getRuns(), new int[] { 0 }, comparatorFactories, recordDescriptors[0], framesLimit,
-                        delegatingWriter);
+                        runGen.getRuns(), new int[] { 0 }, comparatorFactories,
+                        helper.getMapOutputRecordDescriptorWithoutExtraFields(), framesLimit, delegatingWriter);
                 merger.process();
             }
         }
@@ -162,16 +236,17 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                         try {
                             RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(split,
                                     taskAttemptContext);
+                            FileSplit fSplit = split.toFileSplit();
                             ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
                             try {
                                 Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-                                recordReader.initialize(split, taskAttemptContext);
+                                recordReader.initialize(fSplit, taskAttemptContext);
                             } finally {
                                 Thread.currentThread().setContextClassLoader(ctxCL);
                             }
-                            recordWriter.initBlock((int) split.blockid());
+                            recordWriter.initBlock(split.blockId());
                             Mapper<K1, V1, K2, V2>.Context mCtx = mapper.new Context(conf, taId, recordReader,
-                                    recordWriter, null, null, split);
+                                    recordWriter, null, null, fSplit);
                             mapper.run(mCtx);
                             recordReader.close();
                             recordWriter.sortAndFlushBlock(writer);

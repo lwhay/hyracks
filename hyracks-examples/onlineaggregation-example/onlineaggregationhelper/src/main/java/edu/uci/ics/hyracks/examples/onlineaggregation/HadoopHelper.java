@@ -15,12 +15,14 @@
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputFormat;
+import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -81,6 +83,20 @@ public class HadoopHelper {
         }
     }
 
+    public RecordDescriptor getMapOutputRecordDescriptorWithoutExtraFields() throws HyracksDataException {
+        try {
+            return new RecordDescriptor(
+                    new ISerializerDeserializer[] {
+                            DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
+                                    .getMapOutputKeyClass()),
+                            DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
+                                    .getMapOutputValueClass()) });
+
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
     public TaskAttemptContext createTaskAttemptContext(TaskAttemptID taId) {
         ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
         try {
@@ -125,11 +141,41 @@ public class HadoopHelper {
         }
     }
 
+    public <K2, V2> Reducer<K2, V2, K2, V2> getCombiner() throws HyracksDataException {
+        try {
+            return (Reducer<K2, V2, K2, V2>) HadoopTools.newInstance(job.getCombinerClass());
+        } catch (ClassNotFoundException e) {
+            throw new HyracksDataException(e);
+        } catch (InstantiationException e) {
+            throw new HyracksDataException(e);
+        } catch (IllegalAccessException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
     public <K, V> InputFormat<K, V> getInputFormat() throws HyracksDataException {
         try {
             return (InputFormat<K, V>) ReflectionUtils.newInstance(job.getInputFormatClass(), config);
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
+        }
+    }
+
+    public <K, V> List<InputSplit> getInputSplits() throws HyracksDataException {
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+            InputFormat<K, V> fmt = getInputFormat();
+            JobContext jCtx = new JobContext(config, null);
+            try {
+                return fmt.getSplits(jCtx);
+            } catch (IOException e) {
+                throw new HyracksDataException(e);
+            } catch (InterruptedException e) {
+                throw new HyracksDataException(e);
+            }
+        } finally {
+            Thread.currentThread().setContextClassLoader(ctxCL);
         }
     }
 
@@ -207,6 +253,14 @@ public class HadoopHelper {
     public <K, V> OutputFormat<K, V> getOutputFormat() throws HyracksDataException {
         try {
             return (OutputFormat<K, V>) ReflectionUtils.newInstance(job.getOutputFormatClass(), config);
+        } catch (ClassNotFoundException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    public boolean hasCombiner() throws HyracksDataException {
+        try {
+            return job.getCombinerClass() != null;
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
         }

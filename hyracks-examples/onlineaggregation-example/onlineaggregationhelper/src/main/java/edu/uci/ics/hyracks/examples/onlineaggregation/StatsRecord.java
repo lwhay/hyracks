@@ -14,19 +14,12 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
-import java.util.UUID;
+import java.io.Serializable;
 
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-
-public class OnlineInputSplitProviderFactory implements IOnlineInputSplitProviderFactory {
+public class StatsRecord implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    public OnlineInputSplitProviderFactory() {
-    }
-
-    @Override
-    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id) throws HyracksDataException {
-        IInputSplitQueue queue = CentralQueueAccessor.getQueue();
-        return new OnlineInputSplitProvider(jobId, id, queue);
-    }
+    public int blockId;
+    public long startTime;
+    public long endTime;
 }

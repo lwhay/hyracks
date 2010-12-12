@@ -14,9 +14,11 @@
  */
 package edu.uci.ics.hyracks.examples.onlineaggregation;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -35,6 +37,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortRunMerger;
@@ -46,18 +49,20 @@ public class ShuffleFrameReader implements IFrameReader {
     private final IConnectionDemultiplexer demux;
     private final HadoopHelper helper;
     private final RecordDescriptor recordDescriptor;
+    private final Estimator estimator;
     private List<File> runs;
     private Map<File, Integer> file2BlockIdMap;
     private Map<Integer, File> blockId2FileMap;
     private int lastReadSender;
     private RunFileReader reader;
 
-    public ShuffleFrameReader(IHyracksContext ctx, IConnectionDemultiplexer demux,
+    public ShuffleFrameReader(IHyracksContext ctx, int index, IConnectionDemultiplexer demux,
             MarshalledWritable<Configuration> mConfig) throws HyracksDataException {
         this.ctx = ctx;
         this.demux = demux;
         helper = new HadoopHelper(mConfig);
         this.recordDescriptor = helper.getMapOutputRecordDescriptor();
+        estimator = new Estimator(ctx.getJobId(), index);
     }
 
     @Override
@@ -93,6 +98,7 @@ public class ShuffleFrameReader implements IFrameReader {
                         infos[lastReadSender] = info;
                     } else if (info.blockId != tBlockId) {
                         info.close();
+                        estimator.resultReceived(info.getTextFile(), info.getBlockId());
                         info.reset(tBlockId);
                     }
                     info.write(accessor, i);
@@ -105,8 +111,10 @@ public class ShuffleFrameReader implements IFrameReader {
             RunInfo info = infos[i];
             if (info != null) {
                 info.close();
+                estimator.resultReceived(info.getTextFile(), info.getBlockId());
             }
         }
+        estimator.done();
         infos = null;
 
         File outFile;
@@ -142,14 +150,25 @@ public class ShuffleFrameReader implements IFrameReader {
         private final ByteBuffer buffer;
         private final FrameTupleAppender fta;
 
+        private final ByteBufferInputStream bbis;
+        private final DataInputStream dis;
+
         private File file;
         private RandomAccessFile raf;
         private FileChannel channel;
+        private File textFile;
+        private PrintWriter textOut;
         private int blockId;
 
         public RunInfo() {
             buffer = ctx.getResourceManager().allocateFrame();
             fta = new FrameTupleAppender(ctx);
+            bbis = new ByteBufferInputStream();
+            dis = new DataInputStream(bbis);
+        }
+
+        public File getTextFile() {
+            return textFile;
         }
 
         public void reset(int blockId) throws HyracksDataException {
@@ -159,12 +178,26 @@ public class ShuffleFrameReader implements IFrameReader {
                 file = ctx.getResourceManager().createFile(ShuffleFrameReader.class.getName(), ".run");
                 raf = new RandomAccessFile(file, "rw");
                 channel = raf.getChannel();
+                textFile = ctx.getResourceManager().createFile(ShuffleFrameReader.class.getName() + "_" + blockId,
+                        ".txt");
+                textOut = new PrintWriter(textFile);
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }
         }
 
+        public int getBlockId() {
+            return blockId;
+        }
+
         public void write(FrameTupleAccessor accessor, int tIdx) throws HyracksDataException {
+            bbis.setByteBuffer(accessor.getBuffer(),
+                    FrameUtils.getAbsoluteFieldStartOffset(accessor, tIdx, HadoopHelper.KEY_FIELD_INDEX));
+            textOut.print(recordDescriptor.getFields()[HadoopHelper.KEY_FIELD_INDEX].deserialize(dis));
+            textOut.print('|');
+            bbis.setByteBuffer(accessor.getBuffer(),
+                    FrameUtils.getAbsoluteFieldStartOffset(accessor, tIdx, HadoopHelper.VALUE_FIELD_INDEX));
+            textOut.println(recordDescriptor.getFields()[HadoopHelper.VALUE_FIELD_INDEX].deserialize(dis));
             if (!fta.append(accessor, tIdx)) {
                 flush();
                 if (!fta.append(accessor, tIdx)) {
@@ -181,6 +214,8 @@ public class ShuffleFrameReader implements IFrameReader {
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }
+            textOut.flush();
+            textOut.close();
             runs.add(file);
             file2BlockIdMap.put(file, blockId);
             blockId2FileMap.put(blockId, file);
