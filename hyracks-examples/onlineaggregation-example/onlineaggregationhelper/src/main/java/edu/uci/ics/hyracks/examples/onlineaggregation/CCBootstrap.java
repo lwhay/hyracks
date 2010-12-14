@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -67,7 +68,7 @@ public class CCBootstrap implements ICCBootstrap {
                     }
                 }
 
-                // TODO: Permute splits
+                Collections.shuffle(splits);
                 queue.addSplits(jobId, splits);
             }
         });
