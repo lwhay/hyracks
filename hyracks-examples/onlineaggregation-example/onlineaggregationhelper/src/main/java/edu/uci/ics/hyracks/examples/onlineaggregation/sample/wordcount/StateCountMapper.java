@@ -17,8 +17,11 @@ public class StateCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
 
     @Override
     public void map(LongWritable key, Text value, Context ctx) throws IOException, InterruptedException {
+    	System.err.println("VALUE: " + value.toString());
     	String[] tuple = value.toString().split(",");
-    	word.set(tuple[BListing.state.ordinal()]);
-        ctx.write(word, ONE);
+    	if (tuple.length < BListing.state.ordinal()) {
+    		word.set(tuple[BListing.state.ordinal()]);
+    		ctx.write(word, ONE);
+    	}
     }
 }
