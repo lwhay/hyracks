@@ -51,6 +51,10 @@
                   <mainClass>edu.uci.ics.hyracks.examples.onlineaggregation.client.WordCountJobGen</mainClass>
                   <name>wcgen</name>
                 </program>
+				 <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.onlineaggregation.client.StateCountJobGen</mainClass>
+                  <name>stgen</name>
+                </program>
               </programs>
               <repositoryLayout>flat</repositoryLayout>
               <repositoryName>lib</repositoryName>
