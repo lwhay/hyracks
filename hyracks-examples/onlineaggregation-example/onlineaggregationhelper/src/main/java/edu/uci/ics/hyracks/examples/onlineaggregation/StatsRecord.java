@@ -19,7 +19,12 @@ import java.io.Serializable;
 public class StatsRecord implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    public String mapLocation;
     public int blockId;
     public long startTime;
     public long endTime;
+    public String fileName;
+    public long startOffset;
+    public long length;
+    public String[] locations;
 }

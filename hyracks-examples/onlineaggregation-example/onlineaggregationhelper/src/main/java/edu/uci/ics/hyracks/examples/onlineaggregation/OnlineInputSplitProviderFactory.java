@@ -25,8 +25,9 @@ public class OnlineInputSplitProviderFactory implements IOnlineInputSplitProvide
     }
 
     @Override
-    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id) throws HyracksDataException {
+    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id, String requestorLocation)
+            throws HyracksDataException {
         IInputSplitQueue queue = CentralQueueAccessor.getQueue();
-        return new OnlineInputSplitProvider(jobId, id, queue);
+        return new OnlineInputSplitProvider(jobId, id, requestorLocation, queue);
     }
 }

@@ -20,5 +20,5 @@ import java.util.UUID;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public interface IOnlineInputSplitProviderFactory extends Serializable {
-    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id) throws HyracksDataException;
+    public IOnlineInputSplitProvider createInputSplitProvider(UUID jobId, int id, String requestorLocation) throws HyracksDataException;
 }

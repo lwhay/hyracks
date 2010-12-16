@@ -33,7 +33,7 @@ public class CentralInputSplitQueue extends UnicastRemoteObject implements IInpu
     }
 
     @Override
-    public MarshalledWritable<OnlineFileSplit> getNext(UUID jobId, int requestor) throws Exception {
+    public MarshalledWritable<OnlineFileSplit> getNext(UUID jobId, int requestor, String location) throws Exception {
         SplitHolder splitHolder = jobQueues.get(jobId);
         if (splitHolder == null) {
             return null;
@@ -50,8 +50,13 @@ public class CentralInputSplitQueue extends UnicastRemoteObject implements IInpu
             nextSplit = !splitHolder.splits.isEmpty() ? splitHolder.splits.remove() : null;
             if (nextSplit != null) {
                 StatsRecord rec = new StatsRecord();
+                rec.mapLocation = location;
                 rec.blockId = nextSplit.blockId();
                 rec.startTime = System.currentTimeMillis();
+                rec.fileName = nextSplit.getPath().toString();
+                rec.startOffset = nextSplit.getStart();
+                rec.length = nextSplit.getLength();
+                rec.locations = nextSplit.getLocations();
                 stats.add(rec);
             }
         }

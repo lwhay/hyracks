@@ -71,7 +71,8 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
         final Configuration conf = helper.getConfiguration();
         final Mapper<K1, V1, K2, V2> mapper = helper.getMapper();
         final InputFormat<K1, V1> inputFormat = helper.getInputFormat();
-        final IOnlineInputSplitProvider isp = factory.createInputSplitProvider(ctx.getJobId(), partition);
+        final IOnlineInputSplitProvider isp = factory.createInputSplitProvider(ctx.getJobId(), partition,
+                ctx.getLocation());
         final TaskAttemptID taId = new TaskAttemptID("foo", jobId, true, partition, 0);
         final TaskAttemptContext taskAttemptContext = helper.createTaskAttemptContext(taId);
 

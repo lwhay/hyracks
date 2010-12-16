@@ -19,20 +19,22 @@ import java.util.UUID;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class OnlineInputSplitProvider implements IOnlineInputSplitProvider {
-    private UUID jobId;
-    private int requestor;
-    private IInputSplitQueue queue;
+    private final UUID jobId;
+    private final int requestor;
+    private final String requestorLocation;
+    private final IInputSplitQueue queue;
 
-    public OnlineInputSplitProvider(UUID jobId, int requestor, IInputSplitQueue queue) {
+    public OnlineInputSplitProvider(UUID jobId, int requestor, String requestorLocation, IInputSplitQueue queue) {
         this.jobId = jobId;
         this.requestor = requestor;
+        this.requestorLocation = requestorLocation;
         this.queue = queue;
     }
 
     @Override
     public OnlineFileSplit next() throws HyracksDataException {
         try {
-            MarshalledWritable<OnlineFileSplit> w = queue.getNext(jobId, requestor);
+            MarshalledWritable<OnlineFileSplit> w = queue.getNext(jobId, requestor, requestorLocation);
             if (w == null) {
                 return null;
             }
