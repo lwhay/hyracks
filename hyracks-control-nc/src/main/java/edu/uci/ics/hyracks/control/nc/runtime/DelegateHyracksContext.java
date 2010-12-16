@@ -52,4 +52,9 @@ public class DelegateHyracksContext implements IHyracksContext {
     public ICounterContext getCounterContext() {
         return counterContext;
     }
+
+    @Override
+    public String getLocation() {
+        return delegate.getLocation();
+    }
 }

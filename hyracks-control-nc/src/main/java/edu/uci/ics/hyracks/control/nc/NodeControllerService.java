@@ -114,7 +114,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
     public NodeControllerService(NCConfig ncConfig) throws Exception {
         this.ncConfig = ncConfig;
         id = ncConfig.nodeId;
-        this.ctx = new RootHyracksContext(ncConfig.frameSize);
+        this.ctx = new RootHyracksContext(ncConfig.frameSize, ncConfig.dataIPAddress);
         if (id == null) {
             throw new Exception("id not set");
         }

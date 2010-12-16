@@ -27,4 +27,6 @@ public interface IHyracksContext {
     public ICounterContext getCounterContext();
 
     public UUID getJobId();
+
+    public String getLocation();
 }

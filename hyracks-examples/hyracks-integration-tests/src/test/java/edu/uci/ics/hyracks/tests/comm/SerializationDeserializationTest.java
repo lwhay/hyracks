@@ -47,7 +47,7 @@ public class SerializationDeserializationTest {
         private List<ByteBuffer> buffers;
 
         public SerDeserRunner(RecordDescriptor rDes) {
-            ctx = new RootHyracksContext(FRAME_SIZE);
+            ctx = new RootHyracksContext(FRAME_SIZE, null);
             this.rDes = rDes;
             buffers = new ArrayList<ByteBuffer>();
         }

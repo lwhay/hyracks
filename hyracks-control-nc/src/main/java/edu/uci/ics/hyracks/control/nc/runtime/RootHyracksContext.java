@@ -23,10 +23,12 @@ import edu.uci.ics.hyracks.api.resources.IResourceManager;
 public class RootHyracksContext implements IHyracksContext {
     private final IResourceManager resourceManager;
     private final int frameSize;
+    private final String location;
 
-    public RootHyracksContext(int frameSize) {
+    public RootHyracksContext(int frameSize, String location) {
         resourceManager = new ResourceManager(this);
         this.frameSize = frameSize;
+        this.location = location;
     }
 
     @Override
@@ -47,5 +49,10 @@ public class RootHyracksContext implements IHyracksContext {
     @Override
     public UUID getJobId() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String getLocation() {
+        return location;
     }
 }

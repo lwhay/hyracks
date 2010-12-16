@@ -87,7 +87,7 @@ public class BTreeFieldPrefixNSMTest {
     private ITupleReference createTuple(int f0, int f1, int f2, boolean print) throws HyracksDataException {
     	if(print) System.out.println("CREATING: " + f0 + " " + f1 + " " + f2);
     	
-    	IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+    	IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer buf = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(3);

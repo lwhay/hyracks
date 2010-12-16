@@ -139,7 +139,7 @@ public class BTreeTest {
         
         print("INSERTING INTO TREE\n");
         
-        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
@@ -345,7 +345,7 @@ public class BTreeTest {
         
         print("INSERTING INTO TREE\n");
         
-        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
@@ -516,7 +516,7 @@ public class BTreeTest {
     	Random rnd = new Random();
     	rnd.setSeed(50);
 
-    	IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+    	IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
@@ -684,7 +684,7 @@ public class BTreeTest {
         Random rnd = new Random();
         rnd.setSeed(50);
 
-        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
@@ -839,7 +839,7 @@ public class BTreeTest {
         Random rnd = new Random();
         rnd.setSeed(50);
 
-        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
@@ -987,7 +987,7 @@ public class BTreeTest {
         Random rnd = new Random();
         rnd.setSeed(50);
         
-        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE);        
+        IHyracksContext ctx = new RootHyracksContext(HYRACKS_FRAME_SIZE, null);        
         ByteBuffer frame = ctx.getResourceManager().allocateFrame();
 		FrameTupleAppender appender = new FrameTupleAppender(ctx);				
 		ArrayTupleBuilder tb = new ArrayTupleBuilder(cmp.getFieldCount());
