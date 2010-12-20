@@ -12,20 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.comm;
+package edu.uci.ics.hyracks.api.context;
 
-import java.nio.ByteBuffer;
+import java.util.UUID;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
+public interface IHyracksJobletContext extends IHyracksContext {
+    public UUID getJobId();
 
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
-
-    public int getSenderPartition();
-
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+    public int getAttempt();
 }

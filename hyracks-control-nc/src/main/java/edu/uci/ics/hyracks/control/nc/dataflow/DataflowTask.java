@@ -12,14 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.comm;
+package edu.uci.ics.hyracks.control.nc.dataflow;
 
-import java.util.UUID;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.task.IHyracksTask;
 
-public interface IDataReceiveListenerFactory {
-    public IDataReceiveListener getDataReceiveListener(UUID endpointUUID, IConnectionEntry entry, int senderIndex);
+public class DataflowTask implements IHyracksTask {
+    private final DataflowPipeline pipeline;
 
-    public UUID getJobId();
+    public DataflowTask(DataflowPipeline pipeline) {
+        this.pipeline = pipeline;
+    }
 
-    public UUID getStageId();
+    public void run() throws HyracksException {
+        pipeline.run();
+    }
 }

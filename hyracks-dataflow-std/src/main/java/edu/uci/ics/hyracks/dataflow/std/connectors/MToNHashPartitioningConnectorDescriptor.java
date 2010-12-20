@@ -17,8 +17,9 @@ package edu.uci.ics.hyracks.dataflow.std.connectors;
 import edu.uci.ics.hyracks.api.comm.IConnectionDemultiplexer;
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.comm.IPartitionManager;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
-import edu.uci.ics.hyracks.api.dataflow.IEndpointDataWriterFactory;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -36,11 +37,11 @@ public class MToNHashPartitioningConnectorDescriptor extends AbstractConnectorDe
     }
 
     @Override
-    public IFrameWriter createSendSideWriter(IHyracksContext ctx, RecordDescriptor recordDesc,
-            IEndpointDataWriterFactory edwFactory, int index, int nProducerPartitions, int nConsumerPartitions)
+    public IFrameWriter createSendSideWriter(IHyracksStageletContext ctx, RecordDescriptor recordDesc,
+            IPartitionManager partitionManager, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException {
-        final HashDataWriter hashWriter = new HashDataWriter(ctx, nConsumerPartitions, edwFactory, recordDesc,
-                tpcf.createPartitioner());
+        final HashDataWriter hashWriter = new HashDataWriter(ctx, recordDesc, partitionManager, getConnectorId(),
+                index, nConsumerPartitions, tpcf.createPartitioner());
         return hashWriter;
     }
 

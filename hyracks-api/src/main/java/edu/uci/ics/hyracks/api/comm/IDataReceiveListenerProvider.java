@@ -14,18 +14,12 @@
  */
 package edu.uci.ics.hyracks.api.comm;
 
-import java.nio.ByteBuffer;
+import java.util.UUID;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
+public interface IDataReceiveListenerProvider {
+    public IDataReceiveListener getDataReceiveListener();
 
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
+    public UUID getJobId();
 
-    public int getSenderPartition();
-
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+    public UUID getStageId();
 }

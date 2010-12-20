@@ -14,11 +14,14 @@
  */
 package edu.uci.ics.hyracks.api.context;
 
+import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
 import edu.uci.ics.hyracks.api.resources.IResourceManager;
 
 public interface IHyracksContext {
     public IResourceManager getResourceManager();
+
+    public IIOManager getIOManager();
 
     public int getFrameSize();
 

@@ -31,6 +31,10 @@ import edu.uci.ics.hyracks.api.dataflow.IOpenableDataWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.DeviceHandle;
+import edu.uci.ics.hyracks.api.io.IIOManager;
+import edu.uci.ics.hyracks.control.nc.io.DeviceManager;
+import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.control.nc.runtime.RootHyracksContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameDeserializingDataReader;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.SerializingDataWriter;
@@ -47,7 +51,9 @@ public class SerializationDeserializationTest {
         private List<ByteBuffer> buffers;
 
         public SerDeserRunner(RecordDescriptor rDes) {
-            ctx = new RootHyracksContext(FRAME_SIZE);
+            DeviceManager deviceManager = new DeviceManager(new DeviceHandle[] {});
+            IIOManager ioManager = new IOManager(FRAME_SIZE, deviceManager, 32);
+            ctx = new RootHyracksContext(FRAME_SIZE, ioManager);
             this.rDes = rDes;
             buffers = new ArrayList<ByteBuffer>();
         }

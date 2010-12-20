@@ -30,7 +30,7 @@ public class NonDeterministicFrameReader implements IFrameReader {
 
     private final IHyracksContext ctx;
     private final IConnectionDemultiplexer demux;
-    private int lastReadSender;
+    private IConnectionEntry lastReadyEntry;
     private boolean eos;
 
     public NonDeterministicFrameReader(IHyracksContext ctx, IConnectionDemultiplexer demux) {
@@ -40,7 +40,6 @@ public class NonDeterministicFrameReader implements IFrameReader {
 
     @Override
     public void open() throws HyracksDataException {
-        lastReadSender = 0;
         eos = false;
     }
 
@@ -54,33 +53,32 @@ public class NonDeterministicFrameReader implements IFrameReader {
             return false;
         }
         while (true) {
-            IConnectionEntry entry = demux.findNextReadyEntry(lastReadSender);
-            if (entry.aborted()) {
+            lastReadyEntry = demux.findReadyEntry();
+            if (lastReadyEntry.aborted()) {
                 eos = true;
                 return false;
             }
-            lastReadSender = (Integer) entry.getAttachment();
-            ByteBuffer netBuffer = entry.getReadBuffer();
+            ByteBuffer netBuffer = lastReadyEntry.getReadBuffer();
             int tupleCount = netBuffer.getInt(FrameHelper.getTupleCountOffset(ctx));
             if (LOGGER.isLoggable(Level.FINER)) {
                 LOGGER.finer("Frame Tuple Count: " + tupleCount);
             }
             if (tupleCount == 0) {
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("Empty Frame received: Closing " + lastReadSender);
+                    LOGGER.fine("Empty Frame received: Closing " + lastReadyEntry);
                 }
-                int openEntries = demux.closeEntry(lastReadSender);
+                int openEntries = demux.closeEntry(lastReadyEntry);
                 if (openEntries == 0) {
                     eos = true;
                     return false;
                 }
                 netBuffer.clear();
-                demux.unreadyEntry(lastReadSender);
+                demux.unreadyEntry(lastReadyEntry);
             } else {
                 buffer.clear();
                 buffer.put(netBuffer);
                 netBuffer.clear();
-                demux.unreadyEntry(lastReadSender);
+                demux.unreadyEntry(lastReadyEntry);
                 return true;
             }
         }

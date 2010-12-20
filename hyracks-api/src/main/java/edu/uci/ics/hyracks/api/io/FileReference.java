@@ -12,12 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.common.comm.io;
+package edu.uci.ics.hyracks.api.io;
 
-public interface FrameConstants {
-    public static final int SIZE_LEN = 4;
+import java.io.File;
+import java.io.Serializable;
 
-    public static final boolean DEBUG_FRAME_IO = false;
+public class FileReference implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    public static final int FRAME_FIELD_MAGIC = 0x12345678;
+    private final DeviceHandle dev;
+
+    private final File file;
+
+    public FileReference(DeviceHandle dev, File file) {
+        this.dev = dev;
+        this.file = file;
+    }
+
+    public DeviceHandle getDevice() {
+        return dev;
+    }
+
+    public File getFile() {
+        return file;
+    }
 }

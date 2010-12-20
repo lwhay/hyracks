@@ -12,11 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.dataflow;
+package edu.uci.ics.hyracks.api.io;
 
-import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import java.io.File;
+import java.io.Serializable;
 
-public interface IEndpointDataWriterFactory {
-    public IFrameWriter createFrameWriter(int index) throws HyracksDataException;
+public class DeviceHandle implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private final int devId;
+
+    private final File path;
+
+    public DeviceHandle(int devId, File path) {
+        this.devId = devId;
+        this.path = path;
+    }
+
+    public int getDeviceId() {
+        return devId;
+    }
+
+    public File getPath() {
+        return path;
+    }
 }

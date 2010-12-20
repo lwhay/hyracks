@@ -12,20 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.comm;
+package edu.uci.ics.hyracks.api.task;
 
-import java.nio.ByteBuffer;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
-
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
-
-    public int getSenderPartition();
-
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+public interface IHyracksTask {
+    public void run() throws HyracksException;
 }

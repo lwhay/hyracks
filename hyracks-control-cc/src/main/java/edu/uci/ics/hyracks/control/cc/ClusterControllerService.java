@@ -24,7 +24,6 @@ import java.io.PrintWriter;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,7 +55,6 @@ import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import edu.uci.ics.hyracks.api.client.ClusterControllerInfo;
@@ -513,7 +511,7 @@ public class ClusterControllerService extends AbstractRemoteService implements I
         return baos.toByteArray();
     }
 
-    static class Phase1Installer implements RemoteOp<Map<PortInstanceId, Endpoint>> {
+    static class Phase1Installer implements RemoteOp<Void> {
         private String nodeId;
         private UUID jobId;
         private String appName;
@@ -536,109 +534,14 @@ public class ClusterControllerService extends AbstractRemoteService implements I
         }
 
         @Override
-        public Map<PortInstanceId, Endpoint> execute(INodeController node) throws Exception {
-            return node.initializeJobletPhase1(appName, jobId, serialize(plan), stageId, attempt, tasks, opPartitions);
+        public Void execute(INodeController node) throws Exception {
+            node.initializeJobletPhase1(appName, jobId, serialize(plan), stageId, attempt, tasks, opPartitions);
+            return null;
         }
 
         @Override
         public String toString() {
             return jobId + " Distribution Phase 1";
-        }
-
-        @Override
-        public String getNodeId() {
-            return nodeId;
-        }
-    }
-
-    static class Phase2Installer implements RemoteOp<Void> {
-        private String nodeId;
-        private UUID jobId;
-        private String appName;
-        private JobPlan plan;
-        private UUID stageId;
-        private Map<ActivityNodeId, Set<Integer>> tasks;
-        private Map<OperatorDescriptorId, Set<Integer>> opPartitions;
-        private Map<PortInstanceId, Endpoint> globalPortMap;
-
-        public Phase2Installer(String nodeId, UUID jobId, String appName, JobPlan plan, UUID stageId,
-                Map<ActivityNodeId, Set<Integer>> tasks, Map<OperatorDescriptorId, Set<Integer>> opPartitions,
-                Map<PortInstanceId, Endpoint> globalPortMap) {
-            this.nodeId = nodeId;
-            this.jobId = jobId;
-            this.appName = appName;
-            this.plan = plan;
-            this.stageId = stageId;
-            this.tasks = tasks;
-            this.opPartitions = opPartitions;
-            this.globalPortMap = globalPortMap;
-        }
-
-        @Override
-        public Void execute(INodeController node) throws Exception {
-            node.initializeJobletPhase2(appName, jobId, serialize(plan), stageId, tasks, opPartitions, globalPortMap);
-            return null;
-        }
-
-        @Override
-        public String toString() {
-            return jobId + " Distribution Phase 2";
-        }
-
-        @Override
-        public String getNodeId() {
-            return nodeId;
-        }
-    }
-
-    static class Phase3Installer implements RemoteOp<Void> {
-        private String nodeId;
-        private UUID jobId;
-        private UUID stageId;
-
-        public Phase3Installer(String nodeId, UUID jobId, UUID stageId) {
-            this.nodeId = nodeId;
-            this.jobId = jobId;
-            this.stageId = stageId;
-        }
-
-        @Override
-        public Void execute(INodeController node) throws Exception {
-            node.commitJobletInitialization(jobId, stageId);
-            return null;
-        }
-
-        @Override
-        public String toString() {
-            return jobId + " Distribution Phase 3";
-        }
-
-        @Override
-        public String getNodeId() {
-            return nodeId;
-        }
-    }
-
-    static class StageStarter implements RemoteOp<Void> {
-        private String nodeId;
-        private UUID jobId;
-        private UUID stageId;
-
-        public StageStarter(String nodeId, UUID jobId, UUID stageId) {
-            this.nodeId = nodeId;
-            this.jobId = jobId;
-            this.stageId = stageId;
-        }
-
-        @Override
-        public Void execute(INodeController node) throws Exception {
-            node.startStage(jobId, stageId);
-            return null;
-        }
-
-        @Override
-        public String toString() {
-            return jobId + " Started Stage: " + stageId;
         }
 
         @Override

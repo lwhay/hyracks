@@ -39,11 +39,13 @@ import edu.uci.ics.hyracks.api.comm.FrameConstants;
 import edu.uci.ics.hyracks.api.comm.FrameHelper;
 import edu.uci.ics.hyracks.api.comm.IConnectionEntry;
 import edu.uci.ics.hyracks.api.comm.IDataReceiveListener;
-import edu.uci.ics.hyracks.api.comm.IDataReceiveListenerFactory;
+import edu.uci.ics.hyracks.api.comm.IDataReceiveListenerProvider;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
+import edu.uci.ics.hyracks.api.comm.PartitionId;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.resources.IResourceDeallocator;
 
 public class ConnectionManager {
     private static final Logger LOGGER = Logger.getLogger(ConnectionManager.class.getName());
@@ -56,7 +58,9 @@ public class ConnectionManager {
 
     private final IHyracksContext ctx;
 
-    private final Map<UUID, IDataReceiveListenerFactory> pendingConnectionReceivers;
+    private final Map<UUID, IDataReceiveListenerProvider> pendingConnectionReceivers;
+
+    private final Map<UUID, Map<PartitionId, Run>> runMap;
 
     private final ConnectionListenerThread connectionListenerThread;
 
@@ -83,7 +87,8 @@ public class ConnectionManager {
                     + serverSocket.getLocalPort());
         }
 
-        pendingConnectionReceivers = new HashMap<UUID, IDataReceiveListenerFactory>();
+        pendingConnectionReceivers = new HashMap<UUID, IDataReceiveListenerProvider>();
+        runMap = new HashMap<UUID, Map<PartitionId, Run>>();
         dataListenerThread = new DataListenerThread();
         connectionListenerThread = new ConnectionListenerThread();
         initialDataReceiveListener = new InitialDataReceiveListener();
@@ -116,6 +121,51 @@ public class ConnectionManager {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public IFrameWriter createPartitionWriter(IResourceDeallocator deallocator, UUID jobId, PartitionId partitionId)
+            throws HyracksDataException {
+        final Run run;
+        try {
+            run = new Run(ctx.getResourceManager().createFile(
+                    ConnectionManager.class.getName() + "_" + jobId + "_" + partitionId, ".run"));
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+        deallocator.addDeallocatableResource(run);
+        registerRun(jobId, partitionId, run);
+
+        return new IFrameWriter() {
+            @Override
+            public void open() throws HyracksDataException {
+                // do nothing
+            }
+
+            @Override
+            public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                run.write(buffer);
+            }
+
+            @Override
+            public void flush() throws HyracksDataException {
+                // do nothing
+            }
+
+            @Override
+            public void close() throws HyracksDataException {
+                run.close();
+            }
+        };
+    }
+
+    private synchronized void registerRun(UUID jobId, PartitionId partitionId, Run run) {
+        Map<PartitionId, Run> partitionMap = runMap.get(jobId);
+        if (partitionMap == null) {
+            partitionMap = new HashMap<PartitionId, Run>();
+            runMap.put(jobId, partitionMap);
+        }
+        partitionMap.put(partitionId, run);
+        notifyAll();
     }
 
     public IFrameWriter connect(NetworkAddress address, UUID id, int senderId) throws HyracksDataException {
@@ -164,7 +214,7 @@ public class ConnectionManager {
         }
     }
 
-    public synchronized void acceptConnection(UUID id, IDataReceiveListenerFactory receiver) {
+    public synchronized void acceptConnection(UUID id, IDataReceiveListenerProvider receiver) {
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.info("Connection manager accepting " + id);
         }
@@ -182,7 +232,8 @@ public class ConnectionManager {
         List<IConnectionEntry> abortConnections = new ArrayList<IConnectionEntry>();
         synchronized (this) {
             for (IConnectionEntry ce : connections) {
-                if (ce.getJobId().equals(jobId) && ce.getStageId().equals(stageId)) {
+                if (((ConnectionEntry) ce).getJobId().equals(jobId)
+                        && ((ConnectionEntry) ce).getStageId().equals(stageId)) {
                     abortConnections.add(ce);
                 }
             }
@@ -305,7 +356,8 @@ public class ConnectionManager {
                             pendingNewSockets.clear();
                         }
                         if (!pendingAbortConnections.isEmpty()) {
-                            for (IConnectionEntry ce : pendingAbortConnections) {
+                            for (IConnectionEntry cei : pendingAbortConnections) {
+                                ConnectionEntry ce = (ConnectionEntry) cei;
                                 SelectionKey key = ce.getSelectionKey();
                                 ce.abort();
                                 ((ConnectionEntry) ce).dispatch(key);
@@ -355,6 +407,7 @@ public class ConnectionManager {
             ByteBuffer buffer = entry.getReadBuffer();
             buffer.flip();
             IDataReceiveListener newListener = null;
+            ConnectionEntry ce = (ConnectionEntry) entry;
             if (buffer.remaining() >= INITIAL_MESSAGE_LEN) {
                 long msb = buffer.getLong();
                 long lsb = buffer.getLong();
@@ -363,19 +416,19 @@ public class ConnectionManager {
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.fine("Initial Frame received: " + endpointID + ":" + senderId);
                 }
-                IDataReceiveListenerFactory connectionReceiver;
+                IDataReceiveListenerProvider connectionReceiver;
                 synchronized (ConnectionManager.this) {
                     connectionReceiver = pendingConnectionReceivers.get(endpointID);
                     if (connectionReceiver == null) {
-                        entry.close();
+                        ce.close();
                         return;
                     }
                 }
 
-                newListener = connectionReceiver.getDataReceiveListener(endpointID, entry, senderId);
-                entry.setDataReceiveListener(newListener);
-                entry.setJobId(connectionReceiver.getJobId());
-                entry.setStageId(connectionReceiver.getStageId());
+                newListener = connectionReceiver.getDataReceiveListener();
+                ce.setDataReceiveListener(newListener);
+                ce.setJobId(connectionReceiver.getJobId());
+                ce.setStageId(connectionReceiver.getStageId());
                 synchronized (ConnectionManager.this) {
                     connections.add(entry);
                 }
@@ -384,7 +437,7 @@ public class ConnectionManager {
                 ackBuffer.clear();
                 ackBuffer.putInt(FrameConstants.SIZE_LEN);
                 ackBuffer.flip();
-                entry.write(ackBuffer);
+                ce.write(ackBuffer);
             }
             buffer.compact();
             if (newListener != null && buffer.remaining() > 0) {

@@ -17,7 +17,6 @@ package edu.uci.ics.hyracks.control.nc;
 import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -25,13 +24,15 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.hyracks.api.comm.Endpoint;
-import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.OperatorInstanceId;
+import edu.uci.ics.hyracks.api.io.IIOManager;
+import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
+import edu.uci.ics.hyracks.api.resources.IResourceManager;
 import edu.uci.ics.hyracks.control.nc.job.profiling.CounterContext;
 import edu.uci.ics.hyracks.control.nc.runtime.OperatorRunnable;
 
-public class Stagelet {
+public class Stagelet implements IHyracksStageletContext {
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOGGER = Logger.getLogger(Stagelet.class.getName());
@@ -46,12 +47,6 @@ public class Stagelet {
 
     private final CounterContext stageletCounterContext;
 
-    private List<Endpoint> endpointList;
-
-    private boolean started;
-
-    private volatile boolean abort;
-
     private final Set<OperatorInstanceId> pendingOperators;
 
     public Stagelet(Joblet joblet, UUID stageId, int attempt, String nodeId) throws RemoteException {
@@ -59,61 +54,30 @@ public class Stagelet {
         this.stageId = stageId;
         this.attempt = attempt;
         pendingOperators = new HashSet<OperatorInstanceId>();
-        started = false;
         honMap = new HashMap<OperatorInstanceId, OperatorRunnable>();
         stageletCounterContext = new CounterContext(joblet.getJobId() + "." + stageId + "." + nodeId);
     }
 
-    public void setOperator(OperatorDescriptorId odId, int partition, OperatorRunnable hon) {
-        honMap.put(new OperatorInstanceId(odId, partition), hon);
-    }
-
-    public Map<OperatorInstanceId, OperatorRunnable> getOperatorMap() {
-        return honMap;
+    public Joblet getJoblet() {
+        return joblet;
     }
 
     public CounterContext getStageletCounterContext() {
         return stageletCounterContext;
     }
 
-    public void setEndpointList(List<Endpoint> endpointList) {
-        this.endpointList = endpointList;
-    }
-
-    public List<Endpoint> getEndpointList() {
-        return endpointList;
-    }
-
-    public synchronized void start() throws Exception {
-        if (started) {
-            throw new Exception("Joblet already started");
-        }
-        started = true;
-        notifyAll();
-    }
-
     public synchronized void abort() {
-        this.abort = true;
         for (OperatorRunnable r : honMap.values()) {
             r.abort();
         }
     }
 
-    public void installRunnable(final OperatorInstanceId opIId) {
+    public void installRunnable(final OperatorInstanceId opIId, final OperatorRunnable hon) {
         pendingOperators.add(opIId);
-        final OperatorRunnable hon = honMap.get(opIId);
+        honMap.put(opIId, hon);
         joblet.getExecutor().execute(new Runnable() {
             @Override
             public void run() {
-                try {
-                    waitUntilStarted();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    return;
-                }
-                if (abort) {
-                    return;
-                }
                 try {
                     LOGGER.log(Level.INFO, joblet.getJobId() + ":" + stageId + ":" + opIId.getOperatorId() + ":"
                             + opIId.getPartition() + "(" + hon + ")" + ": STARTED");
@@ -158,13 +122,37 @@ public class Stagelet {
         }
     }
 
-    private synchronized void waitUntilStarted() throws InterruptedException {
-        while (!started && !abort) {
-            wait();
-        }
-    }
-
     public void dumpProfile(Map<String, Long> counterDump) {
         stageletCounterContext.dump(counterDump);
+    }
+
+    @Override
+    public UUID getJobId() {
+        return joblet.getJobId();
+    }
+
+    @Override
+    public int getAttempt() {
+        return joblet.getAttempt();
+    }
+
+    @Override
+    public IResourceManager getResourceManager() {
+        return joblet.getResourceManager();
+    }
+
+    @Override
+    public int getFrameSize() {
+        return joblet.getFrameSize();
+    }
+
+    @Override
+    public ICounterContext getCounterContext() {
+        return stageletCounterContext;
+    }
+
+    @Override
+    public IIOManager getIOManager() {
+        return joblet.getIOManager();
     }
 }

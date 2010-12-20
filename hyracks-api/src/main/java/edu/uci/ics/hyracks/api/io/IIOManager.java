@@ -12,20 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.comm;
+package edu.uci.ics.hyracks.api.io;
 
 import java.nio.ByteBuffer;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
+public interface IIOManager {
+    public IDeviceManager getDeviceManager();
 
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
+    public void write(FileHandle fHandle, long offset, IIORequest.INotificationCallback callback, ByteBuffer data);
 
-    public int getSenderPartition();
+    public void read(FileHandle fHandle, long offset, IIORequest.INotificationCallback callback, ByteBuffer data);
 
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+    public void close(FileHandle fHandle, IIORequest.INotificationCallback callback);
 }

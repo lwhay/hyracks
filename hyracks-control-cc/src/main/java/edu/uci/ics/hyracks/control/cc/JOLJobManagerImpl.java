@@ -40,7 +40,6 @@ import jol.types.table.TableName;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import edu.uci.ics.hyracks.api.comm.Endpoint;
 import edu.uci.ics.hyracks.api.constraints.AbsoluteLocationConstraint;
 import edu.uci.ics.hyracks.api.constraints.ChoiceLocationConstraint;
 import edu.uci.ics.hyracks.api.constraints.ExplicitPartitionConstraint;
@@ -55,7 +54,6 @@ import edu.uci.ics.hyracks.api.dataflow.IActivityNode;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
-import edu.uci.ics.hyracks.api.dataflow.PortInstanceId;
 import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobPlan;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -239,46 +237,8 @@ public class JOLJobManagerImpl implements IJobManager {
                                     p1is[i++] = new ClusterControllerService.Phase1Installer((String) t2Data[0], jobId,
                                             appName, plan, stageId, attempt, tasks, opPartitions);
                                 }
-                                LOGGER.info("Stage start - Phase 1");
-                                Map<PortInstanceId, Endpoint> globalPortMap = ccs.runRemote(p1is,
-                                        new ClusterControllerService.PortMapMergingAccumulator());
-
-                                ClusterControllerService.Phase2Installer[] p2is = new ClusterControllerService.Phase2Installer[ts
-                                        .size()];
-                                ClusterControllerService.Phase3Installer[] p3is = new ClusterControllerService.Phase3Installer[ts
-                                        .size()];
-                                ClusterControllerService.StageStarter[] ss = new ClusterControllerService.StageStarter[ts
-                                        .size()];
-                                i = 0;
-                                for (List t2 : ts) {
-                                    Object[] t2Data = t2.toArray();
-                                    Map<ActivityNodeId, Set<Integer>> tasks = new HashMap<ActivityNodeId, Set<Integer>>();
-                                    Set<List> activityInfoSet = (Set<List>) t2Data[1];
-                                    for (List l : activityInfoSet) {
-                                        Object[] lData = l.toArray();
-                                        ActivityNodeId aid = (ActivityNodeId) lData[0];
-                                        Set<Integer> aParts = tasks.get(aid);
-                                        if (aParts == null) {
-                                            aParts = new HashSet<Integer>();
-                                            tasks.put(aid, aParts);
-                                        }
-                                        aParts.add((Integer) lData[1]);
-                                    }
-                                    p2is[i] = new ClusterControllerService.Phase2Installer((String) t2Data[0], jobId,
-                                            appName, plan, stageId, tasks, opPartitions, globalPortMap);
-                                    p3is[i] = new ClusterControllerService.Phase3Installer((String) t2Data[0], jobId,
-                                            stageId);
-                                    ss[i] = new ClusterControllerService.StageStarter((String) t2Data[0], jobId,
-                                            stageId);
-                                    ++i;
-                                }
-                                LOGGER.info("Stage start - Phase 2");
-                                ccs.runRemote(p2is, null);
-                                LOGGER.info("Stage start - Phase 3");
-                                ccs.runRemote(p3is, null);
-                                LOGGER.info("Stage start");
-                                ccs.runRemote(ss, null);
-                                LOGGER.info("Stage started");
+                                LOGGER.info("Stage install");
+                                ccs.runRemote(p1is, null);
                             } catch (Exception e) {
                             }
                         }

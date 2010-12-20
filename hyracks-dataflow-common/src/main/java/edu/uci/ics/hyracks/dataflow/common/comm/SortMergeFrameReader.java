@@ -44,24 +44,25 @@ public class SortMergeFrameReader implements IFrameReader {
     private final FrameTuplePairComparator tpc;
     private final FrameTupleAppender appender;
     private final RecordDescriptor recordDescriptor;
+    private final int nProducerPartitions;
     private Run[] runs;
     private ByteBuffer[] frames;
     private PriorityQueue<Integer> pQueue;
-    private int lastReadSender;
     private boolean first;
 
     public SortMergeFrameReader(IHyracksContext ctx, IConnectionDemultiplexer demux, int[] sortFields,
-            IBinaryComparator[] comparators, RecordDescriptor recordDescriptor) {
+            IBinaryComparator[] comparators, RecordDescriptor recordDescriptor, int nProducerPartitions) {
         this.ctx = ctx;
         this.demux = demux;
         tpc = new FrameTuplePairComparator(sortFields, sortFields, comparators);
         appender = new FrameTupleAppender(ctx);
         this.recordDescriptor = recordDescriptor;
+        this.nProducerPartitions = nProducerPartitions;
     }
 
     @Override
     public void open() throws HyracksDataException {
-        int nSenders = demux.getSenderCount();
+        int nSenders = nProducerPartitions;
         runs = new Run[nSenders];
         frames = new ByteBuffer[nSenders];
         for (int i = 0; i < runs.length; ++i) {
@@ -80,7 +81,6 @@ public class SortMergeFrameReader implements IFrameReader {
                 return c == 0 ? (i1 < i2 ? -1 : 1) : c;
             }
         });
-        lastReadSender = 0;
         first = true;
     }
 
@@ -216,30 +216,30 @@ public class SortMergeFrameReader implements IFrameReader {
 
     private void spoolRuns(int interestingRun) throws HyracksDataException {
         while (true) {
-            IConnectionEntry entry = demux.findNextReadyEntry(lastReadSender);
-            lastReadSender = (Integer) entry.getAttachment();
-            ByteBuffer netBuffer = entry.getReadBuffer();
+            IConnectionEntry ce = demux.findReadyEntry();
+            ByteBuffer netBuffer = ce.getReadBuffer();
             int tupleCount = netBuffer.getInt(FrameHelper.getTupleCountOffset(ctx));
             if (LOGGER.isLoggable(Level.FINER)) {
                 LOGGER.finer("Frame Tuple Count: " + tupleCount);
             }
             if (tupleCount == 0) {
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("Empty Frame received: Closing " + lastReadSender);
+                    LOGGER.fine("Empty Frame received: Closing " + ce.getConnectorId() + ":" + ce.getSenderPartition()
+                            + ":" + ce.getReceiverPartition());
                 }
-                int openEntries = demux.closeEntry(lastReadSender);
-                runs[lastReadSender].eof();
+                int openEntries = demux.closeEntry(ce);
+                runs[ce.getSenderPartition()].eof();
                 netBuffer.clear();
-                demux.unreadyEntry(lastReadSender);
+                demux.unreadyEntry(ce);
                 if (openEntries == 0) {
                     return;
                 }
             } else {
-                runs[lastReadSender].write(netBuffer);
+                runs[ce.getSenderPartition()].write(netBuffer);
                 netBuffer.clear();
-                demux.unreadyEntry(lastReadSender);
+                demux.unreadyEntry(ce);
             }
-            if (lastReadSender == interestingRun) {
+            if (ce.getSenderPartition() == interestingRun) {
                 return;
             }
         }

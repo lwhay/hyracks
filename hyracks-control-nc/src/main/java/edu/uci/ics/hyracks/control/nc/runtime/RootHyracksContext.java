@@ -15,16 +15,19 @@
 package edu.uci.ics.hyracks.control.nc.runtime;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
 import edu.uci.ics.hyracks.api.resources.IResourceManager;
 
 public class RootHyracksContext implements IHyracksContext {
     private final IResourceManager resourceManager;
     private final int frameSize;
+    private final IIOManager ioManager;
 
-    public RootHyracksContext(int frameSize) {
+    public RootHyracksContext(int frameSize, IIOManager ioManager) {
         resourceManager = new ResourceManager(this);
         this.frameSize = frameSize;
+        this.ioManager = ioManager;
     }
 
     @Override
@@ -40,5 +43,10 @@ public class RootHyracksContext implements IHyracksContext {
     @Override
     public ICounterContext getCounterContext() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public IIOManager getIOManager() {
+        return ioManager;
     }
 }

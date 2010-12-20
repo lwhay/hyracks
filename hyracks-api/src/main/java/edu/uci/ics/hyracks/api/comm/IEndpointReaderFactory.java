@@ -14,18 +14,8 @@
  */
 package edu.uci.ics.hyracks.api.comm;
 
-import java.nio.ByteBuffer;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
-
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
-
-    public int getSenderPartition();
-
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+public interface IEndpointReaderFactory {
+    public IFrameReader createFrameReader(int index) throws HyracksDataException;
 }

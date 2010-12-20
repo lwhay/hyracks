@@ -20,6 +20,7 @@ import java.util.Comparator;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class ReferencedPriorityQueue {
@@ -66,7 +67,7 @@ public class ReferencedPriorityQueue {
      * @return runid of this entry
      * @throws IOException
      */
-    public int popAndReplace(FrameTupleAccessor fta, int tIndex) throws IOException {
+    public int popAndReplace(FrameTupleAccessor fta, int tIndex) throws HyracksDataException {
         ReferenceEntry entry = entries[0];
         if (entry.getAccessor() == null) {
             entry.setAccessor(new FrameTupleAccessor(ctx, recordDescriptor));

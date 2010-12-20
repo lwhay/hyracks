@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 import edu.uci.ics.hyracks.api.comm.IConnectionEntry;
 import edu.uci.ics.hyracks.api.comm.IDataReceiveListener;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
+import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 
 public class ConnectionEntry implements IConnectionEntry {
     private static final Logger LOGGER = Logger.getLogger(ConnectionEntry.class.getName());
@@ -37,13 +38,19 @@ public class ConnectionEntry implements IConnectionEntry {
 
     private IDataReceiveListener recvListener;
 
-    private Object attachment;
+    private int slot;
 
     private final SelectionKey key;
 
     private UUID jobId;
 
     private UUID stageId;
+
+    private ConnectorDescriptorId cdId;
+
+    private int senderPartition;
+
+    private int receiverPartition;
 
     private boolean aborted;
 
@@ -54,6 +61,14 @@ public class ConnectionEntry implements IConnectionEntry {
         writeBuffer = ctx.getResourceManager().allocateFrame();
         writeBuffer.clear();
         this.key = key;
+    }
+
+    public void setSlot(int slot) {
+        this.slot = slot;
+    }
+
+    public int getSlot() {
+        return slot;
     }
 
     public SocketChannel getSocketChannel() {
@@ -110,7 +125,6 @@ public class ConnectionEntry implements IConnectionEntry {
         return readBuffer;
     }
 
-    @Override
     public synchronized void write(ByteBuffer buffer) {
         while (buffer.remaining() > 0) {
             while (writeBuffer.remaining() <= 0) {
@@ -129,22 +143,10 @@ public class ConnectionEntry implements IConnectionEntry {
         }
     }
 
-    @Override
     public void setDataReceiveListener(IDataReceiveListener listener) {
         this.recvListener = listener;
     }
 
-    @Override
-    public void attach(Object attachment) {
-        this.attachment = attachment;
-    }
-
-    @Override
-    public Object getAttachment() {
-        return attachment;
-    }
-
-    @Override
     public void close() {
         try {
             socketChannel.close();
@@ -153,32 +155,26 @@ public class ConnectionEntry implements IConnectionEntry {
         }
     }
 
-    @Override
     public SelectionKey getSelectionKey() {
         return key;
     }
 
-    @Override
     public UUID getJobId() {
         return jobId;
     }
 
-    @Override
     public void setJobId(UUID jobId) {
         this.jobId = jobId;
     }
 
-    @Override
     public UUID getStageId() {
         return stageId;
     }
 
-    @Override
     public void setStageId(UUID stageId) {
         this.stageId = stageId;
     }
 
-    @Override
     public void abort() {
         aborted = true;
     }
@@ -186,5 +182,32 @@ public class ConnectionEntry implements IConnectionEntry {
     @Override
     public boolean aborted() {
         return aborted;
+    }
+
+    @Override
+    public ConnectorDescriptorId getConnectorId() {
+        return cdId;
+    }
+
+    public void setConnectorId(ConnectorDescriptorId cdId) {
+        this.cdId = cdId;
+    }
+
+    @Override
+    public int getSenderPartition() {
+        return senderPartition;
+    }
+
+    public void setSenderPartition(int senderPartition) {
+        this.senderPartition = senderPartition;
+    }
+
+    @Override
+    public int getReceiverPartition() {
+        return receiverPartition;
+    }
+
+    public void setReceiverPartition(int receiverPartition) {
+        this.receiverPartition = receiverPartition;
     }
 }

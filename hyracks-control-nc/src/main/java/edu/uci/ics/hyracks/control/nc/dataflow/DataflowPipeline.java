@@ -12,20 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.api.comm;
+package edu.uci.ics.hyracks.control.nc.dataflow;
 
-import java.nio.ByteBuffer;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.task.IHyracksTask;
+import edu.uci.ics.hyracks.control.nc.Stagelet;
+import edu.uci.ics.hyracks.control.nc.runtime.OperatorRunnable;
 
-import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
+public class DataflowPipeline implements IHyracksTask {
+    private Stagelet stagelet;
+    private OperatorRunnable runnable;
 
-public interface IConnectionEntry {
-    public ConnectorDescriptorId getConnectorId();
+    public DataflowPipeline(OperatorRunnable runnable) {
+        this.runnable = runnable;
+    }
 
-    public int getSenderPartition();
+    public void run() throws HyracksException {
 
-    public int getReceiverPartition();
-
-    public ByteBuffer getReadBuffer();
-
-    public boolean aborted();
+    }
 }

@@ -14,12 +14,13 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.connectors;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksContext;
-import edu.uci.ics.hyracks.api.dataflow.IEndpointDataWriterFactory;
+import edu.uci.ics.hyracks.api.comm.IPartitionManager;
+import edu.uci.ics.hyracks.api.comm.PartitionId;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
+import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -28,24 +29,22 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
 public class HashDataWriter implements IFrameWriter {
     private final int consumerPartitionCount;
-    private final IFrameWriter[] epWriters;
+    private final IFrameWriter[] pWriters;
     private final FrameTupleAppender[] appenders;
     private final FrameTupleAccessor tupleAccessor;
     private final ITuplePartitionComputer tpc;
 
-    public HashDataWriter(IHyracksContext ctx, int consumerPartitionCount, IEndpointDataWriterFactory edwFactory,
-            RecordDescriptor recordDescriptor, ITuplePartitionComputer tpc) throws HyracksDataException {
+    public HashDataWriter(IHyracksStageletContext ctx, RecordDescriptor recordDescriptor,
+            IPartitionManager partitionManager, ConnectorDescriptorId cdId, int producerPartitionIndex,
+            int consumerPartitionCount, ITuplePartitionComputer tpc) throws HyracksDataException {
         this.consumerPartitionCount = consumerPartitionCount;
-        epWriters = new IFrameWriter[consumerPartitionCount];
+        pWriters = new IFrameWriter[consumerPartitionCount];
         appenders = new FrameTupleAppender[consumerPartitionCount];
         for (int i = 0; i < consumerPartitionCount; ++i) {
-            try {
-                epWriters[i] = edwFactory.createFrameWriter(i);
-                appenders[i] = new FrameTupleAppender(ctx);
-                appenders[i].reset(ctx.getResourceManager().allocateFrame(), true);
-            } catch (IOException e) {
-                throw new HyracksDataException(e);
-            }
+            pWriters[i] = partitionManager.createPartitionWriter(ctx, new PartitionId(ctx.getJobId(), ctx.getAttempt(),
+                    cdId, producerPartitionIndex, i));
+            appenders[i] = new FrameTupleAppender(ctx);
+            appenders[i].reset(ctx.getResourceManager().allocateFrame(), true);
         }
         tupleAccessor = new FrameTupleAccessor(ctx, recordDescriptor);
         this.tpc = tpc;
@@ -53,11 +52,11 @@ public class HashDataWriter implements IFrameWriter {
 
     @Override
     public void close() throws HyracksDataException {
-        for (int i = 0; i < epWriters.length; ++i) {
+        for (int i = 0; i < pWriters.length; ++i) {
             if (appenders[i].getTupleCount() > 0) {
-                flushFrame(appenders[i].getBuffer(), epWriters[i]);
+                flushFrame(appenders[i].getBuffer(), pWriters[i]);
             }
-            epWriters[i].close();
+            pWriters[i].close();
         }
     }
 
@@ -69,8 +68,8 @@ public class HashDataWriter implements IFrameWriter {
 
     @Override
     public void open() throws HyracksDataException {
-        for (int i = 0; i < epWriters.length; ++i) {
-            epWriters[i].open();
+        for (int i = 0; i < pWriters.length; ++i) {
+            pWriters[i].open();
             appenders[i].reset(appenders[i].getBuffer(), true);
         }
     }
@@ -84,7 +83,7 @@ public class HashDataWriter implements IFrameWriter {
             FrameTupleAppender appender = appenders[h];
             if (!appender.append(tupleAccessor, i)) {
                 ByteBuffer appenderBuffer = appender.getBuffer();
-                flushFrame(appenderBuffer, epWriters[h]);
+                flushFrame(appenderBuffer, pWriters[h]);
                 appender.reset(appenderBuffer, true);
                 if (!appender.append(tupleAccessor, i)) {
                     throw new IllegalStateException();
@@ -99,9 +98,9 @@ public class HashDataWriter implements IFrameWriter {
             FrameTupleAppender appender = appenders[i];
             if (appender.getTupleCount() > 0) {
                 ByteBuffer buffer = appender.getBuffer();
-                IFrameWriter frameWriter = epWriters[i];
+                IFrameWriter frameWriter = pWriters[i];
                 flushFrame(buffer, frameWriter);
-                epWriters[i].flush();
+                pWriters[i].flush();
                 appender.reset(buffer, true);
             }
         }

@@ -19,10 +19,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import edu.uci.ics.hyracks.api.comm.Endpoint;
 import edu.uci.ics.hyracks.api.dataflow.ActivityNodeId;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
-import edu.uci.ics.hyracks.api.dataflow.PortInstanceId;
 
 public interface INodeController extends Remote {
     public String getId() throws Exception;
@@ -31,21 +29,13 @@ public interface INodeController extends Remote {
 
     public NodeCapability getNodeCapability() throws Exception;
 
-    public Map<PortInstanceId, Endpoint> initializeJobletPhase1(String appName, UUID jobId, byte[] plan, UUID stageId,
-            int attempt, Map<ActivityNodeId, Set<Integer>> tasks, Map<OperatorDescriptorId, Set<Integer>> opPartitions)
+    public void initializeJobletPhase1(String appName, UUID jobId, byte[] plan, UUID stageId, int attempt,
+            Map<ActivityNodeId, Set<Integer>> tasks, Map<OperatorDescriptorId, Set<Integer>> opPartitions)
             throws Exception;
-
-    public void initializeJobletPhase2(String appName, UUID jobId, byte[] plan, UUID stageId,
-            Map<ActivityNodeId, Set<Integer>> tasks, Map<OperatorDescriptorId, Set<Integer>> opPartitions,
-            Map<PortInstanceId, Endpoint> globalPortMap) throws Exception;
-
-    public void commitJobletInitialization(UUID jobId, UUID stageId) throws Exception;
 
     public void abortJoblet(UUID jobId, UUID stageId) throws Exception;
 
     public void cleanUpJob(UUID jobId) throws Exception;
-
-    public void startStage(UUID jobId, UUID stageId) throws Exception;
 
     public void notifyRegistration(IClusterController ccs) throws Exception;
 

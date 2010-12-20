@@ -291,7 +291,8 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                 }
 
                 private void setNextTopTuple(int runIndex, int[] tupleIndexes, RunFileReader[] runCursors,
-                        FrameTupleAccessor[] tupleAccessors, ReferencedPriorityQueue topTuples) throws IOException {
+                        FrameTupleAccessor[] tupleAccessors, ReferencedPriorityQueue topTuples)
+                        throws HyracksDataException {
                     boolean exists = hasNextTuple(runIndex, tupleIndexes, runCursors, tupleAccessors);
                     if (exists) {
                         topTuples.popAndReplace(tupleAccessors[runIndex], tupleIndexes[runIndex]);
@@ -302,7 +303,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                 }
 
                 private boolean hasNextTuple(int runIndex, int[] tupleIndexes, RunFileReader[] runCursors,
-                        FrameTupleAccessor[] tupleAccessors) throws IOException {
+                        FrameTupleAccessor[] tupleAccessors) throws HyracksDataException {
                     if (tupleAccessors[runIndex] == null || runCursors[runIndex] == null) {
                         return false;
                     } else if (tupleIndexes[runIndex] >= tupleAccessors[runIndex].getTupleCount()) {

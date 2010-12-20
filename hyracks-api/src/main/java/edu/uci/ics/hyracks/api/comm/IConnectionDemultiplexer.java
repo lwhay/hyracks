@@ -17,11 +17,13 @@ package edu.uci.ics.hyracks.api.comm;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public interface IConnectionDemultiplexer {
-    public int getSenderCount();
+    public int getOpenConnectionCount();
 
-    public IConnectionEntry findNextReadyEntry(int lastReadSender);
+    public void addConnection(IConnectionEntry entry);
 
-    public void unreadyEntry(int index);
+    public IConnectionEntry findReadyEntry();
 
-    public int closeEntry(int index) throws HyracksDataException;
+    public void unreadyEntry(IConnectionEntry entry);
+
+    public int closeEntry(IConnectionEntry entry) throws HyracksDataException;
 }

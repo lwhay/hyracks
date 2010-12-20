@@ -14,14 +14,15 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.connectors;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IConnectionDemultiplexer;
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.comm.IPartitionManager;
+import edu.uci.ics.hyracks.api.comm.PartitionId;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
-import edu.uci.ics.hyracks.api.dataflow.IEndpointDataWriterFactory;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -116,21 +117,18 @@ public class MToNRangePartitioningConnectorDescriptor extends AbstractConnectorD
     }
 
     @Override
-    public IFrameWriter createSendSideWriter(IHyracksContext ctx, RecordDescriptor recordDesc,
-            IEndpointDataWriterFactory edwFactory, int index, int nProducerPartitions, int nConsumerPartitions)
+    public IFrameWriter createSendSideWriter(IHyracksStageletContext ctx, RecordDescriptor recordDesc,
+            IPartitionManager partitionManager, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException {
-        final IFrameWriter[] epWriters = new IFrameWriter[nConsumerPartitions];
+        final IFrameWriter[] pWriters = new IFrameWriter[nConsumerPartitions];
         final FrameTupleAppender[] appenders = new FrameTupleAppender[nConsumerPartitions];
         for (int i = 0; i < nConsumerPartitions; ++i) {
-            try {
-                epWriters[i] = edwFactory.createFrameWriter(i);
-                appenders[i] = new FrameTupleAppender(ctx);
-                appenders[i].reset(ctx.getResourceManager().allocateFrame(), true);
-            } catch (IOException e) {
-                throw new HyracksDataException(e);
-            }
+            pWriters[i] = partitionManager.createPartitionWriter(ctx, new PartitionId(ctx.getJobId(), ctx.getAttempt(),
+                    getConnectorId(), index, i));
+            appenders[i] = new FrameTupleAppender(ctx);
+            appenders[i].reset(ctx.getResourceManager().allocateFrame(), true);
         }
-        final RangeDataWriter rangeWriter = new RangeDataWriter(ctx, nConsumerPartitions, epWriters, appenders,
+        final RangeDataWriter rangeWriter = new RangeDataWriter(ctx, nConsumerPartitions, pWriters, appenders,
                 recordDesc);
         return rangeWriter;
     }

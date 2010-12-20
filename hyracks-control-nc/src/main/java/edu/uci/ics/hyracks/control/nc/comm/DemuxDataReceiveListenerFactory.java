@@ -17,8 +17,9 @@ package edu.uci.ics.hyracks.control.nc.comm;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,18 +27,20 @@ import java.util.logging.Logger;
 import edu.uci.ics.hyracks.api.comm.IConnectionDemultiplexer;
 import edu.uci.ics.hyracks.api.comm.IConnectionEntry;
 import edu.uci.ics.hyracks.api.comm.IDataReceiveListener;
-import edu.uci.ics.hyracks.api.comm.IDataReceiveListenerFactory;
+import edu.uci.ics.hyracks.api.comm.IDataReceiveListenerProvider;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerFactory, IConnectionDemultiplexer,
+public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerProvider, IConnectionDemultiplexer,
         IDataReceiveListener {
     private static final Logger LOGGER = Logger.getLogger(DemuxDataReceiveListenerFactory.class.getName());
 
     private final IHyracksContext ctx;
+    private final BitSet freeSlotBits;
     private final BitSet readyBits;
-    private IConnectionEntry senders[];
-    private int openSenderCount;
+    private final List<ConnectionEntry> connections;
+    private int openConnectionsCount;
+    private int lastReadSender;
     private UUID jobId;
     private UUID stageId;
 
@@ -45,34 +48,37 @@ public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerFact
         this.ctx = ctx;
         this.jobId = jobId;
         this.stageId = stageId;
+        freeSlotBits = new BitSet();
         readyBits = new BitSet();
-        senders = null;
-        openSenderCount = 0;
+        connections = new ArrayList<ConnectionEntry>();
+        openConnectionsCount = 0;
+        lastReadSender = 0;
     }
 
     @Override
-    public IDataReceiveListener getDataReceiveListener(UUID endpointUUID, IConnectionEntry entry, int senderIndex) {
-        entry.attach(senderIndex);
-        addSender(senderIndex, entry);
+    public IDataReceiveListener getDataReceiveListener() {
         return this;
     }
 
     @Override
     public synchronized void dataReceived(IConnectionEntry entry) throws IOException {
-        int senderIndex = (Integer) entry.getAttachment();
+        ConnectionEntry ce = (ConnectionEntry) entry;
+        int slot = ce.getSlot();
         ByteBuffer buffer = entry.getReadBuffer();
         buffer.flip();
         int dataLen = buffer.remaining();
         if (dataLen >= ctx.getFrameSize() || entry.aborted()) {
             if (LOGGER.isLoggable(Level.FINEST)) {
-                LOGGER.finest("NonDeterministicDataReceiveListener: frame received: sender = " + senderIndex);
+                LOGGER.finest("NonDeterministicDataReceiveListener: frame received: " + slot + ": "
+                        + entry.getConnectorId() + ":" + entry.getSenderPartition() + ":"
+                        + entry.getReceiverPartition());
             }
-            SelectionKey key = entry.getSelectionKey();
+            SelectionKey key = ce.getSelectionKey();
             if (key.isValid()) {
                 int ops = key.interestOps();
                 key.interestOps(ops & ~SelectionKey.OP_READ);
             }
-            readyBits.set(senderIndex);
+            readyBits.set(slot);
             notifyAll();
             return;
         }
@@ -83,20 +89,25 @@ public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerFact
     public void eos(IConnectionEntry entry) {
     }
 
-    private synchronized void addSender(int senderIndex, IConnectionEntry entry) {
-        readyBits.clear(senderIndex);
-        if (senders == null) {
-            senders = new IConnectionEntry[senderIndex + 1];
-        } else if (senders.length <= senderIndex) {
-            senders = Arrays.copyOf(senders, senderIndex + 1);
+    @Override
+    public synchronized void addConnection(IConnectionEntry entry) {
+        ConnectionEntry ce = (ConnectionEntry) entry;
+        int slot = freeSlotBits.nextSetBit(0);
+        if (slot < 0) {
+            slot = connections.size();
+            connections.add(ce);
+        } else {
+            connections.set(slot, ce);
         }
-        senders[senderIndex] = entry;
-        ++openSenderCount;
+        freeSlotBits.clear(slot);
+        ce.setSlot(slot);
+        readyBits.clear(slot);
+        ++openConnectionsCount;
     }
 
     @Override
-    public synchronized IConnectionEntry findNextReadyEntry(int lastReadSender) {
-        while (openSenderCount > 0 && readyBits.isEmpty()) {
+    public synchronized IConnectionEntry findReadyEntry() {
+        while (openConnectionsCount > 0 && readyBits.isEmpty()) {
             try {
                 wait();
             } catch (InterruptedException e) {
@@ -106,14 +117,14 @@ public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerFact
         if (lastReadSender < 0) {
             lastReadSender = readyBits.nextSetBit(0);
         }
-        return senders[lastReadSender];
+        return connections.get(lastReadSender);
     }
 
     @Override
-    public synchronized void unreadyEntry(int index) {
-        readyBits.clear(index);
-        IConnectionEntry entry = senders[index];
-        SelectionKey key = entry.getSelectionKey();
+    public synchronized void unreadyEntry(IConnectionEntry entry) {
+        ConnectionEntry ce = (ConnectionEntry) entry;
+        readyBits.clear(ce.getSlot());
+        SelectionKey key = ce.getSelectionKey();
         if (key.isValid()) {
             int ops = key.interestOps();
             key.interestOps(ops | SelectionKey.OP_READ);
@@ -122,21 +133,21 @@ public class DemuxDataReceiveListenerFactory implements IDataReceiveListenerFact
     }
 
     @Override
-    public synchronized int closeEntry(int index) throws HyracksDataException {
-        IConnectionEntry entry = senders[index];
-        SelectionKey key = entry.getSelectionKey();
+    public synchronized int closeEntry(IConnectionEntry entry) throws HyracksDataException {
+        ConnectionEntry ce = (ConnectionEntry) entry;
+        SelectionKey key = ce.getSelectionKey();
         key.cancel();
-        try {
-            entry.close();
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
-        }
-        return --openSenderCount;
+        ce.close();
+        int slot = ce.getSlot();
+        connections.set(slot, null);
+        readyBits.clear(slot);
+        freeSlotBits.set(slot);
+        return --openConnectionsCount;
     }
 
     @Override
-    public synchronized int getSenderCount() {
-        return senders.length;
+    public synchronized int getOpenConnectionCount() {
+        return openConnectionsCount;
     }
 
     @Override

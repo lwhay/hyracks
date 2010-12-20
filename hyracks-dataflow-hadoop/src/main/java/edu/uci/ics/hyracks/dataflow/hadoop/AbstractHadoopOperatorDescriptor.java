@@ -18,15 +18,16 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+import org.apache.hadoop.mapred.Counters.Counter;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.Counters.Counter;
 
 import edu.uci.ics.dcache.client.DCacheClient;
 import edu.uci.ics.hyracks.api.dataflow.IDataWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.IHadoopClassFactory;
@@ -48,7 +49,11 @@ public abstract class AbstractHadoopOperatorDescriptor extends AbstractSingleAct
 
         @Override
         public void collect(Object key, Object value) throws IOException {
-            writer.writeData(new Object[] { key, value });
+            try {
+                writer.writeData(new Object[] { key, value });
+            } catch (HyracksDataException e) {
+                throw new IOException(e);
+            }
         }
 
         public void setWriter(IDataWriter<Object[]> writer) {
