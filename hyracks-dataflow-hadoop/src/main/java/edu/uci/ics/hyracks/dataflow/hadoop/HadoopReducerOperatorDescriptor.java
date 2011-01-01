@@ -18,15 +18,22 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RawKeyValueIterator;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.Counters.Counter;
+import org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapreduce.StatusReporter;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.util.Progress;
+import org.apache.hadoop.util.ReflectionUtils;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.dataflow.IDataReader;
@@ -40,7 +47,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.IOperatorEnvironment;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.hadoop.data.KeyComparatorFactory;
-import edu.uci.ics.hyracks.dataflow.hadoop.data.WritableComparingComparatorFactory;
+import edu.uci.ics.hyracks.dataflow.hadoop.data.RawComparingComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.IHadoopClassFactory;
 import edu.uci.ics.hyracks.dataflow.std.base.IOpenableDataWriterOperator;
@@ -50,17 +57,106 @@ import edu.uci.ics.hyracks.dataflow.std.util.DeserializedOperatorNodePushable;
 
 public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHadoopOperatorDescriptor {
     private class ReducerAggregator implements IGroupAggregator {
-        private Reducer<K2, V2, K3, V3> reducer;
+        private Object reducer;
         private DataWritingOutputCollector<K3, V3> output;
         private Reporter reporter;
+        private ReducerContext reducerContext; 
+        RawKeyValueIterator rawKeyValueIterator = new RawKeyValueIterator() {
+            
+            @Override
+            public boolean next() throws IOException {
+                return false;
+            }
+            
+            @Override
+            public DataInputBuffer getValue() throws IOException {
+                return null;
+            }
+            
+            @Override
+            public Progress getProgress() {
+                return null;
+            }
+            
+            @Override
+            public DataInputBuffer getKey() throws IOException {
+                return null;
+            }
+            
+            @Override
+            public void close() throws IOException {
+                
+            }
+        };
+        
+    
+        class ReducerContext extends org.apache.hadoop.mapreduce.Reducer.Context {
+            private HadoopReducerOperatorDescriptor.ValueIterator iterator;
+            
+            @SuppressWarnings("unchecked")
+            ReducerContext(org.apache.hadoop.mapreduce.Reducer reducer, JobConf conf) throws IOException, InterruptedException, ClassNotFoundException{
+            
+                reducer.super(conf,new TaskAttemptID(),rawKeyValueIterator,null,null,null,null,null,null,Class.forName("org.apache.hadoop.io.NullWritable"),Class.forName("org.apache.hadoop.io.NullWritable"));
+            }
+            
+            public  void setIterator(HadoopReducerOperatorDescriptor.ValueIterator iter) {
+                iterator = iter;
+            }
+            
+            @Override
+            public Iterable<V2> getValues() throws IOException, InterruptedException {
+              return new Iterable<V2>() {
+                @Override
+                public Iterator<V2> iterator() {
+                    return iterator;
+                }
+              };
+            }
+            
+            /** Start processing next unique key. */
+            @Override
+            public boolean nextKey() throws IOException,InterruptedException {
+                boolean hasMore = iterator.hasNext();
+                if(hasMore){
+                    nextKeyValue();
+                }
+                return hasMore;
+            }
 
-        public ReducerAggregator(Reducer<K2, V2, K3, V3> reducer) {
+            /**
+             * Advance to the next key/value pair.
+             */
+            @Override
+            public boolean nextKeyValue() throws IOException, InterruptedException {
+                iterator.next();
+                return true;
+            }
+
+            public Object getCurrentKey() {
+              return iterator.getKey();
+            }
+
+            @Override
+            public Object getCurrentValue() {
+              return iterator.getValue();
+            }
+            
+            /**
+             * Generate an output key/value pair.
+             */
+            @Override
+            public void write(Object key, Object value
+                              ) throws IOException, InterruptedException {
+              output.collect(key, value);
+            }
+
+        }
+            
+        public ReducerAggregator(Object reducer) throws HyracksDataException{
             this.reducer = reducer;
-            Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-            reducer.configure(getJobConf());
+            initializeReducer();
             output = new DataWritingOutputCollector<K3, V3>();
             reporter = new Reporter() {
-
                 @Override
                 public void progress() {
 
@@ -100,15 +196,22 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
 
         @Override
         public void aggregate(IDataReader<Object[]> reader, IDataWriter<Object[]> writer) throws HyracksDataException {
-
+            Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
             ValueIterator i = new ValueIterator();
             i.reset(reader);
             output.setWriter(writer);
             try {
-
-                // -- - reduce - --
-                reducer.reduce(i.getKey(), i, output, reporter);
-
+                if(jobConf.getUseNewReducer()){
+                    try {
+                        reducerContext.setIterator(i);
+                        ((org.apache.hadoop.mapreduce.Reducer)reducer).run(reducerContext);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        throw new HyracksDataException(e);
+                    }
+                } else {  
+                    ((org.apache.hadoop.mapred.Reducer)reducer).reduce(i.getKey(), i, output, reporter);
+                }    
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -118,9 +221,32 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
         public void close() throws HyracksDataException {
             // -- - close - --
             try {
-                reducer.close();
+                if(!jobConf.getUseNewMapper()) {
+                    ((org.apache.hadoop.mapred.Reducer)reducer).close();
+                }    
             } catch (IOException e) {
                 throw new HyracksDataException(e);
+            }
+        }
+        
+        private void initializeReducer() throws HyracksDataException {
+            jobConf.setClassLoader(this.getClass().getClassLoader());
+            if(!jobConf.getUseNewReducer()) {
+                ((org.apache.hadoop.mapred.Reducer)reducer).configure(getJobConf());    
+            } else {
+                try {
+                    reducerContext = new ReducerContext((org.apache.hadoop.mapreduce.Reducer)reducer,jobConf);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw new HyracksDataException(e);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    throw new HyracksDataException(e);
+                } catch (RuntimeException e){
+                    e.printStackTrace();
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -132,6 +258,10 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
 
         public K2 getKey() {
             return key;
+        }
+        
+        public V2 getValue() {
+            return value;
         }
 
         @Override
@@ -178,22 +308,28 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
     }
 
     private static final long serialVersionUID = 1L;
-    private Class<? extends Reducer> reducerClass;
+    private Class reducerClass;
     private IComparatorFactory comparatorFactory;
 
     public HadoopReducerOperatorDescriptor(JobSpecification spec, JobConf conf, IComparatorFactory comparatorFactory,
             IHadoopClassFactory classFactory) {
-        super(spec, getRecordDescriptor(conf, classFactory), conf, classFactory);
+        super(spec, 1, getRecordDescriptor(conf, classFactory), conf, classFactory);
         this.comparatorFactory = comparatorFactory;
     }
 
-    private Reducer<K2, V2, K3, V3> createReducer() throws Exception {
+    private Object createReducer() throws Exception {
         if (reducerClass != null) {
-            return reducerClass.newInstance();
+            return ReflectionUtils.newInstance(reducerClass, getJobConf());
         } else {
-            Object reducer = getHadoopClassFactory().createReducer(getJobConf().getReducerClass().getName());
-            reducerClass = (Class<? extends Reducer>) reducer.getClass();
-            return (Reducer) reducer;
+            Object reducer;
+            if(getJobConf().getUseNewReducer()){
+                JobContext jobContext = new JobContext(getJobConf(), null);
+                reducerClass = (Class<? extends org.apache.hadoop.mapreduce.Reducer<?,?,?,?>> )jobContext.getReducerClass();
+            } else {
+                reducerClass = (Class<? extends Reducer>) getJobConf().getReducerClass();
+            }
+            reducer = getHadoopClassFactory().createReducer(reducerClass.getName(),getJobConf());
+            return reducer;
         }
     }
 
@@ -203,6 +339,7 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
         try {
             if (this.comparatorFactory == null) {
                 String comparatorClassName = getJobConf().getOutputValueGroupingComparator().getClass().getName();
+                Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
                 RawComparator rawComparator = null;
                 if (comparatorClassName != null) {
                     Class comparatorClazz = getHadoopClassFactory().loadClass(comparatorClassName);
@@ -216,7 +353,7 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
                         rawComparator = WritableComparator.get((Class<? extends WritableComparable>) Class
                                 .forName(mapOutputKeyClass));
                     }
-                    this.comparatorFactory = new WritableComparingComparatorFactory(rawComparator.getClass());
+                    this.comparatorFactory = new RawComparingComparatorFactory(rawComparator.getClass());
                 }
             }
             IOpenableDataWriterOperator op = new DeserializedPreclusteredGroupOperator(new int[] { 0 },
@@ -229,8 +366,18 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
     }
 
     public static RecordDescriptor getRecordDescriptor(JobConf conf, IHadoopClassFactory classFactory) {
-        String outputKeyClassName = conf.getOutputKeyClass().getName();
-        String outputValueClassName = conf.getOutputValueClass().getName();
+        String outputKeyClassName =null; 
+        String outputValueClassName = null;
+        
+        if(conf.getUseNewMapper()) {
+            JobContext context = new JobContext(conf,null);
+            outputKeyClassName = context.getOutputKeyClass().getName();
+            outputValueClassName = context.getOutputValueClass().getName();
+        } else {
+            outputKeyClassName = conf.getOutputKeyClass().getName();
+            outputValueClassName = conf.getOutputValueClass().getName();
+        }
+        
         RecordDescriptor recordDescriptor = null;
         try {
             if (classFactory == null) {

@@ -14,7 +14,9 @@
  */
 package edu.uci.ics.hyracks.api.exceptions;
 
-public class HyracksException extends Exception {
+import java.io.IOException;
+
+public class HyracksException extends IOException {
     private static final long serialVersionUID = 1L;
 
     public HyracksException() {

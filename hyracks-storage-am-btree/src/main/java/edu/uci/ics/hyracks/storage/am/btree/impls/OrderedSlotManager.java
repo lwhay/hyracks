@@ -25,40 +25,50 @@ public class OrderedSlotManager implements ISlotManager {
 	private static final int slotSize = 4;
 	private IBTreeFrame frame;
 	
-	// TODO: mix in interpolation search
 	@Override
-	public int findSlot(ITupleReference tuple, IBTreeTupleReference pageTuple, MultiComparator multiCmp, boolean exact) {
+	public int findTupleIndex(ITupleReference searchKey, IBTreeTupleReference frameTuple, MultiComparator multiCmp, FindTupleMode mode, FindTupleNoExactMatchPolicy matchPolicy) {
 		if(frame.getTupleCount() <= 0) return -1;
 				
 		int mid;
 		int begin = 0;
 		int end = frame.getTupleCount() - 1;
-				
+		
         while(begin <= end) {
-            mid = (begin + end) / 2;
-        	int slotOff = getSlotOff(mid);        	
-        	int tupleOff = getTupleOff(slotOff);
-        	pageTuple.resetByOffset(frame.getBuffer(), tupleOff);
+            mid = (begin + end) / 2;        	
+        	frameTuple.resetByTupleIndex(frame, mid);
         	
-        	int cmp = multiCmp.compare(tuple, pageTuple);
-        	if(cmp < 0)
+        	int cmp = multiCmp.compare(searchKey, frameTuple);
+        	if(cmp < 0) {
         		end = mid - 1;
-        	else if(cmp > 0)
+        	}
+        	else if(cmp > 0) {
         		begin = mid + 1;
-        	else
-        		return slotOff;
+        	}
+        	else {
+        		if(mode == FindTupleMode.FTM_EXCLUSIVE) {
+        			if(matchPolicy == FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY) begin = mid + 1;
+        			else end = mid - 1;
+        		}
+        		else {        			
+        			return mid;
+        		}        		        		
+        	}
         }
                         
-        if(exact) return -1;             
-        if(begin > frame.getTupleCount() - 1) return -1;   
+        if(mode == FindTupleMode.FTM_EXACT) return -1;            
         
-        int slotOff = getSlotOff(begin);
-        int tupleOff = getTupleOff(slotOff);
-        pageTuple.resetByOffset(frame.getBuffer(), tupleOff);
-        if(multiCmp.compare(tuple, pageTuple)  < 0)
-        	return slotOff;
-        else
-        	return -1;		
+        if(matchPolicy == FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY) {
+        	if(begin > frame.getTupleCount() - 1) return -1;
+        	frameTuple.resetByTupleIndex(frame, begin);
+        	if(multiCmp.compare(searchKey, frameTuple) < 0) return begin;
+            else return -1;
+        }
+        else {
+        	if(end < 0) return -1;
+        	frameTuple.resetByTupleIndex(frame, end);
+        	if(multiCmp.compare(searchKey, frameTuple) > 0) return end;
+            else return -1;
+        }               
 	}
 	
 	@Override
@@ -87,8 +97,9 @@ public class OrderedSlotManager implements ISlotManager {
 	}
 	
 	@Override
-	public int insertSlot(int slotOff, int tupleOff) {
-		if(slotOff < 0) {
+	public int insertSlot(int tupleIndex, int tupleOff) {				
+		int slotOff = getSlotOff(tupleIndex);
+		if(tupleIndex < 0) {
 			slotOff = getSlotEndOff() - slotSize;
 			setSlot(slotOff, tupleOff);
 			return slotOff;
@@ -108,7 +119,7 @@ public class OrderedSlotManager implements ISlotManager {
 	}
 	
 	@Override
-	public int getSlotOff(int slotNum) {
-		return getSlotStartOff() - slotNum * slotSize;
+	public int getSlotOff(int tupleIndex) {
+		return getSlotStartOff() - tupleIndex * slotSize;
 	}	
 }

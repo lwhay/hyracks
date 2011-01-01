@@ -15,7 +15,9 @@ import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.TypeTrait;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.IntegerBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.UTF8StringBinaryComparatorFactory;
@@ -25,6 +27,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializer
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
 import edu.uci.ics.hyracks.examples.btree.helper.BTreeRegistryProvider;
 import edu.uci.ics.hyracks.examples.btree.helper.BufferCacheProvider;
@@ -39,6 +42,7 @@ import edu.uci.ics.hyracks.storage.am.btree.dataflow.IFileMappingProviderProvide
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMLeafFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeOp;
+import edu.uci.ics.hyracks.storage.am.btree.tuples.TypeAwareTupleWriterFactory;
 
 // This example will insert tuples into the primary and secondary index using an insert pipeline
 
@@ -59,11 +63,11 @@ public class InsertPipelineExample {
         @Option(name = "-num-tuples", usage = "Total number of tuples to to be generated for insertion", required = true)
         public int numTuples;
         
-        @Option(name = "-primary-name", usage = "B-Tree file name of primary index", required = true)
-        public String primaryBtreeName;
+        @Option(name = "-primary-btreename", usage = "B-Tree file name of primary index", required = true)
+        public String primaryBTreeName;
         
-        @Option(name = "-secondary-name", usage = "B-Tree file name of secondary index", required = true)
-        public String secondaryBtreeName;                
+        @Option(name = "-secondary-btreename", usage = "B-Tree file name of secondary index", required = true)
+        public String secondaryBTreeName;            
     }
 
     public static void main(String[] args) throws Exception {
@@ -104,10 +108,7 @@ public class InsertPipelineExample {
         // run data generator on first nodecontroller given
         PartitionConstraint dataGenConstraint = new ExplicitPartitionConstraint(new LocationConstraint[] { new AbsoluteLocationConstraint(splitNCs[0]) });
         dataGen.setPartitionConstraint(dataGenConstraint);
-        
-        // create factories and providers for B-Trees
-        IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory();
-        IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory();        
+                
         IBufferCacheProvider bufferCacheProvider = BufferCacheProvider.INSTANCE;
         IBTreeRegistryProvider btreeRegistryProvider = BTreeRegistryProvider.INSTANCE;
         IFileMappingProviderProvider fileMappingProviderProvider = FileMappingProviderProvider.INSTANCE;
@@ -115,33 +116,55 @@ public class InsertPipelineExample {
         // prepare insertion into primary index
         // tuples to be put into B-Tree shall have 4 fields
         int primaryFieldCount = 4;
+        ITypeTrait[] primaryTypeTraits = new ITypeTrait[primaryFieldCount];
+        primaryTypeTraits[0] = new TypeTrait(4);
+        primaryTypeTraits[1] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        primaryTypeTraits[2] = new TypeTrait(4);
+        primaryTypeTraits[3] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        
+        // create factories and providers for secondary B-Tree
+        TypeAwareTupleWriterFactory primaryTupleWriterFactory = new TypeAwareTupleWriterFactory(primaryTypeTraits);
+        IBTreeInteriorFrameFactory primaryInteriorFrameFactory = new NSMInteriorFrameFactory(primaryTupleWriterFactory);
+        IBTreeLeafFrameFactory primaryLeafFrameFactory = new NSMLeafFrameFactory(primaryTupleWriterFactory);
+        
         // the B-Tree expects its keyfields to be at the front of its input tuple 
         int[] primaryFieldPermutation = { 2, 1, 3, 4 }; // map field 2 of input tuple to field 0 of B-Tree tuple, etc.
         // comparator factories for primary index
         IBinaryComparatorFactory[] primaryComparatorFactories = new IBinaryComparatorFactory[1];
 		primaryComparatorFactories[0] = IntegerBinaryComparatorFactory.INSTANCE;
+		IFileSplitProvider primarySplitProvider = JobHelper.createFileSplitProvider(splitNCs, options.primaryBTreeName);
 		// create operator descriptor
-        BTreeInsertUpdateDeleteOperatorDescriptor primaryInsert = new BTreeInsertUpdateDeleteOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, options.primaryBtreeName, fileMappingProviderProvider, interiorFrameFactory, leafFrameFactory, primaryFieldCount, primaryComparatorFactories, primaryFieldPermutation, BTreeOp.BTO_INSERT);
-        PartitionConstraint primaryInsertConstraint = createPartitionConstraint(splitNCs);
+        BTreeInsertUpdateDeleteOperatorDescriptor primaryInsert = new BTreeInsertUpdateDeleteOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, primarySplitProvider, fileMappingProviderProvider, primaryInteriorFrameFactory, primaryLeafFrameFactory, primaryTypeTraits, primaryComparatorFactories, primaryFieldPermutation, BTreeOp.BTO_INSERT);
+        PartitionConstraint primaryInsertConstraint = JobHelper.createPartitionConstraint(splitNCs);
         primaryInsert.setPartitionConstraint(primaryInsertConstraint);
         
         // prepare insertion into secondary index
         // tuples to be put into B-Tree shall have 2 fields
-        int secondaryFieldCount = 2;
+        int secondaryFieldCount = 2;       
+        ITypeTrait[] secondaryTypeTraits = new ITypeTrait[secondaryFieldCount];
+        secondaryTypeTraits[0] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        secondaryTypeTraits[1] = new TypeTrait(4); 
+        
+        // create factories and providers for secondary B-Tree
+        TypeAwareTupleWriterFactory secondaryTupleWriterFactory = new TypeAwareTupleWriterFactory(secondaryTypeTraits);
+        IBTreeInteriorFrameFactory secondaryInteriorFrameFactory = new NSMInteriorFrameFactory(secondaryTupleWriterFactory);
+        IBTreeLeafFrameFactory secondaryLeafFrameFactory = new NSMLeafFrameFactory(secondaryTupleWriterFactory);
+        
         // the B-Tree expects its keyfields to be at the front of its input tuple 
         int[] secondaryFieldPermutation = { 1, 2 };
         // comparator factories for primary index
         IBinaryComparatorFactory[] secondaryComparatorFactories = new IBinaryComparatorFactory[2];
 		secondaryComparatorFactories[0] = UTF8StringBinaryComparatorFactory.INSTANCE;
 		secondaryComparatorFactories[1] = IntegerBinaryComparatorFactory.INSTANCE;
+		IFileSplitProvider secondarySplitProvider = JobHelper.createFileSplitProvider(splitNCs, options.secondaryBTreeName);
 		// create operator descriptor
-        BTreeInsertUpdateDeleteOperatorDescriptor secondaryInsert = new BTreeInsertUpdateDeleteOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, options.secondaryBtreeName, fileMappingProviderProvider, interiorFrameFactory, leafFrameFactory, secondaryFieldCount, secondaryComparatorFactories, secondaryFieldPermutation, BTreeOp.BTO_INSERT);
-        PartitionConstraint secondaryInsertConstraint = createPartitionConstraint(splitNCs);
+        BTreeInsertUpdateDeleteOperatorDescriptor secondaryInsert = new BTreeInsertUpdateDeleteOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, secondarySplitProvider, fileMappingProviderProvider, secondaryInteriorFrameFactory, secondaryLeafFrameFactory, secondaryTypeTraits, secondaryComparatorFactories, secondaryFieldPermutation, BTreeOp.BTO_INSERT);
+        PartitionConstraint secondaryInsertConstraint = JobHelper.createPartitionConstraint(splitNCs);
         secondaryInsert.setPartitionConstraint(secondaryInsertConstraint);
         
         // end the insert pipeline at this sink operator
         NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
-        PartitionConstraint nullSinkPartitionConstraint = createPartitionConstraint(splitNCs);
+        PartitionConstraint nullSinkPartitionConstraint = JobHelper.createPartitionConstraint(splitNCs);
         nullSink.setPartitionConstraint(nullSinkPartitionConstraint);
                 
         // distribute the records from the datagen via hashing to the bulk load ops
@@ -161,13 +184,5 @@ public class InsertPipelineExample {
         spec.addRoot(nullSink);
     	    	
     	return spec;
-    }
-    
-    private static PartitionConstraint createPartitionConstraint(String[] splitNCs) {
-    	LocationConstraint[] lConstraints = new LocationConstraint[splitNCs.length];
-        for (int i = 0; i < splitNCs.length; ++i) {
-            lConstraints[i] = new AbsoluteLocationConstraint(splitNCs[i]);
-        }
-        return new ExplicitPartitionConstraint(lConstraints);
-    }
+    }    
 }

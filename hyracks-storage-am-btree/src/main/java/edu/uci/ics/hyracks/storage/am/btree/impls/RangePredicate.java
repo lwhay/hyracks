@@ -25,27 +25,39 @@ public class RangePredicate implements ISearchPredicate {
 	protected boolean isForward = true;
 	protected ITupleReference lowKey = null;
 	protected ITupleReference highKey = null;
-	protected MultiComparator cmp;
+	protected boolean lowKeyInclusive = true;
+	protected boolean highKeyInclusive = true;
+	protected MultiComparator lowKeyCmp;
+	protected MultiComparator highKeyCmp;
 	
 	public RangePredicate() {
 	}
 	
-	// TODO: for now range is [lowKey, highKey] but depending on user predicate the range could be exclusive on any end
-	// need to model this somehow	
-	// for point queries just use same value for low and high key
-	public RangePredicate(boolean isForward, ITupleReference lowKey, ITupleReference highKey, MultiComparator cmp) {
+	public RangePredicate(boolean isForward, ITupleReference lowKey, ITupleReference highKey, 
+			boolean lowKeyInclusive, boolean highKeyInclusive, MultiComparator lowKeyCmp, MultiComparator highKeyCmp) {
 		this.isForward = isForward;
 		this.lowKey = lowKey;
 		this.highKey = highKey;
-		this.cmp = cmp;
+		this.lowKeyInclusive = lowKeyInclusive;
+		this.highKeyInclusive = highKeyInclusive;
+		this.lowKeyCmp = lowKeyCmp;
+		this.highKeyCmp = highKeyCmp;
 	}
 	
-	public MultiComparator getComparator() {
-		return cmp;
+	public MultiComparator getLowKeyComparator() {
+		return lowKeyCmp;
 	}
 	
-	public void setComparator(MultiComparator cmp) {
-		this.cmp = cmp;
+	public MultiComparator getHighKeyComparator() {
+		return highKeyCmp;
+	}
+	
+	public void setLowKeyComparator(MultiComparator lowKeyCmp) {
+		this.lowKeyCmp = lowKeyCmp;
+	}
+	
+	public void setHighKeyComparator(MultiComparator highKeyCmp) {
+		this.highKeyCmp = highKeyCmp;
 	}
 	
 	public boolean isForward() {
@@ -60,11 +72,23 @@ public class RangePredicate implements ISearchPredicate {
 		return highKey;
 	}
 	
-	public void setLowKey(ITupleReference lowKey) {
+	public void setLowKey(ITupleReference lowKey, boolean lowKeyInclusive) {
 		this.lowKey = lowKey;
+		this.lowKeyInclusive = lowKeyInclusive;
 	}
 	
-	public void setHighKey(ITupleReference highKey) {
+	public void setHighKey(ITupleReference highKey, boolean highKeyInclusive) {
 		this.highKey = highKey;
+		this.highKeyInclusive = highKeyInclusive;
+	}
+	
+	public boolean isLowKeyInclusive() {
+		return lowKeyInclusive;
+	}
+	
+	public boolean isHighKeyInclusive() {
+		return highKeyInclusive;
 	}
 }
+
+

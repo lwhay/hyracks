@@ -21,13 +21,14 @@ import java.util.Collections;
 import java.util.Comparator;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.storage.am.btree.api.IFrameCompressor;
 import edu.uci.ics.hyracks.storage.am.btree.api.IPrefixSlotManager;
 import edu.uci.ics.hyracks.storage.am.btree.frames.FieldPrefixNSMLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.FieldPrefixSlotManager;
 import edu.uci.ics.hyracks.storage.am.btree.impls.FieldPrefixTupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.impls.MultiComparator;
-import edu.uci.ics.hyracks.storage.am.btree.impls.SimpleTupleWriter;
+import edu.uci.ics.hyracks.storage.am.btree.tuples.TypeAwareTupleWriter;
 
 public class FieldPrefixCompressor implements IFrameCompressor {
 	
@@ -37,9 +38,12 @@ public class FieldPrefixCompressor implements IFrameCompressor {
 	// minimum number of tuple matching field prefixes to consider compressing them 
 	private int occurrenceThreshold;
 	
-	public FieldPrefixCompressor(float ratioThreshold, int occurrenceThreshold) {
+	private ITypeTrait[] typeTraits;
+	
+	public FieldPrefixCompressor(ITypeTrait[] typeTraits, float ratioThreshold, int occurrenceThreshold) {
+		this.typeTraits = typeTraits;
 		this.ratioThreshold = ratioThreshold;
-		this.occurrenceThreshold = occurrenceThreshold;
+		this.occurrenceThreshold = occurrenceThreshold;		
 	}
 	
 	@Override
@@ -125,9 +129,7 @@ public class FieldPrefixCompressor implements IFrameCompressor {
         else {
             newPrefixSlots = new int[totalSlotsNeeded];
         }
-        
-        //System.out.println("TOTALPREFIXBYTES: " + totalPrefixBytes);
-        
+                
         int[] newTupleSlots = new int[tupleCount];
         
         // WARNING: our hope is that compression is infrequent
@@ -145,16 +147,16 @@ public class FieldPrefixCompressor implements IFrameCompressor {
         int prefixTupleIndex = 0;
         uncompressedTupleCount = 0;
         
-        FieldPrefixTupleReference tupleToWrite = new FieldPrefixTupleReference();
-        tupleToWrite.setFieldCount(fieldCount);
+        TypeAwareTupleWriter tupleWriter = new TypeAwareTupleWriter(typeTraits);   
         
-        SimpleTupleWriter tupleWriter = new SimpleTupleWriter();
+        FieldPrefixTupleReference tupleToWrite = new FieldPrefixTupleReference(tupleWriter.createTupleReference());
+        tupleToWrite.setFieldCount(fieldCount);                
         
         while(tupleIndex < tupleCount) {           
-            if(kpIndex < keyPartitions.size()) {
+            if(kpIndex < keyPartitions.size()) {            	
             	
             	// beginning of keyPartition found, compress entire keyPartition
-            	if(tupleIndex == keyPartitions.get(kpIndex).firstTupleIndex) {            		
+            	if(tupleIndex == keyPartitions.get(kpIndex).firstTupleIndex) {            		            		
             		
             		// number of fields we decided to use for compression of this keyPartition
             		int numFieldsToCompress = keyPartitions.get(kpIndex).maxPmiIndex + 1;            		
@@ -163,10 +165,10 @@ public class FieldPrefixCompressor implements IFrameCompressor {
             		
             		//System.out.println("PROCESSING KEYPARTITION: " + kpIndex + " RANGE: " + keyPartitions.get(kpIndex).firstRecSlotNum + " " + keyPartitions.get(kpIndex).lastRecSlotNum + " FIELDSTOCOMPRESS: " + numFieldsToCompress);
             		
-            		FieldPrefixTupleReference prevTuple = new FieldPrefixTupleReference();
+            		FieldPrefixTupleReference prevTuple = new FieldPrefixTupleReference(tupleWriter.createTupleReference());
             		prevTuple.setFieldCount(fieldCount);
             		
-            		FieldPrefixTupleReference tuple = new FieldPrefixTupleReference();
+            		FieldPrefixTupleReference tuple = new FieldPrefixTupleReference(tupleWriter.createTupleReference());
             		tuple.setFieldCount(fieldCount);
             		            	
                     for(int i = tupleIndex + 1; i <= keyPartitions.get(kpIndex).lastTupleIndex; i++) {
@@ -319,14 +321,14 @@ public class FieldPrefixCompressor implements IFrameCompressor {
         KeyPartition kp = new KeyPartition(maxCmps);        
         keyPartitions.add(kp);
         
-        FieldPrefixTupleReference prevTuple = new FieldPrefixTupleReference();
+        TypeAwareTupleWriter tupleWriter = new TypeAwareTupleWriter(typeTraits);
+        
+        FieldPrefixTupleReference prevTuple = new FieldPrefixTupleReference(tupleWriter.createTupleReference());
 		prevTuple.setFieldCount(fieldCount);
 		
-		FieldPrefixTupleReference tuple = new FieldPrefixTupleReference();
+		FieldPrefixTupleReference tuple = new FieldPrefixTupleReference(tupleWriter.createTupleReference());
 		tuple.setFieldCount(fieldCount);
-		
-		SimpleTupleWriter tupleWriter = new SimpleTupleWriter();
-		
+				
         kp.firstTupleIndex = 0;        
         int tupleCount = frame.getTupleCount();
         for(int i = 1; i < tupleCount; i++) {        	        	

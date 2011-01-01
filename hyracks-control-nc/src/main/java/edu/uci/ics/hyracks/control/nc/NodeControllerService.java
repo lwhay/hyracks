@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.control.nc;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.rmi.registry.LocateRegistry;
@@ -73,6 +74,7 @@ import edu.uci.ics.hyracks.api.job.profiling.counters.ICounter;
 import edu.uci.ics.hyracks.control.common.AbstractRemoteService;
 import edu.uci.ics.hyracks.control.common.application.ApplicationContext;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
+import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.control.nc.comm.ConnectionManager;
 import edu.uci.ics.hyracks.control.nc.comm.DemuxDataReceiveListenerFactory;
 import edu.uci.ics.hyracks.control.nc.comm.PartitionInfo;
@@ -107,7 +109,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
 
     private final ServerContext serverCtx;
 
-    private final Map<String, ApplicationContext> applications;
+    private final Map<String, NCApplicationContext> applications;
 
     private final PartitionManager partitionManager;
 
@@ -127,7 +129,7 @@ public class NodeControllerService extends AbstractRemoteService implements INod
         timer = new Timer(true);
         serverCtx = new ServerContext(ServerContext.ServerType.NODE_CONTROLLER, new File(new File(
                 NodeControllerService.class.getName()), id));
-        applications = new Hashtable<String, ApplicationContext>();
+        applications = new Hashtable<String, NCApplicationContext>();
         partitionManager = new PartitionManager(this);
     }
 
@@ -481,13 +483,14 @@ public class NodeControllerService extends AbstractRemoteService implements INod
     }
 
     @Override
-    public void createApplication(String appName, boolean deployHar) throws Exception {
-        ApplicationContext appCtx;
+    public void createApplication(String appName, boolean deployHar, byte[] serializedDistributedState)
+            throws Exception {
+        NCApplicationContext appCtx;
         synchronized (applications) {
             if (applications.containsKey(appName)) {
                 throw new HyracksException("Duplicate application with name: " + appName + " being created.");
             }
-            appCtx = new ApplicationContext(serverCtx, appName);
+            appCtx = new NCApplicationContext(serverCtx, appName);
             applications.put(appName, appCtx);
         }
         if (deployHar) {
@@ -504,6 +507,8 @@ public class NodeControllerService extends AbstractRemoteService implements INod
                 is.close();
             }
         }
+        appCtx.initializeClassPath();
+        appCtx.setDistributedState((Serializable) appCtx.deserialize(serializedDistributedState));
         appCtx.initialize();
     }
 

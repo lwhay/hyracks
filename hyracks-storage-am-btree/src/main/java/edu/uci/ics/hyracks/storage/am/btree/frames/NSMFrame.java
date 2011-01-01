@@ -27,12 +27,13 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeFrame;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeTupleReference;
+import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeTupleWriter;
 import edu.uci.ics.hyracks.storage.am.btree.api.ISlotManager;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeException;
+import edu.uci.ics.hyracks.storage.am.btree.impls.FindTupleMode;
+import edu.uci.ics.hyracks.storage.am.btree.impls.FindTupleNoExactMatchPolicy;
 import edu.uci.ics.hyracks.storage.am.btree.impls.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.btree.impls.OrderedSlotManager;
-import edu.uci.ics.hyracks.storage.am.btree.impls.SimpleTupleReference;
-import edu.uci.ics.hyracks.storage.am.btree.impls.SimpleTupleWriter;
 import edu.uci.ics.hyracks.storage.am.btree.impls.SlotOffTupleOff;
 import edu.uci.ics.hyracks.storage.am.btree.impls.SpaceStatus;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
@@ -49,12 +50,14 @@ public abstract class NSMFrame implements IBTreeFrame {
 	protected ICachedPage page = null;
 	protected ByteBuffer buf = null;
 	protected ISlotManager slotManager;
+		
+	protected IBTreeTupleWriter tupleWriter;
+	protected IBTreeTupleReference frameTuple;
 	
-	protected SimpleTupleWriter tupleWriter = new SimpleTupleWriter();
-	protected SimpleTupleReference frameTuple = new SimpleTupleReference();
-	
-	public NSMFrame() {
-		this.slotManager = new OrderedSlotManager();
+	public NSMFrame(IBTreeTupleWriter tupleWriter) {
+		this.tupleWriter = tupleWriter;
+		this.frameTuple = tupleWriter.createTupleReference();
+		this.slotManager = new OrderedSlotManager();		
 	}
 	
 	@Override
@@ -155,8 +158,9 @@ public abstract class NSMFrame implements IBTreeFrame {
 	@Override
 	public void delete(ITupleReference tuple, MultiComparator cmp, boolean exactDelete) throws Exception {		
 		frameTuple.setFieldCount(cmp.getFieldCount());
-		int slotOff = slotManager.findSlot(tuple, frameTuple, cmp, true);
-		if(slotOff < 0) {
+		int tupleIndex = slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.FTM_EXACT, FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
+		int slotOff = slotManager.getSlotOff(tupleIndex);
+		if(tupleIndex < 0) {
 			throw new BTreeException("Key to be deleted does not exist.");
 		}
 		else {
@@ -188,7 +192,7 @@ public abstract class NSMFrame implements IBTreeFrame {
 	
 	@Override
 	public SpaceStatus hasSpaceInsert(ITupleReference tuple, MultiComparator cmp) {				
-		int bytesRequired = tupleWriter.bytesRequired(tuple);		
+		int bytesRequired = tupleWriter.bytesRequired(tuple);
 		if(bytesRequired + slotManager.getSlotSize() <= buf.capacity() - buf.getInt(freeSpaceOff) - (buf.getInt(tupleCountOff) * slotManager.getSlotSize()) ) return SpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE;
 		else if(bytesRequired + slotManager.getSlotSize() <= buf.getInt(totalFreeSpaceOff)) return SpaceStatus.SUFFICIENT_SPACE;
 		else return SpaceStatus.INSUFFICIENT_SPACE;
@@ -208,8 +212,8 @@ public abstract class NSMFrame implements IBTreeFrame {
 	@Override
 	public void insert(ITupleReference tuple, MultiComparator cmp) throws Exception {
 		frameTuple.setFieldCount(cmp.getFieldCount());
-		int slotOff = slotManager.findSlot(tuple, frameTuple, cmp, false);		
-		slotOff = slotManager.insertSlot(slotOff, buf.getInt(freeSpaceOff));				
+		int tupleIndex = slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.FTM_INCLUSIVE, FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
+		slotManager.insertSlot(tupleIndex, buf.getInt(freeSpaceOff));				
 		int bytesWritten = tupleWriter.writeTuple(tuple, buf, buf.getInt(freeSpaceOff));
 		
 		buf.putInt(tupleCountOff, buf.getInt(tupleCountOff) + 1);
@@ -242,10 +246,10 @@ public abstract class NSMFrame implements IBTreeFrame {
 	public String printKeys(MultiComparator cmp, ISerializerDeserializer[] fields) throws HyracksDataException {		
 		StringBuilder strBuilder = new StringBuilder();		
 		int tupleCount = buf.getInt(tupleCountOff);
-		frameTuple.setFieldCount(fields.length);
+		frameTuple.setFieldCount(fields.length);	
 		for(int i = 0; i < tupleCount; i++) {						
 			frameTuple.resetByTupleIndex(this, i);												
-			for(int j = 0; j < cmp.getKeyFieldCount(); j++) {
+			for(int j = 0; j < cmp.getKeyFieldCount(); j++) {				
 				ByteArrayInputStream inStream = new ByteArrayInputStream(frameTuple.getFieldData(j), frameTuple.getFieldStart(j), frameTuple.getFieldLength(j));
 				DataInput dataIn = new DataInputStream(inStream);
 				Object o = fields[j].deserialize(dataIn);
@@ -286,14 +290,13 @@ public abstract class NSMFrame implements IBTreeFrame {
     public int getSlotSize() {
     	return slotManager.getSlotSize();
     }
-    
-    @Override
-    public IBTreeTupleReference createTupleReference() {
-    	return new SimpleTupleReference();
-    }
-    
+        
     @Override
 	public void setPageTupleFieldCount(int fieldCount) {
 		frameTuple.setFieldCount(fieldCount);
 	}
+    
+    public IBTreeTupleWriter getTupleWriter() {
+    	return tupleWriter;
+    }
 }

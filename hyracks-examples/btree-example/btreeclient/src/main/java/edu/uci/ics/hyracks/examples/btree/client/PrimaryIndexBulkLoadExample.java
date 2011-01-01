@@ -29,7 +29,9 @@ import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.TypeTrait;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.IntegerBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.hash.UTF8StringBinaryHashFunctionFactory;
@@ -38,6 +40,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializer
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.examples.btree.helper.BTreeRegistryProvider;
 import edu.uci.ics.hyracks.examples.btree.helper.BufferCacheProvider;
@@ -51,6 +54,7 @@ import edu.uci.ics.hyracks.storage.am.btree.dataflow.IBufferCacheProvider;
 import edu.uci.ics.hyracks.storage.am.btree.dataflow.IFileMappingProviderProvider;
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMLeafFrameFactory;
+import edu.uci.ics.hyracks.storage.am.btree.tuples.TypeAwareTupleWriterFactory;
 
 // This example will load a primary index from randomly generated data
 
@@ -124,24 +128,32 @@ public class PrimaryIndexBulkLoadExample {
         IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[1];
         comparatorFactories[0] = IntegerBinaryComparatorFactory.INSTANCE;        
         ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, options.sbSize, sortFields, comparatorFactories, recDesc);
-        PartitionConstraint sorterConstraint = createPartitionConstraint(splitNCs);
+        PartitionConstraint sorterConstraint = JobHelper.createPartitionConstraint(splitNCs);
         sorter.setPartitionConstraint(sorterConstraint);
-        
-        // create factories and providers for B-Tree
-        IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory();
-        IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory();        
-        IBufferCacheProvider bufferCacheProvider = BufferCacheProvider.INSTANCE;
-        IBTreeRegistryProvider btreeRegistryProvider = BTreeRegistryProvider.INSTANCE;
-        IFileMappingProviderProvider fileMappingProviderProvider = FileMappingProviderProvider.INSTANCE;
         
         // tuples to be put into B-Tree shall have 4 fields
         int fieldCount = 4;
+        ITypeTrait[] typeTraits = new ITypeTrait[fieldCount];
+        typeTraits[0] = new TypeTrait(4);
+        typeTraits[1] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        typeTraits[2] = new TypeTrait(4);
+        typeTraits[3] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        
+        // create factories and providers for B-Tree
+        TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory(tupleWriterFactory);
+        IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory(tupleWriterFactory);        
+        IBufferCacheProvider bufferCacheProvider = BufferCacheProvider.INSTANCE;
+        IBTreeRegistryProvider btreeRegistryProvider = BTreeRegistryProvider.INSTANCE;
+        IFileMappingProviderProvider fileMappingProviderProvider = FileMappingProviderProvider.INSTANCE;        
+        
         // the B-Tree expects its keyfields to be at the front of its input tuple 
         int[] fieldPermutation = { 2, 1, 3, 4 }; // map field 2 of input tuple to field 0 of B-Tree tuple, etc.
+        IFileSplitProvider btreeSplitProvider = JobHelper.createFileSplitProvider(splitNCs, options.btreeName);
         BTreeBulkLoadOperatorDescriptor btreeBulkLoad = new BTreeBulkLoadOperatorDescriptor(spec, 
-        		bufferCacheProvider, btreeRegistryProvider, options.btreeName, fileMappingProviderProvider, interiorFrameFactory,
-                leafFrameFactory, fieldCount, comparatorFactories, fieldPermutation, 0.7f);
-        PartitionConstraint bulkLoadConstraint = createPartitionConstraint(splitNCs);
+        		bufferCacheProvider, btreeRegistryProvider, btreeSplitProvider, fileMappingProviderProvider, interiorFrameFactory,
+                leafFrameFactory, typeTraits, comparatorFactories, fieldPermutation, 0.7f);
+        PartitionConstraint bulkLoadConstraint = JobHelper.createPartitionConstraint(splitNCs);
         btreeBulkLoad.setPartitionConstraint(bulkLoadConstraint);
         
         // distribute the records from the datagen via hashing to the bulk load ops
@@ -157,13 +169,5 @@ public class PrimaryIndexBulkLoadExample {
         spec.addRoot(btreeBulkLoad);
     	    	
     	return spec;
-    }
-    
-    private static PartitionConstraint createPartitionConstraint(String[] splitNCs) {
-    	LocationConstraint[] lConstraints = new LocationConstraint[splitNCs.length];
-        for (int i = 0; i < splitNCs.length; ++i) {
-            lConstraints[i] = new AbsoluteLocationConstraint(splitNCs[i]);
-        }
-        return new ExplicitPartitionConstraint(lConstraints);
-    }
+    }    
 }

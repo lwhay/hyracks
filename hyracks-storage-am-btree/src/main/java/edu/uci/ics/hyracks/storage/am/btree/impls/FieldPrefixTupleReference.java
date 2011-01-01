@@ -13,7 +13,11 @@ public class FieldPrefixTupleReference implements IBTreeTupleReference {
 	private int suffixTupleStartOff;
 	private int numPrefixFields;
 	private int fieldCount;
-	private SimpleTupleReference helperTuple = new SimpleTupleReference();	
+	private IBTreeTupleReference helperTuple;
+	
+	public FieldPrefixTupleReference(IBTreeTupleReference helperTuple) {
+		this.helperTuple = helperTuple;
+	}
 	
 	@Override
 	public void resetByTupleIndex(IBTreeFrame frame, int tupleIndex) {
@@ -42,6 +46,11 @@ public class FieldPrefixTupleReference implements IBTreeTupleReference {
 	}
 
 	@Override
+	public void setFieldCount(int fieldStartIndex, int fieldCount) {
+		// not implemented
+	}
+	
+	@Override
 	public int getFieldCount() {		
 		return fieldCount;
 	}
@@ -59,7 +68,7 @@ public class FieldPrefixTupleReference implements IBTreeTupleReference {
 			return helperTuple.getFieldLength(fIdx);
 		}
 		else {
-			helperTuple.setFieldCount(fieldCount - numPrefixFields);
+			helperTuple.setFieldCount(numPrefixFields, fieldCount - numPrefixFields);
 			helperTuple.resetByOffset(frame.getBuffer(), suffixTupleStartOff);
 			return helperTuple.getFieldLength(fIdx - numPrefixFields);
 		}				
@@ -73,7 +82,7 @@ public class FieldPrefixTupleReference implements IBTreeTupleReference {
 			return helperTuple.getFieldStart(fIdx);
 		}
 		else {
-			helperTuple.setFieldCount(fieldCount - numPrefixFields);
+			helperTuple.setFieldCount(numPrefixFields, fieldCount - numPrefixFields);
 			helperTuple.resetByOffset(frame.getBuffer(), suffixTupleStartOff);
 			return helperTuple.getFieldStart(fIdx - numPrefixFields);
 		}

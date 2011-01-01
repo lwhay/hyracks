@@ -16,9 +16,11 @@
 package edu.uci.ics.hyracks.storage.am.btree.dataflow;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrameFactory;
 
@@ -26,33 +28,35 @@ public abstract class AbstractBTreeOperatorDescriptor extends AbstractSingleActi
 	
 	private static final long serialVersionUID = 1L;
 	
-	protected String btreeFileName;
-	protected IFileMappingProviderProvider fileMappingProviderProvider;
+	protected final IFileMappingProviderProvider fileMappingProviderProvider;
 	
-	protected int fieldCount;
-	protected IBinaryComparatorFactory[] comparatorFactories;	
+	protected final IFileSplitProvider fileSplitProvider;
 	
-	protected IBTreeInteriorFrameFactory interiorFrameFactory;
-	protected IBTreeLeafFrameFactory leafFrameFactory;
+	protected final IBinaryComparatorFactory[] comparatorFactories;	
 	
-	protected IBufferCacheProvider bufferCacheProvider;
-	protected IBTreeRegistryProvider btreeRegistryProvider;
-		
-	public AbstractBTreeOperatorDescriptor(JobSpecification spec, int inputArity, int outputArity, RecordDescriptor recDesc, IBufferCacheProvider bufferCacheProvider, IBTreeRegistryProvider btreeRegistryProvider,  String btreeFileName, IFileMappingProviderProvider fileMappingProviderProvider, IBTreeInteriorFrameFactory interiorFactory, IBTreeLeafFrameFactory leafFactory, int fieldCount, IBinaryComparatorFactory[] comparatorFactories) {
+	protected final IBTreeInteriorFrameFactory interiorFrameFactory;
+	protected final IBTreeLeafFrameFactory leafFrameFactory;
+	
+	protected final IBufferCacheProvider bufferCacheProvider;
+	protected final IBTreeRegistryProvider btreeRegistryProvider;		
+	
+	protected final ITypeTrait[] typeTraits;
+	
+	public AbstractBTreeOperatorDescriptor(JobSpecification spec, int inputArity, int outputArity, RecordDescriptor recDesc, IBufferCacheProvider bufferCacheProvider, IBTreeRegistryProvider btreeRegistryProvider, IFileSplitProvider fileSplitProvider, IFileMappingProviderProvider fileMappingProviderProvider, IBTreeInteriorFrameFactory interiorFactory, IBTreeLeafFrameFactory leafFactory, ITypeTrait[] typeTraits, IBinaryComparatorFactory[] comparatorFactories) {
         super(spec, inputArity, outputArity);
-        this.btreeFileName = btreeFileName;
+        this.fileSplitProvider = fileSplitProvider;
         this.fileMappingProviderProvider = fileMappingProviderProvider;
         this.bufferCacheProvider = bufferCacheProvider;
         this.btreeRegistryProvider = btreeRegistryProvider;        
         this.interiorFrameFactory = interiorFactory;
         this.leafFrameFactory = leafFactory;
-        this.fieldCount = fieldCount;
+        this.typeTraits = typeTraits;
         this.comparatorFactories = comparatorFactories;
         if(outputArity > 0) recordDescriptors[0] = recDesc;           
     }
 
-	public String getBtreeFileName() {
-		return btreeFileName;
+	public IFileSplitProvider getFileSplitProvider() {
+		return fileSplitProvider;
 	}
 
 	public IFileMappingProviderProvider getFileMappingProviderProvider() {
@@ -62,11 +66,11 @@ public abstract class AbstractBTreeOperatorDescriptor extends AbstractSingleActi
 	public IBinaryComparatorFactory[] getComparatorFactories() {
 		return comparatorFactories;
 	}
-	
-	public int getFieldCount() {
-		return fieldCount;
-	}
 		
+	public ITypeTrait[] getTypeTraits() {
+		return typeTraits;
+	}
+	
 	public IBTreeInteriorFrameFactory getInteriorFactory() {
 		return interiorFrameFactory;
 	}

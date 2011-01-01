@@ -18,9 +18,11 @@ package edu.uci.ics.hyracks.storage.am.btree.dataflow;
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.IOperatorEnvironment;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrameFactory;
 
@@ -32,12 +34,12 @@ public class BTreeDiskOrderScanOperatorDescriptor extends AbstractBTreeOperatorD
 			RecordDescriptor recDesc,
 			IBufferCacheProvider bufferCacheProvider,
 			IBTreeRegistryProvider btreeRegistryProvider,
-			String btreeFileName, IFileMappingProviderProvider fileMappingProviderProvider, IBTreeInteriorFrameFactory interiorFactory,
+			IFileSplitProvider fileSplitProvider, IFileMappingProviderProvider fileMappingProviderProvider, IBTreeInteriorFrameFactory interiorFactory,
 			IBTreeLeafFrameFactory leafFactory, 
-			int fieldCount) {
+			ITypeTrait[] typeTraits) {
 		super(spec, 0, 1, recDesc, bufferCacheProvider,
-				btreeRegistryProvider, btreeFileName, fileMappingProviderProvider, interiorFactory,
-				leafFactory, fieldCount, null);
+				btreeRegistryProvider, fileSplitProvider, fileMappingProviderProvider, interiorFactory,
+				leafFactory, typeTraits, null);
 	}
 	
 	@Override
@@ -45,6 +47,6 @@ public class BTreeDiskOrderScanOperatorDescriptor extends AbstractBTreeOperatorD
 			IOperatorEnvironment env,
 			IRecordDescriptorProvider recordDescProvider, int partition,
 			int nPartitions) {
-		return new BTreeDiskOrderScanOperatorNodePushable(this, ctx);
+		return new BTreeDiskOrderScanOperatorNodePushable(this, ctx, partition);
 	}	
 }

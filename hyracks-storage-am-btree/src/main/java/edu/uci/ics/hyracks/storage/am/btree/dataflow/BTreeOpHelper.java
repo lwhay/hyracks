@@ -15,10 +15,13 @@
 package edu.uci.ics.hyracks.storage.am.btree.dataflow;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
 
 import edu.uci.ics.hyracks.api.context.IHyracksContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.frames.MetaDataFrame;
@@ -29,49 +32,92 @@ import edu.uci.ics.hyracks.storage.common.file.FileInfo;
 import edu.uci.ics.hyracks.storage.common.file.FileManager;
 
 final class BTreeOpHelper {
-    private IBTreeInteriorFrame interiorFrame;
+    
+	public enum BTreeMode {
+		OPEN_BTREE,
+		CREATE_BTREE,
+		ENLIST_BTREE
+	}
+	
+	private IBTreeInteriorFrame interiorFrame;
     private IBTreeLeafFrame leafFrame;
 
     private BTree btree;
     private int btreeFileId = -1;
+    private int partition;
     
     private AbstractBTreeOperatorDescriptor opDesc;
     private IHyracksContext ctx;
 
-    private boolean createBTree;
+    private BTreeMode mode;
     
-    BTreeOpHelper(AbstractBTreeOperatorDescriptor opDesc, final IHyracksContext ctx, boolean createBTree) {
+    BTreeOpHelper(AbstractBTreeOperatorDescriptor opDesc, final IHyracksContext ctx, int partition, BTreeMode mode) {
         this.opDesc = opDesc;
         this.ctx = ctx;
-        this.createBTree = createBTree;
+        this.mode = mode;
+        this.partition = partition;
     }  
     
-    void init() throws Exception {
+    void init() throws HyracksDataException {
     	
     	IBufferCache bufferCache = opDesc.getBufferCacheProvider().getBufferCache();
         FileManager fileManager = opDesc.getBufferCacheProvider().getFileManager();
-        IFileMappingProviderProvider fileMappingProviderProvider = opDesc.getFileMappingProviderProvider();
-                
-        String ncDataPath = System.getProperty("NodeControllerDataPath");
-        String fileName = ncDataPath + opDesc.getBtreeFileName();
+        IFileMappingProviderProvider fileMappingProviderProvider = opDesc.getFileMappingProviderProvider();               
+        IFileSplitProvider fileSplitProvider = opDesc.getFileSplitProvider();
         
-        btreeFileId = fileMappingProviderProvider.getFileMappingProvider().mapNameToFileId(fileName, createBTree);     
-        
-        File f = new File(fileName);
+        File f = fileSplitProvider.getFileSplits()[partition].getLocalFile();
         if(!f.exists()) {
         	File dir = new File(f.getParent());        	
         	dir.mkdirs();
         }
-        RandomAccessFile raf = new RandomAccessFile(f, "rw");
+        RandomAccessFile raf;
+		try {
+			raf = new RandomAccessFile(f, "rw");
+		} catch (FileNotFoundException e) {
+			throw new HyracksDataException(e);
+		}
         
-        if (!f.exists() && !createBTree) {
-            throw new Exception("Trying to open btree from file " + opDesc.getBtreeFileName() + " but file doesn't exist.");
+        String fileName = f.getAbsolutePath();
+        Integer fileId = fileMappingProviderProvider.getFileMappingProvider().getFileId(fileName);        
+        
+        switch(mode) {
+    	
+    	case OPEN_BTREE: {
+    		if(fileId == null) {
+    			throw new HyracksDataException("Cannot get id for file " + fileName + ". File name has not been mapped.");
+    		}
+    		if(!f.exists()) {
+    			throw new HyracksDataException("Trying to open btree from file " + fileName + " but file doesn't exist.");
+    		}
+    	} break;
+        
+    	case CREATE_BTREE: {
+    		if(fileId == null) {
+    			fileId = fileMappingProviderProvider.getFileMappingProvider().mapNameToFileId(fileName, true);
+    		}
+    		else {
+    			throw new HyracksDataException("Cannot map file " + fileName + " to an id. File name has already been mapped.");
+    		}    		
+    	} break;
+        
+    	case ENLIST_BTREE: {
+    		if(fileId == null) {
+    			fileId = fileMappingProviderProvider.getFileMappingProvider().mapNameToFileId(fileName, true);
+    		}
+    		else {
+    			throw new HyracksDataException("Cannot map file " + fileName + " to an id. File name has already been mapped.");
+    		}    		
+    		if(!f.exists()) {
+    			throw new HyracksDataException("Trying to enlist btree from file " + fileName + " but file doesn't exist.");
+    		}
+    	} break;
         }
-        
-        try {
-            FileInfo fi = new FileInfo(btreeFileId, raf);
-            fileManager.registerFile(fi);
-        } catch (Exception e) {
+    	
+    	btreeFileId = fileId;
+    	
+        if(mode == BTreeMode.CREATE_BTREE || mode == BTreeMode.ENLIST_BTREE) {
+        	FileInfo fi = new FileInfo(btreeFileId, raf);
+        	fileManager.registerFile(fi);
         }
         
         interiorFrame = opDesc.getInteriorFactory().getFrame();
@@ -87,19 +133,23 @@ final class BTreeOpHelper {
                 // check if btree has already been registered by another thread
                 btree = btreeRegistry.get(btreeFileId);
                 if (btree == null) {
-                    // this thread should create and register the btee
+                    // this thread should create and register the btree
                 	                   
                     IBinaryComparator[] comparators = new IBinaryComparator[opDesc.getComparatorFactories().length];
                     for (int i = 0; i < opDesc.getComparatorFactories().length; i++) {
                         comparators[i] = opDesc.getComparatorFactories()[i].createBinaryComparator();
                     }
-
-                    MultiComparator cmp = new MultiComparator(opDesc.getFieldCount(), comparators);
+                    
+                    MultiComparator cmp = new MultiComparator(opDesc.getTypeTraits(), comparators);
                     
                     btree = new BTree(bufferCache, opDesc.getInteriorFactory(), opDesc.getLeafFactory(), cmp);
-                    if (createBTree) {
+                    if (mode == BTreeMode.CREATE_BTREE) {
                         MetaDataFrame metaFrame = new MetaDataFrame();
-                        btree.create(btreeFileId, leafFrame, metaFrame);
+                        try {
+							btree.create(btreeFileId, leafFrame, metaFrame);
+						} catch (Exception e) {
+							throw new HyracksDataException(e);
+						}
                     }
                     btree.open(btreeFileId);
                     btreeRegistry.register(btreeFileId, btree);

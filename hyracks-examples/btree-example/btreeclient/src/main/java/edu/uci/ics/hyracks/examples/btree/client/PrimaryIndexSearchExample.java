@@ -22,13 +22,12 @@ import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.client.HyracksRMIConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
-import edu.uci.ics.hyracks.api.constraints.AbsoluteLocationConstraint;
-import edu.uci.ics.hyracks.api.constraints.ExplicitPartitionConstraint;
-import edu.uci.ics.hyracks.api.constraints.LocationConstraint;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraint;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.TypeTrait;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -36,6 +35,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.comparators.IntegerBinaryCompara
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.misc.PrinterOperatorDescriptor;
 import edu.uci.ics.hyracks.examples.btree.helper.BTreeRegistryProvider;
 import edu.uci.ics.hyracks.examples.btree.helper.BufferCacheProvider;
@@ -49,6 +49,7 @@ import edu.uci.ics.hyracks.storage.am.btree.dataflow.IBufferCacheProvider;
 import edu.uci.ics.hyracks.storage.am.btree.dataflow.IFileMappingProviderProvider;
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.frames.NSMLeafFrameFactory;
+import edu.uci.ics.hyracks.storage.am.btree.tuples.TypeAwareTupleWriterFactory;
 
 // This example will perform an ordered scan on the primary index
 // i.e. a range-search for [-infinity, +infinity]
@@ -94,9 +95,17 @@ public class PrimaryIndexSearchExample {
 
     	String[] splitNCs = options.ncs.split(",");
     	
+    	int fieldCount = 4;
+        ITypeTrait[] typeTraits = new ITypeTrait[fieldCount];
+        typeTraits[0] = new TypeTrait(4);
+        typeTraits[1] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+        typeTraits[2] = new TypeTrait(4);
+        typeTraits[3] = new TypeTrait(ITypeTrait.VARIABLE_LENGTH);
+    	
         // create factories and providers for B-Tree
-        IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory();
-        IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory();        
+        TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory(tupleWriterFactory);
+        IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory(tupleWriterFactory);        
         IBufferCacheProvider bufferCacheProvider = BufferCacheProvider.INSTANCE;
         IBTreeRegistryProvider btreeRegistryProvider = BTreeRegistryProvider.INSTANCE;
         IFileMappingProviderProvider fileMappingProviderProvider = FileMappingProviderProvider.INSTANCE;
@@ -127,20 +136,20 @@ public class PrimaryIndexSearchExample {
 		RecordDescriptor keyRecDesc = new RecordDescriptor(keyRecDescSers);
 		
 		ConstantTupleSourceOperatorDescriptor keyProviderOp = new ConstantTupleSourceOperatorDescriptor(spec, keyRecDesc, tb.getFieldEndOffsets(), tb.getByteArray(), tb.getSize());
-		PartitionConstraint keyProviderPartitionConstraint = createPartitionConstraint(splitNCs);
+		PartitionConstraint keyProviderPartitionConstraint = JobHelper.createPartitionConstraint(splitNCs);
 		keyProviderOp.setPartitionConstraint(keyProviderPartitionConstraint);
-		
-		
+				
         int[] lowKeyFields = { 0 }; // low key is in field 0 of tuples going into search op 
         int[] highKeyFields = { 1 }; // low key is in field 1 of tuples going into search op
-        
-        BTreeSearchOperatorDescriptor btreeSearchOp = new BTreeSearchOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, options.btreeName, fileMappingProviderProvider, interiorFrameFactory, leafFrameFactory, recDesc.getFields().length, comparatorFactories, true, lowKeyFields, highKeyFields);
-        PartitionConstraint btreeSearchConstraint = createPartitionConstraint(splitNCs);
+        		
+        IFileSplitProvider btreeSplitProvider = JobHelper.createFileSplitProvider(splitNCs, options.btreeName);
+        BTreeSearchOperatorDescriptor btreeSearchOp = new BTreeSearchOperatorDescriptor(spec, recDesc, bufferCacheProvider, btreeRegistryProvider, btreeSplitProvider, fileMappingProviderProvider, interiorFrameFactory, leafFrameFactory, typeTraits, comparatorFactories, true, lowKeyFields, highKeyFields, true, true);
+        PartitionConstraint btreeSearchConstraint = JobHelper.createPartitionConstraint(splitNCs);
         btreeSearchOp.setPartitionConstraint(btreeSearchConstraint);
         
         // have each node print the results of its respective B-Tree
         PrinterOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
-        PartitionConstraint printerConstraint = createPartitionConstraint(splitNCs);
+        PartitionConstraint printerConstraint = JobHelper.createPartitionConstraint(splitNCs);
         printer.setPartitionConstraint(printerConstraint);
         
         spec.connect(new OneToOneConnectorDescriptor(spec), keyProviderOp, 0, btreeSearchOp, 0);
@@ -150,13 +159,5 @@ public class PrimaryIndexSearchExample {
         spec.addRoot(printer);
     	    	
     	return spec;
-    }
-    
-    private static PartitionConstraint createPartitionConstraint(String[] splitNCs) {
-    	LocationConstraint[] lConstraints = new LocationConstraint[splitNCs.length];
-        for (int i = 0; i < splitNCs.length; ++i) {
-            lConstraints[i] = new AbsoluteLocationConstraint(splitNCs[i]);
-        }
-        return new ExplicitPartitionConstraint(lConstraints);
-    }
+    }        
 }
