@@ -97,4 +97,10 @@ public class DelimitedUTF8StringBinaryTokenizer implements IBinaryTokenizer {
     public RecordDescriptor getTokenSchema() {
         return tokenSchema;
     }
+
+    // cannot be implemented for this tokenizer
+	@Override
+	public int getNumTokens() {
+		return -1;
+	}
 }
