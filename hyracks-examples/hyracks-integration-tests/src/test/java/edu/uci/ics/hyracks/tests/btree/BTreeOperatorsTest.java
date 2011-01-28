@@ -76,6 +76,8 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
     private static HyracksSimpleStorageManagerInterface storageManager = new HyracksSimpleStorageManagerInterface(8192,
             20);
 
+    private final String sep = System.getProperty("file.separator");
+    
     @Test
     public void bulkLoadTest() throws Exception {
 
@@ -127,7 +129,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
 
         int[] fieldPermutation = { 0, 4, 5 };
         String btreeName = "btree.bin";
-        String nc1FileName = System.getProperty("java.io.tmpdir") + "/nc1/" + btreeName;
+        String nc1FileName = System.getProperty("java.io.tmpdir") + sep + "nc1" + sep + btreeName;
         IFileSplitProvider btreeSplitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
                 new File(nc1FileName)) });
 
@@ -240,7 +242,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         String btreeName = "btree.bin";
-        String nc1FileName = System.getProperty("java.io.tmpdir") + "/nc1/" + btreeName;
+        String nc1FileName = System.getProperty("java.io.tmpdir") + sep + "nc1" + sep + btreeName;
         IFileSplitProvider btreeSplitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
                 new File(nc1FileName)) });
 
@@ -271,7 +273,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
     @Test
     public void insertTest() throws Exception {
         // relies on the fact that NCs are run from same process
-        System.setProperty("NodeControllerDataPath", System.getProperty("java.io.tmpdir") + "/");
+        System.setProperty("NodeControllerDataPath", System.getProperty("java.io.tmpdir") + sep);
 
         JobSpecification spec = new JobSpecification();
 
@@ -357,7 +359,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
         IFileMapProvider fileMapProvider = storageManager.getFileMapProvider();
 
         // primary index
-        String fileNameA = "/tmp/btreetestA.ix";
+        String fileNameA = System.getProperty("java.io.tmpdir") + sep + "btreetestA.ix";
         bufferCache.createFile(fileNameA);
         int fileIdA = fileMapProvider.lookupFileId(fileNameA);
         bufferCache.openFile(fileIdA);
@@ -368,7 +370,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
         bufferCache.closeFile(fileIdA);
 
         // first secondary index
-        String fileNameB = "/tmp/btreetestB.ix";
+        String fileNameB = System.getProperty("java.io.tmpdir") + sep + "btreetestB.ix";
         bufferCache.createFile(fileNameB);
         int fileIdB = fileMapProvider.lookupFileId(fileNameB);
         bufferCache.openFile(fileIdB);
@@ -379,7 +381,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
         bufferCache.closeFile(fileIdB);
 
         // second secondary index
-        String fileNameC = "/tmp/btreetestC.ix";
+        String fileNameC = System.getProperty("java.io.tmpdir") + sep + "btreetestC.ix";
         bufferCache.createFile(fileNameC);
         int fileIdC = fileMapProvider.lookupFileId(fileNameC);
         bufferCache.openFile(fileIdC);
@@ -393,7 +395,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
 
         // primary index
         IFileSplitProvider btreeSplitProviderA = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                new File("/tmp/btreetestA.ix")) });
+                new File(fileNameA)) });
         int[] fieldPermutationA = { 0, 1, 2, 3, 4, 5 };
         BTreeInsertUpdateDeleteOperatorDescriptor insertOpA = new BTreeInsertUpdateDeleteOperatorDescriptor(spec,
                 ordersDesc, storageManager, btreeRegistryProvider, btreeSplitProviderA, primaryInteriorFrameFactory,
@@ -405,7 +407,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
 
         // first secondary index
         IFileSplitProvider btreeSplitProviderB = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                new File("/tmp/btreetestB.ix")) });
+                new File(fileNameB)) });
         int[] fieldPermutationB = { 3, 0 };
         BTreeInsertUpdateDeleteOperatorDescriptor insertOpB = new BTreeInsertUpdateDeleteOperatorDescriptor(spec,
                 ordersDesc, storageManager, btreeRegistryProvider, btreeSplitProviderB, secondaryInteriorFrameFactory,
@@ -417,7 +419,7 @@ public class BTreeOperatorsTest extends AbstractIntegrationTest {
 
         // second secondary index
         IFileSplitProvider btreeSplitProviderC = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                new File("/tmp/btreetestC.ix")) });
+                new File(fileNameC)) });
         int[] fieldPermutationC = { 4, 0 };
         BTreeInsertUpdateDeleteOperatorDescriptor insertOpC = new BTreeInsertUpdateDeleteOperatorDescriptor(spec,
                 ordersDesc, storageManager, btreeRegistryProvider, btreeSplitProviderC, secondaryInteriorFrameFactory,

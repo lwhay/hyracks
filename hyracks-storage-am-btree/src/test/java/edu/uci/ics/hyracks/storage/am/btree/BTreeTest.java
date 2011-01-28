@@ -70,8 +70,9 @@ public class BTreeTest {
     private static final int NUM_PAGES = 10;
     private static final int HYRACKS_FRAME_SIZE = 128;
 
-    private String tmpDir = System.getProperty("java.io.tmpdir");
-
+    private final String tmpDir = System.getProperty("java.io.tmpdir");
+    private final String sep = System.getProperty("file.separator");
+    
     // to help with the logger madness
     private void print(String str) {
         System.out.print(str);
@@ -105,7 +106,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
@@ -320,7 +321,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
@@ -510,7 +511,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
@@ -689,7 +690,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
@@ -855,7 +856,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
@@ -1012,7 +1013,7 @@ public class BTreeTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
+        String fileName = tmpDir + sep + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
