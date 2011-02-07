@@ -22,9 +22,11 @@ import org.json.JSONObject;
 import edu.uci.ics.hyracks.api.comm.IConnectionDemultiplexer;
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksContext;
+import edu.uci.ics.hyracks.api.constraints.IConstraintExpressionAcceptor;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.JobPlan;
 
 /**
  * Connector that connects operators in a Job.
@@ -57,7 +59,7 @@ public interface IConnectorDescriptor extends Serializable {
      * @return data writer.
      * @throws Exception
      */
-    public IFrameWriter createSendSideWriter(IHyracksContext ctx, RecordDescriptor recordDesc,
+    public IFrameWriter createSendSideWriter(IHyracksStageletContext ctx, RecordDescriptor recordDesc,
             IEndpointDataWriterFactory edwFactory, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException;
 
@@ -79,9 +81,19 @@ public interface IConnectorDescriptor extends Serializable {
      * @return data reader
      * @throws HyracksDataException
      */
-    public IFrameReader createReceiveSideReader(IHyracksContext ctx, RecordDescriptor recordDesc,
+    public IFrameReader createReceiveSideReader(IHyracksStageletContext ctx, RecordDescriptor recordDesc,
             IConnectionDemultiplexer demux, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException;
+
+    /**
+     * Contribute any scheduling constraints imposed by this connector
+     * 
+     * @param constraintAcceptor
+     *            - Constraint Acceptor
+     * @param plan
+     *            - Job Plan
+     */
+    public void contributeSchedulingConstraints(IConstraintExpressionAcceptor constraintAcceptor, JobPlan plan);
 
     /**
      * Translate this connector descriptor to JSON.

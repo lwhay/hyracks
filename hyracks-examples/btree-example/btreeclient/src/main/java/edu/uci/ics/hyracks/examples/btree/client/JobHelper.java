@@ -17,10 +17,10 @@ package edu.uci.ics.hyracks.examples.btree.client;
 
 import java.io.File;
 
-import edu.uci.ics.hyracks.api.constraints.AbsoluteLocationConstraint;
-import edu.uci.ics.hyracks.api.constraints.ExplicitPartitionConstraint;
-import edu.uci.ics.hyracks.api.constraints.LocationConstraint;
-import edu.uci.ics.hyracks.api.constraints.PartitionConstraint;
+import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
+import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
@@ -30,17 +30,13 @@ public class JobHelper {
         FileSplit[] fileSplits = new FileSplit[splitNCs.length];
         for (int i = 0; i < splitNCs.length; ++i) {
             String fileName = btreeFileName + "." + splitNCs[i];
-            fileSplits[i] = new FileSplit(splitNCs[i], new File(fileName));
+            fileSplits[i] = new FileSplit(splitNCs[i], new FileReference(new File(fileName)));
         }
         IFileSplitProvider splitProvider = new ConstantFileSplitProvider(fileSplits);
         return splitProvider;
     }
 
-    public static PartitionConstraint createPartitionConstraint(String[] splitNCs) {
-        LocationConstraint[] lConstraints = new LocationConstraint[splitNCs.length];
-        for (int i = 0; i < splitNCs.length; ++i) {
-            lConstraints[i] = new AbsoluteLocationConstraint(splitNCs[i]);
-        }
-        return new ExplicitPartitionConstraint(lConstraints);
+    public static void createPartitionConstraint(JobSpecification spec, IOperatorDescriptor op, String[] splitNCs) {
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, op, splitNCs);
     }
 }
