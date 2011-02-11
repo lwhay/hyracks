@@ -129,7 +129,14 @@ public class SpillableGroupingHashTable {
      */
     private final int framesLimit;
 
-    private final FrameTuplePairComparator ftpc;
+    /**
+     * Comparator for comparison between a tuple in the frame and a partial results.
+     */
+    private final FrameTuplePairComparator ftpcPartial;
+    /**
+     * Comparator for comparison between two tuples in the frame.
+     */
+    private final FrameTuplePairComparator ftpcTuple;
 
     /**
      * A partition computer to partition the hashing group table.
@@ -199,7 +206,11 @@ public class SpillableGroupingHashTable {
         this.framesLimit = framesLimit;
 
         // Tuple pair comparator
-        ftpc = new FrameTuplePairComparator(fields, storedKeys, comparators);
+        // Compare a tuple in the frame (with original key index) with the projected 
+        // tuple in memory (index starting from 0)
+        ftpcPartial = new FrameTuplePairComparator(this.fields, storedKeys, comparators);
+        // Compare two tuples in the frame (for sort)
+        ftpcTuple = new FrameTuplePairComparator(storedKeys, storedKeys, comparators);
 
         // Partitioner
         tpc = tpcf.createPartitioner();
@@ -309,7 +320,7 @@ public class SpillableGroupingHashTable {
             int stIndex = link.pointers[i + 1];
             int saIndex = link.pointers[i + 2];
             storedKeysAccessor1.reset(frames.get(sbIndex));
-            int c = ftpc.compare(accessor, tIndex, storedKeysAccessor1, stIndex);
+            int c = ftpcPartial.compare(accessor, tIndex, storedKeysAccessor1, stIndex);
             if (c == 0) {
                 aggregator = accumulators[saIndex];
                 break;
@@ -431,10 +442,10 @@ public class SpillableGroupingHashTable {
             // Get the aggregator
             aggregator = accumulators[aggregatorIndex];
             // Insert
-            if (!aggregator.output(appender, storedKeysAccessor1, tupleIndex, fields)) {
+            if (!aggregator.output(appender, storedKeysAccessor1, tupleIndex, storedKeys)) {
                 FrameUtils.flushFrame(outFrame, writer);
                 appender.reset(outFrame, true);
-                if (!aggregator.output(appender, storedKeysAccessor1, tupleIndex, fields)) {
+                if (!aggregator.output(appender, storedKeysAccessor1, tupleIndex, storedKeys)) {
                     throw new IllegalStateException();
                 } else {
                     accumulators[aggregatorIndex] = null;
@@ -469,7 +480,7 @@ public class SpillableGroupingHashTable {
                 int bFrame = table[bTable].pointers[bRow];
                 int bTuple = table[bTable].pointers[bRow + 1];
                 storedKeysAccessor2.reset(frames.get(bFrame));
-                int cmp = ftpc.compare(storedKeysAccessor2, bTuple, storedKeysAccessor1, mTuple);
+                int cmp = ftpcTuple.compare(storedKeysAccessor2, bTuple, storedKeysAccessor1, mTuple);
                 // int cmp = compare(tPointers, b, mi, mj, mv);
                 if (cmp > 0) {
                     break;
@@ -485,7 +496,7 @@ public class SpillableGroupingHashTable {
                 int cFrame = table[cTable].pointers[cRow];
                 int cTuple = table[cTable].pointers[cRow + 1];
                 storedKeysAccessor2.reset(frames.get(cFrame));
-                int cmp = ftpc.compare(storedKeysAccessor2, cTuple, storedKeysAccessor1, mTuple);
+                int cmp = ftpcTuple.compare(storedKeysAccessor2, cTuple, storedKeysAccessor1, mTuple);
                 // int cmp = compare(tPointers, c, mi, mj, mv);
                 if (cmp < 0) {
                     break;

@@ -205,8 +205,8 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
             final SpillableGroupingHashTable gTable = new SpillableGroupingHashTable(ctx, keyFields,
                     comparatorFactories, tpcf, aggregatorFactory, recordDescProvider.getInputRecordDescriptor(
                             getOperatorId(), 0), recordDescriptors[0],
-                            // Always take one frame for the input records
-                            framesLimit - 1, tableSize);
+                    // Always take one frame for the input records
+                    framesLimit - 1, tableSize);
             // Create the tuple accessor
             final FrameTupleAccessor accessor = new FrameTupleAccessor(ctx.getFrameSize(),
                     recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0));
@@ -255,7 +255,7 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                             flushFramesToRun();
                             if (!gTable.insert(accessor, i))
                                 throw new HyracksDataException(
-                                "Failed to insert a new buffer into the aggregate operator!");
+                                        "Failed to insert a new buffer into the aggregate operator!");
                         }
                     }
 
@@ -400,7 +400,7 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                  * @throws IOException
                  */
                 private void doPass(LinkedList<RunFileReader> runs, int passCount) throws HyracksDataException,
-                IOException {
+                        IOException {
                     FileReference newRun = null;
                     IFrameWriter writer = this.writer;
                     boolean finalPass = false;
@@ -474,17 +474,17 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                                 visitingAggregator = aggregatorFactory.createSpillableAggregator(ctx,
                                         recordDescriptors[0], recordDescriptors[0]);
                                 // Initialize the partial aggregation result
-                                visitingAggregator.initFromPartial(fta, tupleIndex, keyFields);
+                                visitingAggregator.initFromPartial(fta, tupleIndex, storedKeys);
                                 visitingKeyTuple = new ArrayTupleBuilder(recordDescriptors[0].getFields().length);
-                                for (int i = 0; i < keyFields.length; i++) {
-                                    visitingKeyTuple.addField(fta, tupleIndex, keyFields[i]);
+                                for (int i = 0; i < storedKeys.length; i++) {
+                                    visitingKeyTuple.addField(fta, tupleIndex, storedKeys[i]);
                                 }
                             } else {
-                                if (compareTupleWithFrame(visitingKeyTuple, fta, tupleIndex, storedKeys, keyFields,
+                                if (compareTupleWithFrame(visitingKeyTuple, fta, tupleIndex, storedKeys, storedKeys,
                                         comparators) == 0) {
                                     // If the two partial results are on the
                                     // same key
-                                    visitingAggregator.accumulatePartialResult(fta, tupleIndex, keyFields);
+                                    visitingAggregator.accumulatePartialResult(fta, tupleIndex, storedKeys);
                                 } else {
                                     // Otherwise, write the partial result back
                                     // to the output frame
@@ -496,10 +496,10 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                                         }
                                     }
                                     // Reset the partial aggregation result
-                                    visitingAggregator.initFromPartial(fta, tupleIndex, keyFields);
+                                    visitingAggregator.initFromPartial(fta, tupleIndex, storedKeys);
                                     visitingKeyTuple.reset();
-                                    for (int i = 0; i < keyFields.length; i++) {
-                                        visitingKeyTuple.addField(fta, tupleIndex, keyFields[i]);
+                                    for (int i = 0; i < storedKeys.length; i++) {
+                                        visitingKeyTuple.addField(fta, tupleIndex, storedKeys[i]);
                                     }
                                 }
                             }
@@ -610,7 +610,7 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                  * @throws HyracksDataException
                  */
                 private void closeRun(int index, RunFileReader[] runCursors, IFrameTupleAccessor[] tupleAccessor)
-                throws HyracksDataException {
+                        throws HyracksDataException {
                     runCursors[index].close();
                     runCursors[index] = null;
                     tupleAccessor[index] = null;
@@ -671,12 +671,12 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                     byte[] b1 = fta1.getBuffer().array();
                     byte[] b2 = fta2.getBuffer().array();
                     for (int f = 0; f < keyFields.length; ++f) {
-                        int fIdx = keyFields[f];
+                        int fIdx = f;
                         int s1 = fta1.getTupleStartOffset(j1) + fta1.getFieldSlotsLength()
-                        + fta1.getFieldStartOffset(j1, fIdx);
+                                + fta1.getFieldStartOffset(j1, fIdx);
                         int l1 = fta1.getFieldEndOffset(j1, fIdx) - fta1.getFieldStartOffset(j1, fIdx);
                         int s2 = fta2.getTupleStartOffset(j2) + fta2.getFieldSlotsLength()
-                        + fta2.getFieldStartOffset(j2, fIdx);
+                                + fta2.getFieldStartOffset(j2, fIdx);
                         int l2 = fta2.getFieldEndOffset(j2, fIdx) - fta2.getFieldStartOffset(j2, fIdx);
                         int c = comparators[f].compare(b1, s1, l1, b2, s2, l2);
                         if (c != 0) {
