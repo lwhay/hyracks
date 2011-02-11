@@ -16,5 +16,6 @@
     <module>text-example</module>
     <module>btree-example</module>
     <module>hyracks-integration-tests</module>
+    <module>hyracks-benchmarking-tests</module>
   </modules>
 </project>
