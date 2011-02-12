@@ -276,7 +276,7 @@ public abstract class NSMFrame implements IBTreeFrame {
 
     @Override
     public int getTupleOffset(int slotNum) {
-        return slotManager.getTupleOff(slotManager.getSlotStartOff() - slotNum * slotManager.getSlotSize());
+        return slotManager.getTupleOff(slotManager.getSlotOff(slotNum));
     }
 
     @Override

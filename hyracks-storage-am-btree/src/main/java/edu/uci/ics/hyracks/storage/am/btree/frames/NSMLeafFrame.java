@@ -83,13 +83,13 @@ public class NSMLeafFrame extends NSMFrame implements IBTreeLeafFrame {
         if (isDuplicate) {
             throw new BTreeException("Trying to insert duplicate value into leaf of unique index");
         } else {
-            slotOff = slotManager.insertSlot(tupleIndex, buf.getInt(freeSpaceOff));
-
             int freeSpace = buf.getInt(freeSpaceOff);
+        	slotOff = slotManager.insertSlot(tupleIndex, freeSpace);
+        	
             int bytesWritten = tupleWriter.writeTuple(tuple, buf, freeSpace);
-
+            
             buf.putInt(tupleCountOff, buf.getInt(tupleCountOff) + 1);
-            buf.putInt(freeSpaceOff, buf.getInt(freeSpaceOff) + bytesWritten);
+            buf.putInt(freeSpaceOff, freeSpace + bytesWritten);
             buf.putInt(totalFreeSpaceOff, buf.getInt(totalFreeSpaceOff) - bytesWritten - slotManager.getSlotSize());
         }
     }
@@ -126,7 +126,7 @@ public class NSMLeafFrame extends NSMFrame implements IBTreeLeafFrame {
         int tuplesToLeft;
         int mid = tupleCount / 2;
         IBTreeFrame targetFrame = null;
-        int tupleOff = slotManager.getTupleOff(slotManager.getSlotEndOff() + slotManager.getSlotSize() * mid);
+        int tupleOff = slotManager.getTupleOff(slotManager.getSlotOff(mid));
         frameTuple.resetByOffset(buf, tupleOff);
         if (cmp.compare(tuple, frameTuple) >= 0) {
             tuplesToLeft = mid + (tupleCount % 2);

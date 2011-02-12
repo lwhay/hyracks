@@ -95,16 +95,16 @@ public class NSMInteriorFrame extends NSMFrame implements IBTreeInteriorFrame {
         if (isDuplicate) {
             throw new BTreeException("Trying to insert duplicate value into interior node.");
         } else {
-            slotOff = slotManager.insertSlot(tupleIndex, buf.getInt(freeSpaceOff));
-
-            int freeSpace = buf.getInt(freeSpaceOff);
+        	int freeSpace = buf.getInt(freeSpaceOff);
+        	slotOff = slotManager.insertSlot(tupleIndex, freeSpace);
+            
             int bytesWritten = tupleWriter.writeTupleFields(tuple, 0, cmp.getKeyFieldCount(), buf, freeSpace);
             System.arraycopy(tuple.getFieldData(cmp.getKeyFieldCount() - 1), getLeftChildPageOff(tuple, cmp), buf
                     .array(), freeSpace + bytesWritten, childPtrSize);
             int tupleSize = bytesWritten + childPtrSize;
 
             buf.putInt(tupleCountOff, buf.getInt(tupleCountOff) + 1);
-            buf.putInt(freeSpaceOff, buf.getInt(freeSpaceOff) + tupleSize);
+            buf.putInt(freeSpaceOff, freeSpace + tupleSize);
             buf.putInt(totalFreeSpaceOff, buf.getInt(totalFreeSpaceOff) - tupleSize - slotManager.getSlotSize());
 
             // did insert into the rightmost slot?
