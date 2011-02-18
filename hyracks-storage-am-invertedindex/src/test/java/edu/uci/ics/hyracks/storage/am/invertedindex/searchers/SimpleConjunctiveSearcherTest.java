@@ -65,7 +65,7 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICacheMemoryAllocator;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
-public class SimpleConjunctiveSearcherTest {
+public class SimpleConjunctiveSearcherTest extends AbstractInvIndexTest{
 
     // testing params
     // private static final int PAGE_SIZE = 256;
@@ -76,9 +76,7 @@ public class SimpleConjunctiveSearcherTest {
     // private static final int PAGE_SIZE = 65536;
     private static final int PAGE_SIZE = 32768;
     private static final int NUM_PAGES = 10;
-    private static final int HYRACKS_FRAME_SIZE = 32768;
-
-    private String tmpDir = System.getProperty("java.io.tmpdir");
+    private static final int HYRACKS_FRAME_SIZE = 32768;   
 
     public class BufferAllocator implements ICacheMemoryAllocator {
         @Override
@@ -97,7 +95,6 @@ public class SimpleConjunctiveSearcherTest {
         DummySMI smi = new DummySMI(PAGE_SIZE, NUM_PAGES);
         IBufferCache bufferCache = smi.getBufferCache();
         IFileMapProvider fmp = smi.getFileMapProvider();
-        String fileName = tmpDir + "/" + "btreetest.bin";
         bufferCache.createFile(fileName);
         int fileId = fmp.lookupFileId(fileName);
         bufferCache.openFile(fileId);
