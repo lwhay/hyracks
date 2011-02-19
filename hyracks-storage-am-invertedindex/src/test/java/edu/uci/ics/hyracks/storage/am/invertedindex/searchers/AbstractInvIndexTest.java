@@ -6,7 +6,7 @@ import java.util.Date;
 
 import org.junit.AfterClass;
 
-public class AbstractInvIndexTest {
+public abstract class AbstractInvIndexTest {
 
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
     protected final static String tmpDir = System.getProperty("java.io.tmpdir");

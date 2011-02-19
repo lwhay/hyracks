@@ -6,7 +6,7 @@ import java.util.Date;
 
 import org.junit.AfterClass;
 
-public class AbstractBTreeTest {
+public abstract class AbstractBTreeTest {
 
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
     protected final static String tmpDir = System.getProperty("java.io.tmpdir");
@@ -19,8 +19,6 @@ public class AbstractBTreeTest {
 
     @AfterClass
     public static void cleanup() throws Exception {
-        System.out.println(fileName);
-
         File f = new File(fileName);
         f.deleteOnExit();
     }
