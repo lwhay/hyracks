@@ -14,11 +14,10 @@
  */
 package edu.uci.ics.hyracks.storage.am.btree.dataflow;
 
-import java.io.File;
-
-import edu.uci.ics.hyracks.api.context.IHyracksContext;
+import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
@@ -33,7 +32,7 @@ final class BTreeOpHelper {
 	public enum BTreeMode {
 		OPEN_BTREE, CREATE_BTREE, ENLIST_BTREE
 	}
-
+	
 	private IBTreeInteriorFrame interiorFrame;
 	private IBTreeLeafFrame leafFrame;
 
@@ -41,60 +40,56 @@ final class BTreeOpHelper {
 	private int btreeFileId = -1;
 	private int partition;
 
-	private AbstractBTreeOperatorDescriptor opDesc;
-	private IHyracksContext ctx;
+    private AbstractBTreeOperatorDescriptor opDesc;
+    private IHyracksStageletContext ctx;
 
 	private BTreeMode mode;
 
-	BTreeOpHelper(AbstractBTreeOperatorDescriptor opDesc,
-			final IHyracksContext ctx, int partition, BTreeMode mode) {
-		this.opDesc = opDesc;
-		this.ctx = ctx;
-		this.mode = mode;
-		this.partition = partition;
-	}
+    BTreeOpHelper(AbstractBTreeOperatorDescriptor opDesc, final IHyracksStageletContext ctx, int partition,
+            BTreeMode mode) {
+        this.opDesc = opDesc;
+        this.ctx = ctx;
+        this.mode = mode;
+        this.partition = partition;
+    }
 
 	void init() throws HyracksDataException {
+        IBufferCache bufferCache = opDesc.getStorageManager().getBufferCache(ctx);
+        IFileMapProvider fileMapProvider = opDesc.getStorageManager().getFileMapProvider(ctx);
+        IFileSplitProvider fileSplitProvider = opDesc.getFileSplitProvider();
 
-		IBufferCache bufferCache = opDesc.getStorageManager().getBufferCache();
-		IFileMapProvider fileMapProvider = opDesc.getStorageManager()
-				.getFileMapProvider();
-		IFileSplitProvider fileSplitProvider = opDesc.getFileSplitProvider();
-
-		File f = fileSplitProvider.getFileSplits()[partition].getLocalFile();
-		String fileName = f.getAbsolutePath();
-		boolean fileIsMapped = fileMapProvider.isMapped(fileName);
+        FileReference f = fileSplitProvider.getFileSplits()[partition].getLocalFile();
+        boolean fileIsMapped = fileMapProvider.isMapped(f);
 
 		switch (mode) {
-
+		
 		case OPEN_BTREE: {
 			if (!fileIsMapped) {
 				throw new HyracksDataException(
-						"Trying to open btree from unmapped file " + fileName);
+						"Trying to open btree from unmapped file " + f.toString());
 			}
 		}
-			break;
+		break;
 
 		case CREATE_BTREE:
 		case ENLIST_BTREE: {
 			if (!fileIsMapped) {
-				bufferCache.createFile(fileName);
+				bufferCache.createFile(f);
 			}
 		}
-			break;
-
+		break;
+		
 		}
 
-		btreeFileId = fileMapProvider.lookupFileId(fileName);
-		bufferCache.openFile(btreeFileId);
+        btreeFileId = fileMapProvider.lookupFileId(f);
+        bufferCache.openFile(btreeFileId);
 
 		interiorFrame = opDesc.getInteriorFactory().getFrame();
 		leafFrame = opDesc.getLeafFactory().getFrame();
 
-		BTreeRegistry btreeRegistry = opDesc.getBtreeRegistryProvider()
-				.getBTreeRegistry();
-		btree = btreeRegistry.get(btreeFileId);
-		if (btree == null) {
+        BTreeRegistry btreeRegistry = opDesc.getBtreeRegistryProvider().getBTreeRegistry(ctx);
+        btree = btreeRegistry.get(btreeFileId);
+        if (btree == null) {
 
 			// create new btree and register it
 			btreeRegistry.lock();
@@ -133,21 +128,20 @@ final class BTreeOpHelper {
 		}
 	}
 
-	public void deinit() throws HyracksDataException {
-		if (btreeFileId != -1) {
-			IBufferCache bufferCache = opDesc.getStorageManager()
-					.getBufferCache();
-			bufferCache.closeFile(btreeFileId);
-		}
-	}
+    public void deinit() throws HyracksDataException {
+        if (btreeFileId != -1) {
+            IBufferCache bufferCache = opDesc.getStorageManager().getBufferCache(ctx);
+            bufferCache.closeFile(btreeFileId);
+        }
+    }
 
 	public BTree getBTree() {
 		return btree;
 	}
 
-	public IHyracksContext getHyracksContext() {
-		return ctx;
-	}
+    public IHyracksStageletContext getHyracksStageletContext() {
+        return ctx;
+    }
 
 	public AbstractBTreeOperatorDescriptor getOperatorDescriptor() {
 		return opDesc;

@@ -21,10 +21,7 @@ import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.client.HyracksRMIConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
-import edu.uci.ics.hyracks.api.constraints.AbsoluteLocationConstraint;
-import edu.uci.ics.hyracks.api.constraints.ExplicitPartitionConstraint;
-import edu.uci.ics.hyracks.api.constraints.LocationConstraint;
-import edu.uci.ics.hyracks.api.constraints.PartitionConstraint;
+import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
@@ -44,7 +41,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.examples.btree.helper.BTreeRegistryProvider;
 import edu.uci.ics.hyracks.examples.btree.helper.DataGenOperatorDescriptor;
-import edu.uci.ics.hyracks.examples.btree.helper.SimpleStorageManager;
+import edu.uci.ics.hyracks.examples.btree.helper.StorageManagerInterface;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.dataflow.BTreeBulkLoadOperatorDescriptor;
@@ -125,9 +122,7 @@ public class PrimaryIndexBulkLoadExample {
         DataGenOperatorDescriptor dataGen = new DataGenOperatorDescriptor(spec, recDesc, options.numTuples, 2, 0,
                 100000, 10, 50);
         // run data generator on first nodecontroller given
-        PartitionConstraint dataGenConstraint = new ExplicitPartitionConstraint(
-                new LocationConstraint[] { new AbsoluteLocationConstraint(splitNCs[0]) });
-        dataGen.setPartitionConstraint(dataGenConstraint);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dataGen, splitNCs[0]);
 
         // sort the tuples as preparation for bulk load
         // fields to sort on
@@ -137,8 +132,7 @@ public class PrimaryIndexBulkLoadExample {
         comparatorFactories[0] = IntegerBinaryComparatorFactory.INSTANCE;
         ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, options.sbSize, sortFields,
                 comparatorFactories, recDesc);
-        PartitionConstraint sorterConstraint = JobHelper.createPartitionConstraint(splitNCs);
-        sorter.setPartitionConstraint(sorterConstraint);
+        JobHelper.createPartitionConstraint(spec, sorter, splitNCs);
 
         // tuples to be put into B-Tree shall have 4 fields
         int fieldCount = 4;
@@ -153,7 +147,7 @@ public class PrimaryIndexBulkLoadExample {
         IBTreeInteriorFrameFactory interiorFrameFactory = new NSMInteriorFrameFactory(tupleWriterFactory);
         IBTreeLeafFrameFactory leafFrameFactory = new NSMLeafFrameFactory(tupleWriterFactory);
         IBTreeRegistryProvider btreeRegistryProvider = BTreeRegistryProvider.INSTANCE;
-        IStorageManagerInterface storageManager = SimpleStorageManager.INSTANCE;
+        IStorageManagerInterface storageManager = StorageManagerInterface.INSTANCE;
 
         // the B-Tree expects its keyfields to be at the front of its input
         // tuple
@@ -164,8 +158,7 @@ public class PrimaryIndexBulkLoadExample {
         BTreeBulkLoadOperatorDescriptor btreeBulkLoad = new BTreeBulkLoadOperatorDescriptor(spec, storageManager,
                 btreeRegistryProvider, btreeSplitProvider, interiorFrameFactory, leafFrameFactory, typeTraits,
                 comparatorFactories, fieldPermutation, 0.7f);
-        PartitionConstraint bulkLoadConstraint = JobHelper.createPartitionConstraint(splitNCs);
-        btreeBulkLoad.setPartitionConstraint(bulkLoadConstraint);
+        JobHelper.createPartitionConstraint(spec, btreeBulkLoad, splitNCs);
 
         // distribute the records from the datagen via hashing to the bulk load
         // ops

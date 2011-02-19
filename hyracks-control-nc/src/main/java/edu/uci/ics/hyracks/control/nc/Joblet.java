@@ -14,35 +14,65 @@
  */
 package edu.uci.ics.hyracks.control.nc;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
+import edu.uci.ics.hyracks.api.application.INCApplicationContext;
+import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IIOManager;
+import edu.uci.ics.hyracks.api.io.IWorkspaceFileFactory;
 import edu.uci.ics.hyracks.api.job.IOperatorEnvironment;
+import edu.uci.ics.hyracks.api.job.profiling.counters.ICounter;
+import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
+import edu.uci.ics.hyracks.api.job.profiling.om.JobletProfile;
+import edu.uci.ics.hyracks.api.job.profiling.om.StageletProfile;
+import edu.uci.ics.hyracks.api.resources.IDeallocatable;
+import edu.uci.ics.hyracks.control.common.job.profiling.counters.Counter;
+import edu.uci.ics.hyracks.control.nc.io.IOManager;
+import edu.uci.ics.hyracks.control.nc.io.ManagedWorkspaceFileFactory;
+import edu.uci.ics.hyracks.control.nc.resources.DefaultDeallocatableRegistry;
 
-public class Joblet {
+public class Joblet implements IHyracksJobletContext, ICounterContext {
     private static final long serialVersionUID = 1L;
 
     private final NodeControllerService nodeController;
 
+    private final INCApplicationContext appCtx;
+
     private final UUID jobId;
+
+    private final int attempt;
 
     private final Map<UUID, Stagelet> stageletMap;
 
     private final Map<OperatorDescriptorId, Map<Integer, IOperatorEnvironment>> envMap;
 
-    public Joblet(NodeControllerService nodeController, UUID jobId) {
+    private final Map<String, Counter> counterMap;
+
+    private final DefaultDeallocatableRegistry deallocatableRegistry;
+
+    private final IWorkspaceFileFactory fileFactory;
+
+    public Joblet(NodeControllerService nodeController, UUID jobId, int attempt, INCApplicationContext appCtx) {
         this.nodeController = nodeController;
+        this.appCtx = appCtx;
         this.jobId = jobId;
+        this.attempt = attempt;
         stageletMap = new HashMap<UUID, Stagelet>();
         envMap = new HashMap<OperatorDescriptorId, Map<Integer, IOperatorEnvironment>>();
+        counterMap = new HashMap<String, Counter>();
+        deallocatableRegistry = new DefaultDeallocatableRegistry();
+        fileFactory = new ManagedWorkspaceFileFactory(this, (IOManager) appCtx.getRootContext().getIOManager());
     }
 
+    @Override
     public UUID getJobId() {
         return jobId;
     }
@@ -88,8 +118,7 @@ public class Joblet {
         return nodeController.getExecutor();
     }
 
-    public synchronized void notifyStageletComplete(UUID stageId, int attempt, Map<String, Long> stats)
-            throws Exception {
+    public synchronized void notifyStageletComplete(UUID stageId, int attempt, StageletProfile stats) throws Exception {
         stageletMap.remove(stageId);
         nodeController.notifyStageComplete(jobId, stageId, attempt, stats);
     }
@@ -103,19 +132,73 @@ public class Joblet {
         return nodeController;
     }
 
-    public void dumpProfile(Map<String, Long> counterDump) {
-        Set<UUID> stageIds;
-        synchronized (this) {
-            stageIds = new HashSet<UUID>(stageletMap.keySet());
+    public synchronized void dumpProfile(JobletProfile jProfile) {
+        Map<String, Long> counters = jProfile.getCounters();
+        for (Map.Entry<String, Counter> e : counterMap.entrySet()) {
+            counters.put(e.getKey(), e.getValue().get());
         }
-        for (UUID stageId : stageIds) {
-            Stagelet si;
-            synchronized (this) {
-                si = stageletMap.get(stageId);
-            }
-            if (si != null) {
-                si.dumpProfile(counterDump);
-            }
+        for (Stagelet si : stageletMap.values()) {
+            StageletProfile sProfile = new StageletProfile(si.getStageId());
+            si.dumpProfile(sProfile);
+            jProfile.getStageletProfiles().put(si.getStageId(), sProfile);
         }
+    }
+
+    @Override
+    public INCApplicationContext getApplicationContext() {
+        return appCtx;
+    }
+
+    @Override
+    public int getAttempt() {
+        return attempt;
+    }
+
+    @Override
+    public ICounterContext getCounterContext() {
+        return this;
+    }
+
+    @Override
+    public void registerDeallocatable(IDeallocatable deallocatable) {
+        deallocatableRegistry.registerDeallocatable(deallocatable);
+    }
+
+    public void close() {
+        deallocatableRegistry.close();
+    }
+
+    @Override
+    public ByteBuffer allocateFrame() {
+        return appCtx.getRootContext().allocateFrame();
+    }
+
+    @Override
+    public int getFrameSize() {
+        return appCtx.getRootContext().getFrameSize();
+    }
+
+    @Override
+    public IIOManager getIOManager() {
+        return appCtx.getRootContext().getIOManager();
+    }
+
+    @Override
+    public FileReference createWorkspaceFile(String prefix) throws HyracksDataException {
+        return fileFactory.createWorkspaceFile(prefix);
+    }
+
+    public Map<UUID, Stagelet> getStageletMap() {
+        return stageletMap;
+    }
+
+    @Override
+    public synchronized ICounter getCounter(String name, boolean create) {
+        Counter counter = counterMap.get(name);
+        if (counter == null && create) {
+            counter = new Counter(name);
+            counterMap.put(name, counter);
+        }
+        return counter;
     }
 }
