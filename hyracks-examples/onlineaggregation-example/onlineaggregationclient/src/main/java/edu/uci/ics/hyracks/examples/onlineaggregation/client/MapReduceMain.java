@@ -93,6 +93,8 @@ public class MapReduceMain {
         HashPartitioningShuffleConnectorDescriptor conn = new HashPartitioningShuffleConnectorDescriptor(spec, mConfig);
         spec.connect(conn, mapper, 0, reducer, 0);
 
+        spec.addRoot(reducer);
+
         return spec;
     }
 }
