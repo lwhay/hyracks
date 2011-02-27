@@ -24,25 +24,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+
 public class Estimator {
     private final UUID jobId;
     private final int index;
-    private Map<Integer, File> resultFiles;
+    private Map<Integer, ResultFile> resultFiles;
     private EstimatorThread thread;
     private boolean done;
+
+    private class ResultFile {
+        File file;
+        long timestamp;
+    }
 
     public Estimator(UUID jobId, int index) {
         this.jobId = jobId;
         this.index = index;
-        resultFiles = new Hashtable<Integer, File>();
+        resultFiles = new Hashtable<Integer, ResultFile>();
         done = false;
         thread = new EstimatorThread();
         thread.start();
     }
 
-    public void resultReceived(File textFile, int blockId) {
+    public void resultReceived(File textFile, int blockId) throws HyracksDataException {
+        ResultFile rf = new ResultFile();
+        rf.file = textFile;
+        try {
+            rf.timestamp = CentralQueueAccessor.getQueue().getTimestamp();
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        }
         synchronized (resultFiles) {
-            resultFiles.put(blockId, textFile);
+            resultFiles.put(blockId, rf);
             resultFiles.notifyAll();
         }
     }
@@ -58,7 +72,7 @@ public class Estimator {
             IInputSplitQueue queue = CentralQueueAccessor.getQueue();
             int lastNumResultFiles = 0;
             while (true) {
-                Map<Integer, File> fileMapCopy;
+                Map<Integer, ResultFile> fileMapCopy;
                 synchronized (resultFiles) {
                     while (true) {
                         int nResultFiles = resultFiles.size();
@@ -76,23 +90,26 @@ public class Estimator {
                             break;
                         }
                     }
-                    fileMapCopy = new HashMap<Integer, File>(resultFiles);
+                    fileMapCopy = new HashMap<Integer, ResultFile>(resultFiles);
                 }
                 try {
+                    long timestamp = queue.getTimestamp();
                     Map<Integer, List<StatsRecord>> statistics = queue.getStatistics(jobId);
-                    estimate(fileMapCopy, statistics);
+                    estimate(fileMapCopy, statistics, timestamp);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }
         }
 
-        private void estimate(Map<Integer, File> fileMap, Map<Integer, List<StatsRecord>> statistics)
-                throws IOException {
-            File estimateFile = File.createTempFile(jobId.toString() + "_" + index + "_" + (counter++) + "_", ".est");
+        private void estimate(Map<Integer, ResultFile> fileMap, Map<Integer, List<StatsRecord>> statistics,
+                long timestamp) throws IOException {
+            File estimateFile = File.createTempFile(jobId.toString() + "_" + index + "_" + (counter++) + "_"
+                    + timestamp + "_", ".est");
             PrintWriter out = new PrintWriter(estimateFile);
             for (Map.Entry<Integer, List<StatsRecord>> e : statistics.entrySet()) {
                 for (StatsRecord sr : e.getValue()) {
+                    ResultFile rf = fileMap.get(sr.blockId);
                     out.print(e.getKey());
                     out.print('|');
                     out.print(sr.mapLocation);
@@ -103,6 +120,8 @@ public class Estimator {
                     out.print('|');
                     out.print(sr.endTime);
                     out.print('|');
+                    out.print(rf != null ? rf.timestamp : 0);
+                    out.print('|');
                     out.print(sr.fileName);
                     out.print('|');
                     out.print(sr.startOffset);
@@ -111,10 +130,9 @@ public class Estimator {
                     out.print('|');
                     out.print(sr.locations == null ? "" : Arrays.deepToString(sr.locations));
                     out.print('|');
-                    File dataFile = fileMap.get(sr.blockId);
                     String fileName = "";
-                    if (dataFile != null) {
-                        fileName = dataFile.getName();
+                    if (rf != null) {
+                        fileName = rf.file.getName();
                     }
                     out.println(fileName);
                 }

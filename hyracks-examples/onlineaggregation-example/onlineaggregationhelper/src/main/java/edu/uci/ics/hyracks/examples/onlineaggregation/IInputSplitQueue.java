@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface IInputSplitQueue extends Remote {
+    public long getTimestamp() throws Exception;
+
     public MarshalledWritable<OnlineFileSplit> getNext(UUID jobId, int requestor, String location) throws Exception;
 
     public Map<Integer, List<StatsRecord>> getStatistics(UUID jobId) throws Exception;

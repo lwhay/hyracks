@@ -92,4 +92,9 @@ public class CentralInputSplitQueue extends UnicastRemoteObject implements IInpu
             stats = new Hashtable<Integer, List<StatsRecord>>(); // Hashtable because its handed to the serializer without a lock.
         }
     }
+
+    @Override
+    public long getTimestamp() throws Exception {
+        return System.currentTimeMillis();
+    }
 }
