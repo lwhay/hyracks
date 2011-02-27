@@ -69,7 +69,7 @@ public class Estimator {
                                 e.printStackTrace();
                             }
                         } else {
-                            if (done) {
+                            if (nResultFiles <= lastNumResultFiles) {
                                 return;
                             }
                             lastNumResultFiles = nResultFiles;
@@ -127,6 +127,11 @@ public class Estimator {
         synchronized (resultFiles) {
             done = true;
             resultFiles.notifyAll();
+        }
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }

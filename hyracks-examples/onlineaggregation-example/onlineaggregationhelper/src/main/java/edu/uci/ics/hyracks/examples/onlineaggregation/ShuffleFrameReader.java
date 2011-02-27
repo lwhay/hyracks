@@ -78,13 +78,6 @@ public class ShuffleFrameReader implements IFrameReader {
             lastReadSender = (Integer) entry.getAttachment();
             ByteBuffer netBuffer = entry.getReadBuffer();
             accessor.reset(netBuffer);
-            if (netBuffer.position() != 0 && netBuffer.limit() != netBuffer.capacity()) {
-                System.err.println("Bad buffer: pos:" + netBuffer.position() + " limit:" + netBuffer.limit() + " cap:"
-                        + netBuffer.capacity());
-                System.err.println("Received from: " + lastReadSender);
-                System.err.println("Aborted: " + entry.aborted());
-                System.err.println("Key: " + entry.getSelectionKey());
-            }
             int tupleCount = accessor.getTupleCount();
             if (tupleCount == 0) {
                 int openEntries = demux.closeEntry(lastReadSender);
