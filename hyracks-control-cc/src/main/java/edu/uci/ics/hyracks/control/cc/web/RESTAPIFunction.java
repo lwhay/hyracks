@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.json.JSONObject;
 
 import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
+import edu.uci.ics.hyracks.control.cc.job.manager.events.GetJobPlanJSONEvent;
 import edu.uci.ics.hyracks.control.cc.job.manager.events.GetJobProfileJSONEvent;
 import edu.uci.ics.hyracks.control.cc.job.manager.events.GetJobSpecificationJSONEvent;
 import edu.uci.ics.hyracks.control.cc.job.manager.events.GetJobSummariesJSONEvent;
@@ -53,6 +54,10 @@ public class RESTAPIFunction implements IJSONOutputFunction {
                     GetJobSpecificationJSONEvent gjse = new GetJobSpecificationJSONEvent(ccs, jobId);
                     ccs.getJobQueue().scheduleAndSync(gjse);
                     result.put("result", gjse.getSpecification());
+                } else if ("plan".equalsIgnoreCase(arguments[1])) {
+                    GetJobPlanJSONEvent gjpe = new GetJobPlanJSONEvent(ccs, jobId);
+                    ccs.getJobQueue().scheduleAndSync(gjpe);
+                    result.put("result", gjpe.getPlan());
                 }
                 break;
             }

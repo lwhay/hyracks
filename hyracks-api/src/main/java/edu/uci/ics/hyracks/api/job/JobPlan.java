@@ -23,6 +23,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import edu.uci.ics.hyracks.api.dataflow.ActivityNodeId;
 import edu.uci.ics.hyracks.api.dataflow.IActivityNode;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
@@ -165,5 +169,50 @@ public class JobPlan implements Serializable {
         buffer.append("Blocked->Blocker: " + blocked2blockerMap);
         buffer.append('\n');
         return buffer.toString();
+    }
+
+    public JSONObject toJSON() throws JSONException {
+        JSONObject jplan = new JSONObject();
+
+        jplan.put("type", "plan");
+        jplan.put("flags", jobFlags.toString());
+        jplan.put("id", jobId.toString());
+
+        JSONArray jans = new JSONArray();
+        for (IActivityNode an : activityNodes.values()) {
+            JSONObject jan = new JSONObject();
+            jan.put("type", "activity");
+            jan.put("id", an.getActivityNodeId().toString());
+            jan.put("java-class", an.getClass().getName());
+            jan.put("owner-id", an.getOwner().getOperatorId().toString());
+
+            List<IConnectorDescriptor> inputs = getTaskInputs(an.getActivityNodeId());
+            if (inputs != null) {
+                JSONArray jInputs = new JSONArray();
+                for (int i = 0; i < inputs.size(); ++i) {
+                    JSONObject jInput = new JSONObject();
+                    jInput.put("type", "activity-input");
+                    jInput.put("input-port", i);
+                    jInput.put("connector-id", inputs.get(i).getConnectorId().toString());
+                }
+                jan.put("inputs", jInputs);
+            }
+
+            List<IConnectorDescriptor> outputs = getTaskOutputs(an.getActivityNodeId());
+            if (outputs != null) {
+                JSONArray jOutputs = new JSONArray();
+                for (int i = 0; i < outputs.size(); ++i) {
+                    JSONObject jInput = new JSONObject();
+                    jInput.put("type", "activity-output");
+                    jInput.put("output-port", i);
+                    jInput.put("connector-id", outputs.get(i).getConnectorId().toString());
+                }
+                jan.put("outputs", jOutputs);
+            }
+            jans.put(jan);
+        }
+        jplan.put("activities", jans);
+
+        return jplan;
     }
 }
