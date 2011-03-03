@@ -194,6 +194,7 @@ public class JobPlan implements Serializable {
                     jInput.put("type", "activity-input");
                     jInput.put("input-port", i);
                     jInput.put("connector-id", inputs.get(i).getConnectorId().toString());
+                    jInputs.put(jInput);
                 }
                 jan.put("inputs", jInputs);
             }
@@ -202,12 +203,22 @@ public class JobPlan implements Serializable {
             if (outputs != null) {
                 JSONArray jOutputs = new JSONArray();
                 for (int i = 0; i < outputs.size(); ++i) {
-                    JSONObject jInput = new JSONObject();
-                    jInput.put("type", "activity-output");
-                    jInput.put("output-port", i);
-                    jInput.put("connector-id", outputs.get(i).getConnectorId().toString());
+                    JSONObject jOutput = new JSONObject();
+                    jOutput.put("type", "activity-output");
+                    jOutput.put("output-port", i);
+                    jOutput.put("connector-id", outputs.get(i).getConnectorId().toString());
+                    jOutputs.put(jOutput);
                 }
                 jan.put("outputs", jOutputs);
+            }
+
+            Set<ActivityNodeId> blockers = getBlocked2BlockerMap().get(an.getActivityNodeId());
+            if (blockers != null) {
+                JSONArray jDeps = new JSONArray();
+                for (ActivityNodeId blocker : blockers) {
+                    jDeps.put(blocker.toString());
+                }
+                jan.put("depends-on", jDeps);
             }
             jans.put(jan);
         }
