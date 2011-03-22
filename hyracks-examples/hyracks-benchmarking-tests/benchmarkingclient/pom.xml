@@ -6,7 +6,7 @@
 
   <parent>
     <groupId>edu.uci.ics.hyracks.examples</groupId>
-    <artifactId>tpch-example</artifactId>
+    <artifactId>hyracks-benchmarking-tests</artifactId>
     <version>0.1.4-SNAPSHOT</version>
   </parent>
 

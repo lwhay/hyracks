@@ -90,7 +90,7 @@ public class ExternalAggregateTest extends AbstractIntegrationTest {
                 splitProvider,
                 new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID, NC1_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);//, NC1_ID);
 
         int[] keys = new int[] { 0 };
         int tableSize = 8;
@@ -165,28 +165,37 @@ public class ExternalAggregateTest extends AbstractIntegrationTest {
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                FloatSerializerDeserializer.INSTANCE });
+                UTF8StringSerializerDeserializer.INSTANCE, 
+                IntegerSerializerDeserializer.INSTANCE,
+                FloatSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE
+                });
 
         int[] keys = new int[] { 0, 2, 5 };
         int tableSize = 8;
 
         HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keys,
                 new FieldHashPartitionComputerFactory(keys, new IBinaryHashFunctionFactory[] {
-                        UTF8StringBinaryHashFunctionFactory.INSTANCE, IntegerBinaryHashFunctionFactory.INSTANCE,
-                        FloatBinaryHashFunctionFactory.INSTANCE }), new IBinaryComparatorFactory[] {
-                        UTF8StringBinaryComparatorFactory.INSTANCE, IntegerBinaryComparatorFactory.INSTANCE,
-                        FloatBinaryComparatorFactory.INSTANCE }, new MultiAggregatorFactory(
+                        UTF8StringBinaryHashFunctionFactory.INSTANCE, 
+                        IntegerBinaryHashFunctionFactory.INSTANCE,
+                        FloatBinaryHashFunctionFactory.INSTANCE 
+                        }), new IBinaryComparatorFactory[] {
+                        UTF8StringBinaryComparatorFactory.INSTANCE, 
+                        IntegerBinaryComparatorFactory.INSTANCE,
+                        FloatBinaryComparatorFactory.INSTANCE 
+                        }, new MultiAggregatorFactory(
                         new IFieldValueResultingAggregatorFactory[] {
-                        //new CountAggregatorFactory() 
+                        new SumAggregatorFactory(1) 
                         }), outputRec, tableSize);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn1 = new MToNHashPartitioningConnectorDescriptor(spec,
                 new FieldHashPartitionComputerFactory(keys, new IBinaryHashFunctionFactory[] {
-                        UTF8StringBinaryHashFunctionFactory.INSTANCE, IntegerBinaryHashFunctionFactory.INSTANCE,
-                        FloatBinaryHashFunctionFactory.INSTANCE }));
+                        UTF8StringBinaryHashFunctionFactory.INSTANCE, 
+                        IntegerBinaryHashFunctionFactory.INSTANCE,
+                        FloatBinaryHashFunctionFactory.INSTANCE 
+                        }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
         PrinterOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
