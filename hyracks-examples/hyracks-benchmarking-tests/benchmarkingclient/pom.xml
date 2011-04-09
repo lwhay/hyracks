@@ -37,8 +37,8 @@
             <configuration>
               <programs>
                 <program>
-                  <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.Main</mainClass>
-                  <name>tpchclient</name>
+                  <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.DummyOperatorsBenchmarkingClient</mainClass>
+                  <name>dummyClient</name>
                 </program>
               </programs>
               <repositoryLayout>flat</repositoryLayout>
@@ -47,6 +47,23 @@
             <phase>package</phase>
             <goals>
               <goal>assemble</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.2-beta-5</version>
+        <executions>
+          <execution>
+            <configuration>
+              <descriptors>
+                <descriptor>src/main/assembly/binary-assembly.xml</descriptor>
+              </descriptors>
+            </configuration>
+            <phase>package</phase>
+            <goals>
+              <goal>attached</goal>
             </goals>
           </execution>
         </executions>
