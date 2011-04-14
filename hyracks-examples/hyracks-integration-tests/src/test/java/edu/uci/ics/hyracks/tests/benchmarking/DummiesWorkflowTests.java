@@ -18,12 +18,19 @@ import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInOutOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInputOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInputSinkOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningMergingConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNRangePartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
 
@@ -33,7 +40,8 @@ import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
  */
 public class DummiesWorkflowTests extends AbstractIntegrationTest {
     
-    final int chainCount = 2;
+    final int chainLength = 5;
+    final int connectorType = 4;
     
     @Test
     public void dummyOperatorTest() throws Exception {
@@ -85,10 +93,31 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
         
         AbstractSingleActivityOperatorDescriptor opter = dummyIn;
         
-        for(int i = 0; i < chainCount; i++) {
+        for(int i = 0; i < chainLength - 2; i++){
             DummyInOutOperatorDescriptor dummyChain = new DummyInOutOperatorDescriptor(spec);
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dummyChain, NC2_ID, NC1_ID);
-            IConnectorDescriptor connChain = new OneToOneConnectorDescriptor(spec);
+            IConnectorDescriptor connChain;
+            switch (connectorType) {
+                case 0:
+                    connChain = new OneToOneConnectorDescriptor(spec);
+                    break;
+                case 1:
+                    connChain = new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}));
+                    break;
+                case 2:
+                    connChain = new MToNRangePartitioningConnectorDescriptor(spec, 0, null);
+                    break;
+                case 3:
+                    connChain = new MToNHashPartitioningMergingConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}), new int[]{}, new IBinaryComparatorFactory[]{});
+                    break;
+                case 4:
+                    connChain = new MToNReplicatingConnectorDescriptor(spec);
+                    break;
+                default:
+                    connChain = new OneToOneConnectorDescriptor(spec);
+                    break;
+            }
+            
             spec.connect(connChain, opter, 0, dummyChain, 0);
             opter = dummyChain;
         }

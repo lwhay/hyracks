@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.api.client.HyracksRMIConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
@@ -33,7 +34,9 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInputOperatorDescripto
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInputSinkOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningMergingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNRangePartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 
 /**
@@ -126,12 +129,16 @@ public class DummyOperatorsBenchmarkingClient {
                         connChain = new OneToOneConnectorDescriptor(spec);
                         break;
                     case 1:
-                        connChain = new MToNHashPartitioningConnectorDescriptor(
-                                spec,
-                                new FieldHashPartitionComputerFactory(new int[] {}, new IBinaryHashFunctionFactory[] {}));
+                        connChain = new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}));
                         break;
                     case 2:
                         connChain = new MToNRangePartitioningConnectorDescriptor(spec, 0, null);
+                        break;
+                    case 3:
+                        connChain = new MToNHashPartitioningMergingConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}), new int[]{}, new IBinaryComparatorFactory[]{});
+                        break;
+                    case 4:
+                        connChain = new MToNReplicatingConnectorDescriptor(spec);
                         break;
                     default:
                         connChain = new OneToOneConnectorDescriptor(spec);
