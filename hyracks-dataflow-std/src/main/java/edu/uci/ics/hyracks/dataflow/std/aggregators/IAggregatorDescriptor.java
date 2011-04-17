@@ -14,142 +14,86 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.aggregators;
 
-import java.io.DataOutput;
-
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 
 public interface IAggregatorDescriptor {
 
     /**
-     * Initialize the aggregator for the group indicated by the input tuple. Keys,
-     * and the aggregation values will be written out onto the frame wrapped in the appender.
+     * Initialize the aggregator with an input tuple specified by the input frame and tuple index. 
+     * This function will write the initialized partial result into the tuple builder.
      * 
      * @param accessor
-     *            The frame containing the input tuple.
      * @param tIndex
-     *            The tuple index in the frame.
-     * @param appender
-     *            The output frame.
+     * @param tupleBuilder
+     * @throws HyracksDataException
+     */
+    public void init(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
+            throws HyracksDataException;
+
+    /**
+     * Aggregate the input tuple with the partial result specified by the bytes. The new value then
+     * is written back to the bytes field specified.
+     * 
+     * It is the developer's responsibility to have the new result not exceed the given bytes.
+     * 
+     * @param accessor
+     * @param tIndex
+     * @param data
+     * @param offset
+     * @param length
      * @return
      * @throws HyracksDataException
      */
-    public boolean init(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+    public int aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
             throws HyracksDataException;
 
     /**
-     * Get the initial aggregation value from the input tuple.
-     * Compared with {@link #init(IFrameTupleAccessor, int, FrameTupleAppender)}, instead of
-     * writing the value to a frame appender, the value will be written through the given {@link DataOutput}.
-     * 
-     * @param accessor
-     *            The frame containing the input tuple.
-     * @param tIndex
-     *            The tuple index in the frame.
-     * @param dataOutput
-     *            The data output wrapper.
-     * @throws HyracksDataException
-     */
-    public void getInitValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-            throws HyracksDataException;
-
-    /**
-     * Aggregate the input tuple with the given partial aggregation value. The partial aggregation value will
-     * be updated after the aggregation.
-     * 
-     * @param accessor1
-     *            The frame containing the input tuple to be aggregated.
-     * @param tIndex1
-     *            The tuple index in the frame.
-     * @param accessor2
-     *            The frame containing the partial aggregation value.
-     * @param tIndex2
-     *            The tuple index of the partial aggregation value. Note that finally this value will be
-     *            updated to be the new aggregation value.
-     * @throws HyracksDataException
-     */
-    public void aggregate(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
-            throws HyracksDataException;
-
-    /**
-     * Merge the partial aggregation value with another partial aggregation value. After merging, the aggregation
-     * value of the second partial aggregator will be updated.
-     * 
-     * @param accessor1
-     *            The frame containing the tuple of partial aggregation value to be aggregated.
-     * @param tIndex1
-     *            The index of the tuple of partial aggregation value to be aggregated.
-     * @param accessor2
-     *            The frame containing the tuple of partial aggregation value to be updated.
-     * @param tIndex2
-     *            The index of the tuple of partial aggregation value to be updated. Note that after merging,
-     *            this value will be updated to be the new aggregation value.
-     */
-    public void merge(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
-            throws HyracksDataException;
-
-    /**
-     * Output the partial aggregation result into a frame appender. The outputted result can be used to
-     * aggregate a new tuple from the input frame.
-     * This method, together with the {@link #outputPartialResult(IFrameTupleAccessor, int, FrameTupleAppender)},
-     * is for the case when different processing logics are applied to partial aggregation result and the merged
-     * aggregation result.
-     * For example, in an aggregator for variable-length aggregation results, aggregation values should be maintained
-     * inside of the aggregators, instead of the frames. A reference will be used to indicate the aggregation value
-     * in the partial aggregation result, while the actual aggregation value will be used in the merged aggregation
-     * result.
+     * Merge two partial aggregation results. The merged value then is written back to the bytes
+     * fields specified.
      * 
      * @param accessor
      * @param tIndex
-     * @param appender
+     * @param data
+     * @param offset
+     * @param length
      * @return
      * @throws HyracksDataException
      */
-    public boolean outputPartialResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+    public int merge(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
             throws HyracksDataException;
 
     /**
-     * Output the merged aggregation result into a frame appender. The outputted result can be used to
-     * merge another partial aggregation result.
-     * See {@link #outputPartialResult(IFrameTupleAccessor, int, FrameTupleAppender)} for the difference
-     * between these two methods.
+     * Output the partial aggregation result to an array tuple builder. Necessary additional information
+     * for aggregation should be maintained. 
+     * 
+     * For example, for an aggregator calculating AVG, the count and also the current average should be
+     * maintained as the partial results.
+     * 
      * 
      * @param accessor
      * @param tIndex
-     * @param appender
+     * @param tupleBuilder
+     * @throws HyracksDataException
+     */
+    public void outputPartialResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
+            throws HyracksDataException;
+
+    /**
+     * Output the final aggregation result to an array tuple builder.
+     * 
+     * @param accessor
+     * @param tIndex
+     * @param tupleBuilder
      * @return
      * @throws HyracksDataException
      */
-    public boolean outputMergeResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+    public void outputResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
             throws HyracksDataException;
 
-    /**
-     * Get the partial aggregation value from the merged aggregator indicated by the frame and the tuple index.
-     * Compared with {@link #outputPartialResult(IFrameTupleAccessor, int, FrameTupleAppender)}, this will output the value
-     * through the given {@link DataOutput}.
-     * 
-     * @param accessor
-     * @param tIndex
-     * @param dataOutput
-     * @throws HyracksDataException
-     */
-    public void getPartialOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-            throws HyracksDataException;
+    public void reset();
     
-    /**
-     * Get the merged aggregation value from the merged aggregator indicated by the frame and the tuple index.
-     * Compared with {@link #outputMergeResult(IFrameTupleAccessor, int, FrameTupleAppender)}, this will output the value
-     * through the given {@link DataOutput}.
-     * 
-     * @param accessor
-     * @param tIndex
-     * @param dataOutput
-     * @throws HyracksDataException
-     */
-    public void getMergeOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-            throws HyracksDataException;
-
     /**
      * Close the aggregator. Necessary clean-up code should be implemented here.
      */

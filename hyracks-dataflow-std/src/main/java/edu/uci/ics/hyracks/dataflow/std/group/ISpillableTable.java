@@ -37,5 +37,5 @@ public interface ISpillableTable {
     
     public boolean insert(FrameTupleAccessor accessor, int tIndex) throws HyracksDataException;
     
-    public void flushFrames(IFrameWriter writer) throws HyracksDataException;
+    public void flushFrames(IFrameWriter writer, boolean isPartial) throws HyracksDataException;
 }

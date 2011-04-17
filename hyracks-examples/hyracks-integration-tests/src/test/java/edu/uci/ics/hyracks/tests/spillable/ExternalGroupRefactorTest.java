@@ -54,15 +54,22 @@ import edu.uci.ics.hyracks.dataflow.std.group.ExternalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableGroupingTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.misc.PrinterOperatorDescriptor;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
-
+import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
 
 /**
  * @author jarodwen
- *
  */
 public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
+
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
+
+    static final String outSplitsPrefix = System.getProperty("java.io.tmpdir");
+    
+    static final String outSplits1 = "nc1:" + outSplitsPrefix + "aggregation_";
+    static final String outSplits2 = "nc2:" + outSplitsPrefix + "aggregation_";
+
+    static final boolean isOutputFile = true;
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {
             UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -82,6 +89,33 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, }, '|');
 
+    private static FileSplit[] parseFileSplits(String fileSplits) {
+        String[] splits = fileSplits.split(",");
+        FileSplit[] fSplits = new FileSplit[splits.length];
+        for (int i = 0; i < splits.length; ++i) {
+            String s = splits[i].trim();
+            int idx = s.indexOf(':');
+            if (idx < 0) {
+                throw new IllegalArgumentException("File split " + s + " not well formed");
+            }
+            fSplits[i] = new FileSplit(s.substring(0, idx), new FileReference(new File(s.substring(idx + 1))));
+        }
+        return fSplits;
+    }
+
+    private static AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, boolean isFile,
+            String prefix) {
+        AbstractSingleActivityOperatorDescriptor printer;
+
+        if (!isOutputFile)
+            printer = new PrinterOperatorDescriptor(spec);
+        else
+            printer = new PlainFileWriterOperatorDescriptor(spec, new ConstantFileSplitProvider(
+                    parseFileSplits(outSplits1 + prefix + ".nc1, " + outSplits2 + prefix + ".nc2")), "\t");
+
+        return printer;
+    }
+
     @Test
     public void hashSingleKeyScalarGroupTest() throws Exception {
         JobSpecification spec = new JobSpecification();
@@ -92,9 +126,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, 
-                IntegerSerializerDeserializer.INSTANCE
-                });
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
         int frameLimits = 3;
@@ -105,7 +137,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                 new IntSumAggregatorDescriptorFactory(1), outputRec, new HashSpillableGroupingTableFactory(
                         new FieldHashPartitionComputerFactory(keyFields,
                                 new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }),
-                        tableSize, true));
+                        tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
@@ -113,8 +145,10 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
-        
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile,
+                "hashSingleKeyScalarGroupTest");
+
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
@@ -141,7 +175,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
 
         ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
                 new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE },
-                new IntSumAggregatorDescriptorFactory(1), outputRec, new BSTSpillableGroupingTableFactory());
+                new IntSumAggregatorDescriptorFactory(1), outputRec, new BSTSpillableGroupingTableFactory(), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
@@ -150,7 +184,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile, "BSTSingleKeyScalarGroupTest");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
@@ -182,7 +216,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                         UTF8StringBinaryComparatorFactory.INSTANCE }, new IntSumAggregatorDescriptorFactory(1),
                 outputRec, new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE,
-                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize, true));
+                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
@@ -191,7 +225,8 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                         UTF8StringBinaryHashFunctionFactory.INSTANCE, UTF8StringBinaryHashFunctionFactory.INSTANCE, }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile,
+                "hashMultipleKeyScalarGroupTest");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
@@ -225,7 +260,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                                 new IntSumAggregatorDescriptorFactory(2, 3) }), outputRec,
                 new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE,
-                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize, true));
+                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
@@ -234,7 +269,8 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                         UTF8StringBinaryHashFunctionFactory.INSTANCE, UTF8StringBinaryHashFunctionFactory.INSTANCE, }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile,
+                "hashMultipleKeyMultipleScalarGroupTest");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
@@ -261,18 +297,21 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
         int tableSize = 8;
 
         ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-                new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE }, new ConcatAggregatorDescriptorFactory(9),
-                outputRec, new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize, true));
+                new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE },
+                new ConcatAggregatorDescriptorFactory(9), outputRec, new HashSpillableGroupingTableFactory(
+                        new FieldHashPartitionComputerFactory(keyFields,
+                                new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }),
+                        tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn1 = new MToNHashPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-                        UTF8StringBinaryHashFunctionFactory.INSTANCE }));
+                new FieldHashPartitionComputerFactory(keyFields,
+                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile,
+                "hashMultipleKeyNonScalarGroupTest");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
@@ -281,7 +320,7 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
         spec.addRoot(printer);
         runTest(spec);
     }
-    
+
     @Test
     public void hashMultipleKeyMultipleFieldsGroupTest() throws Exception {
         JobSpecification spec = new JobSpecification();
@@ -293,7 +332,8 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE});
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0, 9 };
         int frameLimits = 3;
@@ -303,10 +343,11 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                 new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE,
                         UTF8StringBinaryComparatorFactory.INSTANCE }, new MultiAggregatorDescriptorFactory(
                         new IAggregatorDescriptorFactory[] { new IntSumAggregatorDescriptorFactory(1, 2),
-                                new IntSumAggregatorDescriptorFactory(2, 3), new ConcatAggregatorDescriptorFactory(9, 4) }), outputRec,
+                                new IntSumAggregatorDescriptorFactory(2, 3),
+                                new ConcatAggregatorDescriptorFactory(9, 4) }), outputRec,
                 new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE,
-                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize, true));
+                                UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
@@ -315,7 +356,8 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
                         UTF8StringBinaryHashFunctionFactory.INSTANCE, UTF8StringBinaryHashFunctionFactory.INSTANCE, }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = new PrinterOperatorDescriptor(spec);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, isOutputFile,
+                "hashMultipleKeyMultipleFieldsGroupTest");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);

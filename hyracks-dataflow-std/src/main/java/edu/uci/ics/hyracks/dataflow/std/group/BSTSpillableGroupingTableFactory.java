@@ -26,6 +26,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
@@ -35,7 +36,6 @@ import edu.uci.ics.hyracks.dataflow.std.aggregators.IAggregatorDescriptorFactory
 
 /**
  * @author jarodwen
- *
  */
 public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory {
 
@@ -61,8 +61,7 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
             storedKeys[i] = i;
             storedKeySerDeser[i] = inRecordDescriptor.getFields()[keyFields[i]];
         }
-        final FrameTupleAccessor storedKeysAccessor1 = new FrameTupleAccessor(ctx.getFrameSize(),
-                outRecordDescriptor);
+        final FrameTupleAccessor storedKeysAccessor1 = new FrameTupleAccessor(ctx.getFrameSize(), outRecordDescriptor);
 
         final IBinaryComparator[] comparators = new IBinaryComparator[comparatorFactories.length];
         for (int i = 0; i < comparatorFactories.length; ++i) {
@@ -74,6 +73,8 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
         final FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
 
         final ByteBuffer outFrame = ctx.allocateFrame();
+
+        final ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
 
         return new ISpillableTable() {
 
@@ -130,13 +131,21 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
                 }
 
                 if (!foundGroup) {
-                    // Did not find the aggregator. Insert a new aggregator entry
-                    if(!aggregator.init(accessor, tIndex, appender)){
-                        if(!nextAvailableFrame()){
+                    // If no matching group is found, create a new aggregator
+                    // Create a tuple for the new group
+                    tupleBuilder.reset();
+                    for (int i = 0; i < keyFields.length; i++) {
+                        tupleBuilder.addField(accessor, tIndex, keyFields[i]);
+                    }
+                    aggregator.init(accessor, tIndex, tupleBuilder);
+                    if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                            tupleBuilder.getSize())) {
+                        if (!nextAvailableFrame()) {
                             return false;
                         } else {
-                            if(!aggregator.init(accessor, tIndex, appender)){
-                                throw new IllegalStateException("Failed to init an aggergator.");
+                            if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                                    tupleBuilder.getSize())) {
+                                throw new IllegalStateException("Failed to init an aggregator");
                             }
                         }
                     }
@@ -145,7 +154,13 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
                     // Add entry into the binary search tree
                     bstreeAdd(sbIndex, stIndex, parentPtr, isSmaller);
                 } else {
-                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1, stIndex);
+                 // If there is a matching found, do aggregation directly
+                    int tupleOffset = storedKeysAccessor1.getTupleStartOffset(stIndex);
+                    int fieldCount = storedKeysAccessor1.getFieldCount();
+                    int aggFieldOffset = storedKeysAccessor1.getFieldStartOffset(stIndex, keyFields.length);
+                    int tupleEnd = storedKeysAccessor1.getTupleEndOffset(stIndex);
+                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1.getBuffer().array(), tupleOffset + 2
+                            * fieldCount + aggFieldOffset, tupleEnd - (tupleOffset + 2 * fieldCount + aggFieldOffset));
                 }
                 return true;
             }
@@ -161,11 +176,11 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
             }
 
             @Override
-            public void flushFrames(IFrameWriter writer) throws HyracksDataException {
+            public void flushFrames(IFrameWriter writer, boolean isPartial) throws HyracksDataException {
                 FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
                 writer.open();
                 appender.reset(outFrame, true);
-                traversalBSTree(writer, 0, appender);
+                traversalBSTree(writer, 0, appender, isPartial);
                 if (appender.getTupleCount() > 0) {
                     FrameUtils.flushFrame(outFrame, writer);
                 }
@@ -211,20 +226,33 @@ public class BSTSpillableGroupingTableFactory implements ISpillableTableFactory 
                 return true;
             }
 
-            private void traversalBSTree(IFrameWriter writer, int nodePtr, FrameTupleAppender appender)
+            private void traversalBSTree(IFrameWriter writer, int nodePtr, FrameTupleAppender appender, boolean isPartial)
                     throws HyracksDataException {
                 if (nodePtr < 0 || nodePtr >= bstreeSize)
                     return;
-                traversalBSTree(writer, bstree[nodePtr + 2], appender);
+                traversalBSTree(writer, bstree[nodePtr + 2], appender, isPartial);
 
                 int bIndex = bstree[nodePtr];
                 int tIndex = bstree[nodePtr + 1];
                 storedKeysAccessor1.reset(frames.get(bIndex));
-                while (!aggregator.outputPartialResult(storedKeysAccessor1, tIndex, appender)) {
+                // Reset the tuple for the partial result
+                tupleBuilder.reset();
+                for (int k = 0; k < keyFields.length; k++) {
+                    tupleBuilder.addField(storedKeysAccessor1, tIndex, k);
+                }
+                if (isPartial)
+                    aggregator.outputPartialResult(storedKeysAccessor1, tIndex,
+                            tupleBuilder);
+                else
+                    aggregator.outputResult(storedKeysAccessor1, tIndex,
+                            tupleBuilder);
+                while (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
+                        0, tupleBuilder.getSize())) {
                     FrameUtils.flushFrame(outFrame, writer);
                     appender.reset(outFrame, true);
                 }
-                traversalBSTree(writer, bstree[nodePtr + 3], appender);
+                
+                traversalBSTree(writer, bstree[nodePtr + 3], appender, isPartial);
             }
 
             private void bstreeAdd(int bufferIdx, int tIndex, int parentPtr, boolean isSmaller) {

@@ -20,7 +20,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.io.DataOutput;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
@@ -29,12 +28,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
 /**
  * @author jarodwen
  */
 public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorFactory {
+
     private static final long serialVersionUID = 1L;
 
     private static final int INIT_ACCUMULATORS_SIZE = 8;
@@ -58,8 +57,6 @@ public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorF
         if (this.outField < 0)
             this.outField = keyFields.length;
 
-        final ArrayTupleBuilder tb = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
-
         return new IAggregatorDescriptor() {
 
             byte[][] buf = new byte[INIT_ACCUMULATORS_SIZE][];
@@ -68,47 +65,55 @@ public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorF
             int aggregatorCount = 0;
 
             @Override
-            public void merge(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
+            public int merge(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
                     throws HyracksDataException {
-                int tupleOffset = accessor2.getTupleStartOffset(tIndex2);
-                int fieldCount = accessor2.getFieldCount();
-                int fieldStart = accessor2.getFieldStartOffset(tIndex2, outField);
-                int fieldLength = accessor2.getFieldLength(tIndex2, outField);
 
                 // FIXME Should be done in binary way
+                int bufIndex = IntegerSerializerDeserializer.getInt(data, offset);
                 StringBuilder sbder = new StringBuilder();
-                sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
-                        new ByteArrayInputStream(accessor2.getBuffer().array(), tupleOffset + 2 * fieldCount
-                                + fieldStart, fieldLength))));
+                if (bufIndex < 0) {
+                    // Need to allocate a new field
+                    currentAggregatorIndex++;
+                    aggregatorCount++;
+                    bufIndex = currentAggregatorIndex;
+                    sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
+                            new ByteArrayInputStream(data, offset + 4, length - 4))));
+                } else {
+                    sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
+                            new ByteArrayInputStream(buf[bufIndex], 0, buf[bufIndex].length))));
+                }
+
+                
+
+                int utfLength = (data[offset + 4] << 2) + data[offset + 4 + 1];
 
                 // Get the new data
-                tupleOffset = accessor1.getTupleStartOffset(tIndex1);
-                fieldCount = accessor1.getFieldCount();
-                fieldStart = accessor1.getFieldStartOffset(tIndex1, outField);
-                fieldLength = accessor1.getFieldLength(tIndex1, outField);
+                int tupleOffset = accessor.getTupleStartOffset(tIndex);
+                int fieldCount = accessor.getFieldCount();
+                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
+                int fieldLength = accessor.getFieldLength(tIndex, outField);
                 sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
-                        new ByteArrayInputStream(accessor1.getBuffer().array(), tupleOffset + 2 * fieldCount
-                                + fieldStart, fieldLength))));
+                        new ByteArrayInputStream(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
+                                + fieldStart + 4, fieldLength - 4))));
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 UTF8StringSerializerDeserializer.INSTANCE.serialize(sbder.toString(), new DataOutputStream(baos));
-                ByteBuffer wrapBuf = accessor2.getBuffer();
-                wrapBuf.position(tupleOffset + 2 * fieldCount + fieldStart);
-                wrapBuf.put(baos.toByteArray());
+                buf[bufIndex] = baos.toByteArray();
+
+                // Update the ref index
+                ByteBuffer buf = ByteBuffer.wrap(data, offset, 4);
+                buf.putInt(bufIndex);
+                return 4 + 2 + utfLength;
             }
 
             @Override
-            public boolean init(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+            public void init(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, keyFields[i]);
-                }
                 // Initialize the aggregation value
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
-                int tupleEndOffset = accessor.getTupleEndOffset(tIndex);
                 int fieldCount = accessor.getFieldCount();
                 int fieldStart = accessor.getFieldStartOffset(tIndex, concatField);
+                int fieldLength = accessor.getFieldLength(tIndex, concatField);
                 int appendOffset = tupleOffset + 2 * fieldCount + fieldStart;
                 // Get the initial value
                 currentAggregatorIndex++;
@@ -119,149 +124,100 @@ public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorF
                     }
                     this.buf = newBuf;
                 }
-                buf[currentAggregatorIndex] = new byte[tupleEndOffset - appendOffset + 1];
-                System.arraycopy(accessor.getBuffer().array(), appendOffset, buf[currentAggregatorIndex], 0,
-                        tupleEndOffset - appendOffset + 1);
+                buf[currentAggregatorIndex] = new byte[fieldLength];
+                System.arraycopy(accessor.getBuffer().array(), appendOffset, buf[currentAggregatorIndex], 0, fieldLength);
                 // Update the aggregator index
                 aggregatorCount++;
 
-                tb.addField(IntegerSerializerDeserializer.INSTANCE, currentAggregatorIndex);
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-
-                    return false;
+                try {
+                    tupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, currentAggregatorIndex);
+                } catch (IOException e) {
+                    throw new HyracksDataException();
                 }
-                return true;
+            }
+
+            @Override
+            public void reset() {
+                currentAggregatorIndex = -1;
+                aggregatorCount = 0;
             }
 
             @Override
             public void close() {
                 currentAggregatorIndex = -1;
                 aggregatorCount = 0;
+                for (int i = 0; i < buf.length; i++) {
+                    buf[i] = null;
+                }
             }
 
             @Override
-            public void aggregate(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
+            public int aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
                     throws HyracksDataException {
-                int tupleOffset = accessor2.getTupleStartOffset(tIndex2);
-                int fieldCount = accessor2.getFieldCount();
-                int fieldStart = accessor2.getFieldStartOffset(tIndex2, outField);
-                int refIndex = IntegerSerializerDeserializer.getInt(accessor2.getBuffer().array(), tupleOffset + 2
-                        * fieldCount + fieldStart);
+                int refIndex = IntegerSerializerDeserializer.getInt(data, offset);
                 // FIXME Should be done in binary way
                 StringBuilder sbder = new StringBuilder();
                 sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
                         new ByteArrayInputStream(buf[refIndex]))));
                 // Get the new data
-                tupleOffset = accessor1.getTupleStartOffset(tIndex1);
-                fieldCount = accessor1.getFieldCount();
-                fieldStart = accessor1.getFieldStartOffset(tIndex1, concatField);
-                int fieldLength = accessor1.getFieldLength(tIndex1, concatField);
+                int tupleOffset = accessor.getTupleStartOffset(tIndex);
+                int fieldCount = accessor.getFieldCount();
+                int fieldStart = accessor.getFieldStartOffset(tIndex, concatField);
+                int fieldLength = accessor.getFieldLength(tIndex, concatField);
                 sbder.append(UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
-                        new ByteArrayInputStream(accessor1.getBuffer().array(), tupleOffset + 2 * fieldCount
+                        new ByteArrayInputStream(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
                                 + fieldStart, fieldLength))));
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 UTF8StringSerializerDeserializer.INSTANCE.serialize(sbder.toString(), new DataOutputStream(baos));
+                if(baos.size() > 10){
+                    System.err.println("Possible Error here");
+                }
                 buf[refIndex] = baos.toByteArray();
+                return 4;
             }
 
             @Override
-            public boolean outputMergeResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+            public void outputResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
-                }
-                tb.addField(accessor, tIndex, outField);
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public boolean outputPartialResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
-                    throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
-                }
-
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldCount = accessor.getFieldCount();
                 int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
                 int refIndex = IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2
                         * fieldCount + fieldStart);
 
-                tb.addField(buf[refIndex], 0, buf[refIndex].length);
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void getInitValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                int tupleOffset = accessor.getTupleStartOffset(tIndex);
-                int fieldCount = accessor.getFieldCount();
-                int fieldStart = accessor.getFieldStartOffset(tIndex, concatField);
-                int fieldLength = accessor.getFieldLength(tIndex, concatField);
-
-                // Get the initial value
-                currentAggregatorIndex++;
-                if (currentAggregatorIndex >= buf.length) {
-                    byte[][] newBuf = new byte[buf.length * 2][];
-                    for (int i = 0; i < buf.length; i++) {
-                        newBuf[i] = buf[i];
+                try {
+                    if (refIndex >= 0)
+                        tupleBuilder.getDataOutput().write(buf[refIndex]);
+                    else {
+                        int fieldLength = accessor.getFieldLength(tIndex, outField);
+                        tupleBuilder.getDataOutput().write(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount + fieldStart
+                                + 4, fieldLength - 4);
                     }
-                    this.buf = newBuf;
-                }
-                buf[currentAggregatorIndex] = new byte[fieldLength];
-                System.arraycopy(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount + fieldStart,
-                        buf[currentAggregatorIndex], 0, fieldLength);
-                // Update the aggregator index
-                aggregatorCount++;
-
-                try {
-                    dataOutput.writeInt(currentAggregatorIndex);
+                    tupleBuilder.addFieldEndOffset();
                 } catch (IOException e) {
                     throw new HyracksDataException();
                 }
             }
 
             @Override
-            public void getMergeOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
+            public void outputPartialResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldCount = accessor.getFieldCount();
-                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
+                int fieldOffset = accessor.getFieldStartOffset(tIndex, outField);
                 int fieldLength = accessor.getFieldLength(tIndex, outField);
+                int refIndex = IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2
+                        * fieldCount + fieldOffset);
+
                 try {
-                    dataOutput.write(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount + fieldStart,
-                            fieldLength);
-                } catch (IOException e) {
-                    throw new HyracksDataException();
-                }
-            }
-            
-            @Override
-            public void getPartialOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                int tupleOffset = accessor.getTupleStartOffset(tIndex);
-                int fieldCount = accessor.getFieldCount();
-                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
-                int bufIndex = IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2
-                        * fieldCount + fieldStart);
-                try {
-                    dataOutput.write(buf[bufIndex]);
+                    tupleBuilder.getDataOutput().writeInt(-1);
+                    if (refIndex < 0) {
+                        tupleBuilder.getDataOutput().write(accessor.getBuffer().array(), tupleOffset + fieldCount * 2 + fieldOffset + 4, fieldLength - 4);
+                    } else {
+                        tupleBuilder.getDataOutput().write(buf[refIndex], 0, buf[refIndex].length);
+                    }
+                    tupleBuilder.addFieldEndOffset();
                 } catch (IOException e) {
                     throw new HyracksDataException();
                 }

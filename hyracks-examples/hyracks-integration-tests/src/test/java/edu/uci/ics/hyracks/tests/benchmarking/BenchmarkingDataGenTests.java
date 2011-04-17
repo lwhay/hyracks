@@ -157,8 +157,7 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
                         new CountAggregatorDescriptorFactory(1), new IntSumAggregatorDescriptorFactory(1, 2),
                         new ConcatAggregatorDescriptorFactory(4, 3) }), outRecordDescriptor,
                 new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize,
-                        true));
+                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 

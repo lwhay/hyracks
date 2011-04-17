@@ -16,7 +16,6 @@ package edu.uci.ics.hyracks.dataflow.std.aggregators;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.io.DataOutput;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
@@ -24,7 +23,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
 /**
  * @author jarodwen
@@ -49,8 +47,6 @@ public class IntSumAggregatorDescriptorFactory implements IAggregatorDescriptorF
     public IAggregatorDescriptor createAggregator(IHyracksStageletContext ctx, RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor, final int[] keyFields) throws HyracksDataException {
 
-        final ArrayTupleBuilder tb = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
-
         if (this.outField < 0) {
             this.outField = keyFields.length;
         }
@@ -58,105 +54,7 @@ public class IntSumAggregatorDescriptorFactory implements IAggregatorDescriptorF
         return new IAggregatorDescriptor() {
 
             @Override
-            public boolean init(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
-                    throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, keyFields[i]);
-                }
-                // Insert the aggregation value
-                tb.addField(accessor, tIndex, aggField);
-
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void close() {
-            }
-
-            @Override
-            public void aggregate(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
-                    throws HyracksDataException {
-                int sum = 0;
-                int tupleOffset = accessor1.getTupleStartOffset(tIndex1);
-                int fieldCount = accessor1.getFieldCount();
-                int fieldStart = accessor1.getFieldStartOffset(tIndex1, aggField);
-                sum += IntegerSerializerDeserializer.getInt(accessor1.getBuffer().array(), tupleOffset + 2 * fieldCount
-                        + fieldStart);
-                tupleOffset = accessor2.getTupleStartOffset(tIndex2);
-                fieldCount = accessor2.getFieldCount();
-                fieldStart = accessor2.getFieldStartOffset(tIndex2, outField);
-                sum += IntegerSerializerDeserializer.getInt(accessor2.getBuffer().array(), tupleOffset + 2 * fieldCount
-                        + fieldStart);
-                // Update the value of tuple 2
-                ByteBuffer buf = accessor2.getBuffer();
-                buf.position(tupleOffset + 2 * fieldCount + fieldStart);
-                buf.putInt(sum);
-            }
-
-            @Override
-            public boolean outputPartialResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
-                    throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
-                }
-                // Insert the aggregation value
-                tb.addField(accessor, tIndex, outField);
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public boolean outputMergeResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
-                    throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
-                }
-                // Insert the aggregation value
-                tb.addField(accessor, tIndex, outField);
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void merge(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
-                    throws HyracksDataException {
-                int sum = 0;
-                // Get value from tuple 1
-                int tupleOffset = accessor1.getTupleStartOffset(tIndex1);
-                int fieldCount = accessor1.getFieldCount();
-                int fieldStart = accessor1.getFieldStartOffset(tIndex1, outField);
-                sum += IntegerSerializerDeserializer.getInt(accessor1.getBuffer().array(), tupleOffset + 2 * fieldCount
-                        + fieldStart);
-                // Get value from tuple 2
-                tupleOffset = accessor2.getTupleStartOffset(tIndex2);
-                fieldCount = accessor2.getFieldCount();
-                fieldStart = accessor2.getFieldStartOffset(tIndex2, outField);
-                sum += IntegerSerializerDeserializer.getInt(accessor2.getBuffer().array(), tupleOffset + 2 * fieldCount
-                        + fieldStart);
-                // Update the value of tuple 2
-                ByteBuffer buf = accessor2.getBuffer();
-                buf.position(tupleOffset + 2 * fieldCount + fieldStart);
-                buf.putInt(sum);
-            }
-
-            @Override
-            public void getInitValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
+            public void init(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
                 int sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
@@ -165,15 +63,63 @@ public class IntSumAggregatorDescriptorFactory implements IAggregatorDescriptorF
                 sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
                         + fieldStart);
 
+                tupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, sum);
+            }
+
+            @Override
+            public void close() {
+            }
+
+            @Override
+            public int aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
+                    throws HyracksDataException {
+                int sum = 0;
+                int tupleOffset = accessor.getTupleStartOffset(tIndex);
+                int fieldCount = accessor.getFieldCount();
+                int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
+                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
+                        + fieldStart);
+                // Update the value of tuple 2
+                ByteBuffer buf = ByteBuffer.wrap(data);
+                sum += buf.getInt(offset);
+                buf.putInt(offset, sum);
+                return 4;
+            }
+
+            @Override
+            public void outputPartialResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
+                    throws HyracksDataException {
+                int tupleOffset = accessor.getTupleStartOffset(tIndex);
+                int fieldCount = accessor.getFieldCount();
+                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
+
                 try {
-                    dataOutput.writeInt(sum);
+                    tupleBuilder.getDataOutput().write(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
+                            + fieldStart, 4);
+                    tupleBuilder.addFieldEndOffset();
                 } catch (IOException e) {
-                    throw new HyracksDataException();
+                    throw new HyracksDataException("Failed to write int sum as a partial result.");
                 }
             }
 
             @Override
-            public void getPartialOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
+            public void outputResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
+                    throws HyracksDataException {
+                int tupleOffset = accessor.getTupleStartOffset(tIndex);
+                int fieldCount = accessor.getFieldCount();
+                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
+
+                try {
+                    tupleBuilder.getDataOutput().write(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
+                            + fieldStart, 4);
+                    tupleBuilder.addFieldEndOffset();
+                } catch (IOException e) {
+                    throw new HyracksDataException("Failed to write int sum as a partial result.");
+                }
+            }
+
+            @Override
+            public int merge(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
                     throws HyracksDataException {
                 int sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
@@ -181,29 +127,17 @@ public class IntSumAggregatorDescriptorFactory implements IAggregatorDescriptorF
                 int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
                 sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
                         + fieldStart);
-
-                try {
-                    dataOutput.writeInt(sum);
-                } catch (IOException e) {
-                    throw new HyracksDataException();
-                }
+                // Update the value of tuple 2
+                ByteBuffer buf = ByteBuffer.wrap(data);
+                sum += buf.getInt(offset);
+                buf.putInt(offset, sum);
+                return 4;
             }
-            
-            @Override
-            public void getMergeOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                int sum = 0;
-                int tupleOffset = accessor.getTupleStartOffset(tIndex);
-                int fieldCount = accessor.getFieldCount();
-                int fieldStart = accessor.getFieldStartOffset(tIndex, outField);
-                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(), tupleOffset + 2 * fieldCount
-                        + fieldStart);
 
-                try {
-                    dataOutput.writeInt(sum);
-                } catch (IOException e) {
-                    throw new HyracksDataException();
-                }
+            @Override
+            public void reset() {
+                // TODO Auto-generated method stub
+                
             }
         };
     }

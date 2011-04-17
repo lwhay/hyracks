@@ -14,14 +14,12 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.aggregators;
 
-import java.io.DataOutput;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.context.IHyracksStageletContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
 /**
  * @author jarodwen
@@ -30,7 +28,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 public class MultiAggregatorDescriptorFactory implements IAggregatorDescriptorFactory {
 
     private static final long serialVersionUID = 1L;
-    
+
     private final IAggregatorDescriptorFactory[] aggregatorFactories;
 
     public MultiAggregatorDescriptorFactory(IAggregatorDescriptorFactory[] aggregatorFactories) {
@@ -45,7 +43,6 @@ public class MultiAggregatorDescriptorFactory implements IAggregatorDescriptorFa
             final RecordDescriptor inRecordDescriptor, final RecordDescriptor outRecordDescriptor, final int[] keyFields)
             throws HyracksDataException {
 
-        final ArrayTupleBuilder tb = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
         final IAggregatorDescriptor[] aggregators = new IAggregatorDescriptor[this.aggregatorFactories.length];
         for (int i = 0; i < aggregators.length; i++) {
             aggregators[i] = aggregatorFactories[i].createAggregator(ctx, inRecordDescriptor, outRecordDescriptor,
@@ -55,78 +52,47 @@ public class MultiAggregatorDescriptorFactory implements IAggregatorDescriptorFa
         return new IAggregatorDescriptor() {
 
             @Override
-            public boolean init(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+            public void init(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, keyFields[i]);
-                }
-                DataOutput dos = tb.getDataOutput();
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getInitValue(accessor, tIndex, dos);
-                    tb.addFieldEndOffset();
-                }
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public void aggregate(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
-                    throws HyracksDataException {
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].aggregate(accessor1, tIndex1, accessor2, tIndex2);
+                for(int i = 0; i < aggregators.length; i++){
+                    aggregators[i].init(accessor, tIndex, tupleBuilder);
                 }
             }
 
             @Override
-            public void merge(IFrameTupleAccessor accessor1, int tIndex1, IFrameTupleAccessor accessor2, int tIndex2)
+            public int aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
                     throws HyracksDataException {
+                int adjust = 0;
                 for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].merge(accessor1, tIndex1, accessor2, tIndex2);
+                    adjust += aggregators[i].aggregate(accessor, tIndex, data, offset + adjust, length - adjust);
+                }
+                return adjust;
+            }
+
+            @Override
+            public int merge(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length)
+                    throws HyracksDataException {
+                int adjust = 0;
+                for (int i = 0; i < aggregators.length; i++) {
+                    adjust += aggregators[i].merge(accessor, tIndex, data, offset + adjust, length - adjust);
+                }
+                return adjust;
+            }
+
+            @Override
+            public void outputPartialResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
+                    throws HyracksDataException {
+                for(int i = 0; i < aggregators.length; i++){
+                    aggregators[i].outputPartialResult(accessor, tIndex, tupleBuilder);
                 }
             }
 
             @Override
-            public boolean outputPartialResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
+            public void outputResult(IFrameTupleAccessor accessor, int tIndex, ArrayTupleBuilder tupleBuilder)
                     throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
+                for(int i = 0; i < aggregators.length; i++){
+                    aggregators[i].outputResult(accessor, tIndex, tupleBuilder);
                 }
-                DataOutput dos = tb.getDataOutput();
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getPartialOutputValue(accessor, tIndex, dos);
-                    tb.addFieldEndOffset();
-                }
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
-            }
-
-            @Override
-            public boolean outputMergeResult(IFrameTupleAccessor accessor, int tIndex, FrameTupleAppender appender)
-                    throws HyracksDataException {
-                // Construct the tuple using keys and sum value
-                tb.reset();
-                for (int i = 0; i < keyFields.length; i++) {
-                    tb.addField(accessor, tIndex, i);
-                }
-                DataOutput dos = tb.getDataOutput();
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getMergeOutputValue(accessor, tIndex, dos);
-                    tb.addFieldEndOffset();
-                }
-                // Write the tuple out
-                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                    return false;
-                }
-                return true;
             }
 
             @Override
@@ -137,30 +103,12 @@ public class MultiAggregatorDescriptorFactory implements IAggregatorDescriptorFa
             }
 
             @Override
-            public void getInitValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getInitValue(accessor, tIndex, dataOutput);
-                }
-            }
-
-            @Override
-            public void getPartialOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getPartialOutputValue(accessor, tIndex, dataOutput);
-                }
-            }
-            
-            @Override
-            public void getMergeOutputValue(IFrameTupleAccessor accessor, int tIndex, DataOutput dataOutput)
-                    throws HyracksDataException {
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].getMergeOutputValue(accessor, tIndex, dataOutput);
+            public void reset(){
+                for(int i = 0; i < aggregators.length; i++){
+                    aggregators[i].reset();
                 }
             }
 
         };
     }
-
 }

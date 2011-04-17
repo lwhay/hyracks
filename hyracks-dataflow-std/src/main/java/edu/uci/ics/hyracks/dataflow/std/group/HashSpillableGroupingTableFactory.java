@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
@@ -37,7 +38,6 @@ import edu.uci.ics.hyracks.dataflow.std.aggregators.IAggregatorDescriptorFactory
 
 /**
  * @author jarodwen
- *
  */
 public class HashSpillableGroupingTableFactory implements ISpillableTableFactory {
 
@@ -50,14 +50,11 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
 
     private final int tableSize;
 
-    private final boolean isSorted;
-
-    public HashSpillableGroupingTableFactory(ITuplePartitionComputerFactory tpcf, int tableSize, boolean isSorted) {
+    public HashSpillableGroupingTableFactory(ITuplePartitionComputerFactory tpcf, int tableSize) {
         this.tpcf = tpcf;
         this.tableSize = tableSize;
-        this.isSorted = isSorted;
     }
-    
+
     /* (non-Javadoc)
      * @see edu.uci.ics.hyracks.dataflow.std.group.ISpillableTableFactory#buildSpillableTable(edu.uci.ics.hyracks.api.context.IHyracksStageletContext, int[], edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory[], edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory, edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor, edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor, int)
      */
@@ -73,7 +70,7 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
             storedKeys[i] = i;
             storedKeySerDeser[i] = inRecordDescriptor.getFields()[keyFields[i]];
         }
-        
+
         final FrameTupleAccessor storedKeysAccessor1 = new FrameTupleAccessor(ctx.getFrameSize(), outRecordDescriptor);
         final FrameTupleAccessor storedKeysAccessor2 = new FrameTupleAccessor(ctx.getFrameSize(), outRecordDescriptor);
 
@@ -91,6 +88,8 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
         final ITuplePartitionComputer tpc = tpcf.createPartitioner();
 
         final ByteBuffer outFrame = ctx.allocateFrame();
+
+        final ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
 
         return new ISpillableTable() {
 
@@ -154,11 +153,19 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                 // Do insert
                 if (!foundGroup) {
                     // If no matching group is found, create a new aggregator
-                    if(!aggregator.init(accessor, tIndex, appender)){
-                        if(!nextAvailableFrame()){
+                    // Create a tuple for the new group
+                    tupleBuilder.reset();
+                    for (int i = 0; i < keyFields.length; i++) {
+                        tupleBuilder.addField(accessor, tIndex, keyFields[i]);
+                    }
+                    aggregator.init(accessor, tIndex, tupleBuilder);
+                    if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                            tupleBuilder.getSize())) {
+                        if (!nextAvailableFrame()) {
                             return false;
                         } else {
-                            if(!aggregator.init(accessor, tIndex, appender)){
+                            if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                                    tupleBuilder.getSize())) {
                                 throw new IllegalStateException("Failed to init an aggregator");
                             }
                         }
@@ -167,12 +174,17 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                     sbIndex = dataFrameCount;
                     stIndex = appender.getTupleCount() - 1;
                     link.add(sbIndex, stIndex);
-                    
+
                 } else {
                     // If there is a matching found, do aggregation directly
-                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1, stIndex);
+                    int tupleOffset = storedKeysAccessor1.getTupleStartOffset(stIndex);
+                    int fieldCount = storedKeysAccessor1.getFieldCount();
+                    int aggFieldOffset = storedKeysAccessor1.getFieldStartOffset(stIndex, keyFields.length);
+                    int tupleEnd = storedKeysAccessor1.getTupleEndOffset(stIndex);
+                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1.getBuffer().array(), tupleOffset + 2
+                            * fieldCount + aggFieldOffset, tupleEnd - (tupleOffset + 2 * fieldCount + aggFieldOffset));
                 }
-                
+
                 return true;
             }
 
@@ -187,13 +199,12 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
             }
 
             @Override
-            public void flushFrames(IFrameWriter writer) throws HyracksDataException {
+            public void flushFrames(IFrameWriter writer, boolean isPartial) throws HyracksDataException {
                 FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
 
                 writer.open();
                 appender.reset(outFrame, true);
-                if(isSorted)
-                    sortFrames();
+
                 if (tPointers == null) {
                     // Not sorted
                     for (int i = 0; i < table.length; ++i) {
@@ -203,7 +214,19 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                                 int bIndex = link.pointers[j];
                                 int tIndex = link.pointers[j + 1];
                                 storedKeysAccessor1.reset(frames.get(bIndex));
-                                while (!aggregator.outputPartialResult(storedKeysAccessor1, tIndex, appender)) {
+                                // Reset the tuple for the partial result
+                                tupleBuilder.reset();
+                                for (int k = 0; k < keyFields.length; k++) {
+                                    tupleBuilder.addField(storedKeysAccessor1, tIndex, k);
+                                }
+                                if (isPartial)
+                                    aggregator.outputPartialResult(storedKeysAccessor1, tIndex,
+                                            tupleBuilder);
+                                else
+                                    aggregator.outputResult(storedKeysAccessor1, tIndex,
+                                            tupleBuilder);
+                                while (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
+                                        0, tupleBuilder.getSize())) {
                                     FrameUtils.flushFrame(outFrame, writer);
                                     appender.reset(outFrame, true);
                                 }
@@ -227,10 +250,24 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                     storedKeysAccessor1.reset(buffer);
 
                     // Insert
-                    if (!aggregator.outputPartialResult(storedKeysAccessor1, tupleIndex, appender)) {
+                    // Reset the tuple for the partial result
+                    tupleBuilder.reset();
+                    for (int k = 0; k < keyFields.length; k++) {
+                        tupleBuilder.addField(storedKeysAccessor1, tupleIndex, k);
+                    }
+                    if (isPartial)
+                        aggregator.outputPartialResult(storedKeysAccessor1, tupleIndex,
+                                tupleBuilder);
+                    else
+                        aggregator.outputResult(storedKeysAccessor1, tupleIndex,
+                                tupleBuilder);
+
+                    if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
+                            0, tupleBuilder.getSize())) {
                         FrameUtils.flushFrame(outFrame, writer);
                         appender.reset(outFrame, true);
-                        if (!aggregator.outputPartialResult(storedKeysAccessor1, tupleIndex, appender)) {
+                        if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
+                                0, tupleBuilder.getSize())) {
                             throw new IllegalStateException();
                         }
                     }
@@ -425,4 +462,5 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
             return sb.toString();
         }
     }
+
 }
