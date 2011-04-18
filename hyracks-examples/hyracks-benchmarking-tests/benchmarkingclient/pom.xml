@@ -34,11 +34,46 @@
         <artifactId>appassembler-maven-plugin</artifactId>
         <executions>
           <execution>
+          	<id>dummyClient</id>
             <configuration>
               <programs>
                 <program>
                   <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.DummyOperatorsBenchmarkingClient</mainClass>
                   <name>dummyClient</name>
+                </program>
+              </programs>
+              <repositoryLayout>flat</repositoryLayout>
+              <repositoryName>lib</repositoryName>
+            </configuration>
+            <phase>package</phase>
+            <goals>
+              <goal>assemble</goal>
+            </goals>
+          </execution>
+          <execution>
+          	<id>dummyDataClient</id>
+            <configuration>
+              <programs>
+                <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.DummyOperatorsWithDataBenchmarkingClient</mainClass>
+                  <name>dummyDataClient</name>
+                </program>
+              </programs>
+              <repositoryLayout>flat</repositoryLayout>
+              <repositoryName>lib</repositoryName>
+            </configuration>
+            <phase>package</phase>
+            <goals>
+              <goal>assemble</goal>
+            </goals>
+          </execution>
+          <execution>
+          	<id>sortBenchmarkingClient</id>
+            <configuration>
+              <programs>
+                <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.SortBenchmarkingClient</mainClass>
+                  <name>sortBenchmarkingClient</name>
                 </program>
               </programs>
               <repositoryLayout>flat</repositoryLayout>
