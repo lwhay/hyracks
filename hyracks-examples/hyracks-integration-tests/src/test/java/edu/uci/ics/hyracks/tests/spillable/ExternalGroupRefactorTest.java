@@ -66,8 +66,8 @@ public class ExternalGroupRefactorTest extends AbstractIntegrationTest {
 
     static final String outSplitsPrefix = System.getProperty("java.io.tmpdir");
     
-    static final String outSplits1 = "nc1:" + outSplitsPrefix + "aggregation_";
-    static final String outSplits2 = "nc2:" + outSplitsPrefix + "aggregation_";
+    static final String outSplits1 = "nc1:" + outSplitsPrefix + "/aggregation_";
+    static final String outSplits2 = "nc2:" + outSplitsPrefix + "/aggregation_";
 
     static final boolean isOutputFile = true;
 
