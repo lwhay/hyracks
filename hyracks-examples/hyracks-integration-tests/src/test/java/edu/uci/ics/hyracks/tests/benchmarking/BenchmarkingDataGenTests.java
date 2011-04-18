@@ -60,8 +60,8 @@ import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
  */
 public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
 
-    final String[] outSplits = new String[] { "nc1:"+ System.getProperty("java.io.tmpdir") + "/data_nc1",
-            "nc2:"+ System.getProperty("java.io.tmpdir") + "/data_nc2" };
+    final String[] outSplits = new String[] { "nc1:" + System.getProperty("java.io.tmpdir") + "/data_nc1",
+            "nc2:" + System.getProperty("java.io.tmpdir") + "/data_nc2" };
 
     final int dataSize = 1000;
 
@@ -127,14 +127,15 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
 
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true),
-                new IntegerGenerator(97, 0, 100000), new UTF8StringGenerator(20, false), new IntegerGenerator(), new UTF8StringGenerator(3, false) };
+                new IntegerGenerator(97, 0, 100000), new UTF8StringGenerator(20, false), new IntegerGenerator(),
+                new UTF8StringGenerator(3, false) };
 
         IGenDistributionDescriptor[] genDistributionDescriptors = new IGenDistributionDescriptor[] {
                 new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
                 new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new ZipfDistributionDescriptor(0, (int)(dataSize * cardRatio), 1),
+                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 1),
                 new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 0.5),
-                new RandomDistributionDescriptor()};
+                new RandomDistributionDescriptor() };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
                 genDistributionDescriptors, dataSize, true);
@@ -157,7 +158,8 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
                         new CountAggregatorDescriptorFactory(1), new IntSumAggregatorDescriptorFactory(1, 2),
                         new ConcatAggregatorDescriptorFactory(4, 3) }), outRecordDescriptor,
                 new HashSpillableGroupingTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize), true);
+                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }), tableSize),
+                true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
 
