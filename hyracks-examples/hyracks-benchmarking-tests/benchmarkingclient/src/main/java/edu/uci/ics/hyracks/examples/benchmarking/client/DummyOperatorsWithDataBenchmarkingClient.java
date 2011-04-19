@@ -90,7 +90,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         @Option(name = "-cardinality", usage = "The cardinality of the data generated", required = true)
         public double cardRatio;
 
-        @Option(name = "-data-gen-fields", usage = "Integers indicating the fields to be generated, separated by comma", required = true)
+        @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
         public int dataFields;
 
         @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
