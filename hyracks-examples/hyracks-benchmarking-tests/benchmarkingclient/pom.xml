@@ -84,6 +84,23 @@
               <goal>assemble</goal>
             </goals>
           </execution>
+          <execution>
+          	<id>aggregatorsBenchmarkingClient</id>
+            <configuration>
+              <programs>
+                <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.benchmarking.client.AggregatorsBenchmarkingClient</mainClass>
+                  <name>aggregatorsBenchmarkingClient</name>
+                </program>
+              </programs>
+              <repositoryLayout>flat</repositoryLayout>
+              <repositoryName>lib</repositoryName>
+            </configuration>
+            <phase>package</phase>
+            <goals>
+              <goal>assemble</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
       <plugin>
