@@ -92,6 +92,9 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
         public int dataFields;
+        
+        @Option(name = "-tuple-length", usage = "The length of the string to be generated")
+        public int tupleLength = 10;
 
         @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
         public String keyFields;
@@ -115,11 +118,12 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out.println("Test information:\n"
-                + "ChainLength\tConnectorType\tInNodeSplits\tOutNodeSplits\tDataSize\tCardinality\tDataFields\tKeys\n"
-                + options.chainLength + "\t" + options.connectorType + "\t" + options.inNodeSplits + "\t"
-                + options.outNodeSplits + "\t" + options.dataSize + "\t" + options.cardRatio + "\t"
-                + options.dataFields + "\t" + options.keyFields);
+        System.out
+        .println("Test information:\n"
+                + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\n"
+                + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
+                + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
+                + options.keyFields);
 
         System.out.println("\tInitial\tRunning");
         
@@ -132,7 +136,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         for (int i = 0; i < options.testCount; i++) {
             long start = System.currentTimeMillis();
             job = createJob(options.chainLength, splitPattern.split(options.inNodeSplits),
-                    splitPattern.split(options.outNodeSplits), options.connectorType, options.dataSize,
+                    splitPattern.split(options.outNodeSplits), options.connectorType, options.dataSize, options.tupleLength, 
                     options.cardRatio, options.dataFields, keyFields, options.isOutputFile, options.outPath);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
@@ -144,14 +148,14 @@ public class DummyOperatorsWithDataBenchmarkingClient {
     }
 
     private static JobSpecification createJob(int chainLength, String[] inNodes, String[] outNodes, int connectorType,
-            int dataSize, double cardRatio, int dataFields, int[] keyFields, boolean isOutputFile, String outPath) {
+            int dataSize, int tupleLength, double cardRatio, int dataFields, int[] keyFields, boolean isOutputFile, String outPath) {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         for (int i = 0; i < dataTypeGenerators.length; i++) {
-            dataTypeGenerators[i] = new UTF8StringGenerator(10, true);
+            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true);
         }
 
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
@@ -226,7 +230,33 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
+        IConnectorDescriptor conn2;
+        
+        switch (connectorType) {
+            case 0:
+                conn2 = new OneToOneConnectorDescriptor(spec);
+                break;
+            case 1:
+                conn2 = new MToNHashPartitioningConnectorDescriptor(spec,
+                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                break;
+            // Currently RangePartition is not supported.
+            //case 2:
+            //    connChain = new MToNRangePartitioningConnectorDescriptor(spec, 0, null);
+            //    break;
+            case 3:
+                conn2 = new MToNHashPartitioningMergingConnectorDescriptor(spec,
+                        new FieldHashPartitionComputerFactory(keyFields, hashFactories), keyFields,
+                        comparatorFactories);
+                break;
+            case 4:
+                conn2 = new MToNReplicatingConnectorDescriptor(spec);
+                break;
+            default:
+                conn2 = new OneToOneConnectorDescriptor(spec);
+                break;
+        }
+        
         spec.connect(conn2, opter, 0, printer, 0);
 
         spec.addRoot(printer);

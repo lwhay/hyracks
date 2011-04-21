@@ -76,16 +76,16 @@ public class SortBenchmarkingClient {
 
         @Option(name = "-tuple-length", usage = "The length of the string to be generated")
         public int tupleLength = 10;
-        
+
         @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
         public int dataFields;
-        
+
         @Option(name = "-cardinality", usage = "The cardinality of the data generated", required = true)
         public double cardRatio;
 
         @Option(name = "-frame-limit", usage = "Number of frames available for the sorter")
         public int frameLimit = 4095;
-        
+
         @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
         public String keyFields;
 
@@ -107,20 +107,25 @@ public class SortBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out.println("Test information:\n" + "InNodeSplits\tOutNodeSplits\tTupleLength\tNumFields\tCardinality\tkeyFields\n" + options.inNodeSplits + "\t"
-                + options.outNodeSplits + "\t" + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t" + options.keyFields);
+        System.out
+                .println("Test information:\n"
+                        + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\n"
+                        + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "" + "t"
+                        + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
+                        + options.keyFields);
 
         String[] keys = splitPattern.split(options.keyFields);
         int[] keyFields = new int[keys.length];
-        for(int i = 0; i < keys.length; i++){
+        for (int i = 0; i < keys.length; i++) {
             keyFields[i] = Integer.valueOf(keys[i]);
         }
-        
+
         System.out.println("\tInitial\tRunning");
         for (int i = 0; i < options.testCount; i++) {
             long start = System.currentTimeMillis();
-            job = createJob(options.dataSize, options.tupleLength, options.dataFields, options.cardRatio, splitPattern.split(options.inNodeSplits),
-                    splitPattern.split(options.outNodeSplits), options.frameLimit, options.outPath, keyFields);
+            job = createJob(options.dataSize, options.tupleLength, options.dataFields, options.cardRatio,
+                    splitPattern.split(options.inNodeSplits), splitPattern.split(options.outNodeSplits),
+                    options.frameLimit, options.outPath, keyFields);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -130,17 +135,17 @@ public class SortBenchmarkingClient {
         }
     }
 
-    private static JobSpecification createJob(int dataSize, int tupleLength, int dataFields, double cardRatio, String[] inNodes, String[] outNodes,
-            int frameLimit, String outPath, int[] keyFields) {
+    private static JobSpecification createJob(int dataSize, int tupleLength, int dataFields, double cardRatio,
+            String[] inNodes, String[] outNodes, int frameLimit, String outPath, int[] keyFields) {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         for (int i = 0; i < dataTypeGenerators.length; i++) {
-            dataTypeGenerators[i] = new UTF8StringGenerator(10, true);
+            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true);
         }
-        
+
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
         for (int i = 0; i < dataDistributionDescriptors.length; i++) {
             dataDistributionDescriptors[i] = new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio));
@@ -148,15 +153,15 @@ public class SortBenchmarkingClient {
 
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] fields = new ISerializerDeserializer[dataFields];
-        
-        for(int i = 0; i < fields.length; i++){
+
+        for (int i = 0; i < fields.length; i++) {
             fields[i] = UTF8StringSerializerDeserializer.INSTANCE;
         }
-        
+
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
-        
-        IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length]; 
-        for(int i = 0; i < keyFields.length; i++){ 
+
+        IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length];
+        for (int i = 0; i < keyFields.length; i++) {
             comparatorFactories[i] = UTF8StringBinaryComparatorFactory.INSTANCE;
         }
 
