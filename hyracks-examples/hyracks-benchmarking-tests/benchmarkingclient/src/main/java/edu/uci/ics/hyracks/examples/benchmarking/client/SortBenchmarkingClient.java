@@ -26,21 +26,18 @@ import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.UTF8StringBinaryComparatorFactory;
-import edu.uci.ics.hyracks.dataflow.common.data.hash.UTF8StringBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.DataGeneratorOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.DummyInputSinkOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
-import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningMergingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
@@ -91,6 +88,12 @@ public class SortBenchmarkingClient {
 
         @Option(name = "-out-path", usage = "The prefix (including the path) of the output files")
         public String outPath = System.getProperty("java.io.tmpdir") + "/SortBenchmarking_output";
+
+        @Option(name = "-data-only", usage = "Test overhead on data generating (so no sort or output)")
+        public boolean isDataOnly = false;
+        
+        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
+        public int randSeed = 20110422;
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -107,12 +110,11 @@ public class SortBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out
-                .println("Test information:\n"
-                        + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\n"
-                        + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "" + "t"
-                        + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
-                        + options.keyFields);
+        System.out.println("Test information:\n"
+                + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tDataOnly\tRandSeed\n"
+                + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
+                + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t" + options.keyFields
+                + "\t" + options.isDataOnly + "\t" + options.randSeed);
 
         String[] keys = splitPattern.split(options.keyFields);
         int[] keyFields = new int[keys.length];
@@ -125,7 +127,7 @@ public class SortBenchmarkingClient {
             long start = System.currentTimeMillis();
             job = createJob(options.dataSize, options.tupleLength, options.dataFields, options.cardRatio,
                     splitPattern.split(options.inNodeSplits), splitPattern.split(options.outNodeSplits),
-                    options.frameLimit, options.outPath, keyFields);
+                    options.frameLimit, options.outPath, keyFields, options.isDataOnly, options.randSeed);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -136,19 +138,19 @@ public class SortBenchmarkingClient {
     }
 
     private static JobSpecification createJob(int dataSize, int tupleLength, int dataFields, double cardRatio,
-            String[] inNodes, String[] outNodes, int frameLimit, String outPath, int[] keyFields) {
+            String[] inNodes, String[] outNodes, int frameLimit, String outPath, int[] keyFields, boolean isDataOnly, int randSeed) throws Exception{
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         for (int i = 0; i < dataTypeGenerators.length; i++) {
-            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true);
+            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
 
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
         for (int i = 0; i < dataDistributionDescriptors.length; i++) {
-            dataDistributionDescriptors[i] = new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio));
+            dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) (dataSize * cardRatio));
         }
 
         @SuppressWarnings("rawtypes")
@@ -166,29 +168,39 @@ public class SortBenchmarkingClient {
         }
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true);
+                dataDistributionDescriptors, dataSize, true, randSeed);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
-        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimit, keyFields,
-                comparatorFactories, inRecordDescriptor);
+        if (isDataOnly) {
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
+            DummyInputSinkOperatorDescriptor sink = new DummyInputSinkOperatorDescriptor(spec);
+            
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sink, outNodes);
+            
+            IConnectorDescriptor conn = new OneToOneConnectorDescriptor(spec);
+            spec.connect(conn, generator, 0, sink, 0);
+            
+            spec.addRoot(sink);
+            
+        } else {
+            ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimit, keyFields,
+                    comparatorFactories, inRecordDescriptor);
 
-        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn1, generator, 0, sorter, 0);
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
 
-        PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
-                new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
+            IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
+            spec.connect(conn1, generator, 0, sorter, 0);
 
-        IConnectorDescriptor conn2 = new MToNHashPartitioningMergingConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }),
-                new int[] { 0 }, new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE });
-        spec.connect(conn2, sorter, 0, printer, 0);
+            PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
+                    new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
 
-        spec.addRoot(printer);
+            IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
+            spec.connect(conn2, sorter, 0, printer, 0);
+
+            spec.addRoot(printer);
+        }
         return spec;
     }
 

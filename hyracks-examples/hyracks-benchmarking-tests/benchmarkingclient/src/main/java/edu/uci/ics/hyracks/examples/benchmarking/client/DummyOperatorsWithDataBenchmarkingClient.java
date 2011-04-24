@@ -71,7 +71,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         @Option(name = "-out-node-splits", usage = "Comma separated list of nodes for the output", required = true)
         public String outNodeSplits;
-        
+
         @Option(name = "-out-path", usage = "The prefix (including the path) of the output files")
         public String outPath = System.getProperty("java.io.tmpdir") + "/DummyDataTest_output";
 
@@ -92,7 +92,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
         public int dataFields;
-        
+
         @Option(name = "-tuple-length", usage = "The length of the string to be generated")
         public int tupleLength = 10;
 
@@ -101,6 +101,9 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         @Option(name = "-output-file", usage = "Whether to output the data into a file")
         public boolean isOutputFile = false;
+
+        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
+        public int randSeed = 20110422;
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -119,25 +122,26 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         JobSpecification job;
 
         System.out
-        .println("Test information:\n"
-                + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\n"
-                + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
-                + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
-                + options.keyFields);
+                .println("Test information:\n"
+                        + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tConn\tRandSeed\n"
+                        + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
+                        + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
+                        + options.keyFields + "\t" + options.connectorType + "\t" + options.randSeed);
 
         System.out.println("\tInitial\tRunning");
-        
+
         String[] keys = splitPattern.split(options.keyFields);
         int[] keyFields = new int[keys.length];
-        for(int i = 0; i < keys.length; i++){
+        for (int i = 0; i < keys.length; i++) {
             keyFields[i] = Integer.valueOf(keys[i]);
         }
-        
+
         for (int i = 0; i < options.testCount; i++) {
             long start = System.currentTimeMillis();
             job = createJob(options.chainLength, splitPattern.split(options.inNodeSplits),
-                    splitPattern.split(options.outNodeSplits), options.connectorType, options.dataSize, options.tupleLength, 
-                    options.cardRatio, options.dataFields, keyFields, options.isOutputFile, options.outPath);
+                    splitPattern.split(options.outNodeSplits), options.connectorType, options.dataSize,
+                    options.tupleLength, options.cardRatio, options.dataFields, keyFields, options.isOutputFile,
+                    options.outPath, options.randSeed);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -148,43 +152,43 @@ public class DummyOperatorsWithDataBenchmarkingClient {
     }
 
     private static JobSpecification createJob(int chainLength, String[] inNodes, String[] outNodes, int connectorType,
-            int dataSize, int tupleLength, double cardRatio, int dataFields, int[] keyFields, boolean isOutputFile, String outPath) {
+            int dataSize, int tupleLength, double cardRatio, int dataFields, int[] keyFields, boolean isOutputFile,
+            String outPath, int randSeed) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         for (int i = 0; i < dataTypeGenerators.length; i++) {
-            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true);
+            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
 
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
         for (int i = 0; i < dataDistributionDescriptors.length; i++) {
-            dataDistributionDescriptors[i] = new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio));
+            dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) (dataSize * cardRatio));
         }
-        
+
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] fields = new ISerializerDeserializer[dataFields];
-        
-        for(int i = 0; i < fields.length; i++){
+
+        for (int i = 0; i < fields.length; i++) {
             fields[i] = UTF8StringSerializerDeserializer.INSTANCE;
         }
 
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true);
+                dataDistributionDescriptors, dataSize, true, randSeed);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
-        
         IBinaryHashFunctionFactory[] hashFactories = new IBinaryHashFunctionFactory[keyFields.length];
-        for(int i = 0; i < keyFields.length; i++){
+        for (int i = 0; i < keyFields.length; i++) {
             hashFactories[i] = UTF8StringBinaryHashFunctionFactory.INSTANCE;
         }
-        
-        IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length]; 
-        for(int i = 0; i < keyFields.length; i++){ 
+
+        IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length];
+        for (int i = 0; i < keyFields.length; i++) {
             comparatorFactories[i] = UTF8StringBinaryComparatorFactory.INSTANCE;
         }
 
@@ -231,23 +235,22 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
 
         IConnectorDescriptor conn2;
-        
+
         switch (connectorType) {
             case 0:
                 conn2 = new OneToOneConnectorDescriptor(spec);
                 break;
             case 1:
-                conn2 = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                conn2 = new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                        keyFields, hashFactories));
                 break;
             // Currently RangePartition is not supported.
             //case 2:
             //    connChain = new MToNRangePartitioningConnectorDescriptor(spec, 0, null);
             //    break;
             case 3:
-                conn2 = new MToNHashPartitioningMergingConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories), keyFields,
-                        comparatorFactories);
+                conn2 = new MToNHashPartitioningMergingConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                        keyFields, hashFactories), keyFields, comparatorFactories);
                 break;
             case 4:
                 conn2 = new MToNReplicatingConnectorDescriptor(spec);
@@ -256,7 +259,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
                 conn2 = new OneToOneConnectorDescriptor(spec);
                 break;
         }
-        
+
         spec.connect(conn2, opter, 0, printer, 0);
 
         spec.addRoot(printer);
@@ -271,12 +274,12 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         if (!isOutputFile)
             printer = new DummyInputSinkOperatorDescriptor(spec);
         else
-            printer = new PlainFileWriterOperatorDescriptor(spec, new ConstantFileSplitProvider(
-                    parseFileSplits(outNodes, outPath)), "\t");
+            printer = new PlainFileWriterOperatorDescriptor(spec, new ConstantFileSplitProvider(parseFileSplits(
+                    outNodes, outPath)), "\t");
 
         return printer;
     }
-    
+
     private static FileSplit[] parseFileSplits(String[] outNodes, String outPath) {
         FileSplit[] fSplits = new FileSplit[outNodes.length];
         for (int i = 0; i < outNodes.length; ++i) {

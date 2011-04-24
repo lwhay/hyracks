@@ -69,6 +69,8 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
 
     final boolean outToFile = false;
 
+    final int randSeed = 83748;
+
     private static FileSplit[] parseFileSplits(String[] splits) {
         FileSplit[] fSplits = new FileSplit[splits.length];
         for (int i = 0; i < splits.length; ++i) {
@@ -87,17 +89,18 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
         JobSpecification spec = new JobSpecification();
 
         @SuppressWarnings("rawtypes")
-        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true),
-                new IntegerGenerator(97, 0, 100000), new UTF8StringGenerator(20, false), new IntegerGenerator() };
+        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
+                new IntegerGenerator(97, 100000, randSeed + 1), new UTF8StringGenerator(20, false, randSeed + 2),
+                new IntegerGenerator(randSeed + 3) };
 
         IGenDistributionDescriptor[] genDistributionDescriptors = new IGenDistributionDescriptor[] {
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new ZipfDistributionDescriptor(0, dataSize, 1),
-                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 0.5) };
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new ZipfDistributionDescriptor(dataSize, 1),
+                new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5) };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
-                genDistributionDescriptors, dataSize, false);
+                genDistributionDescriptors, dataSize, false, randSeed + 4);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 
@@ -126,19 +129,18 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
         // Data generator operator
 
         @SuppressWarnings("rawtypes")
-        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true),
-                new IntegerGenerator(97, 0, 100000), new UTF8StringGenerator(20, false), new IntegerGenerator(),
-                new UTF8StringGenerator(3, false) };
+        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
+                new IntegerGenerator(97, 93748, randSeed + 1), new UTF8StringGenerator(20, false, randSeed + 2),
+                new IntegerGenerator(randSeed + 3), new UTF8StringGenerator(3, false, randSeed + 4) };
 
         IGenDistributionDescriptor[] genDistributionDescriptors = new IGenDistributionDescriptor[] {
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 1),
-                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 0.5),
-                new RandomDistributionDescriptor() };
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 1),
+                new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5), new RandomDistributionDescriptor() };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
-                genDistributionDescriptors, dataSize, true);
+                genDistributionDescriptors, dataSize, true, randSeed + 5);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 

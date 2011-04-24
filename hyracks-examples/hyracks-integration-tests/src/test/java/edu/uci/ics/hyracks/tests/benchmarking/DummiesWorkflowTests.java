@@ -61,11 +61,12 @@ import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
 public class DummiesWorkflowTests extends AbstractIntegrationTest {
 
     final int chainLength = 5;
-    final int connectorType = 4;
+    final int connectorType = 0;
     final int dataSize = 60000;
     final double cardRatio = 0.25;
     final int[] hashKeys = new int[] { 0 };
     final static boolean isOutputFile = true;
+    final int randSeed = 38473;
 
     static final String outSplitsPrefix = System.getProperty("java.io.tmpdir");
 
@@ -174,15 +175,15 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
-        ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true),
-                new IntegerGenerator(97, 0, 100000), new UTF8StringGenerator(20, false), new IntegerGenerator(),
-                new UTF8StringGenerator(3, false) };
+        ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
+                new IntegerGenerator(97, 100000, randSeed), new UTF8StringGenerator(20, false, randSeed), new IntegerGenerator(randSeed),
+                new UTF8StringGenerator(3, false, randSeed) };
 
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[] {
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio)),
-                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 1),
-                new ZipfDistributionDescriptor(0, (int) (dataSize * cardRatio), 0.5),
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
+                new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 1),
+                new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5),
                 new RandomDistributionDescriptor() };
 
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[] {
@@ -191,7 +192,7 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true);
+                dataDistributionDescriptors, dataSize, true, randSeed);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 

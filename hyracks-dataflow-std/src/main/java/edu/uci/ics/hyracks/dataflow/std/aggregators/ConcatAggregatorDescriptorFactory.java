@@ -170,9 +170,6 @@ public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorF
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 UTF8StringSerializerDeserializer.INSTANCE.serialize(sbder.toString(), new DataOutputStream(baos));
-                if(baos.size() > 10){
-                    System.err.println("Possible Error here");
-                }
                 buf[refIndex] = baos.toByteArray();
                 return 4;
             }

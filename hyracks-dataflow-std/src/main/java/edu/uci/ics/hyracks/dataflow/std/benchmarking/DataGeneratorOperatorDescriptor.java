@@ -28,6 +28,8 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
@@ -41,20 +43,124 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
 
     private final boolean keyBased;
 
+    private final int randSeed;
+
     @SuppressWarnings("rawtypes")
     private final ITypeGenerator[] dataGenerators;
 
+    /**
+     * Randomly Generate data based on the given data type. The generator initialized by this 
+     * constructor will create different data sets for different runs.
+     * @param spec
+     * @param dataSeDers
+     * @param genDistributionDescriptors
+     * @param dataSize
+     * @param keyBased
+     */
+    @SuppressWarnings("rawtypes")
+    public DataGeneratorOperatorDescriptor(JobSpecification spec, ISerializerDeserializer[] dataSeDers,
+            IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased) {
+        super(spec, 0, 1);
+        this.genDistributionDescriptors = genDistributionDescriptors;
+        this.dataSize = dataSize;
+        this.randSeed = (int) (System.currentTimeMillis());
+        Random rand = new Random(randSeed);
+        int[] randSeeds = new int[dataSeDers.length];
+        for (int i = 0; i < dataSeDers.length; i++) {
+            randSeeds[i] = rand.nextInt();
+        }
+        this.dataGenerators = getDataGenerator(dataSeDers, randSeeds);
+        this.keyBased = keyBased;
+
+        recordDescriptors[0] = new RecordDescriptor(dataSeDers);
+    }
+
+    /**
+     * Randomly generate data based on the given data type and also the random generator seed. Different runs
+     * with the same random key will create the same data set.
+     * 
+     * @param spec
+     * @param dataSeDers
+     * @param randSeeds
+     * @param genDistributionDescriptors
+     * @param dataSize
+     * @param keyBased
+     * @param randSeed
+     */
+    @SuppressWarnings("rawtypes")
+    public DataGeneratorOperatorDescriptor(JobSpecification spec, ISerializerDeserializer[] dataSeDers,
+            int[] randSeeds, IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased,
+            int randSeed) {
+        super(spec, 0, 1);
+        this.genDistributionDescriptors = genDistributionDescriptors;
+        this.dataSize = dataSize;
+        this.keyBased = keyBased;
+
+        this.randSeed = randSeed;
+
+        this.dataGenerators = getDataGenerator(dataSeDers, randSeeds);
+
+        recordDescriptors[0] = new RecordDescriptor(dataSeDers);
+    }
+
+    /**
+     * Randomly generate data using the given data generators, and different runs of this generator will 
+     * generate different data sets.
+     * 
+     * This constructor enables more control on the generators.
+     *  
+     * @param spec
+     * @param dataGenerators
+     * @param genDistributionDescriptors
+     * @param dataSize
+     * @param keyBased
+     */
     @SuppressWarnings("rawtypes")
     public DataGeneratorOperatorDescriptor(JobSpecification spec, ITypeGenerator[] dataGenerators,
             IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased) {
         super(spec, 0, 1);
         this.genDistributionDescriptors = genDistributionDescriptors;
         this.dataSize = dataSize;
+        this.randSeed = (int) (System.currentTimeMillis());
+        
         this.dataGenerators = dataGenerators;
         this.keyBased = keyBased;
+        
+        ISerializerDeserializer[] dataSeDers = new ISerializerDeserializer[dataGenerators.length];
+        for(int i = 0; i < dataGenerators.length; i++){
+            dataSeDers[i] = dataGenerators[i].getSeDerInstance();
+        }
 
-        final ISerializerDeserializer[] dataSeDers = new ISerializerDeserializer[dataGenerators.length];
-        for (int i = 0; i < dataSeDers.length; i++) {
+        recordDescriptors[0] = new RecordDescriptor(dataSeDers);
+    }
+    
+    /**
+     * Randomly generate data using the given data generators and random seed. Different runs using the
+     * same random seed will produce the same data sets. 
+     * 
+     * This constructor enables more control on the generators.
+     * 
+     * @param spec
+     * @param dataGenerators
+     * @param genDistributionDescriptors
+     * @param dataSize
+     * @param keyBased
+     * @param randSeed
+     */
+    @SuppressWarnings("rawtypes")
+    public DataGeneratorOperatorDescriptor(JobSpecification spec, ITypeGenerator[] dataGenerators, IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased,
+            int randSeed) {
+        super(spec, 0, 1);
+        this.genDistributionDescriptors = genDistributionDescriptors;
+        this.dataSize = dataSize;
+        this.keyBased = keyBased;
+
+        this.randSeed = randSeed;
+
+        this.dataGenerators = dataGenerators;
+        
+        ISerializerDeserializer[] dataSeDers = new ISerializerDeserializer[dataGenerators.length];
+        for(int i = 0; i < dataGenerators.length; i++){
             dataSeDers[i] = dataGenerators[i].getSeDerInstance();
         }
 
@@ -73,7 +179,7 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
 
         final ArrayTupleBuilder tb = new ArrayTupleBuilder(recordDescriptors[0].getFields().length);
 
-        final Random rand = new Random();
+        final Random rand = new Random(randSeed);
 
         return new AbstractUnaryOutputSourceOperatorNodePushable() {
 
@@ -108,6 +214,21 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
             }
 
         };
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static ITypeGenerator[] getDataGenerator(ISerializerDeserializer[] seDers, int[] randSeeds) {
+        ITypeGenerator[] rtn = new ITypeGenerator[seDers.length];
+        for (int i = 0; i < seDers.length; i++) {
+            if (seDers[i] instanceof IntegerSerializerDeserializer) {
+                rtn[i] = new IntegerGenerator(randSeeds[i]);
+            } else if (seDers[i] instanceof UTF8StringSerializerDeserializer) {
+                rtn[i] = new UTF8StringGenerator(randSeeds[i]);
+            } else {
+                rtn[i] = new IntegerGenerator(randSeeds[i]);
+            }
+        }
+        return rtn;
     }
 
 }

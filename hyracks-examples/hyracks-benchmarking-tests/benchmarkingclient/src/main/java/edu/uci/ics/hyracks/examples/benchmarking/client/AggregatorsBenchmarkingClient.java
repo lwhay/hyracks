@@ -114,6 +114,9 @@ public class AggregatorsBenchmarkingClient {
 
         @Option(name = "-hashtable-size", usage = "Hash table size (default: 8191)", required = false)
         public int htSize = 8191;
+        
+        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
+        public int randSeed = 20110422;
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -132,11 +135,11 @@ public class AggregatorsBenchmarkingClient {
 
         System.out
                 .println("Test information:\n"
-                        + "AlgType\tInNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tFrames\tHashSize\n"
+                        + "AlgType\tInNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tFrames\tHashSize\tRandSeed\n"
                         + options.aggregatorType + "\t" + options.inNodeSplits + "\t" + options.outNodeSplits + "\t"
                         + options.dataSize + "\t" + options.tupleLength + "\t" + options.dataFields + "\t"
                         + options.cardRatio + "\t" + options.keyFields + "\t" + options.frameLimit + "\t"
-                        + options.htSize);
+                        + options.htSize + "\t" + options.randSeed);
 
         System.out.println("\tInitial\tRunning");
 
@@ -151,7 +154,7 @@ public class AggregatorsBenchmarkingClient {
             job = createJob(options.aggregatorType, splitPattern.split(options.inNodeSplits),
                     splitPattern.split(options.outNodeSplits), options.dataSize, options.tupleLength,
                     options.cardRatio, options.dataFields, keyFields, options.outPath, options.frameLimit,
-                    options.htSize);
+                    options.htSize, options.randSeed);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -163,7 +166,7 @@ public class AggregatorsBenchmarkingClient {
 
     private static JobSpecification createJob(int aggregatorType, String[] inNodes, String[] outNodes, int dataSize,
             int tupleLength, double cardRatio, int dataFields, int[] keyFields, String outPath, int frameLimit,
-            int htSize) {
+            int htSize, int randSeed) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
@@ -171,10 +174,10 @@ public class AggregatorsBenchmarkingClient {
         // Generate string fields
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         for (int i = 0; i < dataTypeGenerators.length - 1; i++) {
-            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true);
+            dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
         // Generate an integer field 
-        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(0, dataSize);
+        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(0, dataSize, randSeed + dataTypeGenerators.length);
 
         // Distribution controllers
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
@@ -187,7 +190,7 @@ public class AggregatorsBenchmarkingClient {
                 }
             }
             if (isKey)
-                dataDistributionDescriptors[i] = new RandomDistributionDescriptor(0, (int) (dataSize * cardRatio));
+                dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) (dataSize * cardRatio));
             else
                 dataDistributionDescriptors[i] = new RandomDistributionDescriptor();
         }
@@ -202,7 +205,7 @@ public class AggregatorsBenchmarkingClient {
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true);
+                dataDistributionDescriptors, dataSize, true, randSeed);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
         @SuppressWarnings("rawtypes")
@@ -257,7 +260,17 @@ public class AggregatorsBenchmarkingClient {
 
                 OneToOneConnectorDescriptor sortGroupConn = new OneToOneConnectorDescriptor(spec);
                 spec.connect(sortGroupConn, sorter, 0, grouper, 0);
-                break;
+                
+                
+                PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
+                        new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, outNodes);
+                
+                IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
+                spec.connect(directPrintConn, grouper, 0, dprinter, 0);
+
+                spec.addRoot(dprinter);
+                return spec;
 
             case 1:
                 // External hash group, previous version
@@ -276,7 +289,6 @@ public class AggregatorsBenchmarkingClient {
                 IConnectorDescriptor genGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
                         new FieldHashPartitionComputerFactory(keyFields, hashFactories));
                 spec.connect(genGroupConn, generator, 0, grouper, 0);
-
                 break;
 
             case 2:
@@ -309,19 +321,16 @@ public class AggregatorsBenchmarkingClient {
                 spec.connect(genBinGroupConn, generator, 0, grouper, 0);
                 break;
             default:
-                // External hash group, refacotored version
-                grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, comparatorFactories,
-                        new MultiAggregatorDescriptorFactory(
-                                new IAggregatorDescriptorFactory[] { new IntSumAggregatorDescriptorFactory(
-                                        dataFields - 1) }), inRecordDescriptor, new HashSpillableGroupingTableFactory(
-                                new FieldHashPartitionComputerFactory(keyFields, hashFactories), htSize), false);
+                // Directly output the data
+                PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
+                        new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
+                
+                IConnectorDescriptor groupPrintConn = new OneToOneConnectorDescriptor(spec);
+                spec.connect(groupPrintConn, generator, 0, printer, 0);
 
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
-
-                IConnectorDescriptor genDefGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
-                spec.connect(genDefGroupConn, generator, 0, grouper, 0);
-                break;
+                spec.addRoot(printer);
+                return spec;
         }
         
         PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,

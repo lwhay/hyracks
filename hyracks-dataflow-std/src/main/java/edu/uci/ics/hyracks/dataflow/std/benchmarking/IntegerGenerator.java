@@ -30,21 +30,14 @@ public class IntegerGenerator implements ITypeGenerator<Integer> {
     private final int min, max;
     private int randSeed;
     
-    public IntegerGenerator(){
-        randSeed = (int)System.currentTimeMillis();
+    public IntegerGenerator(int randSeed){
+        this.randSeed = randSeed;
         rand = new Random(randSeed);
         min = Integer.MIN_VALUE;
         max = Integer.MAX_VALUE;
     }
     
-    public IntegerGenerator(int min, int max){
-        randSeed = (int)System.currentTimeMillis();
-        rand = new Random(randSeed);
-        this.min = min;
-        this.max = max;
-    }
-    
-    public IntegerGenerator(int randSeed, int min, int max){
+    public IntegerGenerator(int min, int max, int randSeed){
         this.randSeed = randSeed;
         rand = new Random(randSeed);
         this.min = min;
@@ -53,27 +46,11 @@ public class IntegerGenerator implements ITypeGenerator<Integer> {
     
     public Integer generate(int key) {
         rand.setSeed(Integer.valueOf(key + randSeed * 31).hashCode());
-        if(max - min >= 0)
-            return min + rand.nextInt(max - min);
-        else{
-            int rtn = rand.nextInt();
-            while(rtn < min || rtn > max){
-                rtn = rand.nextInt();
-            }
-            return rtn;
-        }
+        return min + (int)(rand.nextDouble() * (max / 2 - min / 2) * 2);
     }
     
     public Integer generate() {
-        if(max - min >= 0)
-            return min + rand.nextInt(max - min);
-        else{
-            int rtn = rand.nextInt();
-            while(rtn < min || rtn > max){
-                rtn = rand.nextInt();
-            }
-            return rtn;
-        }
+        return min + (int)(rand.nextDouble() * (max / 2 - min / 2) * 2);
     }
 
     public void reset() {

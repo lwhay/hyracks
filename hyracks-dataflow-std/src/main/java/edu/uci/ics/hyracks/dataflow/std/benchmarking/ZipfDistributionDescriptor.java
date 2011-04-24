@@ -32,17 +32,16 @@ import java.util.Random;
 public class ZipfDistributionDescriptor implements IGenDistributionDescriptor {
 
     private static final long serialVersionUID = 1L;
-    private final int min, max;
+    private final int cardinality;
     private final double skew;
     
     private final double denominator;
     
-    public ZipfDistributionDescriptor(int min, int max, double skew){
-        this.min = min;
-        this.max = max;
+    public ZipfDistributionDescriptor(int cardinality, double skew){
+        this.cardinality = cardinality;
         this.skew = skew;
         double denom = 0;
-        for(long l = 1; l <= max - min; l++){
+        for(int l = 1; l <= cardinality; l++){
             denom += 1/Math.pow(l, skew);
         }
         this.denominator = denom;
@@ -52,18 +51,18 @@ public class ZipfDistributionDescriptor implements IGenDistributionDescriptor {
      * @see edu.uci.ics.hyracks.examples.benchmarking.app.utils.IGenDistributionDescriptor#drawKey(double)
      */
     public int drawKey(double randDouble) {
-        int rtn = min;
+        int rtn = 0;
         double accum = 0.0;
         // FIXME Nicer way to do this?
-        while(accum < randDouble && rtn <= max){
-            accum += (1/Math.pow(rtn - min + 1, skew)) / denominator;
+        while(accum < randDouble && rtn <= cardinality){
+            accum += (1/Math.pow(rtn + 1, skew)) / denominator;
             rtn++;
         }
         return rtn;
     }
     
     public static void main(String[] args){
-        ZipfDistributionDescriptor randDist = new ZipfDistributionDescriptor(0, 10000, 1);
+        ZipfDistributionDescriptor randDist = new ZipfDistributionDescriptor(10000, 1);
         Random rand = new Random();
         for(int i = 0; i < 10000; i ++){
             System.out.println(randDist.drawKey(rand.nextDouble()));

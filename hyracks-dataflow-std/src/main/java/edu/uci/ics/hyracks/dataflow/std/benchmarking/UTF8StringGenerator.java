@@ -33,16 +33,16 @@ public class UTF8StringGenerator implements ITypeGenerator<String> {
     
     private static final String randSrc = "QPWOEIRUTYALSKDJFHGZMXNCBVqwpeorituyasdfghjklzxcvbnm1234567890_";
     
-    public UTF8StringGenerator(){
-        randSeed = (int)System.currentTimeMillis();
+    public UTF8StringGenerator(int randSeed){
+        this.randSeed = randSeed;
         rand = new Random(randSeed);
-        maxLength = 20;
+        maxLength = 10;
         isLengthFixed = true;
     }
     
-    public UTF8StringGenerator(int maxLength, boolean isLengthFixed){
-        randSeed = (int)System.currentTimeMillis();
-        rand = new Random(randSeed);
+    public UTF8StringGenerator(int maxLength, boolean isLengthFixed, int randSeed){
+        this.randSeed = randSeed;
+        this.rand = new Random(randSeed);
         this.maxLength = maxLength;
         this.isLengthFixed = isLengthFixed;
     }
@@ -67,7 +67,7 @@ public class UTF8StringGenerator implements ITypeGenerator<String> {
     }
 
     public void reset() {
-        randSeed = (int)System.currentTimeMillis();
+        randSeed = rand.nextInt();
         rand.setSeed(randSeed);
     }
 
@@ -76,7 +76,7 @@ public class UTF8StringGenerator implements ITypeGenerator<String> {
     }
     
     public static void main(String[] args) {
-        ITypeGenerator<String> tester = new UTF8StringGenerator();
+        ITypeGenerator<String> tester = new UTF8StringGenerator((int)(System.currentTimeMillis()));
         for(int i = 0; i < 500; i++) {
             System.out.println("Random string for key " + i + ": " + tester.generate(i));
         }

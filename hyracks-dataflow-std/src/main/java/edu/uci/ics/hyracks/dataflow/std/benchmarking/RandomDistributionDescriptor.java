@@ -20,7 +20,7 @@ import java.util.Random;
  * Random distribution descriptor. 
  * 
  * Given a randomly generated double value in the range of [0, 1), this
- * descriptor will return a key for the given range [min, max). 
+ * descriptor will return a key for the given range [0, cardinality). 
  * 
  * For example, for integer values [0, 2], the following behaviors are expected:
  * - if the given value is in [0, 1/3), then return 0;
@@ -33,41 +33,32 @@ import java.util.Random;
 public class RandomDistributionDescriptor implements IGenDistributionDescriptor {
 
     private static final long serialVersionUID = 1L;
-    private final int min, max;
+    private final int cardinality;
     
     public RandomDistributionDescriptor(){
-        this.min = Integer.MIN_VALUE;
-        this.max = Integer.MAX_VALUE;
+        this.cardinality = Integer.MAX_VALUE;
     }
     
-    public RandomDistributionDescriptor(int min, int max){
-        this.min = min;
-        this.max = max;
+    public RandomDistributionDescriptor(int cardinality) throws Exception{
+        if(cardinality < 0)
+            throw new Exception("The cardinality cannot be negative.");
+        this.cardinality = cardinality;
     }
     
     /* (non-Javadoc)
      * @see edu.uci.ics.hyracks.examples.benchmarking.app.utils.IGenDistributionDescriptor#drawKey(double)
      */
     public int drawKey(double randDouble) {
-        if(max - min >= 0)
-            return min + (int)(randDouble * (max - min));
-        else{
-            Random rand = new Random();
-            int rtn = rand.nextInt();
-            while(rtn < min || rtn > max){
-                rtn = rand.nextInt();
-            }
-            return rtn;
-        }
+        return (int)(randDouble * cardinality);
     }
     
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception{
         RandomDistributionDescriptor randDist = new RandomDistributionDescriptor();
         Random rand = new Random();
         for(int i = 0; i < 100; i ++){
             System.out.println(randDist.drawKey(rand.nextDouble()));
         }
-        randDist = new RandomDistributionDescriptor(0, 1000000);
+        randDist = new RandomDistributionDescriptor(1000000);
         for(int i = 0; i < 100; i ++){
             System.out.println(randDist.drawKey(rand.nextDouble()));
         }
