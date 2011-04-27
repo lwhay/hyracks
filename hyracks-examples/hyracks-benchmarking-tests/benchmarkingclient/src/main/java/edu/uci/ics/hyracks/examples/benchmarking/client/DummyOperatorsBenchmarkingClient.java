@@ -43,30 +43,23 @@ import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
  * @author jarodwen
  */
 public class DummyOperatorsBenchmarkingClient {
-    private static class Options {
-        @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
-        public String host;
-
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)", required = false)
-        public int port = 1099;
-
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
-
-        @Option(name = "-in-node-splits", usage = "Comma separated list of nodes for the input. A node is <node-name>", required = true)
-        public String inNodeSplits;
-
-        @Option(name = "-out-node-splits", usage = "Comma separated list of nodes for the output", required = true)
-        public String outNodeSplits;
+    private static class Options extends BenchmarkingCommonArguments {
 
         @Option(name = "-connector-type", usage = "The type of the connector between operators", required = true)
         public int connectorType;
 
-        @Option(name = "-test-count", usage = "Number of runs for benchmarking")
-        public int testCount = 3;
-
         @Option(name = "-chain-length", usage = "The length of the chain of dummy operators")
         public int chainLength = 1;
+
+        @Override
+        public String getArgumentNames() {
+            return super.getArgumentNames() + "connType\t" + "chainLength\t";
+        }
+
+        @Override
+        public String getArgumentValues() {
+            return super.getArgumentValues() + connectorType + "\t" + chainLength + "\t";
+        }
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -85,9 +78,7 @@ public class DummyOperatorsBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out.println("Test information:\n" + "ChainLength\tConnectorType\tInNodeSplits\tOutNodeSplits\n"
-                + options.chainLength + "\t" + options.connectorType + "\t" + options.inNodeSplits + "\t"
-                + options.outNodeSplits);
+        System.out.println(options.getArgumentNames() + "\n" + options.getArgumentValues());
 
         System.out.println("\tInitial\tRunning");
         for (int i = 0; i < options.testCount; i++) {
@@ -129,13 +120,18 @@ public class DummyOperatorsBenchmarkingClient {
                         connChain = new OneToOneConnectorDescriptor(spec);
                         break;
                     case 1:
-                        connChain = new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}));
+                        connChain = new MToNHashPartitioningConnectorDescriptor(
+                                spec,
+                                new FieldHashPartitionComputerFactory(new int[] {}, new IBinaryHashFunctionFactory[] {}));
                         break;
                     case 2:
                         connChain = new MToNRangePartitioningConnectorDescriptor(spec, 0, null);
                         break;
                     case 3:
-                        connChain = new MToNHashPartitioningMergingConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(new int[]{}, new IBinaryHashFunctionFactory[] {}), new int[]{}, new IBinaryComparatorFactory[]{});
+                        connChain = new MToNHashPartitioningMergingConnectorDescriptor(
+                                spec,
+                                new FieldHashPartitionComputerFactory(new int[] {}, new IBinaryHashFunctionFactory[] {}),
+                                new int[] {}, new IBinaryComparatorFactory[] {});
                         break;
                     case 4:
                         connChain = new MToNReplicatingConnectorDescriptor(spec);

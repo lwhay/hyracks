@@ -100,7 +100,7 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
                 new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5) };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
-                genDistributionDescriptors, dataSize, false, randSeed + 4);
+                genDistributionDescriptors, dataSize, false, randSeed + 4, true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 
@@ -140,7 +140,7 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
                 new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5), new RandomDistributionDescriptor() };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
-                genDistributionDescriptors, dataSize, true, randSeed + 5);
+                genDistributionDescriptors, dataSize, true, randSeed + 5, true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 

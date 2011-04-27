@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.benchmarking;
 
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.Random;
 
@@ -48,9 +49,12 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
     @SuppressWarnings("rawtypes")
     private final ITypeGenerator[] dataGenerators;
 
+    private final boolean repeatable;
+
     /**
-     * Randomly Generate data based on the given data type. The generator initialized by this 
+     * Randomly Generate data based on the given data type. The generator initialized by this
      * constructor will create different data sets for different runs.
+     * 
      * @param spec
      * @param dataSeDers
      * @param genDistributionDescriptors
@@ -73,6 +77,8 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
         this.keyBased = keyBased;
 
         recordDescriptors[0] = new RecordDescriptor(dataSeDers);
+
+        this.repeatable = false;
     }
 
     /**
@@ -90,7 +96,7 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
     @SuppressWarnings("rawtypes")
     public DataGeneratorOperatorDescriptor(JobSpecification spec, ISerializerDeserializer[] dataSeDers,
             int[] randSeeds, IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased,
-            int randSeed) {
+            int randSeed, boolean repeatable) {
         super(spec, 0, 1);
         this.genDistributionDescriptors = genDistributionDescriptors;
         this.dataSize = dataSize;
@@ -101,14 +107,15 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
         this.dataGenerators = getDataGenerator(dataSeDers, randSeeds);
 
         recordDescriptors[0] = new RecordDescriptor(dataSeDers);
+
+        this.repeatable = repeatable;
     }
 
     /**
-     * Randomly generate data using the given data generators, and different runs of this generator will 
+     * Randomly generate data using the given data generators, and different runs of this generator will
      * generate different data sets.
-     * 
      * This constructor enables more control on the generators.
-     *  
+     * 
      * @param spec
      * @param dataGenerators
      * @param genDistributionDescriptors
@@ -122,22 +129,23 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
         this.genDistributionDescriptors = genDistributionDescriptors;
         this.dataSize = dataSize;
         this.randSeed = (int) (System.currentTimeMillis());
-        
+
         this.dataGenerators = dataGenerators;
         this.keyBased = keyBased;
-        
+
+        this.repeatable = false;
+
         ISerializerDeserializer[] dataSeDers = new ISerializerDeserializer[dataGenerators.length];
-        for(int i = 0; i < dataGenerators.length; i++){
+        for (int i = 0; i < dataGenerators.length; i++) {
             dataSeDers[i] = dataGenerators[i].getSeDerInstance();
         }
 
         recordDescriptors[0] = new RecordDescriptor(dataSeDers);
     }
-    
+
     /**
      * Randomly generate data using the given data generators and random seed. Different runs using the
-     * same random seed will produce the same data sets. 
-     * 
+     * same random seed will produce the same data sets.
      * This constructor enables more control on the generators.
      * 
      * @param spec
@@ -148,8 +156,9 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
      * @param randSeed
      */
     @SuppressWarnings("rawtypes")
-    public DataGeneratorOperatorDescriptor(JobSpecification spec, ITypeGenerator[] dataGenerators, IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased,
-            int randSeed) {
+    public DataGeneratorOperatorDescriptor(JobSpecification spec, ITypeGenerator[] dataGenerators,
+            IGenDistributionDescriptor[] genDistributionDescriptors, long dataSize, boolean keyBased, int randSeed,
+            boolean repeatable) {
         super(spec, 0, 1);
         this.genDistributionDescriptors = genDistributionDescriptors;
         this.dataSize = dataSize;
@@ -158,9 +167,11 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
         this.randSeed = randSeed;
 
         this.dataGenerators = dataGenerators;
-        
+
+        this.repeatable = repeatable;
+
         ISerializerDeserializer[] dataSeDers = new ISerializerDeserializer[dataGenerators.length];
-        for(int i = 0; i < dataGenerators.length; i++){
+        for (int i = 0; i < dataGenerators.length; i++) {
             dataSeDers[i] = dataGenerators[i].getSeDerInstance();
         }
 
@@ -179,7 +190,19 @@ public class DataGeneratorOperatorDescriptor extends AbstractSingleActivityOpera
 
         final ArrayTupleBuilder tb = new ArrayTupleBuilder(recordDescriptors[0].getFields().length);
 
-        final Random rand = new Random(randSeed);
+        final Random rand = new Random();
+        try {
+            if (repeatable) {
+                // Use the host address as the prefix of the random seed, so
+                // that multiple runs of generator will produce the same
+                // dataset.
+                rand.setSeed(randSeed + InetAddress.getLocalHost().hashCode());
+            } else {
+                rand.setSeed(randSeed + ctx.hashCode());
+            }
+        } catch (Exception e) {
+            throw new HyracksDataException("Failed to get local host information for data generator.");
+        }
 
         return new AbstractUnaryOutputSourceOperatorNodePushable() {
 

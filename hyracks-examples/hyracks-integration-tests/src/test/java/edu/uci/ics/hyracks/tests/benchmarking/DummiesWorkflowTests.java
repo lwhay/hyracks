@@ -42,6 +42,7 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.TupleRangePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ZipfDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
@@ -60,7 +61,7 @@ import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
  */
 public class DummiesWorkflowTests extends AbstractIntegrationTest {
 
-    final int chainLength = 5;
+    final int chainLength = 2;
     final int connectorType = 0;
     final int dataSize = 60000;
     final double cardRatio = 0.25;
@@ -192,7 +193,7 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true, randSeed);
+                dataDistributionDescriptors, dataSize, true, randSeed, true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 
@@ -241,7 +242,7 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
+        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);//new MToNHashPartitioningConnectorDescriptor(spec, new TupleRangePartitionComputerFactory());
         spec.connect(conn2, opter, 0, printer, 0);
 
         spec.addRoot(printer);

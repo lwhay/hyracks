@@ -50,6 +50,7 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.TupleRangePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningMergingConnectorDescriptor;
@@ -69,21 +70,7 @@ import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
  */
 public class AggregatorsBenchmarkingClient {
 
-    private static class Options {
-        @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
-        public String host;
-
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)", required = false)
-        public int port = 1099;
-
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
-
-        @Option(name = "-in-node-splits", usage = "Comma separated list of nodes for the input. A node is <node-name>", required = true)
-        public String inNodeSplits;
-
-        @Option(name = "-out-node-splits", usage = "Comma separated list of nodes for the output", required = true)
-        public String outNodeSplits;
+    private static class Options extends BenchmarkingCommonArguments {
 
         @Option(name = "-out-path", usage = "The prefix (including the path) of the output files")
         public String outPath = System.getProperty("java.io.tmpdir") + "/AggregatorsTest_output";
@@ -91,32 +78,18 @@ public class AggregatorsBenchmarkingClient {
         @Option(name = "-aggregator-type", usage = "Aggregator (algorithm) to be used", required = true)
         public int aggregatorType;
 
-        @Option(name = "-test-count", usage = "Number of runs for benchmarking")
-        public int testCount = 3;
-
-        @Option(name = "-data-size", usage = "The number of tuples to be generated", required = true)
-        public int dataSize;
-
-        @Option(name = "-cardinality", usage = "The cardinality of the data generated", required = true)
-        public double cardRatio;
-
-        @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
-        public int dataFields;
-
-        @Option(name = "-tuple-length", usage = "The length of the string to be generated")
-        public int tupleLength = 10;
-
-        @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
-        public String keyFields;
-
-        @Option(name = "-frame-limit", usage = "Number of frames available for the sorter")
-        public int frameLimit = 32768;
-
         @Option(name = "-hashtable-size", usage = "Hash table size (default: 8191)", required = false)
         public int htSize = 8191;
-        
-        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
-        public int randSeed = 20110422;
+
+        @Override
+        public String getArgumentNames() {
+            return super.getArgumentNames() + "outPath\t" + "aggType\t" + "htSize\t";
+        }
+
+        @Override
+        public String getArgumentValues() {
+            return super.getArgumentValues() + outPath + "\t" + aggregatorType + "\t" + htSize + "\t";
+        }
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -133,13 +106,7 @@ public class AggregatorsBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out
-                .println("Test information:\n"
-                        + "AlgType\tInNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tFrames\tHashSize\tRandSeed\n"
-                        + options.aggregatorType + "\t" + options.inNodeSplits + "\t" + options.outNodeSplits + "\t"
-                        + options.dataSize + "\t" + options.tupleLength + "\t" + options.dataFields + "\t"
-                        + options.cardRatio + "\t" + options.keyFields + "\t" + options.frameLimit + "\t"
-                        + options.htSize + "\t" + options.randSeed);
+        System.out.println(options.getArgumentNames() + "\n" + options.getArgumentValues());
 
         System.out.println("\tInitial\tRunning");
 
@@ -154,7 +121,7 @@ public class AggregatorsBenchmarkingClient {
             job = createJob(options.aggregatorType, splitPattern.split(options.inNodeSplits),
                     splitPattern.split(options.outNodeSplits), options.dataSize, options.tupleLength,
                     options.cardRatio, options.dataFields, keyFields, options.outPath, options.frameLimit,
-                    options.htSize, options.randSeed);
+                    options.htSize, options.randSeed, options.repeatable);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -166,7 +133,7 @@ public class AggregatorsBenchmarkingClient {
 
     private static JobSpecification createJob(int aggregatorType, String[] inNodes, String[] outNodes, int dataSize,
             int tupleLength, double cardRatio, int dataFields, int[] keyFields, String outPath, int frameLimit,
-            int htSize, int randSeed) throws Exception {
+            int htSize, int randSeed, boolean repeatable) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
@@ -177,7 +144,8 @@ public class AggregatorsBenchmarkingClient {
             dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
         // Generate an integer field 
-        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(0, dataSize, randSeed + dataTypeGenerators.length);
+        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(0, dataSize, randSeed
+                + dataTypeGenerators.length);
 
         // Distribution controllers
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
@@ -205,7 +173,7 @@ public class AggregatorsBenchmarkingClient {
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true, randSeed);
+                dataDistributionDescriptors, dataSize, true, randSeed, repeatable);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
         @SuppressWarnings("rawtypes")
@@ -242,9 +210,9 @@ public class AggregatorsBenchmarkingClient {
                         comparatorFactories, inRecordDescriptor);
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
 
-                // Connect scanner with the grouper
+                // Connect generator with the grouper
                 IConnectorDescriptor scanSortConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                        new TupleRangePartitionComputerFactory());
                 spec.connect(scanSortConn, generator, 0, sorter, 0);
 
                 // Aggregator operator
@@ -260,12 +228,11 @@ public class AggregatorsBenchmarkingClient {
 
                 OneToOneConnectorDescriptor sortGroupConn = new OneToOneConnectorDescriptor(spec);
                 spec.connect(sortGroupConn, sorter, 0, grouper, 0);
-                
-                
+
                 PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
                         new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, outNodes);
-                
+
                 IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
                 spec.connect(directPrintConn, grouper, 0, dprinter, 0);
 
@@ -287,7 +254,7 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                        new TupleRangePartitionComputerFactory());
                 spec.connect(genGroupConn, generator, 0, grouper, 0);
                 break;
 
@@ -302,7 +269,7 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genHashGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                        new TupleRangePartitionComputerFactory());
                 spec.connect(genHashGroupConn, generator, 0, grouper, 0);
                 break;
 
@@ -311,13 +278,13 @@ public class AggregatorsBenchmarkingClient {
                 grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, comparatorFactories,
                         new MultiAggregatorDescriptorFactory(
                                 new IAggregatorDescriptorFactory[] { new IntSumAggregatorDescriptorFactory(
-                                        dataFields - 1) }), outRecordDescriptor, new BSTSpillableGroupingTableFactory(),
-                        false);
+                                        dataFields - 1) }), outRecordDescriptor,
+                        new BSTSpillableGroupingTableFactory(), false);
 
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genBinGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories));
+                        new TupleRangePartitionComputerFactory());
                 spec.connect(genBinGroupConn, generator, 0, grouper, 0);
                 break;
             default:
@@ -325,18 +292,19 @@ public class AggregatorsBenchmarkingClient {
                 PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
                         new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
-                
-                IConnectorDescriptor groupPrintConn = new OneToOneConnectorDescriptor(spec);
+
+                IConnectorDescriptor groupPrintConn = new MToNHashPartitioningConnectorDescriptor(spec,
+                        new TupleRangePartitionComputerFactory());
                 spec.connect(groupPrintConn, generator, 0, printer, 0);
 
                 spec.addRoot(printer);
                 return spec;
         }
-        
+
         PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
                 new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
-        
+
         IConnectorDescriptor groupPrintConn = new MToNHashPartitioningMergingConnectorDescriptor(spec,
                 new FieldHashPartitionComputerFactory(new int[] { 0 },
                         new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }),
@@ -350,7 +318,8 @@ public class AggregatorsBenchmarkingClient {
     private static FileSplit[] parseFileSplits(String[] outNodes, String outPath) {
         FileSplit[] fSplits = new FileSplit[outNodes.length];
         for (int i = 0; i < outNodes.length; ++i) {
-            fSplits[i] = new FileSplit(outNodes[i], new FileReference(new File(outPath + "_" + outNodes[i] + "_" + System.currentTimeMillis() + ".txt")));
+            fSplits[i] = new FileSplit(outNodes[i], new FileReference(new File(outPath + "_" + outNodes[i] + "_"
+                    + System.currentTimeMillis() + ".txt")));
         }
         return fSplits;
     }

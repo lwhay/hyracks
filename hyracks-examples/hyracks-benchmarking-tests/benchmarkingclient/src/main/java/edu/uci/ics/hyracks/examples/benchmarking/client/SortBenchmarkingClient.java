@@ -49,51 +49,22 @@ import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
  */
 public class SortBenchmarkingClient {
 
-    private static class Options {
-        @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
-        public String host;
-
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)", required = false)
-        public int port = 1099;
-
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
-
-        @Option(name = "-in-node-splits", usage = "Comma separated list of nodes for the input. A node is <node-name>", required = true)
-        public String inNodeSplits;
-
-        @Option(name = "-out-node-splits", usage = "Comma separated list of nodes for the output", required = true)
-        public String outNodeSplits;
-
-        @Option(name = "-test-count", usage = "Number of runs for benchmarking")
-        public int testCount = 3;
-
-        @Option(name = "-data-size", usage = "Number of tuples to be generated", required = true)
-        public int dataSize;
-
-        @Option(name = "-tuple-length", usage = "The length of the string to be generated")
-        public int tupleLength = 10;
-
-        @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
-        public int dataFields;
-
-        @Option(name = "-cardinality", usage = "The cardinality of the data generated", required = true)
-        public double cardRatio;
-
-        @Option(name = "-frame-limit", usage = "Number of frames available for the sorter")
-        public int frameLimit = 4095;
-
-        @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
-        public String keyFields;
-
+    private static class Options extends BenchmarkingCommonArguments {
         @Option(name = "-out-path", usage = "The prefix (including the path) of the output files")
         public String outPath = System.getProperty("java.io.tmpdir") + "/SortBenchmarking_output";
 
         @Option(name = "-data-only", usage = "Test overhead on data generating (so no sort or output)")
         public boolean isDataOnly = false;
-        
-        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
-        public int randSeed = 20110422;
+
+        @Override
+        public String getArgumentNames() {
+            return super.getArgumentNames() + "outPath\t" + "dataOnly\t";
+        }
+
+        @Override
+        public String getArgumentValues() {
+            return super.getArgumentValues() + outPath + "\t" + isDataOnly + "\t";
+        }
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -110,11 +81,8 @@ public class SortBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out.println("Test information:\n"
-                + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tDataOnly\tRandSeed\n"
-                + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
-                + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t" + options.keyFields
-                + "\t" + options.isDataOnly + "\t" + options.randSeed);
+        System.out
+                .println(options.getArgumentNames() + "\n" + options.getArgumentValues());
 
         String[] keys = splitPattern.split(options.keyFields);
         int[] keyFields = new int[keys.length];
@@ -127,7 +95,8 @@ public class SortBenchmarkingClient {
             long start = System.currentTimeMillis();
             job = createJob(options.dataSize, options.tupleLength, options.dataFields, options.cardRatio,
                     splitPattern.split(options.inNodeSplits), splitPattern.split(options.outNodeSplits),
-                    options.frameLimit, options.outPath, keyFields, options.isDataOnly, options.randSeed);
+                    options.frameLimit, options.outPath, keyFields, options.isDataOnly, options.randSeed,
+                    options.repeatable);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -138,7 +107,8 @@ public class SortBenchmarkingClient {
     }
 
     private static JobSpecification createJob(int dataSize, int tupleLength, int dataFields, double cardRatio,
-            String[] inNodes, String[] outNodes, int frameLimit, String outPath, int[] keyFields, boolean isDataOnly, int randSeed) throws Exception{
+            String[] inNodes, String[] outNodes, int frameLimit, String outPath, int[] keyFields, boolean isDataOnly,
+            int randSeed, boolean repeatable) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
@@ -168,21 +138,21 @@ public class SortBenchmarkingClient {
         }
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true, randSeed);
+                dataDistributionDescriptors, dataSize, true, randSeed, repeatable);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
         if (isDataOnly) {
 
             DummyInputSinkOperatorDescriptor sink = new DummyInputSinkOperatorDescriptor(spec);
-            
+
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sink, outNodes);
-            
+
             IConnectorDescriptor conn = new OneToOneConnectorDescriptor(spec);
             spec.connect(conn, generator, 0, sink, 0);
-            
+
             spec.addRoot(sink);
-            
+
         } else {
             ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimit, keyFields,
                     comparatorFactories, inRecordDescriptor);

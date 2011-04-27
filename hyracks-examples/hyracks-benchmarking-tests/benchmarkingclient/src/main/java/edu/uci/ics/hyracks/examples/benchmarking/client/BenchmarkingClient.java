@@ -70,30 +70,7 @@ import edu.uci.ics.hyracks.examples.benchmarking.helpers.IntegerGenerator;
 import edu.uci.ics.hyracks.examples.benchmarking.helpers.UTF8StringGenerator;
 
 public class BenchmarkingClient {
-    private static class Options {
-        @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
-        public String host;
-
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)", required = false)
-        public int port = 1099;
-
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
-
-        @Option(name = "-infile-splits", usage = "Comma separated list of file-splits for the ORDER input. A file-split is <node-name>:<path>", required = true)
-        public String inFileSplits;
-
-        @Option(name = "-outfile-splits", usage = "Comma separated list of file-splits for the output", required = true)
-        public String outFileSplits;
-
-        @Option(name = "-data-size", usage = "Number of the lines in the data set to be generated", required = true)
-        public long dataSize;
-
-        @Option(name = "-unique-key-ratio", usage = "The ratio of unique keys in the data set", required = false)
-        public double uniqueRatio = 0.8;
-
-        @Option(name = "-frames-limit", usage = "Total number of frames to be used", required = true)
-        public int frameLimits;
+    private static class Options extends BenchmarkingCommonArguments {
 
         @Option(name = "-hashtable-size", usage = "Number of hashing buckets", required = false)
         public int htSize = 8191;
@@ -101,14 +78,21 @@ public class BenchmarkingClient {
         @Option(name = "-plain-output", usage = "Whether to output plain text or binary data")
         public boolean outPlain;
 
-        @Option(name = "-test-count", usage = "Number of runs for benchmarking")
-        public int testCount = 3;
-
         @Option(name = "-test-algorithm", usage = "The algorithm to be tested: 0-external, 1-external sort and precluster, 2-in memory")
         public int testAlg = 0;
 
         @Option(name = "-generate-data", usage = "Whether to generate data")
         public boolean generateData;
+
+        @Override
+        public String getArgumentNames() {
+            return super.getArgumentNames() + "htSize\t" + "outPlain\t" + "testAlg\t" + "genData\t";
+        }
+
+        @Override
+        public String getArgumentValues() {
+            return super.getArgumentValues() + htSize + "\t" + outPlain + "\t" + testAlg + "\t" + generateData + "\t";
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -119,15 +103,14 @@ public class BenchmarkingClient {
         IHyracksClientConnection hcc = new HyracksRMIConnection(options.host, options.port);
 
         JobSpecification job;
-        System.out.println("Test information:\n" + "Data Size\t" + "Frames\t" + "HashSize\t" + "UniqueKey\t" + "Algorithm\n"
-                + options.dataSize + "\t" + options.frameLimits + "\t" + options.htSize + "\t" + options.uniqueRatio + "\t" + options.testAlg);
+        System.out.println(options.getArgumentNames() + "\n" + options.getArgumentValues());
         System.out.println("\tInitial\tRunning");
         for (int i = 0; i < options.testCount; i++) {
             long start = System.currentTimeMillis();
             job = createJob(
-                    options.generateData ? generateData(options.dataSize, options.uniqueRatio, options.inFileSplits)
-                            : parseFileSplits(options.inFileSplits), parseFileSplits(options.outFileSplits),
-                    options.testAlg, options.frameLimits, options.htSize, options.outPlain);
+                    options.generateData ? generateData(options.dataSize, options.cardRatio, options.inNodeSplits)
+                            : parseFileSplits(options.inNodeSplits), parseFileSplits(options.outNodeSplits),
+                    options.testAlg, options.frameLimit, options.htSize, options.outPlain);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);

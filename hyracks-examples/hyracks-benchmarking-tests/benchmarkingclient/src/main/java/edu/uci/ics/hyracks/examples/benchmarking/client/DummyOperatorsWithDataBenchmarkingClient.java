@@ -56,21 +56,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
  */
 public class DummyOperatorsWithDataBenchmarkingClient {
 
-    private static class Options {
-        @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
-        public String host;
-
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)", required = false)
-        public int port = 1099;
-
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
-
-        @Option(name = "-in-node-splits", usage = "Comma separated list of nodes for the input. A node is <node-name>", required = true)
-        public String inNodeSplits;
-
-        @Option(name = "-out-node-splits", usage = "Comma separated list of nodes for the output", required = true)
-        public String outNodeSplits;
+    private static class Options extends BenchmarkingCommonArguments {
 
         @Option(name = "-out-path", usage = "The prefix (including the path) of the output files")
         public String outPath = System.getProperty("java.io.tmpdir") + "/DummyDataTest_output";
@@ -78,32 +64,21 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         @Option(name = "-connector-type", usage = "The type of the connector between operators", required = true)
         public int connectorType;
 
-        @Option(name = "-test-count", usage = "Number of runs for benchmarking")
-        public int testCount = 3;
-
         @Option(name = "-chain-length", usage = "The length of the chain of dummy operators")
         public int chainLength = 1;
 
-        @Option(name = "-data-size", usage = "The number of tuples to be generated", required = true)
-        public int dataSize;
-
-        @Option(name = "-cardinality", usage = "The cardinality of the data generated", required = true)
-        public double cardRatio;
-
-        @Option(name = "-data-gen-fields", usage = "Number of fields to be generated", required = true)
-        public int dataFields;
-
-        @Option(name = "-tuple-length", usage = "The length of the string to be generated")
-        public int tupleLength = 10;
-
-        @Option(name = "-key-fields", usage = "Key fields of the generated data, separated by comma", required = true)
-        public String keyFields;
-
         @Option(name = "-output-file", usage = "Whether to output the data into a file")
         public boolean isOutputFile = false;
+        
+        @Override
+        public String getArgumentNames() {
+            return super.getArgumentNames() + "outPath\t" + "connType\t" + "chainLength\t" + "isOutput\t";
+        }
 
-        @Option(name = "-data-gen-seed", usage = "Random seed for generating the data")
-        public int randSeed = 20110422;
+        @Override
+        public String getArgumentValues() {
+            return super.getArgumentValues() + outPath + "\t" + connectorType + "\t" + chainLength + "\t" + isOutputFile + "\t";
+        }
     }
 
     private static final Pattern splitPattern = Pattern.compile(",");
@@ -121,12 +96,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
         JobSpecification job;
 
-        System.out
-                .println("Test information:\n"
-                        + "InNodeSplits\tOutNodeSplits\tDataSize\tTupleLength\tNumFields\tCardinality\tkeyFields\tConn\tRandSeed\n"
-                        + options.inNodeSplits + "\t" + options.outNodeSplits + "\t" + options.dataSize + "\t"
-                        + options.tupleLength + "\t" + options.dataFields + "\t" + options.cardRatio + "\t"
-                        + options.keyFields + "\t" + options.connectorType + "\t" + options.randSeed);
+        System.out.println(options.getArgumentNames() + "\n" + options.getArgumentValues());
 
         System.out.println("\tInitial\tRunning");
 
@@ -141,7 +111,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
             job = createJob(options.chainLength, splitPattern.split(options.inNodeSplits),
                     splitPattern.split(options.outNodeSplits), options.connectorType, options.dataSize,
                     options.tupleLength, options.cardRatio, options.dataFields, keyFields, options.isOutputFile,
-                    options.outPath, options.randSeed);
+                    options.outPath, options.randSeed, options.repeatable);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -153,7 +123,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
 
     private static JobSpecification createJob(int chainLength, String[] inNodes, String[] outNodes, int connectorType,
             int dataSize, int tupleLength, double cardRatio, int dataFields, int[] keyFields, boolean isOutputFile,
-            String outPath, int randSeed) throws Exception {
+            String outPath, int randSeed, boolean repeatable) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
@@ -178,7 +148,7 @@ public class DummyOperatorsWithDataBenchmarkingClient {
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true, randSeed);
+                dataDistributionDescriptors, dataSize, true, randSeed, repeatable);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
