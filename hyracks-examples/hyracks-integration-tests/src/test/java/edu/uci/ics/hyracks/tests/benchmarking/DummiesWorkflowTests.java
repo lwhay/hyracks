@@ -42,7 +42,6 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.benchmarking.TupleRangePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ZipfDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
@@ -65,7 +64,7 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
     final int connectorType = 0;
     final int dataSize = 60000;
     final double cardRatio = 0.25;
-    final int[] hashKeys = new int[] { 0 };
+    final int[] hashKeys = new int[] { 0, 1 };
     final static boolean isOutputFile = true;
     final int randSeed = 38473;
 
@@ -177,7 +176,7 @@ public class DummiesWorkflowTests extends AbstractIntegrationTest {
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
-                new IntegerGenerator(97, 100000, randSeed), new UTF8StringGenerator(20, false, randSeed), new IntegerGenerator(randSeed),
+                new IntegerGenerator(100000, randSeed), new UTF8StringGenerator(20, false, randSeed), new IntegerGenerator(randSeed),
                 new UTF8StringGenerator(3, false, randSeed) };
 
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[] {

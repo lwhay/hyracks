@@ -42,6 +42,7 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.SequentialIDDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ZipfDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
@@ -89,18 +90,19 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
         JobSpecification spec = new JobSpecification();
 
         @SuppressWarnings("rawtypes")
-        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
-                new IntegerGenerator(97, 100000, randSeed + 1), new UTF8StringGenerator(20, false, randSeed + 2),
-                new IntegerGenerator(randSeed + 3) };
+        ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new IntegerGenerator(100000, randSeed),
+                new UTF8StringGenerator(10, true, randSeed + 1), new IntegerGenerator(100000, randSeed + 2),
+                new UTF8StringGenerator(20, false, randSeed + 3), new IntegerGenerator(randSeed + 4) };
 
         IGenDistributionDescriptor[] genDistributionDescriptors = new IGenDistributionDescriptor[] {
+                new SequentialIDDistributionDescriptor(),
                 new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
                 new RandomDistributionDescriptor((int) (dataSize * cardRatio)),
                 new ZipfDistributionDescriptor(dataSize, 1),
                 new ZipfDistributionDescriptor((int) (dataSize * cardRatio), 0.5) };
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataGenerators,
-                genDistributionDescriptors, dataSize, false, randSeed + 4, true);
+                genDistributionDescriptors, dataSize, true, randSeed + 4, true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, NC2_ID, NC1_ID);
 
@@ -130,7 +132,7 @@ public class BenchmarkingDataGenTests extends AbstractIntegrationTest {
 
         @SuppressWarnings("rawtypes")
         ITypeGenerator[] dataGenerators = new ITypeGenerator[] { new UTF8StringGenerator(10, true, randSeed),
-                new IntegerGenerator(97, 93748, randSeed + 1), new UTF8StringGenerator(20, false, randSeed + 2),
+                new IntegerGenerator(93748, randSeed + 1), new UTF8StringGenerator(20, false, randSeed + 2),
                 new IntegerGenerator(randSeed + 3), new UTF8StringGenerator(3, false, randSeed + 4) };
 
         IGenDistributionDescriptor[] genDistributionDescriptors = new IGenDistributionDescriptor[] {

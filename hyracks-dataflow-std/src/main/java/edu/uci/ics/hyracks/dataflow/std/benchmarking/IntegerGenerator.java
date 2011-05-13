@@ -27,30 +27,27 @@ public class IntegerGenerator implements ITypeGenerator<Integer> {
     
     private static final long serialVersionUID = 1L;
     private final Random rand;
-    private final int min, max;
+    private final int max;
     private int randSeed;
     
     public IntegerGenerator(int randSeed){
         this.randSeed = randSeed;
         rand = new Random(randSeed);
-        min = Integer.MIN_VALUE;
         max = Integer.MAX_VALUE;
     }
     
-    public IntegerGenerator(int min, int max, int randSeed){
+    public IntegerGenerator(int max, int randSeed){
         this.randSeed = randSeed;
         rand = new Random(randSeed);
-        this.min = min;
         this.max = max;
     }
     
     public Integer generate(int key) {
-        rand.setSeed(Integer.valueOf(key + randSeed * 31).hashCode());
-        return min + (int)(rand.nextDouble() * (max / 2 - min / 2) * 2);
+        return (key + randSeed) % max;
     }
     
     public Integer generate() {
-        return min + (int)(rand.nextDouble() * (max / 2 - min / 2) * 2);
+        return rand.nextInt(max);
     }
 
     public void reset() {

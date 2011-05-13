@@ -50,6 +50,7 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.SequentialIDDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.TupleRangePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
@@ -138,18 +139,25 @@ public class AggregatorsBenchmarkingClient {
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
-        // Generate string fields
+        // Generate fields
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
-        for (int i = 0; i < dataTypeGenerators.length - 1; i++) {
+        
+        // Generate an id field
+        dataTypeGenerators[0] = new IntegerGenerator(dataSize, randSeed);
+        
+        for (int i = 1; i < dataTypeGenerators.length - 1; i++) {
             dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
         // Generate an integer field 
-        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(0, dataSize, randSeed
+        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(dataSize, randSeed
                 + dataTypeGenerators.length);
 
         // Distribution controllers
+        // - Integer ID field
         IGenDistributionDescriptor[] dataDistributionDescriptors = new IGenDistributionDescriptor[dataFields];
-        for (int i = 0; i < dataDistributionDescriptors.length; i++) {
+        dataDistributionDescriptors[0] = new SequentialIDDistributionDescriptor();
+        // - Other fields as data load
+        for (int i = 1; i < dataDistributionDescriptors.length; i++) {
             boolean isKey = false;
             for (int j = 0; j < keyFields.length; j++) {
                 if (keyFields[j] == i) {
@@ -165,7 +173,9 @@ public class AggregatorsBenchmarkingClient {
 
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] fields = new ISerializerDeserializer[dataFields];
-        for (int i = 0; i < fields.length - 1; i++) {
+        fields[0] = IntegerSerializerDeserializer.INSTANCE;
+        
+        for (int i = 1; i < fields.length - 1; i++) {
             fields[i] = UTF8StringSerializerDeserializer.INSTANCE;
         }
         fields[fields.length - 1] = IntegerSerializerDeserializer.INSTANCE;
@@ -179,7 +189,10 @@ public class AggregatorsBenchmarkingClient {
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] outFields = new ISerializerDeserializer[keyFields.length + 1];
         for (int i = 0; i < keyFields.length; i++) {
-            outFields[i] = UTF8StringSerializerDeserializer.INSTANCE;
+            if(i == 0)
+                outFields[i] = IntegerSerializerDeserializer.INSTANCE;
+            else
+                outFields[i] = UTF8StringSerializerDeserializer.INSTANCE;
         }
         outFields[outFields.length - 1] = IntegerSerializerDeserializer.INSTANCE;
 
@@ -187,25 +200,28 @@ public class AggregatorsBenchmarkingClient {
 
         IBinaryHashFunctionFactory[] hashFactories = new IBinaryHashFunctionFactory[keyFields.length];
         for (int i = 0; i < keyFields.length; i++) {
-            if (i != dataFields - 1)
+            if (i != dataFields - 1 && i != 0)
                 hashFactories[i] = UTF8StringBinaryHashFunctionFactory.INSTANCE;
             else
                 hashFactories[i] = IntegerBinaryHashFunctionFactory.INSTANCE;
         }
 
         IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length];
+        
         for (int i = 0; i < keyFields.length; i++) {
-            if (i != dataFields - 1)
+            if (i != dataFields - 1 && i != 0)
                 comparatorFactories[i] = UTF8StringBinaryComparatorFactory.INSTANCE;
             else
                 comparatorFactories[i] = IntegerBinaryComparatorFactory.INSTANCE;
         }
 
         AbstractOperatorDescriptor grouper;
+        boolean oneToOneOutput = false;
 
         switch (aggregatorType) {
             case 0:
                 // Precluster + aggregator
+                oneToOneOutput = true;
                 ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimit, keyFields,
                         comparatorFactories, inRecordDescriptor);
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
@@ -228,16 +244,7 @@ public class AggregatorsBenchmarkingClient {
 
                 OneToOneConnectorDescriptor sortGroupConn = new OneToOneConnectorDescriptor(spec);
                 spec.connect(sortGroupConn, sorter, 0, grouper, 0);
-
-                PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
-                        new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, outNodes);
-
-                IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
-                spec.connect(directPrintConn, grouper, 0, dprinter, 0);
-
-                spec.addRoot(dprinter);
-                return spec;
+                break;
 
             case 1:
                 // External hash group, previous version
@@ -245,7 +252,7 @@ public class AggregatorsBenchmarkingClient {
                         spec,
                         keyFields,
                         frameLimit,
-                        false,
+                        true,
                         new FieldHashPartitionComputerFactory(keyFields, hashFactories),
                         comparatorFactories,
                         new MultiAggregatorFactory(
@@ -254,7 +261,9 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new TupleRangePartitionComputerFactory());
+                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                        //new TupleRangePartitionComputerFactory()
+                );
                 spec.connect(genGroupConn, generator, 0, grouper, 0);
                 break;
 
@@ -269,7 +278,9 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genHashGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new TupleRangePartitionComputerFactory());
+                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                        //new TupleRangePartitionComputerFactory()
+                );
                 spec.connect(genHashGroupConn, generator, 0, grouper, 0);
                 break;
 
@@ -284,42 +295,51 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
 
                 IConnectorDescriptor genBinGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new TupleRangePartitionComputerFactory());
+                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                        //new TupleRangePartitionComputerFactory()
+                );
                 spec.connect(genBinGroupConn, generator, 0, grouper, 0);
                 break;
             default:
                 // Directly output the data
-                PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
-                        new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
-
-                IConnectorDescriptor groupPrintConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new TupleRangePartitionComputerFactory());
-                spec.connect(groupPrintConn, generator, 0, printer, 0);
-
-                spec.addRoot(printer);
-                return spec;
+                oneToOneOutput = true;
+                grouper = generator;
         }
 
-        PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
-                new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath)), "\t");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
+        if (oneToOneOutput) {
+            
+            PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
+                    new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath, dataSize + "_"
+                            + aggregatorType)), "\t");
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, outNodes);
 
-        IConnectorDescriptor groupPrintConn = new MToNHashPartitioningMergingConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { UTF8StringBinaryHashFunctionFactory.INSTANCE }),
-                new int[] { 0 }, new IBinaryComparatorFactory[] { UTF8StringBinaryComparatorFactory.INSTANCE });
-        spec.connect(groupPrintConn, grouper, 0, printer, 0);
+            IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
+            spec.connect(directPrintConn, grouper, 0, dprinter, 0);
 
-        spec.addRoot(printer);
+            spec.addRoot(dprinter);
+            
+        } else {
+            PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
+                    new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath, dataSize + "_" + aggregatorType)),
+                    "\t");
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
+
+            IConnectorDescriptor groupPrintConn = new MToNHashPartitioningMergingConnectorDescriptor(spec,
+                    new FieldHashPartitionComputerFactory(keyFields,
+                            hashFactories),
+                    keyFields, comparatorFactories);
+            spec.connect(groupPrintConn, grouper, 0, printer, 0);
+
+            spec.addRoot(printer);
+        }
         return spec;
     }
 
-    private static FileSplit[] parseFileSplits(String[] outNodes, String outPath) {
+    private static FileSplit[] parseFileSplits(String[] outNodes, String outPath, String suffix) {
         FileSplit[] fSplits = new FileSplit[outNodes.length];
         for (int i = 0; i < outNodes.length; ++i) {
             fSplits[i] = new FileSplit(outNodes[i], new FileReference(new File(outPath + "_" + outNodes[i] + "_"
-                    + System.currentTimeMillis() + ".txt")));
+                    + System.currentTimeMillis() + "_" + suffix + ".txt")));
         }
         return fSplits;
     }
