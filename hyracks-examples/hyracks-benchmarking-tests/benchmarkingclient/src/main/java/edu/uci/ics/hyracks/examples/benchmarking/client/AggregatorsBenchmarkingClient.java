@@ -81,15 +81,21 @@ public class AggregatorsBenchmarkingClient {
 
         @Option(name = "-hashtable-size", usage = "Hash table size (default: 8191)", required = false)
         public int htSize = 8191;
+        
+        @Option(name = "-fixed-data-size", usage = "Generate fixed size of the data (so each node generate only a potion of the data)")
+        public boolean isDataSizeFixed;
+        
+        @Option(name = "-one-to-one-out", usage = "Use one-to-one connector for outputting results")
+        public boolean isOneToOneOutput;
 
         @Override
         public String getArgumentNames() {
-            return super.getArgumentNames() + "outPath\t" + "aggType\t" + "htSize\t";
+            return super.getArgumentNames() + "outPath\t" + "aggType\t" + "htSize\t" + "isDataFixed\t" + "isOneToOneOut";
         }
 
         @Override
         public String getArgumentValues() {
-            return super.getArgumentValues() + outPath + "\t" + aggregatorType + "\t" + htSize + "\t";
+            return super.getArgumentValues() + outPath + "\t" + aggregatorType + "\t" + htSize + "\t" + isDataSizeFixed + "\t" + isOneToOneOutput;
         }
     }
 
@@ -122,7 +128,7 @@ public class AggregatorsBenchmarkingClient {
             job = createJob(options.aggregatorType, splitPattern.split(options.inNodeSplits),
                     splitPattern.split(options.outNodeSplits), options.dataSize, options.tupleLength,
                     options.cardRatio, options.dataFields, keyFields, options.outPath, options.frameLimit,
-                    options.htSize, options.randSeed, options.repeatable);
+                    options.htSize, options.randSeed, options.repeatable, options.isDataSizeFixed, options.isOneToOneOutput);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -134,7 +140,7 @@ public class AggregatorsBenchmarkingClient {
 
     private static JobSpecification createJob(int aggregatorType, String[] inNodes, String[] outNodes, int dataSize,
             int tupleLength, double cardRatio, int dataFields, int[] keyFields, String outPath, int frameLimit,
-            int htSize, int randSeed, boolean repeatable) throws Exception {
+            int htSize, int randSeed, boolean repeatable, boolean isDataFixed, boolean oneToOneOutput) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
@@ -143,13 +149,13 @@ public class AggregatorsBenchmarkingClient {
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
         
         // Generate an id field
-        dataTypeGenerators[0] = new IntegerGenerator(dataSize, randSeed);
+        dataTypeGenerators[0] = new IntegerGenerator((isDataFixed ? dataSize / inNodes.length : dataSize), randSeed);
         
         for (int i = 1; i < dataTypeGenerators.length - 1; i++) {
             dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
         // Generate an integer field 
-        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(dataSize, randSeed
+        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator((isDataFixed ? dataSize / inNodes.length : dataSize), randSeed
                 + dataTypeGenerators.length);
 
         // Distribution controllers
@@ -166,7 +172,7 @@ public class AggregatorsBenchmarkingClient {
                 }
             }
             if (isKey)
-                dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) (dataSize * cardRatio));
+                dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) ((isDataFixed ? dataSize / inNodes.length : dataSize) * cardRatio));
             else
                 dataDistributionDescriptors[i] = new RandomDistributionDescriptor();
         }
@@ -183,7 +189,7 @@ public class AggregatorsBenchmarkingClient {
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, dataSize, true, randSeed, repeatable);
+                dataDistributionDescriptors, (isDataFixed ? dataSize / inNodes.length : dataSize), true, randSeed, repeatable);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
         @SuppressWarnings("rawtypes")
@@ -216,12 +222,10 @@ public class AggregatorsBenchmarkingClient {
         }
 
         AbstractOperatorDescriptor grouper;
-        boolean oneToOneOutput = false;
 
         switch (aggregatorType) {
             case 0:
                 // Precluster + aggregator
-                oneToOneOutput = true;
                 ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimit, keyFields,
                         comparatorFactories, inRecordDescriptor);
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
