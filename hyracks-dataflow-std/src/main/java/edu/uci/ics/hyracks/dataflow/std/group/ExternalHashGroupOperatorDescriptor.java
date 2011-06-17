@@ -296,7 +296,7 @@ public class ExternalHashGroupOperatorDescriptor extends AbstractOperatorDescrip
                     }
                     gTable.reset();
                     runs.add(((RunFileWriter) writer).createReader());
-                    LOGGER.warning("Created run file: " + runFile.getFile().getAbsolutePath());
+                    LOGGER.warning("Created run file: " + runFile.getFile().getAbsolutePath() + " with size " + runFile.getFile().length());
                 }
 
             };

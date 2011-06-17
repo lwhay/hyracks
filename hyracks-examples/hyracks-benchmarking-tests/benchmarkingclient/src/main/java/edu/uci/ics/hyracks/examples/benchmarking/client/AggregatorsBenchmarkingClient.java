@@ -49,12 +49,11 @@ import edu.uci.ics.hyracks.dataflow.std.benchmarking.DataGeneratorOperatorDescri
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IGenDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.ITypeGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerGenerator;
+import edu.uci.ics.hyracks.dataflow.std.benchmarking.IntegerRangePartitionedGenerator;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.RandomDistributionDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.SequentialIDDistributionDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.benchmarking.TupleRangePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.benchmarking.UTF8StringGenerator;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningConnectorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.connectors.MToNHashPartitioningMergingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
@@ -82,20 +81,21 @@ public class AggregatorsBenchmarkingClient {
         @Option(name = "-hashtable-size", usage = "Hash table size (default: 8191)", required = false)
         public int htSize = 8191;
         
-        @Option(name = "-fixed-data-size", usage = "Generate fixed size of the data (so each node generate only a potion of the data)")
-        public boolean isDataSizeFixed;
-        
+        @Option(name = "-spill-frames-limit", usage = "Frames usable for spillable table (default: all frames)", required = false)
+        public int spillFramesLimit = frameLimit;
+
         @Option(name = "-one-to-one-out", usage = "Use one-to-one connector for outputting results")
         public boolean isOneToOneOutput;
 
         @Override
         public String getArgumentNames() {
-            return super.getArgumentNames() + "outPath\t" + "aggType\t" + "htSize\t" + "isDataFixed\t" + "isOneToOneOut";
+            return super.getArgumentNames() + "outPath\t" + "aggType\t" + "htSize\t" + "SpillFramesLimit\t" + "isOneToOneOut";
         }
 
         @Override
         public String getArgumentValues() {
-            return super.getArgumentValues() + outPath + "\t" + aggregatorType + "\t" + htSize + "\t" + isDataSizeFixed + "\t" + isOneToOneOutput;
+            return super.getArgumentValues() + outPath + "\t" + aggregatorType + "\t" + htSize + "\t" + spillFramesLimit + "\t"
+                    + isOneToOneOutput;
         }
     }
 
@@ -127,8 +127,8 @@ public class AggregatorsBenchmarkingClient {
             long start = System.currentTimeMillis();
             job = createJob(options.aggregatorType, splitPattern.split(options.inNodeSplits),
                     splitPattern.split(options.outNodeSplits), options.dataSize, options.tupleLength,
-                    options.cardRatio, options.dataFields, keyFields, options.outPath, options.frameLimit,
-                    options.htSize, options.randSeed, options.repeatable, options.isDataSizeFixed, options.isOneToOneOutput);
+                    options.cardRatio, options.dataFields, keyFields, options.outPath, options.frameLimit, options.spillFramesLimit, 
+                    options.htSize, options.randSeed, options.repeatable, options.isOneToOneOutput);
             System.out.print(i + "\t" + (System.currentTimeMillis() - start));
             start = System.currentTimeMillis();
             UUID jobId = hcc.createJob(options.app, job);
@@ -139,23 +139,23 @@ public class AggregatorsBenchmarkingClient {
     }
 
     private static JobSpecification createJob(int aggregatorType, String[] inNodes, String[] outNodes, int dataSize,
-            int tupleLength, double cardRatio, int dataFields, int[] keyFields, String outPath, int frameLimit,
-            int htSize, int randSeed, boolean repeatable, boolean isDataFixed, boolean oneToOneOutput) throws Exception {
+            int tupleLength, double cardRatio, int dataFields, int[] keyFields, String outPath, int frameLimit, int spillFramesLimit, 
+            int htSize, int randSeed, boolean repeatable, boolean oneToOneOutput) throws Exception {
         JobSpecification spec = new JobSpecification();
 
         // Data Generator Operator
         @SuppressWarnings("rawtypes")
         // Generate fields
         ITypeGenerator[] dataTypeGenerators = new ITypeGenerator[dataFields];
-        
+
         // Generate an id field
-        dataTypeGenerators[0] = new IntegerGenerator((isDataFixed ? dataSize / inNodes.length : dataSize), randSeed);
-        
+        dataTypeGenerators[0] = new IntegerRangePartitionedGenerator(dataSize, randSeed, outNodes);
+
         for (int i = 1; i < dataTypeGenerators.length - 1; i++) {
             dataTypeGenerators[i] = new UTF8StringGenerator(tupleLength, true, randSeed + i);
         }
         // Generate an integer field 
-        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator((isDataFixed ? dataSize / inNodes.length : dataSize), randSeed
+        dataTypeGenerators[dataTypeGenerators.length - 1] = new IntegerGenerator(dataSize, randSeed
                 + dataTypeGenerators.length);
 
         // Distribution controllers
@@ -172,7 +172,7 @@ public class AggregatorsBenchmarkingClient {
                 }
             }
             if (isKey)
-                dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) ((isDataFixed ? dataSize / inNodes.length : dataSize) * cardRatio));
+                dataDistributionDescriptors[i] = new RandomDistributionDescriptor((int) (dataSize * cardRatio));
             else
                 dataDistributionDescriptors[i] = new RandomDistributionDescriptor();
         }
@@ -180,7 +180,7 @@ public class AggregatorsBenchmarkingClient {
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] fields = new ISerializerDeserializer[dataFields];
         fields[0] = IntegerSerializerDeserializer.INSTANCE;
-        
+
         for (int i = 1; i < fields.length - 1; i++) {
             fields[i] = UTF8StringSerializerDeserializer.INSTANCE;
         }
@@ -189,13 +189,13 @@ public class AggregatorsBenchmarkingClient {
         RecordDescriptor inRecordDescriptor = new RecordDescriptor(fields);
 
         DataGeneratorOperatorDescriptor generator = new DataGeneratorOperatorDescriptor(spec, dataTypeGenerators,
-                dataDistributionDescriptors, (isDataFixed ? dataSize / inNodes.length : dataSize), true, randSeed, repeatable);
+                dataDistributionDescriptors, dataSize / outNodes.length, true, randSeed, repeatable);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, generator, inNodes);
 
         @SuppressWarnings("rawtypes")
         ISerializerDeserializer[] outFields = new ISerializerDeserializer[keyFields.length + 1];
         for (int i = 0; i < keyFields.length; i++) {
-            if(i == 0)
+            if (i == 0)
                 outFields[i] = IntegerSerializerDeserializer.INSTANCE;
             else
                 outFields[i] = UTF8StringSerializerDeserializer.INSTANCE;
@@ -213,7 +213,7 @@ public class AggregatorsBenchmarkingClient {
         }
 
         IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keyFields.length];
-        
+
         for (int i = 0; i < keyFields.length; i++) {
             if (i != dataFields - 1 && i != 0)
                 comparatorFactories[i] = UTF8StringBinaryComparatorFactory.INSTANCE;
@@ -231,8 +231,11 @@ public class AggregatorsBenchmarkingClient {
                 PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, inNodes);
 
                 // Connect generator with the grouper
-                IConnectorDescriptor scanSortConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new TupleRangePartitionComputerFactory());
+                IConnectorDescriptor scanSortConn = oneToOneOutput ? new OneToOneConnectorDescriptor(spec)
+                        : new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                                keyFields, hashFactories)
+                        //new TupleRangePartitionComputerFactory()
+                        );
                 spec.connect(scanSortConn, generator, 0, sorter, 0);
 
                 // Aggregator operator
@@ -244,7 +247,7 @@ public class AggregatorsBenchmarkingClient {
                                 new IFieldValueResultingAggregatorFactory[] { new SumAggregatorFactory(dataFields - 1) }),
                         outRecordDescriptor);
 
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, outNodes);
 
                 OneToOneConnectorDescriptor sortGroupConn = new OneToOneConnectorDescriptor(spec);
                 spec.connect(sortGroupConn, sorter, 0, grouper, 0);
@@ -262,46 +265,49 @@ public class AggregatorsBenchmarkingClient {
                         new MultiAggregatorFactory(
                                 new IFieldValueResultingAggregatorFactory[] { new SumAggregatorFactory(dataFields - 1) }),
                         outRecordDescriptor, htSize);
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, outNodes);
 
-                IConnectorDescriptor genGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                IConnectorDescriptor genGroupConn = oneToOneOutput ? new OneToOneConnectorDescriptor(spec)
+                        : new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                                keyFields, hashFactories)
                         //new TupleRangePartitionComputerFactory()
-                );
+                        );
                 spec.connect(genGroupConn, generator, 0, grouper, 0);
                 break;
 
             case 2:
                 // External hash group, refacotored version
-                grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, comparatorFactories,
+                grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, spillFramesLimit, comparatorFactories,
                         new MultiAggregatorDescriptorFactory(
                                 new IAggregatorDescriptorFactory[] { new IntSumAggregatorDescriptorFactory(
                                         dataFields - 1) }), outRecordDescriptor, new HashSpillableGroupingTableFactory(
                                 new FieldHashPartitionComputerFactory(keyFields, hashFactories), htSize), false);
 
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, outNodes);
 
-                IConnectorDescriptor genHashGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                IConnectorDescriptor genHashGroupConn = oneToOneOutput ? new OneToOneConnectorDescriptor(spec)
+                        : new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                                keyFields, hashFactories)
                         //new TupleRangePartitionComputerFactory()
-                );
+                        );
                 spec.connect(genHashGroupConn, generator, 0, grouper, 0);
                 break;
 
             case 3:
                 // External binary group, refactored version
-                grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, comparatorFactories,
+                grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimit, spillFramesLimit, comparatorFactories,
                         new MultiAggregatorDescriptorFactory(
                                 new IAggregatorDescriptorFactory[] { new IntSumAggregatorDescriptorFactory(
                                         dataFields - 1) }), outRecordDescriptor,
                         new BSTSpillableGroupingTableFactory(), false);
 
-                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, inNodes);
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, outNodes);
 
-                IConnectorDescriptor genBinGroupConn = new MToNHashPartitioningConnectorDescriptor(spec,
-                        new FieldHashPartitionComputerFactory(keyFields, hashFactories)
+                IConnectorDescriptor genBinGroupConn = oneToOneOutput ? new OneToOneConnectorDescriptor(spec)
+                        : new MToNHashPartitioningConnectorDescriptor(spec, new FieldHashPartitionComputerFactory(
+                                keyFields, hashFactories)
                         //new TupleRangePartitionComputerFactory()
-                );
+                        );
                 spec.connect(genBinGroupConn, generator, 0, grouper, 0);
                 break;
             default:
@@ -310,32 +316,16 @@ public class AggregatorsBenchmarkingClient {
                 grouper = generator;
         }
 
-        if (oneToOneOutput) {
-            
-            PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
-                    new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath, dataSize + "_"
-                            + aggregatorType)), "\t");
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, outNodes);
+        PlainFileWriterOperatorDescriptor dprinter = new PlainFileWriterOperatorDescriptor(spec,
+                new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath, dataSize + "_" + aggregatorType)),
+                "\t");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dprinter, inNodes);
 
-            IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
-            spec.connect(directPrintConn, grouper, 0, dprinter, 0);
+        IConnectorDescriptor directPrintConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(directPrintConn, grouper, 0, dprinter, 0);
 
-            spec.addRoot(dprinter);
-            
-        } else {
-            PlainFileWriterOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
-                    new ConstantFileSplitProvider(parseFileSplits(outNodes, outPath, dataSize + "_" + aggregatorType)),
-                    "\t");
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, outNodes);
+        spec.addRoot(dprinter);
 
-            IConnectorDescriptor groupPrintConn = new MToNHashPartitioningMergingConnectorDescriptor(spec,
-                    new FieldHashPartitionComputerFactory(keyFields,
-                            hashFactories),
-                    keyFields, comparatorFactories);
-            spec.connect(groupPrintConn, grouper, 0, printer, 0);
-
-            spec.addRoot(printer);
-        }
         return spec;
     }
 

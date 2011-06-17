@@ -41,15 +41,31 @@ public class ConcatAggregatorDescriptorFactory implements IAggregatorDescriptorF
     private final int concatField;
     private int outField = -1;
 
+    /**
+     * Initialize the aggregator, with the field to be concatenated.
+     * 
+     * @param concatField
+     */
     public ConcatAggregatorDescriptorFactory(int concatField) {
         this.concatField = concatField;
     }
 
+    /**
+     * Initialize the aggregator, with the field index to be concatenated, and
+     * also the field where the aggregation result will be outputted.
+     * @param concatField
+     * @param outField
+     */
     public ConcatAggregatorDescriptorFactory(int concatField, int outField) {
         this.concatField = concatField;
         this.outField = outField;
     }
 
+    /**
+     * Create a concatenation aggregator. A byte buffer will be allocated inside of the
+     * aggregator to contain the partial aggregation results. A reference will be written
+     * onto the output frame for indexing the aggregation result from the buffer. 
+     */
     @Override
     public IAggregatorDescriptor createAggregator(IHyracksStageletContext ctx, RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor, final int[] keyFields) throws HyracksDataException {

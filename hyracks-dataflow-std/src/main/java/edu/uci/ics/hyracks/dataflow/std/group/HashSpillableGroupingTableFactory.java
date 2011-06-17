@@ -99,7 +99,7 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
              * corresponding key tuples. So for each entry, there will be three integer
              * fields:
              * 1. The frame index containing the key tuple; 2. The tuple index inside of
-             * the frame for the key tuple; 3. The index of the aggregator.
+             * the frame for the key tuple.
              * Note that each link in the table is a partition for the input records. Multiple
              * records in the same partition based on the {@link #tpc} are stored as
              * an array of pointers.
@@ -122,7 +122,7 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                 tPointers = null;
                 // Reset the grouping hash table
                 for (int i = 0; i < table.length; i++) {
-                    table[i] = new Link();
+                    table[i] = null;
                 }
                 aggregator.close();
             }
@@ -178,11 +178,10 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                 } else {
                     // If there is a matching found, do aggregation directly
                     int tupleOffset = storedKeysAccessor1.getTupleStartOffset(stIndex);
-                    int fieldCount = storedKeysAccessor1.getFieldCount();
                     int aggFieldOffset = storedKeysAccessor1.getFieldStartOffset(stIndex, keyFields.length);
-                    int tupleEnd = storedKeysAccessor1.getTupleEndOffset(stIndex);
-                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1.getBuffer().array(), tupleOffset + 2
-                            * fieldCount + aggFieldOffset, tupleEnd - (tupleOffset + 2 * fieldCount + aggFieldOffset));
+                    int aggFieldLength = storedKeysAccessor1.getFieldLength(stIndex, keyFields.length);
+                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1.getBuffer().array(), tupleOffset
+                            + storedKeysAccessor1.getFieldSlotsLength() + aggFieldOffset, aggFieldLength);
                 }
 
                 return true;
@@ -220,11 +219,9 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                                     tupleBuilder.addField(storedKeysAccessor1, tIndex, k);
                                 }
                                 if (isPartial)
-                                    aggregator.outputPartialResult(storedKeysAccessor1, tIndex,
-                                            tupleBuilder);
+                                    aggregator.outputPartialResult(storedKeysAccessor1, tIndex, tupleBuilder);
                                 else
-                                    aggregator.outputResult(storedKeysAccessor1, tIndex,
-                                            tupleBuilder);
+                                    aggregator.outputResult(storedKeysAccessor1, tIndex, tupleBuilder);
                                 while (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
                                         0, tupleBuilder.getSize())) {
                                     FrameUtils.flushFrame(outFrame, writer);
@@ -256,18 +253,16 @@ public class HashSpillableGroupingTableFactory implements ISpillableTableFactory
                         tupleBuilder.addField(storedKeysAccessor1, tupleIndex, k);
                     }
                     if (isPartial)
-                        aggregator.outputPartialResult(storedKeysAccessor1, tupleIndex,
-                                tupleBuilder);
+                        aggregator.outputPartialResult(storedKeysAccessor1, tupleIndex, tupleBuilder);
                     else
-                        aggregator.outputResult(storedKeysAccessor1, tupleIndex,
-                                tupleBuilder);
+                        aggregator.outputResult(storedKeysAccessor1, tupleIndex, tupleBuilder);
 
-                    if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
-                            0, tupleBuilder.getSize())) {
+                    if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                            tupleBuilder.getSize())) {
                         FrameUtils.flushFrame(outFrame, writer);
                         appender.reset(outFrame, true);
-                        if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(),
-                                0, tupleBuilder.getSize())) {
+                        if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                                tupleBuilder.getSize())) {
                             throw new IllegalStateException();
                         }
                     }

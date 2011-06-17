@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -78,16 +79,48 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
     private IAggregatorDescriptorFactory aggregatorFactory;
 
     private final int framesLimit;
+    
+    private final int spillableTableFramesLimit;
 
     private final ISpillableTableFactory spillableTableFactory;
 
     private final boolean isOutputSorted;
+
+    /**
+     * XXX For debugging only. Remove this when deploying.
+     */
+    private static Logger LOGGER = Logger.getLogger(ExternalGroupOperatorDescriptor.class.getName());
 
     public ExternalGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
             IBinaryComparatorFactory[] comparatorFactories, IAggregatorDescriptorFactory aggregatorFactory,
             RecordDescriptor recordDescriptor, ISpillableTableFactory spillableTableFactory, boolean isOutputSorted) {
         super(spec, 1, 1);
         this.framesLimit = framesLimit;
+        this.spillableTableFramesLimit = framesLimit;
+        if (framesLimit <= 1) {
+            // Minimum of 2 frames: 1 for input records, and 1 for output
+            // aggregation results.
+            throw new IllegalStateException();
+        }
+
+        this.aggregatorFactory = aggregatorFactory;
+        this.keyFields = keyFields;
+        this.comparatorFactories = comparatorFactories;
+        this.spillableTableFactory = spillableTableFactory;
+        this.isOutputSorted = isOutputSorted;
+
+        // Set the record descriptor. Note that since 
+        // this operator is a unary operator,
+        // only the first record descriptor is used here.
+        recordDescriptors[0] = recordDescriptor;
+    }
+    
+    public ExternalGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit, int spillFramesLimit,
+            IBinaryComparatorFactory[] comparatorFactories, IAggregatorDescriptorFactory aggregatorFactory,
+            RecordDescriptor recordDescriptor, ISpillableTableFactory spillableTableFactory, boolean isOutputSorted) {
+        super(spec, 1, 1);
+        this.framesLimit = framesLimit;
+        this.spillableTableFramesLimit = spillFramesLimit;
         if (framesLimit <= 1) {
             // Minimum of 2 frames: 1 for input records, and 1 for output
             // aggregation results.
@@ -141,7 +174,7 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
             // Create the spillable table
             final ISpillableTable gTable = spillableTableFactory.buildSpillableTable(ctx, keyFields,
                     comparatorFactories, aggregatorFactory,
-                    recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0), recordDescriptors[0], nPartitions);
+                    recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0), recordDescriptors[0], spillableTableFramesLimit);
             // Create the tuple accessor
             final FrameTupleAccessor accessor = new FrameTupleAccessor(ctx.getFrameSize(),
                     recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0));
@@ -214,6 +247,9 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
                     }
                     gTable.reset();
                     runs.add(((RunFileWriter) writer).createReader());
+                    // XXX Remove this when deploying
+                    LOGGER.warning("==== [AGG]\t" + runFile.getFile().getAbsolutePath() + "\t"
+                            + runFile.getFile().length());
                 }
             };
             return op;
@@ -424,6 +460,9 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
                         // file list
                         if (!finalPass) {
                             runs.add(0, ((RunFileWriter) writer).createReader());
+                            // XXX Remove this when deploying
+                            LOGGER.warning("==== [MRG]\t" + newRun.getFile().getAbsolutePath() + "\t"
+                                    + newRun.getFile().length());
                         }
                     } finally {
                         if (!finalPass) {
@@ -462,7 +501,7 @@ public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor 
                                             "Failed to write final aggregation result to a writer frame!");
                             }
                         }
-                        if(writerFrameAppender.getTupleCount() > 0){
+                        if (writerFrameAppender.getTupleCount() > 0) {
                             FrameUtils.flushFrame(writerFrame, writer);
                             writerFrameAppender.reset(writerFrame, true);
                         }

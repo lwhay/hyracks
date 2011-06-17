@@ -15,30 +15,57 @@
 package edu.uci.ics.hyracks.dataflow.std.benchmarking;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunction;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 
 public class TupleRangePartitionComputerFactory implements ITuplePartitionComputerFactory {
 
     private static final long serialVersionUID = 1L;
     
-    private int tupleCount;
+    private final int keyRange;
     
-    public TupleRangePartitionComputerFactory(){
-        tupleCount = 0;
+    private final int offset;
+    
+    private final int[] hashFields;
+    
+    private final IBinaryHashFunctionFactory[] hashFunctionFactories;
+    
+    public TupleRangePartitionComputerFactory(int keyRange, int offset, int[] hashFields, IBinaryHashFunctionFactory[] hashFunctionFactories){
+        this.hashFields = hashFields;
+        this.hashFunctionFactories = hashFunctionFactories;
+        this.keyRange = keyRange;
+        this.offset = offset;
     }
 
-    /* (non-Javadoc)
-     * @see edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory#createPartitioner()
-     */
-    @Override
     public ITuplePartitionComputer createPartitioner() {
+        
+        final IBinaryHashFunction[] hashFunctions = new IBinaryHashFunction[hashFunctionFactories.length];
+        for (int i = 0; i < hashFunctionFactories.length; ++i) {
+            hashFunctions[i] = hashFunctionFactories[i].createBinaryHashFunction();
+        }
         return new ITuplePartitionComputer() {
-            
             @Override
-            public int partition(IFrameTupleAccessor accessor, int tIndex, int nParts) throws HyracksDataException {
-                return tupleCount++ % nParts;
+            public int partition(IFrameTupleAccessor accessor, int tIndex, int nParts) {
+                int h = 0;
+                int startOffset = accessor.getTupleStartOffset(tIndex);
+                int slotLength = accessor.getFieldSlotsLength();
+                for (int j = 0; j < hashFields.length; ++j) {
+                    int fIdx = hashFields[j];
+                    IBinaryHashFunction hashFn = hashFunctions[j];
+                    int fStart = accessor.getFieldStartOffset(tIndex, fIdx);
+                    int fEnd = accessor.getFieldEndOffset(tIndex, fIdx);
+                    int fh = hashFn
+                            .hash(accessor.getBuffer().array(), startOffset + slotLength + fStart, fEnd - fStart);
+                    h += fh;
+                }
+                if (h < 0) {
+                    h = -h;
+                }
+                return h * nParts / keyRange;
             }
         };
     }
