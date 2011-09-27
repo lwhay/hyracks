@@ -31,11 +31,11 @@ public interface ITreeIndexFrame {
 
     public ByteBuffer getBuffer();
 
-    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp) throws Exception;
+    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp, boolean throwIfKeyExists) throws Exception;
 
     public void insert(ITupleReference tuple, MultiComparator cmp, int tupleIndex) throws Exception;
 
-    public void update(int rid, ITupleReference tuple) throws Exception;
+    public void update(ITupleReference newTuple, int oldTupleIndex) throws Exception;
 
     public void delete(ITupleReference tuple, MultiComparator cmp, boolean exactDelete) throws Exception;
 
@@ -51,7 +51,7 @@ public interface ITreeIndexFrame {
     // assumption: page must be write-latched at this point
     public FrameOpSpaceStatus hasSpaceInsert(ITupleReference tuple, MultiComparator cmp);
 
-    public FrameOpSpaceStatus hasSpaceUpdate(int rid, ITupleReference tuple, MultiComparator cmp);
+    public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference newTuple, int oldTupleIndex, MultiComparator cmp);
 
     public int getTupleOffset(int slotNum);
 

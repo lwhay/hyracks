@@ -66,24 +66,28 @@ public class BTreeNSMLeafFrame extends TreeIndexNSMFrame implements IBTreeLeafFr
     }
 
     @Override
-    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp) throws Exception {
+    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp, boolean throwIfKeyExists) throws Exception {
         frameTuple.setFieldCount(cmp.getFieldCount());
         int tupleIndex = slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.FTM_INCLUSIVE,
                 FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
+        if (!throwIfKeyExists) {
+            return tupleIndex;
+        }
         int slotOff = slotManager.getSlotOff(tupleIndex);
         boolean isDuplicate = true;
-
-        if (tupleIndex < 0)
-            isDuplicate = false; // greater than all existing keys
+        if (tupleIndex < 0) {
+            // Greater than all existing keys.
+            isDuplicate = false;
+        }
         else {
             frameTuple.resetByTupleOffset(buf, slotManager.getTupleOff(slotOff));
-            if (cmp.compare(tuple, frameTuple) != 0)
+            if (cmp.compare(tuple, frameTuple) != 0) {
                 isDuplicate = false;
+            }
         }
         if (isDuplicate) {
             throw new BTreeDuplicateKeyException("Trying to insert duplicate key into leaf node.");
         }
-
         return tupleIndex;
     }
 
@@ -149,7 +153,8 @@ public class BTreeNSMLeafFrame extends TreeIndexNSMFrame implements IBTreeLeafFr
         compact(cmp);
 
         // insert last key
-        int targetTupleIndex = targetFrame.findTupleIndex(tuple, cmp);
+        // TODO: can we avoid checking for duplicates here?
+        int targetTupleIndex = targetFrame.findTupleIndex(tuple, cmp, true);
         targetFrame.insert(tuple, cmp, targetTupleIndex);
 
         // set split key to be highest value in left page

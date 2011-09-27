@@ -397,7 +397,7 @@ public class RTree implements ITreeIndex {
 
     private void insertTuple(ICachedPage node, int pageId, ITupleReference tuple, RTreeOpContext ctx, boolean isLeaf)
             throws Exception {
-        FrameOpSpaceStatus spaceStatus;
+    	FrameOpSpaceStatus spaceStatus;
         if (!isLeaf) {
             spaceStatus = ctx.interiorFrame.hasSpaceInsert(tuple, cmp);
         } else {

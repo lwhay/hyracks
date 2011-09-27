@@ -206,18 +206,37 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     @Override
     public FrameOpSpaceStatus hasSpaceInsert(ITupleReference tuple, MultiComparator cmp) {
         int bytesRequired = tupleWriter.bytesRequired(tuple);
-        if (bytesRequired + slotManager.getSlotSize() <= buf.capacity() - buf.getInt(freeSpaceOff)
-                - (buf.getInt(tupleCountOff) * slotManager.getSlotSize()))
+        // Enough space in the contiguous space region?
+        if (bytesRequired + slotManager.getSlotSize() <= buf.capacity() - buf.getInt(freeSpaceOff) 
+                - (buf.getInt(tupleCountOff) * slotManager.getSlotSize())) {
             return FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE;
-        else if (bytesRequired + slotManager.getSlotSize() <= buf.getInt(totalFreeSpaceOff))
+        }
+        // Enough space after compaction?
+        if (bytesRequired + slotManager.getSlotSize() <= buf.getInt(totalFreeSpaceOff)) {
             return FrameOpSpaceStatus.SUFFICIENT_SPACE;
-        else
-            return FrameOpSpaceStatus.INSUFFICIENT_SPACE;
+        }
+        return FrameOpSpaceStatus.INSUFFICIENT_SPACE;
     }
 
     @Override
-    public FrameOpSpaceStatus hasSpaceUpdate(int rid, ITupleReference tuple, MultiComparator cmp) {
-        // TODO Auto-generated method stub
+    public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference newTuple, int oldTupleIndex, MultiComparator cmp) {
+    	frameTuple.resetByTupleIndex(this, oldTupleIndex);
+    	int oldTupleBytes = tupleWriter.bytesRequired(frameTuple);
+    	int newTupleBytes = tupleWriter.bytesRequired(newTuple);
+    	int additionalBytesRequired = newTupleBytes - oldTupleBytes;
+    	// Enough space for an in-place update?
+    	if (additionalBytesRequired <= 0) {
+    		return FrameOpSpaceStatus.SUFFICIENT_INPLACE_SPACE;
+    	}
+    	// Enough space if we delete the old tuple and insert the new one without compaction? 
+    	if (newTupleBytes <= buf.capacity() - buf.getInt(freeSpaceOff)
+                - (buf.getInt(tupleCountOff) * slotManager.getSlotSize())) {
+    		return FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE;
+    	}
+    	// Enough space if we delete the old tuple and compact?
+    	if (additionalBytesRequired <= buf.getInt(totalFreeSpaceOff)) {
+    		return FrameOpSpaceStatus.SUFFICIENT_SPACE;
+    	}
         return FrameOpSpaceStatus.INSUFFICIENT_SPACE;
     }
 
@@ -227,7 +246,7 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     }
 
     @Override
-    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp) throws Exception {
+    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp, boolean throwIfKeyExists) throws Exception {
         frameTuple.setFieldCount(cmp.getFieldCount());
         return slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.FTM_INCLUSIVE,
                 FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
@@ -243,9 +262,10 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     }
 
     @Override
-    public void update(int rid, ITupleReference tuple) throws Exception {
-        // TODO Auto-generated method stub
-
+    public void update(ITupleReference tuple, int oldTupleIndex) throws Exception {
+    	// TODO: add comment about space changing.    	
+    	int slotOff = slotManager.getSlotOff(oldTupleIndex);
+    	tupleWriter.writeTuple(tuple, buf.array(), buf.getInt(slotOff));
     }
 
     @Override

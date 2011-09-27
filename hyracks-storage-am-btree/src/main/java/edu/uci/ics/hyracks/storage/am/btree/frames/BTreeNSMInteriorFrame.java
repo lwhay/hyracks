@@ -27,7 +27,6 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeDuplicateKeyException;
-import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
@@ -78,13 +77,17 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
             return FrameOpSpaceStatus.INSUFFICIENT_SPACE;
     }
 
-    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp) throws Exception {
+    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp, boolean throwIfKeyExists) throws Exception {
         frameTuple.setFieldCount(cmp.getKeyFieldCount());
         int tupleIndex = slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.FTM_INCLUSIVE,
                 FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
+        if (!throwIfKeyExists) {
+            return tupleIndex;
+        }
         int slotOff = slotManager.getSlotOff(tupleIndex);
         boolean isDuplicate = true;
 
+        // TODO: We may not need to check for duplicates in interior nodes.
         if (tupleIndex < 0)
             isDuplicate = false; // greater than all existing keys
         else {
@@ -203,7 +206,8 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         compact(cmp);
 
         // insert key
-        int targetTupleIndex = targetFrame.findTupleIndex(savedSplitKey.getTuple(), cmp);
+        // TODO: can we avoid checking for duplicates here?
+        int targetTupleIndex = targetFrame.findTupleIndex(savedSplitKey.getTuple(), cmp, true);
         targetFrame.insert(savedSplitKey.getTuple(), cmp, targetTupleIndex);
 
         return 0;

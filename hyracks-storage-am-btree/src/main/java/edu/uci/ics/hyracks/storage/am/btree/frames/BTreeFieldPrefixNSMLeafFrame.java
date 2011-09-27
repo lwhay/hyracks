@@ -259,7 +259,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public FrameOpSpaceStatus hasSpaceUpdate(int rid, ITupleReference tuple, MultiComparator cmp) {
+    public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference tuple, int oldTupleIndex, MultiComparator cmp) {
         // TODO Auto-generated method stub
         return FrameOpSpaceStatus.INSUFFICIENT_SPACE;
     }
@@ -292,9 +292,12 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp) throws Exception {
+    public int findTupleIndex(ITupleReference tuple, MultiComparator cmp, boolean throwIfKeyExists) throws Exception {
         int slot = slotManager.findSlot(tuple, frameTuple, framePrefixTuple, cmp, FindTupleMode.FTM_INCLUSIVE,
                 FindTupleNoExactMatchPolicy.FTP_HIGHER_KEY);
+        if (!throwIfKeyExists) {
+            return slot;
+        }
         int tupleIndex = slotManager.decodeSecondSlotField(slot);
         if (tupleIndex != FieldPrefixSlotManager.GREATEST_SLOT) {
             frameTuple.setFieldCount(cmp.getFieldCount());
@@ -330,7 +333,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public void update(int rid, ITupleReference tuple) throws Exception {
+    public void update(ITupleReference tuple, int oldTupleIndex) throws Exception {
         // TODO Auto-generated method stub
 
     }
@@ -581,7 +584,8 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
         rightFrame.compact(cmp);
 
         // insert last key
-        int targetTupleIndex = targetFrame.findTupleIndex(tuple, cmp);
+        // TODO: can we avoid checking for duplicates here?
+        int targetTupleIndex = targetFrame.findTupleIndex(tuple, cmp, true);
         targetFrame.insert(tuple, cmp, targetTupleIndex);
 
         // set split key to be highest value in left page
