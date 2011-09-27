@@ -118,4 +118,9 @@ public class TypeAwareTupleReference implements ITreeIndexTupleReference {
     protected int getNullFlagsBytes() {
         return (int) Math.ceil(fieldCount / 8.0);
     }
+
+	@Override
+	public int getTupleSize() {
+		return dataStartOff - tupleStartOff + decodedFieldSlots[fieldCount-1];
+	}
 }

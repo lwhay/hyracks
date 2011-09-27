@@ -233,16 +233,15 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
 
         int bytesRequired = tupleWriter.bytesRequired(tuple);
 
-        // see if the tuple would fit uncompressed
+        // See if the tuple would fit uncompressed.
         if (bytesRequired + slotManager.getSlotSize() <= freeContiguous)
             return FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE;
 
-        // see if tuple would fit into remaining space after compaction
+        // See if tuple would fit into remaining space after compaction.
         if (bytesRequired + slotManager.getSlotSize() <= buf.getInt(totalFreeSpaceOff))
             return FrameOpSpaceStatus.SUFFICIENT_SPACE;
 
-        // see if the tuple matches a prefix and will fit after truncating the
-        // prefix
+        // See if the tuple matches a prefix and will fit after truncating the prefix.
         int prefixSlotNum = slotManager.findPrefix(tuple, framePrefixTuple, cmp);
         if (prefixSlotNum != FieldPrefixSlotManager.TUPLE_UNCOMPRESSED) {
             int prefixSlotOff = slotManager.getPrefixSlotOff(prefixSlotNum);
@@ -333,11 +332,11 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public void update(ITupleReference tuple, int oldTupleIndex) throws Exception {
+    public void update(ITupleReference newTuple, int oldTupleIndex, boolean inPlace) throws Exception {
         // TODO Auto-generated method stub
 
     }
-
+    
     @Override
     public void printHeader() {
         // TODO Auto-generated method stub

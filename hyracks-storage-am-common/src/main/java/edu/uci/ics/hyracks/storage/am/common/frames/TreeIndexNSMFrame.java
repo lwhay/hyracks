@@ -221,7 +221,8 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     @Override
     public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference newTuple, int oldTupleIndex, MultiComparator cmp) {
     	frameTuple.resetByTupleIndex(this, oldTupleIndex);
-    	int oldTupleBytes = tupleWriter.bytesRequired(frameTuple);
+    	frameTuple.setFieldCount(cmp.getFieldCount());
+    	int oldTupleBytes = frameTuple.getTupleSize();
     	int newTupleBytes = tupleWriter.bytesRequired(newTuple);
     	int additionalBytesRequired = newTupleBytes - oldTupleBytes;
     	// Enough space for an in-place update?
@@ -262,10 +263,24 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     }
 
     @Override
-    public void update(ITupleReference tuple, int oldTupleIndex) throws Exception {
-    	// TODO: add comment about space changing.    	
-    	int slotOff = slotManager.getSlotOff(oldTupleIndex);
-    	tupleWriter.writeTuple(tuple, buf.array(), buf.getInt(slotOff));
+    public void update(ITupleReference newTuple, int oldTupleIndex, boolean inPlace) throws Exception {
+    	frameTuple.resetByTupleIndex(this, oldTupleIndex);
+		int oldTupleBytes = frameTuple.getTupleSize();
+		int slotOff = slotManager.getSlotOff(oldTupleIndex);
+		int bytesWritten = 0;
+    	if (inPlace) {    		
+    		// Overwrite the old tuple in place.
+    		bytesWritten = tupleWriter.writeTuple(newTuple, buf.array(), buf.getInt(slotOff));
+    	} else {
+    		// Insert the new tuple at the end of the free space, and change the slot value (effectively "deleting" the old tuple).
+    		int newTupleOff = buf.getInt(freeSpaceOff);
+    		bytesWritten = tupleWriter.writeTuple(newTuple, buf.array(), newTupleOff);
+    		// Update slot value.
+    		buf.putInt(slotOff, newTupleOff);
+    		// Update contiguous free space pointer.
+    		buf.putInt(freeSpaceOff, newTupleOff + bytesWritten);
+    	}
+    	buf.putInt(totalFreeSpaceOff, buf.getInt(totalFreeSpaceOff) + oldTupleBytes - bytesWritten);
     }
 
     @Override

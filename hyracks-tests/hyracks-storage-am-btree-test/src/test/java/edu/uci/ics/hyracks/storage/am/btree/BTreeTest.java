@@ -65,6 +65,7 @@ import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeDiskOrderScanCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.common.tuples.SimpleTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
@@ -84,7 +85,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // "value" field
     // fill B-tree with random values using insertions (not bulk load)
     // perform ordered scan and range search
-    //@Test
+    @Test
     public void test01() throws Exception {
 
         LOGGER.info("FIXED-LENGTH KEY TEST");
@@ -111,7 +112,7 @@ public class BTreeTest extends AbstractBTreeTest {
         MultiComparator cmp = new MultiComparator(typeTraits, cmps);
 
         TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
-        ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
+        ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);        
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexMetaDataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
 
@@ -288,7 +289,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // fixed-length "value" field
     // fill B-tree with random values using insertions (not bulk load)
     // perform ordered scan and range search
-    //@Test
+    @Test
     public void test02() throws Exception {
 
         LOGGER.info("COMPOSITE KEY TEST");
@@ -318,6 +319,7 @@ public class BTreeTest extends AbstractBTreeTest {
 
         TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
         ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
+        //ITreeIndexFrameFactory leafFrameFactory = new BTreeFieldPrefixNSMLeafFrameFactory(tupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexMetaDataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
 
@@ -475,7 +477,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // variable-length "value" field
     // fill B-tree with random values using insertions (not bulk load)
     // perform ordered scan and range search
-    //@Test
+    @Test
     public void test03() throws Exception {
 
         LOGGER.info("VARIABLE-LENGTH KEY TEST");
@@ -648,7 +650,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // fill B-tree with random values using insertions, then delete entries
     // one-by-one
     // repeat procedure a few times on same B-tree
-    //@Test
+    @Test
     public void test04() throws Exception {
 
         LOGGER.info("DELETION TEST");
@@ -877,7 +879,8 @@ public class BTreeTest extends AbstractBTreeTest {
 
         MultiComparator cmp = new MultiComparator(typeTraits, cmps);
 
-        TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        //TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        SimpleTupleWriterFactory tupleWriterFactory = new SimpleTupleWriterFactory();
         ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexMetaDataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
@@ -1009,7 +1012,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // insert 100,000 records in bulk
     // B-tree has a composite key to "simulate" non-unique index creation
     // do range search
-    //@Test
+    @Test
     public void test06() throws Exception {
 
         LOGGER.info("BULK LOAD TEST");
@@ -1163,7 +1166,7 @@ public class BTreeTest extends AbstractBTreeTest {
     // TIME-INTERVAL INTERSECTION DEMO FOR EVENT PEOPLE
     // demo for Arjun to show easy support of intersection queries on
     // time-intervals
-    //@Test
+    @Test
     public void test07() throws Exception {
 
         LOGGER.info("TIME-INTERVAL INTERSECTION DEMO");

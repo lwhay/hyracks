@@ -403,8 +403,7 @@ public class BTree implements ITreeIndex {
         boolean repeatOp = true;
         while (repeatOp && ctx.opRestarts < MAX_RESTARTS) {
             performOp(rootPage, null, ctx);
-            // if we reach this stage then we need to restart from the (possibly
-            // new) root
+            // Do we need to restart from the (possibly new) root?
             if (!ctx.pageLsns.isEmpty() && ctx.pageLsns.getLast() == RESTART_OP) {
                 ctx.pageLsns.removeLast(); // pop the restart op indicator
                 continue;
@@ -586,21 +585,13 @@ public class BTree implements ITreeIndex {
         switch (spaceStatus) {
             case SUFFICIENT_INPLACE_SPACE: {
                 //System.out.println("SUFFICIENT_INPLACE_SPACE");
-                // Add comment about free space treatment.
-                // We don't update the total free space, even if the update shrinks the tuple.
-                // The free space will be reclaimed during the next split or compaction.
-                ctx.leafFrame.update(tuple, oldTupleIndex);
+                ctx.leafFrame.update(tuple, oldTupleIndex, true);
                 ctx.splitKey.reset();
                 break;
             }
             case SUFFICIENT_CONTIGUOUS_SPACE: {
                 //System.out.println("SUFFICIENT_CONTIGUOUS_SPACE");
-                // TODO: We remove a slot then insert a slot, causing some slots to be copied twice. 
-                // This procedure could be optimized not to behave that way. 
-                // Delete the old tuple, and insert the new one.
-                ctx.leafFrame.delete(tuple, cmp, false);
-                int targetTupleIndex = ctx.leafFrame.findTupleIndex(tuple, cmp, false);
-                ctx.leafFrame.insert(tuple, cmp, targetTupleIndex);
+                ctx.leafFrame.update(tuple, oldTupleIndex, false);
                 ctx.splitKey.reset();
                 break;
             }                

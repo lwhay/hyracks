@@ -35,7 +35,7 @@ public interface ITreeIndexFrame {
 
     public void insert(ITupleReference tuple, MultiComparator cmp, int tupleIndex) throws Exception;
 
-    public void update(ITupleReference newTuple, int oldTupleIndex) throws Exception;
+    public void update(ITupleReference newTuple, int oldTupleIndex, boolean inPlace) throws Exception;
 
     public void delete(ITupleReference tuple, MultiComparator cmp, boolean exactDelete) throws Exception;
 
