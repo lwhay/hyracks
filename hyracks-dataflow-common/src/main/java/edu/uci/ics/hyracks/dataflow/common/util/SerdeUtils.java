@@ -19,6 +19,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTrait;
+import edu.uci.ics.hyracks.api.dataflow.value.TypeTrait;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.DoubleBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.FloatBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.comparators.IntegerBinaryComparatorFactory;
@@ -32,11 +33,20 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializer
 
 @SuppressWarnings("rawtypes")
 public class SerdeUtils {
-    public static ITypeTrait[] serdesToTypeTraits(ISerializerDeserializer[] serdes, int numSerdes) {
-        ITypeTrait[] typeTraits = new ITypeTrait[numSerdes];
-        for (int i = 0; i < numSerdes; i++) {
+    public static ITypeTrait[] serdesToTypeTraits(ISerializerDeserializer[] serdes) {
+        ITypeTrait[] typeTraits = new ITypeTrait[serdes.length];
+        for (int i = 0; i < serdes.length; i++) {
             typeTraits[i] = serdeToTypeTrait(serdes[i]);
         }
+        return typeTraits;
+    }
+    
+    public static ITypeTrait[] serdesToTypeTraits(ISerializerDeserializer[] serdes, int payloadSize) {
+        ITypeTrait[] typeTraits = new ITypeTrait[serdes.length + 1];
+        for (int i = 0; i < serdes.length; i++) {
+            typeTraits[i] = serdeToTypeTrait(serdes[i]);
+        }
+        typeTraits[serdes.length] = new TypeTrait(payloadSize);
         return typeTraits;
     }
 

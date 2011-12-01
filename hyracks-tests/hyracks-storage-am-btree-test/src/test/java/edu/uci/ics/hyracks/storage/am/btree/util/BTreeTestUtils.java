@@ -46,7 +46,7 @@ public class BTreeTestUtils {
     private static final Logger LOGGER = Logger.getLogger(BTreeTestUtils.class.getName());    
     
     public static BTreeTestContext createBTreeTestContext(IBufferCache bufferCache, int btreeFileId, ISerializerDeserializer[] fieldSerdes, int numKeyFields, BTreeLeafFrameType leafType) throws Exception {        
-        ITypeTrait[] typeTraits = SerdeUtils.serdesToTypeTraits(fieldSerdes, fieldSerdes.length);
+        ITypeTrait[] typeTraits = SerdeUtils.serdesToTypeTraits(fieldSerdes);
         IBinaryComparator[] cmps = SerdeUtils.serdesToComparators(fieldSerdes, numKeyFields);
         
         BTree btree = BTreeUtils.createBTree(bufferCache, btreeFileId, typeTraits, cmps, leafType);
