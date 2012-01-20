@@ -32,7 +32,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
 
-class GroupingHashTable {
+public class GroupingHashTable {
     /**
      * The pointers in the link store 3 int values for each entry in the hashtable: (bufferIdx, tIndex, accumulatorIdx).
      * 
@@ -59,27 +59,27 @@ class GroupingHashTable {
         }
     }
 
-    private static final int INIT_ACCUMULATORS_SIZE = 8;
-    private final IHyracksTaskContext ctx;
-    private final FrameTupleAppender appender;
-    private final List<ByteBuffer> buffers;
-    private final Link[] table;
-    private IAccumulatingAggregator[] accumulators;
-    private int accumulatorSize;
+    protected static final int INIT_ACCUMULATORS_SIZE = 8;
+    protected final IHyracksTaskContext ctx;
+    protected final FrameTupleAppender appender;
+    protected final List<ByteBuffer> buffers;
+    protected final Link[] table;
+    protected IAccumulatingAggregator[] accumulators;
+    protected int accumulatorSize;
 
-    private int lastBIndex;
-    private final int[] fields;
-    private final int[] storedKeys;
-    private final IBinaryComparator[] comparators;
-    private final FrameTuplePairComparator ftpc;
-    private final ITuplePartitionComputer tpc;
-    private final IAccumulatingAggregatorFactory aggregatorFactory;
-    private final RecordDescriptor inRecordDescriptor;
-    private final RecordDescriptor outRecordDescriptor;
+    protected int lastBIndex;
+    protected final int[] fields;
+    protected final int[] storedKeys;
+    protected final IBinaryComparator[] comparators;
+    protected final FrameTuplePairComparator ftpc;
+    protected final ITuplePartitionComputer tpc;
+    protected final IAccumulatingAggregatorFactory aggregatorFactory;
+    protected final RecordDescriptor inRecordDescriptor;
+    protected final RecordDescriptor outRecordDescriptor;
 
-    private final FrameTupleAccessor storedKeysAccessor;
+    protected final FrameTupleAccessor storedKeysAccessor;
 
-    GroupingHashTable(IHyracksTaskContext ctx, int[] fields, IBinaryComparatorFactory[] comparatorFactories,
+    public GroupingHashTable(IHyracksTaskContext ctx, int[] fields, IBinaryComparatorFactory[] comparatorFactories,
             ITuplePartitionComputerFactory tpcf, IAccumulatingAggregatorFactory aggregatorFactory,
             RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor, int tableSize) {
         this.ctx = ctx;
@@ -110,7 +110,7 @@ class GroupingHashTable {
         addNewBuffer();
     }
 
-    private void addNewBuffer() {
+    protected void addNewBuffer() {
         ByteBuffer buffer = ctx.allocateFrame();
         buffer.position(0);
         buffer.limit(buffer.capacity());
@@ -119,7 +119,7 @@ class GroupingHashTable {
         ++lastBIndex;
     }
 
-    private void flushFrame(FrameTupleAppender appender, IFrameWriter writer) throws HyracksDataException {
+    protected void flushFrame(FrameTupleAppender appender, IFrameWriter writer) throws HyracksDataException {
         ByteBuffer frame = appender.getBuffer();
         frame.position(0);
         frame.limit(frame.capacity());

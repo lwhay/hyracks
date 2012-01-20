@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.std.group.IAccumulatingAggregator;
 import edu.uci.ics.hyracks.dataflow.std.group.IAccumulatingAggregatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 
 public class MultiAggregatorFactory implements IAccumulatingAggregatorFactory {
     private static final long serialVersionUID = 1L;
@@ -73,6 +74,32 @@ public class MultiAggregatorFactory implements IAccumulatingAggregatorFactory {
                     DataOutput dos = tb.getDataOutput();
                     for (int i = 0; i < aggregators.length; ++i) {
                         aggregators[i].output(dos);
+                        tb.addFieldEndOffset();
+                    }
+                }
+                if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+                    pending = true;
+                    return false;
+                }
+                return true;
+            }
+
+            @Override
+            public boolean output(FrameTupleAppender appender, IFrameTupleAccessor accessor, int tIndex,
+                    int[] keyFieldIndexes, boolean writeNull, INullWriter[] nullWriters) throws HyracksDataException {
+                if (!pending) {
+                    tb.reset();
+                    for (int i = 0; i < keyFieldIndexes.length; ++i) {
+                        tb.addField(accessor, tIndex, keyFieldIndexes[i]);
+                    }
+                    DataOutput dos = tb.getDataOutput();
+                    for (int i = 0; i < aggregators.length; ++i) {
+                        if (writeNull){
+                        	nullWriters[i].writeNull(dos);
+                        }
+                        else{
+                        	aggregators[i].output(dos);
+                        }
                         tb.addFieldEndOffset();
                     }
                 }

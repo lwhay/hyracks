@@ -15,6 +15,7 @@
 package edu.uci.ics.hyracks.dataflow.std.group;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
@@ -59,4 +60,9 @@ public interface IAccumulatingAggregator {
      */
     public boolean output(FrameTupleAppender appender, IFrameTupleAccessor accessor, int tIndex, int[] keyFieldIndexes)
             throws HyracksDataException;
+    
+    public boolean output(FrameTupleAppender appender, IFrameTupleAccessor accessor, int tIndex, int[] keyFieldIndexes,
+    		boolean writeNull, INullWriter[] nullWriters)
+            throws HyracksDataException;
+
 }
