@@ -27,6 +27,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
 
 public class GroupJoinHashTable extends GroupingHashTable{
     private static class Link {
@@ -52,17 +53,21 @@ public class GroupJoinHashTable extends GroupingHashTable{
     }
 
     private final Link[] table;
+    private final int[] gFields;
     private final INullWriter[] nullWriters;
     private final ITuplePartitionComputer tpc1;
+    protected final FrameTuplePairComparator ftpc1;
 
-    public GroupJoinHashTable(IHyracksTaskContext ctx, int[] fields, IBinaryComparatorFactory[] comparatorFactories,
-    		ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, IAccumulatingAggregatorFactory aggregatorFactory,
-            RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor, INullWriter[] nullWriters1, 
-            int tableSize) {
-       	super( ctx, fields, comparatorFactories, gByTpc0,  aggregatorFactory,
+    public GroupJoinHashTable(IHyracksTaskContext ctx, int[] gFields, int[] jFields,
+    		IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1,
+            IAccumulatingAggregatorFactory aggregatorFactory, RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor, 
+            INullWriter[] nullWriters1, int tableSize) {
+       	super( ctx, jFields, comparatorFactories, gByTpc0,  aggregatorFactory,
              inRecordDescriptor,  outRecordDescriptor,  tableSize);
         tpc1 = gByTpc1.createPartitioner();
        	table = new Link[tableSize];
+        ftpc1 = new FrameTuplePairComparator(storedKeys, jFields, comparators);
+        this.gFields = gFields;
         this.nullWriters = nullWriters1;
     }
 
@@ -76,11 +81,11 @@ public class GroupJoinHashTable extends GroupingHashTable{
 	            link = table[entry] = new Link();
 	        }
 	        IAccumulatingAggregator aggregator = null;
-	
+
             // Insert a new entry.
-	            if (!appender.appendProjection(accessor, tIndex, fields)) {
+	            if (!appender.appendProjection(accessor, tIndex, gFields)) {
 	                addNewBuffer();
-	                if (!appender.appendProjection(accessor, tIndex, fields)) {
+	                if (!appender.appendProjection(accessor, tIndex, gFields)) {
 	                    throw new IllegalStateException();
 	                }
 	            }
@@ -112,7 +117,8 @@ public class GroupJoinHashTable extends GroupingHashTable{
 			    int stIndex = link.pointers[i + 1];
 			    int saIndex = link.pointers[i + 2];
 			    storedKeysAccessor.reset(buffers.get(sbIndex));
-			    int c = ftpc.compare(accessor, tIndex, storedKeysAccessor, stIndex);
+
+			    int c = ftpc1.compare(storedKeysAccessor, stIndex, accessor, tIndex);
 			    if (c == 0) {
 			        aggregator = accumulators[saIndex];
 			        break;

@@ -16,7 +16,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
-import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -41,9 +40,8 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private static final long serialVersionUID = 1L;
     private final int[] keys0;
     private final int[] keys1;
-    private final int[] aggregateAttributes;
-    private final ITuplePartitionComputerFactory gByTpc0;
-    private final ITuplePartitionComputerFactory gByTpc1;
+//    private final ITuplePartitionComputerFactory gByTpc0;
+//    private final ITuplePartitionComputerFactory gByTpc1;
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
@@ -51,17 +49,18 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private final INullWriterFactory[] nullWriterFactories1;
     private final int tableSize;
 
-    public InMemoryHashGroupJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1, int[] aggregateAttributes,
-            IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
-            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, 
-            IAccumulatingAggregatorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1,
+    public InMemoryHashGroupJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
+            IBinaryComparatorFactory[] joinComparatorFactories,
+//            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, 
+            IBinaryComparatorFactory[] groupComparatorFactories,
+            IAccumulatingAggregatorFactory aggregatorFactory, 
+RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, 
             int tableSize) {
         super(spec, 2, 1);
         this.keys0 = keys0;
         this.keys1 = keys1;
-        this.gByTpc0 = gByTpc0;
-        this.gByTpc1 = gByTpc1;
-        this.aggregateAttributes = aggregateAttributes;
+//        this.gByTpc0 = gByTpc0;
+//        this.gByTpc1 = gByTpc1;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
         this.groupComparatorFactories = groupComparatorFactories;
@@ -139,16 +138,14 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
 
                 @Override
                 public void open() throws HyracksDataException {
-                    ITuplePartitionComputer hpc0 = new FieldHashPartitionComputerFactory(keys0, hashFunctionFactories)
-                            .createPartitioner();
-                    ITuplePartitionComputer hpc1 = new FieldHashPartitionComputerFactory(keys1, hashFunctionFactories)
-                            .createPartitioner();
+                    ITuplePartitionComputerFactory hpcf0 = new FieldHashPartitionComputerFactory(keys0, hashFunctionFactories);
+                    ITuplePartitionComputerFactory hpcf1 = new FieldHashPartitionComputerFactory(keys1, hashFunctionFactories);
                     state = new HashBuildTaskState(ctx.getJobletContext().getJobId(), new TaskId(getActivityId(),
                             partition));
-                    
+
                     state.joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
-                            new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, gByTpc0, gByTpc1, rd0, recordDescriptors[0], 
-                                    aggregatorFactory, aggregateAttributes, nullWriters1);
+                            new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0 /*gByTpc0*/, hpcf1 /*gByTpc1*/, rd0, recordDescriptors[0], 
+                                    aggregatorFactory, keys1, keys0, nullWriters1);
                 }
 
                 @Override

@@ -28,7 +28,8 @@ public class InMemoryHashGroupJoin {
     public InMemoryHashGroupJoin(IHyracksTaskContext ctx, int tableSize, FrameTupleAccessor accessor0,
             FrameTupleAccessor accessor1, IBinaryComparatorFactory[] groupComparator, ITuplePartitionComputerFactory gByTpc0,
             ITuplePartitionComputerFactory gByTpc1, RecordDescriptor gByInRecordDescriptor, RecordDescriptor gByOutRecordDescriptor,
-            IAccumulatingAggregatorFactory aggregatorFactory, int[] aggregateAttributes, INullWriter[] nullWriters1) throws HyracksDataException {
+            IAccumulatingAggregatorFactory aggregatorFactory, int[] joinAttributes, int[] groupAttributes, 
+            INullWriter[] nullWriters1) throws HyracksDataException {
         buffers = new ArrayList<ByteBuffer>();
         this.accessorBuild = accessor0;
         this.accessorProbe = accessor1;
@@ -38,8 +39,8 @@ public class InMemoryHashGroupJoin {
         outBuffer = ctx.allocateFrame();
         appender.reset(outBuffer, true);
 
-        gByTable = new GroupJoinHashTable(ctx, aggregateAttributes, tpGroupComparator, gByTpc0, gByTpc1, aggregatorFactory, 
-        		gByInRecordDescriptor, gByOutRecordDescriptor, nullWriters1, tableSize);
+        gByTable = new GroupJoinHashTable(ctx, groupAttributes, joinAttributes, tpGroupComparator, gByTpc0, gByTpc1, 
+        		aggregatorFactory, gByInRecordDescriptor, gByOutRecordDescriptor, nullWriters1, tableSize);
     }
 
     public void build(ByteBuffer buffer) throws HyracksDataException {

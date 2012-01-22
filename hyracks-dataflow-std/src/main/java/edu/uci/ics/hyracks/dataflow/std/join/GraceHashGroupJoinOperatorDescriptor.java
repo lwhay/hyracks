@@ -66,18 +66,17 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
-    private final int[] aggregateAttributes;
-    private final ITuplePartitionComputerFactory gByTpc0;
-    private final ITuplePartitionComputerFactory gByTpc1;
+//    private final ITuplePartitionComputerFactory gByTpc0;
+//    private final ITuplePartitionComputerFactory gByTpc1;
     private final IAccumulatingAggregatorFactory aggregatorFactory;
     private final INullWriterFactory[] nullWriterFactories1;
 
     
     public GraceHashGroupJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
-            double factor, int[] keys0, int[] keys1, int[] aggregateAttributes, IBinaryHashFunctionFactory[] hashFunctionFactories,
-            IBinaryComparatorFactory[] joinComparatorFactories, IBinaryComparatorFactory[] groupComparatorFactories,
-            ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, IAccumulatingAggregatorFactory aggregatorFactory,
-            RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1) {
+            double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
+            IBinaryComparatorFactory[] groupComparatorFactories, 
+//            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1,
+            IAccumulatingAggregatorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1) {
         super(spec, 2, 1);
         this.memsize = memsize;
         this.inputsize0 = inputsize0;
@@ -85,9 +84,8 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
         this.factor = factor;
         this.keys0 = keys0;
         this.keys1 = keys1;
-        this.gByTpc0 = gByTpc0;
-        this.gByTpc1 = gByTpc1;
-        this.aggregateAttributes = aggregateAttributes;
+//        this.gByTpc0 = gByTpc0;
+//        this.gByTpc1 = gByTpc1;
         this.aggregatorFactory = aggregatorFactory;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
@@ -283,10 +281,10 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
                     probeWriters = sState.fWriters;
                     buildWriters = rState.fWriters;
 
-                    ITuplePartitionComputer hpcRep0 = new RepartitionComputerFactory(numPartitions,
-                            new FieldHashPartitionComputerFactory(keys0, hashFunctionFactories)).createPartitioner();
-                    ITuplePartitionComputer hpcRep1 = new RepartitionComputerFactory(numPartitions,
-                            new FieldHashPartitionComputerFactory(keys1, hashFunctionFactories)).createPartitioner();
+                    ITuplePartitionComputerFactory hpcRep0 = new RepartitionComputerFactory(numPartitions,
+                            new FieldHashPartitionComputerFactory(keys0, hashFunctionFactories));
+                    ITuplePartitionComputerFactory hpcRep1 = new RepartitionComputerFactory(numPartitions,
+                            new FieldHashPartitionComputerFactory(keys1, hashFunctionFactories));
 
                     writer.open();
 
@@ -303,8 +301,8 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
                                 continue;
                             }
                             joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
-                                    new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, gByTpc0, gByTpc1, /*gByInRecordDescriptor*/ rd0, recordDescriptors[0], 
-                                            aggregatorFactory, aggregateAttributes, nullWriters1);
+                                    new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcRep0 /*gByTpc0*/, hpcRep1 /*gByTpc1*/, rd0, recordDescriptors[0], 
+                                            aggregatorFactory, keys1, keys0, nullWriters1);
 
                             // build hash table on left relation
                             RunFileReader buildReader = buildWriter.createReader();
