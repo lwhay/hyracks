@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.storage.am.rtree.impls;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -33,6 +34,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
@@ -182,6 +184,7 @@ public class RTree implements ITreeIndex {
             }
 
             System.out.format(keyString);
+            System.out.println();
             if (!interiorFrame.isLeaf()) {
                 ArrayList<Integer> children = ((RTreeNSMFrame) (interiorFrame)).getChildren(cmp);
                 for (int i = 0; i < children.size(); i++) {
@@ -1082,4 +1085,150 @@ public class RTree implements ITreeIndex {
             rtree.diskOrderScan(cursor, ctx);
         }
     }
+    
+    public class RTreeBulkLoader {
+    	private RTreeNSMFrame currentFrame;
+    	private ICachedPage currentNode;
+    	private int pageId = 1;
+    	private int framePos = 0;
+    	private ArrayList<int[]> levelBoundaries = new ArrayList<int[]>();
+    	
+    	public RTreeBulkLoader() throws HyracksDataException {
+    		openFrame(true);
+    		int[] bounds = {2, 2}; // first level starts with page 2
+    		levelBoundaries.add(bounds);
+    	}
+    	
+    	public void add(ITupleReference tuple) throws HyracksDataException {
+    		currentNode.acquireWriteLatch();
+    		FrameOpSpaceStatus space = currentFrame.hasSpaceInsert(tuple);
+    		
+    		assert space != FrameOpSpaceStatus.SUFFICIENT_SPACE;
+    			// Since we are filling the tuple in a contiguous way, there should be no way that a tuple is fragmented - something is terribly wrong here!
+
+    		if(space == FrameOpSpaceStatus.INSUFFICIENT_SPACE) {
+    			currentNode.releaseWriteLatch();
+    			openFrame(true);
+    			currentNode.acquireWriteLatch();
+    			framePos = 0;
+    			levelBoundaries.get(0)[1] = pageId;
+    		}
+    		currentFrame.insert(tuple, framePos++);
+    		
+            ITreeIndexTupleReference[] tuples = currentFrame.getTuples();
+    		currentFrame.adjustMBR(tuples);
+    		// TODO Set node sequence numbers so that NSN(Child) > NSN(Parent)
+    		currentNode.releaseWriteLatch();
+    	}
+    	
+    	public void build() throws HyracksDataException {
+    		buildFromLevel(0);
+    	}
+    	
+    	private void buildFromLevel(int level) throws HyracksDataException {
+    		if(levelBoundaries.get(level)[0] == levelBoundaries.get(level)[1]) {
+    			// reached root
+    			
+    			bufferCache.unpin(currentNode);
+                incrementUnpins();
+    			
+    			RTreeNSMFrame readFrame = (RTreeNSMFrame) (level == 0 ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+	    		ICachedPage node = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, levelBoundaries.get(level)[0]), false);
+	            incrementPins();
+	            node.acquireReadLatch();
+	            readFrame.setPage(node);
+	            
+	            RTreeNSMFrame rootFrame = (RTreeNSMFrame) (level == 0 ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+	            ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, 1), true);
+	            incrementPins();
+	            rootNode.acquireWriteLatch();
+	            rootFrame.setPage(rootNode);
+	            
+	            
+	            
+	            System.arraycopy(node.getBuffer().array(), 0, rootNode.getBuffer().array(), 0,
+	            		rootNode.getBuffer().capacity());
+	            
+	            rootNode.releaseWriteLatch();
+	            bufferCache.unpin(rootNode);
+                incrementUnpins();
+                
+                node.releaseReadLatch();
+                bufferCache.unpin(node);
+                incrementUnpins();
+	            
+	            return;
+    		}
+    		
+    		openFrame(false);
+    		currentNode.acquireWriteLatch();
+    		framePos = 0;
+    		
+    		int[] bounds = {pageId, pageId};
+    		levelBoundaries.add(bounds);
+    		
+    		for(int childPage = levelBoundaries.get(level)[0]; childPage <= levelBoundaries.get(level)[1]; childPage++) {
+	    		RTreeNSMFrame readFrame = (RTreeNSMFrame) (level == 0 ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+	    		ICachedPage node = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, childPage), false);
+	    		node.acquireReadLatch();
+	            incrementPins();
+	            readFrame.setPage(node);
+	            	            
+	            ITreeIndexTupleReference newTuple = currentFrame.createTupleReference();
+	            newTuple.setFieldCount(cmp.getKeyFieldCount());
+	            newTuple.resetByTupleIndex(currentFrame, framePos);
+	                        
+	            FrameOpSpaceStatus space = currentFrame.hasSpaceInsert(newTuple);
+	            assert space != FrameOpSpaceStatus.SUFFICIENT_SPACE;
+    			// Since we are filling the tuple in a contiguous way, there should be no way that a tuple is fragmented - something is terribly wrong here!
+	
+	    		if(space == FrameOpSpaceStatus.INSUFFICIENT_SPACE) {
+	    			currentNode.releaseWriteLatch();
+	    			openFrame(false);
+	    			currentNode.acquireWriteLatch();
+	    			framePos = 0;
+	    			levelBoundaries.get(level + 1)[1] = pageId;
+	    		}
+	            
+	            currentFrame.insert(newTuple, framePos++);
+	            ByteBuffer bb = currentFrame.getBuffer();
+	            int pointerOff = currentFrame.getTupleOffset(framePos - 1);
+	            
+	            readFrame.computeMBR(bb, pointerOff);            
+	            pointerOff = currentFrame.getTupleOffset(framePos - 1) + 1;
+	            for(int i = 0; i < cmp.getKeyFieldCount(); i++) {
+	            	pointerOff += newTuple.getFieldLength(i);
+	            }
+	            bb.putInt(pointerOff, childPage);
+	            
+	            node.releaseReadLatch();
+	            bufferCache.unpin(node);
+	            incrementUnpins();
+	            
+	            currentFrame.setLevel((byte)(level + 1));
+    		}
+    		
+    		currentNode.releaseWriteLatch();
+    		
+    		buildFromLevel(level + 1);
+    	}
+    	
+    	private void openFrame(boolean leaf) throws HyracksDataException {
+    		if(currentNode != null) {
+        		bufferCache.unpin(currentNode);
+                incrementUnpins();
+    		}
+    		
+    		currentFrame = (RTreeNSMFrame) (leaf ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+    		currentNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ++pageId), true);
+    		currentNode.acquireWriteLatch();
+            incrementPins();
+            currentFrame.setPage(currentNode);
+    		currentFrame.initBuffer((byte) 0); // level is overwritten later
+            numOfPages++;
+            currentNode.releaseWriteLatch();
+    	}
+
+    }
+
 }
