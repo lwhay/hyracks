@@ -20,13 +20,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
 import edu.uci.ics.hyracks.api.comm.PartitionChannel;
 import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
-import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
 import edu.uci.ics.hyracks.api.dataflow.TaskId;
 import edu.uci.ics.hyracks.api.dataflow.state.ITaskState;
@@ -37,6 +35,7 @@ import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.io.IWorkspaceFileFactory;
 import edu.uci.ics.hyracks.api.job.IJobletEventListener;
 import edu.uci.ics.hyracks.api.job.IOperatorEnvironment;
+import edu.uci.ics.hyracks.api.job.JobActivityGraph;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.job.profiling.counters.ICounter;
@@ -60,9 +59,11 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
 
     private final JobId jobId;
 
+    private final JobActivityGraph jag;
+
     private final Map<PartitionId, IPartitionCollector> partitionRequestMap;
 
-    private final Map<OperatorDescriptorId, Map<Integer, IOperatorEnvironment>> envMap;
+    private final IOperatorEnvironment env;
 
     private final Map<TaskId, ITaskState> taskStateMap;
 
@@ -80,12 +81,13 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
 
     private boolean cleanupPending;
 
-    public Joblet(NodeControllerService nodeController, JobId jobId, INCApplicationContext appCtx) {
+    public Joblet(NodeControllerService nodeController, JobId jobId, INCApplicationContext appCtx, JobActivityGraph jag) {
         this.nodeController = nodeController;
         this.appCtx = appCtx;
         this.jobId = jobId;
+        this.jag = jag;
         partitionRequestMap = new HashMap<PartitionId, IPartitionCollector>();
-        envMap = new HashMap<OperatorDescriptorId, Map<Integer, IOperatorEnvironment>>();
+        env = new OperatorEnvironmentImpl(nodeController.getId());
         taskStateMap = new HashMap<TaskId, ITaskState>();
         taskMap = new HashMap<TaskAttemptId, Task>();
         counterMap = new HashMap<String, Counter>();
@@ -99,15 +101,12 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
         return jobId;
     }
 
-    public synchronized IOperatorEnvironment getEnvironment(OperatorDescriptorId opId, int partition) {
-        if (!envMap.containsKey(opId)) {
-            envMap.put(opId, new HashMap<Integer, IOperatorEnvironment>());
-        }
-        Map<Integer, IOperatorEnvironment> opEnvMap = envMap.get(opId);
-        if (!opEnvMap.containsKey(partition)) {
-            opEnvMap.put(partition, new OperatorEnvironmentImpl(nodeController.getId()));
-        }
-        return opEnvMap.get(partition);
+    public JobActivityGraph getJobActivityGraph() {
+        return jag;
+    }
+
+    public IOperatorEnvironment getEnvironment() {
+        return env;
     }
 
     public void addTask(Task task) {
@@ -140,12 +139,8 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
         }
     }
 
-    public Executor getExecutor() {
-        return nodeController.getExecutor();
-    }
-
     public synchronized void notifyTaskComplete(Task task) throws Exception {
-        taskMap.remove(task);
+        taskMap.remove(task.getTaskAttemptId());
         try {
             TaskProfile taskProfile = new TaskProfile(task.getTaskAttemptId(), task.getPartitionSendProfile());
             task.dumpProfile(taskProfile);
@@ -159,7 +154,7 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
     }
 
     public synchronized void notifyTaskFailed(Task task, String details) throws Exception {
-        taskMap.remove(task);
+        taskMap.remove(task.getTaskAttemptId());
         try {
             nodeController.getClusterController().notifyTaskFailure(jobId, task.getTaskAttemptId(),
                     nodeController.getId(), details);

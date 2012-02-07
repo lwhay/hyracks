@@ -18,6 +18,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.channels.IInputChannel;
 import edu.uci.ics.hyracks.api.channels.IInputChannelMonitor;
@@ -29,8 +31,11 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.partitions.PartitionId;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.std.collectors.AbstractPartitionCollector;
 
 public class NonDeterministicPartitionCollector extends AbstractPartitionCollector {
+    private static final Logger LOGGER = Logger.getLogger(NonDeterministicPartitionCollector.class.getName());
+
     private final FrameReader reader;
 
     private final BitSet expectedPartitions;
@@ -168,19 +173,27 @@ public class NonDeterministicPartitionCollector extends AbstractPartitionCollect
 
         @Override
         public void notifyFailure(IInputChannel channel) {
+            PartitionId pid = (PartitionId) channel.getAttachment();
+            int senderIndex = pid.getSenderIndex();
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("Failure: " + connectorId + " sender: " + senderIndex + " receiver: " + receiverIndex);
+            }
             synchronized (NonDeterministicPartitionCollector.this) {
-                PartitionId pid = (PartitionId) channel.getAttachment();
-                int senderIndex = pid.getSenderIndex();
                 failSenders.set(senderIndex);
+                eosSenders.set(senderIndex);
                 NonDeterministicPartitionCollector.this.notifyAll();
             }
         }
 
         @Override
         public void notifyDataAvailability(IInputChannel channel, int nFrames) {
+            PartitionId pid = (PartitionId) channel.getAttachment();
+            int senderIndex = pid.getSenderIndex();
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("Data available: " + connectorId + " sender: " + senderIndex + " receiver: "
+                        + receiverIndex);
+            }
             synchronized (NonDeterministicPartitionCollector.this) {
-                PartitionId pid = (PartitionId) channel.getAttachment();
-                int senderIndex = pid.getSenderIndex();
                 availableFrameCounts[senderIndex] += nFrames;
                 frameAvailability.set(senderIndex);
                 NonDeterministicPartitionCollector.this.notifyAll();
@@ -189,9 +202,12 @@ public class NonDeterministicPartitionCollector extends AbstractPartitionCollect
 
         @Override
         public void notifyEndOfStream(IInputChannel channel) {
+            PartitionId pid = (PartitionId) channel.getAttachment();
+            int senderIndex = pid.getSenderIndex();
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("EOS: " + connectorId + " sender: " + senderIndex + " receiver: " + receiverIndex);
+            }
             synchronized (NonDeterministicPartitionCollector.this) {
-                PartitionId pid = (PartitionId) channel.getAttachment();
-                int senderIndex = pid.getSenderIndex();
                 eosSenders.set(senderIndex);
                 NonDeterministicPartitionCollector.this.notifyAll();
             }

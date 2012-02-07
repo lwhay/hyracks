@@ -30,7 +30,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
-import edu.uci.ics.hyracks.dataflow.std.group.IAccumulatingAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDescriptor {
     private static final int BUILD_ACTIVITY_ID = 0;
@@ -45,7 +45,7 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
-    private final IAccumulatingAggregatorFactory aggregatorFactory;
+    private final IAggregatorDescriptorFactory aggregatorFactory;
     private final INullWriterFactory[] nullWriterFactories1;
     private final int tableSize;
 
@@ -53,8 +53,7 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
             IBinaryComparatorFactory[] joinComparatorFactories,
 //            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, 
             IBinaryComparatorFactory[] groupComparatorFactories,
-            IAccumulatingAggregatorFactory aggregatorFactory, 
-RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, 
+            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, 
             int tableSize) {
         super(spec, 2, 1);
         this.keys0 = keys0;
@@ -190,16 +189,19 @@ RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1,
 
                 @Override
                 public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                	// Probe activity joiner
                     state.joiner.join(buffer, writer);
                 }
 
                 @Override
                 public void close() throws HyracksDataException {
+                    ctx.setTaskState(state);
                 }
 
                 @Override
                 public void fail() throws HyracksDataException {
-                    writer.fail();
+//                    writer.fail();
+                    throw new HyracksDataException("InMemoryHashGroupJoinOperator has failed.");
                 }
                 
             };

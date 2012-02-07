@@ -15,9 +15,11 @@
 package edu.uci.ics.hyracks.control.cc.work;
 
 import java.util.List;
+import java.util.logging.Level;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import edu.uci.ics.hyracks.api.partitions.PartitionId;
-import edu.uci.ics.hyracks.api.util.Pair;
 import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.cc.job.JobRun;
 import edu.uci.ics.hyracks.control.cc.partitions.PartitionMatchMaker;
@@ -46,8 +48,17 @@ public class RegisterPartitionAvailibilityWork extends AbstractWork {
         List<Pair<PartitionDescriptor, PartitionRequest>> matches = pmm
                 .registerPartitionDescriptor(partitionDescriptor);
         for (Pair<PartitionDescriptor, PartitionRequest> match : matches) {
-            PartitionUtils.reportPartitionMatch(ccs, pid, match);
+            try {
+                PartitionUtils.reportPartitionMatch(ccs, pid, match);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
+    }
+
+    @Override
+    public Level logLevel() {
+        return Level.FINEST;
     }
 
     @Override

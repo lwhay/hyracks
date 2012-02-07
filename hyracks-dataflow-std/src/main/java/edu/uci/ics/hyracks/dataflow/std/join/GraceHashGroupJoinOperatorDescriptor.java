@@ -49,7 +49,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
-import edu.uci.ics.hyracks.dataflow.std.group.IAccumulatingAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescriptor {
     private static final int RPARTITION_ACTIVITY_ID = 0;
@@ -68,7 +68,7 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
     private final IBinaryComparatorFactory[] groupComparatorFactories;
 //    private final ITuplePartitionComputerFactory gByTpc0;
 //    private final ITuplePartitionComputerFactory gByTpc1;
-    private final IAccumulatingAggregatorFactory aggregatorFactory;
+    private final IAggregatorDescriptorFactory aggregatorFactory;
     private final INullWriterFactory[] nullWriterFactories1;
 
     
@@ -76,7 +76,8 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
             double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
             IBinaryComparatorFactory[] groupComparatorFactories, 
 //            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1,
-            IAccumulatingAggregatorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1) {
+            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1) 
+            throws HyracksDataException {
         super(spec, 2, 1);
         this.memsize = memsize;
         this.inputsize0 = inputsize0;

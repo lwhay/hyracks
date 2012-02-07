@@ -14,32 +14,32 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.std.group.GroupJoinHashTable;
-import edu.uci.ics.hyracks.dataflow.std.group.IAccumulatingAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public class InMemoryHashGroupJoin {
     private final List<ByteBuffer> buffers;
     private final FrameTupleAccessor accessorBuild;
     private final FrameTupleAccessor accessorProbe;
     private final FrameTupleAppender appender;
-    private final IBinaryComparatorFactory[] tpGroupComparator;
+    private final IBinaryComparatorFactory[] comparator;
     private final ByteBuffer outBuffer;
 	private final GroupJoinHashTable gByTable;
 
     public InMemoryHashGroupJoin(IHyracksTaskContext ctx, int tableSize, FrameTupleAccessor accessor0,
             FrameTupleAccessor accessor1, IBinaryComparatorFactory[] groupComparator, ITuplePartitionComputerFactory gByTpc0,
             ITuplePartitionComputerFactory gByTpc1, RecordDescriptor gByInRecordDescriptor, RecordDescriptor gByOutRecordDescriptor,
-            IAccumulatingAggregatorFactory aggregatorFactory, int[] joinAttributes, int[] groupAttributes, 
+            IAggregatorDescriptorFactory aggregatorFactory, int[] joinAttributes, int[] groupAttributes, 
             INullWriter[] nullWriters1) throws HyracksDataException {
         buffers = new ArrayList<ByteBuffer>();
         this.accessorBuild = accessor0;
         this.accessorProbe = accessor1;
         appender = new FrameTupleAppender(ctx.getFrameSize());
-        this.tpGroupComparator = groupComparator;
+        this.comparator = groupComparator;
         
         outBuffer = ctx.allocateFrame();
         appender.reset(outBuffer, true);
 
-        gByTable = new GroupJoinHashTable(ctx, groupAttributes, joinAttributes, tpGroupComparator, gByTpc0, gByTpc1, 
+        gByTable = new GroupJoinHashTable(ctx, groupAttributes, joinAttributes, comparator, gByTpc0, gByTpc1, 
         		aggregatorFactory, gByInRecordDescriptor, gByOutRecordDescriptor, nullWriters1, tableSize);
     }
 
