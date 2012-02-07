@@ -1087,10 +1087,14 @@ public class RTree implements ITreeIndex {
     }
     
     public class RTreeBulkLoader {
-    	private RTreeNSMFrame currentFrame;
-    	private ICachedPage currentNode;
+    	private RTreeNSMFrame writeFrame;
+    	private ICachedPage writePage;
     	private int pageId = 1;
     	private int framePos = 0;
+    	
+    	/** This array holds the boundaries of the levels. E.g., levelBoundaries[0] holds (2, 10), saying that
+    	 * there are 9 pages on the first level. This is used later when we iterate over the pages within a
+    	 * level */
     	private ArrayList<int[]> levelBoundaries = new ArrayList<int[]>();
     	
     	public RTreeBulkLoader() throws HyracksDataException {
@@ -1100,36 +1104,40 @@ public class RTree implements ITreeIndex {
     	}
     	
     	public void add(ITupleReference tuple) throws HyracksDataException {
-    		currentNode.acquireWriteLatch();
-    		FrameOpSpaceStatus space = currentFrame.hasSpaceInsert(tuple);
+    		writePage.acquireWriteLatch();
+    		FrameOpSpaceStatus space = writeFrame.hasSpaceInsert(tuple);
     		
     		assert space != FrameOpSpaceStatus.SUFFICIENT_SPACE;
     			// Since we are filling the tuple in a contiguous way, there should be no way that a tuple is fragmented - something is terribly wrong here!
 
     		if(space == FrameOpSpaceStatus.INSUFFICIENT_SPACE) {
-    			currentNode.releaseWriteLatch();
+    			writePage.releaseWriteLatch();
     			openFrame(true);
-    			currentNode.acquireWriteLatch();
+    			writePage.acquireWriteLatch();
     			framePos = 0;
     			levelBoundaries.get(0)[1] = pageId;
     		}
-    		currentFrame.insert(tuple, framePos++);
+    		writeFrame.insert(tuple, framePos++);
     		
-            ITreeIndexTupleReference[] tuples = currentFrame.getTuples();
-    		currentFrame.adjustMBR(tuples);
+            ITreeIndexTupleReference[] tuples = writeFrame.getTuples();
+    		writeFrame.adjustMBR(tuples);
     		// TODO Set node sequence numbers so that NSN(Child) > NSN(Parent)
-    		currentNode.releaseWriteLatch();
+    		writePage.releaseWriteLatch();
     	}
     	
     	public void build() throws HyracksDataException {
+    	    assert pageId != 1;
+    	        // TODO allow to build rtrees even if there were no elements added
+    	    
     		buildFromLevel(0);
     	}
     	
     	private void buildFromLevel(int level) throws HyracksDataException {
     		if(levelBoundaries.get(level)[0] == levelBoundaries.get(level)[1]) {
-    			// reached root
+    			// For the last level, we created only one page. Thus, it is the root page
+    		    // Move the just created page to page ID 1
     			
-    			bufferCache.unpin(currentNode);
+    			bufferCache.unpin(writePage);
                 incrementUnpins();
     			
     			RTreeNSMFrame readFrame = (RTreeNSMFrame) (level == 0 ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
@@ -1138,13 +1146,11 @@ public class RTree implements ITreeIndex {
 	            node.acquireReadLatch();
 	            readFrame.setPage(node);
 	            
-	            RTreeNSMFrame rootFrame = (RTreeNSMFrame) (level == 0 ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+	            RTreeNSMFrame rootFrame = (RTreeNSMFrame) getInteriorFrameFactory().createFrame();
 	            ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, 1), true);
 	            incrementPins();
 	            rootNode.acquireWriteLatch();
 	            rootFrame.setPage(rootNode);
-	            
-	            
 	            
 	            System.arraycopy(node.getBuffer().array(), 0, rootNode.getBuffer().array(), 0,
 	            		rootNode.getBuffer().capacity());
@@ -1153,15 +1159,22 @@ public class RTree implements ITreeIndex {
 	            bufferCache.unpin(rootNode);
                 incrementUnpins();
                 
+                // make old root a free page
+                readFrame.initBuffer(freePageManager.getFreePageLevelIndicator());
+                
                 node.releaseReadLatch();
                 bufferCache.unpin(node);
                 incrementUnpins();
-	            
+                
+                // register old root as free page
+                freePageManager.addFreePage(freePageManager.getMetaDataFrameFactory()
+                        .createFrame(), pageId);
+           
 	            return;
     		}
     		
     		openFrame(false);
-    		currentNode.acquireWriteLatch();
+    		writePage.acquireWriteLatch();
     		framePos = 0;
     		
     		int[] bounds = {pageId, pageId};
@@ -1174,28 +1187,28 @@ public class RTree implements ITreeIndex {
 	            incrementPins();
 	            readFrame.setPage(node);
 	            	            
-	            ITreeIndexTupleReference newTuple = currentFrame.createTupleReference();
+	            ITreeIndexTupleReference newTuple = writeFrame.createTupleReference();
 	            newTuple.setFieldCount(cmp.getKeyFieldCount());
-	            newTuple.resetByTupleIndex(currentFrame, framePos);
+	            newTuple.resetByTupleIndex(writeFrame, framePos);
 	                        
-	            FrameOpSpaceStatus space = currentFrame.hasSpaceInsert(newTuple);
+	            FrameOpSpaceStatus space = writeFrame.hasSpaceInsert(newTuple);
 	            assert space != FrameOpSpaceStatus.SUFFICIENT_SPACE;
     			// Since we are filling the tuple in a contiguous way, there should be no way that a tuple is fragmented - something is terribly wrong here!
 	
 	    		if(space == FrameOpSpaceStatus.INSUFFICIENT_SPACE) {
-	    			currentNode.releaseWriteLatch();
+	    			writePage.releaseWriteLatch();
 	    			openFrame(false);
-	    			currentNode.acquireWriteLatch();
+	    			writePage.acquireWriteLatch();
 	    			framePos = 0;
 	    			levelBoundaries.get(level + 1)[1] = pageId;
 	    		}
 	            
-	            currentFrame.insert(newTuple, framePos++);
-	            ByteBuffer bb = currentFrame.getBuffer();
-	            int pointerOff = currentFrame.getTupleOffset(framePos - 1);
+	            writeFrame.insert(newTuple, framePos++);
+	            ByteBuffer bb = writeFrame.getBuffer();
+	            int pointerOff = writeFrame.getTupleOffset(framePos - 1);
 	            
 	            readFrame.computeMBR(bb, pointerOff);            
-	            pointerOff = currentFrame.getTupleOffset(framePos - 1) + 1;
+	            pointerOff = writeFrame.getTupleOffset(framePos - 1) + 1;
 	            for(int i = 0; i < cmp.getKeyFieldCount(); i++) {
 	            	pointerOff += newTuple.getFieldLength(i);
 	            }
@@ -1205,28 +1218,34 @@ public class RTree implements ITreeIndex {
 	            bufferCache.unpin(node);
 	            incrementUnpins();
 	            
-	            currentFrame.setLevel((byte)(level + 1));
+	            writeFrame.setLevel((byte)(level + 1));
     		}
     		
-    		currentNode.releaseWriteLatch();
+    		writePage.releaseWriteLatch();
     		
     		buildFromLevel(level + 1);
     	}
     	
     	private void openFrame(boolean leaf) throws HyracksDataException {
-    		if(currentNode != null) {
-        		bufferCache.unpin(currentNode);
+    		if(writePage != null) {
+        		bufferCache.unpin(writePage);
                 incrementUnpins();
     		}
     		
-    		currentFrame = (RTreeNSMFrame) (leaf ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
-    		currentNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ++pageId), true);
-    		currentNode.acquireWriteLatch();
+    		writeFrame = (RTreeNSMFrame) (leaf ? getLeafFrameFactory().createFrame() : getInteriorFrameFactory().createFrame());
+    		writePage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ++pageId), true);
+    		writePage.acquireWriteLatch();
             incrementPins();
-            currentFrame.setPage(currentNode);
-    		currentFrame.initBuffer((byte) 0); // level is overwritten later
+            writeFrame.setPage(writePage);
+    		writeFrame.initBuffer((byte) 0); // level is overwritten later
             numOfPages++;
-            currentNode.releaseWriteLatch();
+            
+            incrementGlobalNsn();
+            writeFrame.setPageNsn(globalNsn.get());
+                // As the tree is built bottom-up, sequential NSNs are ok. The root is created on a page that is higher than any other
+                // and then copied to page=1 - see above
+            
+            writePage.releaseWriteLatch();
     	}
 
     }
