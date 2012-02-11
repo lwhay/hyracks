@@ -37,44 +37,13 @@ public interface ITreeIndex extends IIndex {
 	 */
 	public ITreeIndexAccessor createAccessor();
 
-	/**
-	 * Prepares the index for bulk loading, returning a bulk load context. The
-	 * index must be empty for bulk loading to be possible.
-	 * 
+ 	/**
 	 * @param fillFactor
-	 *            Desired fill factor in [0, 1.0].
-	 * @throws HyracksDataException
-	 *             If the BufferCache throws while un/pinning or un/latching.
-	 * @throws TreeIndexException
-	 *             If the tree is not empty.
-	 * @returns A new context for bulk loading, required for appending tuples.
-	 */
-	public IIndexBulkLoadContext beginBulkLoad(float fillFactor)
-			throws TreeIndexException, HyracksDataException;
-
-	/**
-	 * Append a tuple to the index in the context of a bulk load.
-	 * 
-	 * @param tuple
-	 *            Tuple to be inserted.
-	 * @param ictx
-	 *            Existing bulk load context.
-	 * @throws HyracksDataException
-	 *             If the BufferCache throws while un/pinning or un/latching.
-	 */
-	public void bulkLoadAddTuple(ITupleReference tuple,
-			IIndexBulkLoadContext ictx) throws HyracksDataException;
-
-	/**
-	 * Finalize the bulk loading operation in the given context.
-	 * 
-	 * @param ictx
-	 *            Existing bulk load context to be finalized.
-	 * @throws HyracksDataException
-	 *             If the BufferCache throws while un/pinning or un/latching.
-	 */
-	public void endBulkLoad(IIndexBulkLoadContext ictx)
-			throws HyracksDataException;
+ 	 * @throws TreeIndexException if the user tries to instantiate a second bulk
+	 * loader
+ 	 */
+	public ITreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException;
+ 
 
 	/**
 	 * @return The index's leaf frame factory.

@@ -194,4 +194,9 @@ public class BTreeNSMLeafFrame extends TreeIndexNSMFrame implements IBTreeLeafFr
 	public void setMultiComparator(MultiComparator cmp) {
 		this.cmp = cmp;
 	}
+
+	@Override
+	public void deleteGreatest() {
+		// FIXME Used for BulkLoad hooks
+	}
 }

@@ -34,6 +34,7 @@ public interface IRTreeFrame extends ITreeIndexFrame {
 
 	public void setRightPage(int rightPage);
 
+	    // FIXME tuples don't need to be passed as they are part of the frame
 	public void adjustMBR(ITreeIndexTupleReference[] tuples);
 
 }

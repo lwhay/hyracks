@@ -17,26 +17,25 @@ package edu.uci.ics.hyracks.storage.am.rtree.impls;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeDiskOrderScanCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -49,34 +48,16 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
-public class RTree implements ITreeIndex {
-
-    private final int rootPage = 1;
-
+public class RTree extends AbstractTreeIndex {
     // Global node sequence number used for the concurrency control protocol
     private final AtomicLong globalNsn;
-    private final ReadWriteLock treeLatch;
-
-    private final IFreePageManager freePageManager;
-    private final IBufferCache bufferCache;
-    private int fileId;
-
-    private final ITreeIndexFrameFactory interiorFrameFactory;
-    private final ITreeIndexFrameFactory leafFrameFactory;
-    private final int fieldCount;
-    private final IBinaryComparatorFactory[] cmpFactories;
 
     public RTree(IBufferCache bufferCache, int fieldCount, IBinaryComparatorFactory[] cmpFactories,
             IFreePageManager freePageManager, ITreeIndexFrameFactory interiorFrameFactory,
             ITreeIndexFrameFactory leafFrameFactory) {
-        this.bufferCache = bufferCache;
-        this.fieldCount = fieldCount;
-        this.cmpFactories = cmpFactories;
-        this.freePageManager = freePageManager;
-        this.interiorFrameFactory = interiorFrameFactory;
-        this.leafFrameFactory = leafFrameFactory;
+    	super(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory, leafFrameFactory);
+
         globalNsn = new AtomicLong();
-        this.treeLatch = new ReentrantReadWriteLock(true);
     }
 
     public void incrementGlobalNsn() {
@@ -852,58 +833,6 @@ public class RTree implements ITreeIndex {
         throw new UnsupportedOperationException("RTree Update not implemented.");
     }
 
-    public boolean isEmptyTree(IRTreeLeafFrame leafFrame) throws HyracksDataException {
-        ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rootPage), false);
-        rootNode.acquireReadLatch();
-        try {
-            leafFrame.setPage(rootNode);
-            if (leafFrame.getLevel() == 0 && leafFrame.getTupleCount() == 0) {
-                return true;
-            } else {
-                return false;
-            }
-        } finally {
-            rootNode.releaseReadLatch();
-            bufferCache.unpin(rootNode);
-        }
-    }
-
-    public final class BulkLoadContext implements IIndexBulkLoadContext {
-
-        public ITreeIndexAccessor indexAccessor;
-
-        public BulkLoadContext(float fillFactor, IRTreeFrame leafFrame, IRTreeFrame interiorFrame,
-                ITreeIndexMetaDataFrame metaFrame) throws HyracksDataException {
-            indexAccessor = createAccessor();
-        }
-    }
-
-    @Override
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException {
-        IRTreeLeafFrame leafFrame = (IRTreeLeafFrame) leafFrameFactory.createFrame();
-        if (!isEmptyTree(leafFrame)) {
-            throw new HyracksDataException("Trying to Bulk-load a non-empty RTree.");
-        }
-
-        BulkLoadContext ctx = new BulkLoadContext(fillFactor, (IRTreeFrame) leafFrameFactory.createFrame(),
-                (IRTreeFrame) interiorFrameFactory.createFrame(), freePageManager.getMetaDataFrameFactory()
-                        .createFrame());
-        return ctx;
-    }
-
-    @Override
-    public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException {
-        try {
-            ((BulkLoadContext) ictx).indexAccessor.insert(tuple);
-        } catch (Exception e) {
-            throw new HyracksDataException("BulkLoad Error");
-        }
-    }
-
-    @Override
-    public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException {
-    }
-
     private void diskOrderScan(ITreeIndexCursor icursor, RTreeOpContext ctx) throws HyracksDataException {
         TreeDiskOrderScanCursor cursor = (TreeDiskOrderScanCursor) icursor;
         ctx.reset();
@@ -1001,4 +930,28 @@ public class RTree implements ITreeIndex {
             rtree.diskOrderScan(cursor, ctx);
         }
     }
+
+	@Override
+	public AbstractTreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException {
+		try {
+			return new RTreeBulkLoader(fillFactor);
+		} catch (HyracksDataException e) {
+			throw new TreeIndexException(e);
+		}
+	}
+	
+	public class RTreeBulkLoader extends AbstractTreeIndex.AbstractTreeIndexBulkLoader {
+
+		public RTreeBulkLoader(float fillFactor) throws TreeIndexException,
+				HyracksDataException {
+			super(fillFactor);
+		}
+
+		@Override
+		public ISplitKey createSplitKey(ITreeIndexTupleReference tuple) {
+			return new RTreeSplitKey(leafFrame.getTupleWriter().createTupleReference(),
+					leafFrame.getTupleWriter().createTupleReference());
+		}
+		
+	}
 }

@@ -24,12 +24,14 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
+import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 
 public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOperatorNodePushable {
     private float fillFactor;
     private final TreeIndexDataflowHelper treeIndexHelper;
     private FrameTupleAccessor accessor;
-    private IIndexBulkLoadContext bulkLoadCtx;
+    private ITreeIndexBulkLoader bulkLoader;
     private ITreeIndex treeIndex;
 
     private IRecordDescriptorProvider recordDescProvider;
@@ -55,7 +57,7 @@ public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSin
             treeIndexHelper.init();
             treeIndex = (ITreeIndex) treeIndexHelper.getIndex();
             treeIndex.open(treeIndexHelper.getIndexFileId());
-            bulkLoadCtx = treeIndex.beginBulkLoad(fillFactor);
+            bulkLoader = treeIndex.createBulkLoader(fillFactor);
         } catch (Exception e) {
             // cleanup in case of failure
             treeIndexHelper.deinit();
@@ -69,14 +71,18 @@ public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSin
         int tupleCount = accessor.getTupleCount();
         for (int i = 0; i < tupleCount; i++) {
             tuple.reset(accessor, i);
-            treeIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
+            try {
+				bulkLoader.add(tuple);
+			} catch (PageAllocationException e) {
+				throw new HyracksDataException(e);
+			}
         }
     }
 
     @Override
     public void close() throws HyracksDataException {
         try {
-            treeIndex.endBulkLoad(bulkLoadCtx);
+            bulkLoader.end();
         } catch (Exception e) {
             throw new HyracksDataException(e);
         } finally {

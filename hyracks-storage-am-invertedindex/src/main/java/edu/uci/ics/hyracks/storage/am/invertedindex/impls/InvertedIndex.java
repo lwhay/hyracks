@@ -36,6 +36,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndex;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex.AbstractTreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
@@ -61,6 +62,7 @@ public class InvertedIndex implements IIndex {
     private final IBinaryComparatorFactory[] invListCmpFactories;
     private final int numTokenFields;
     private final int numInvListKeys;
+    private AbstractTreeIndexBulkLoader bulkLoader;
 
     public InvertedIndex(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListTypeTraits, IBinaryComparatorFactory[] invListCmpFactories) {
         this.bufferCache = bufferCache;
@@ -208,13 +210,13 @@ public class InvertedIndex implements IIndex {
         // reset tuple reference
         ctx.btreeFrameTupleReference.reset(ctx.btreeFrameTupleAccessor, 0);
 
-        btree.bulkLoadAddTuple(ctx.btreeFrameTupleReference, ctx.btreeBulkLoadCtx);
+        bulkLoader.add(ctx.btreeFrameTupleReference);
     }
 
     public void endBulkLoad(BulkLoadContext ctx) throws HyracksDataException {
         // create entry in btree for last inverted list
         createAndInsertBTreeTuple(ctx);
-        btree.endBulkLoad(ctx.btreeBulkLoadCtx);
+        bulkLoader.end();
         ctx.deinit();
     }
 
@@ -275,7 +277,7 @@ public class InvertedIndex implements IIndex {
         }
 
         public void init(int startPageId, int fileId) throws HyracksDataException, TreeIndexException {
-            btreeBulkLoadCtx = btree.beginBulkLoad(btreeFillFactor);
+            bulkLoader = btree.createBulkLoader(btreeFillFactor);
             currentPageId = startPageId;
             currentPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, currentPageId), true);
             currentPage.acquireWriteLatch();

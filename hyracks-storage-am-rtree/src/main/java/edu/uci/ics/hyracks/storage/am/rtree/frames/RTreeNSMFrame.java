@@ -175,4 +175,10 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
     public int getPageHeaderSize() {
         return rightPageOff;
     }
+    
+	@Override
+	public void insertSorted(ITupleReference tuple) {
+		insert(tuple, -1);
+		// FIXME -1 correct?
+	}
 }

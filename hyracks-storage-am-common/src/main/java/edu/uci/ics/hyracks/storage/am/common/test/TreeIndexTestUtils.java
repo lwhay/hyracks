@@ -20,7 +20,9 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
+import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 
 @SuppressWarnings("rawtypes")
@@ -184,13 +186,13 @@ public abstract class TreeIndexTestUtils {
     }
 
     public static void bulkLoadCheckTuples(ITreeIndexTestContext ctx, Collection<CheckTuple> checkTuples)
-            throws HyracksDataException, TreeIndexException {
+            throws HyracksDataException, TreeIndexException, PageAllocationException {
         int fieldCount = ctx.getFieldCount();
         int numTuples = checkTuples.size();
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         // Perform bulk load.
-        IIndexBulkLoadContext bulkLoadCtx = ctx.getIndex().beginBulkLoad(0.7f);
+        ITreeIndexBulkLoader bulkLoader = ctx.getIndex().createBulkLoader(0.7f);
         int c = 1;
         for (CheckTuple checkTuple : checkTuples) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -199,10 +201,10 @@ public abstract class TreeIndexTestUtils {
                 }
             }
             createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes());
-            ctx.getIndex().bulkLoadAddTuple(tuple, bulkLoadCtx);
+            bulkLoader.add(tuple);
             c++;
         }
-        ctx.getIndex().endBulkLoad(bulkLoadCtx);
+        bulkLoader.end();
     }
 
     @SuppressWarnings("unchecked")

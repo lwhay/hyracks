@@ -16,8 +16,6 @@
 package edu.uci.ics.hyracks.storage.am.btree.impls;
 
 import java.util.ArrayList;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -31,18 +29,20 @@ import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNonExistentKeyExcept
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNotUpdateableException;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
+import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeDiskOrderScanCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -51,32 +51,18 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
-public class BTree implements ITreeIndex {
+public class BTree extends AbstractTreeIndex {
 
     public static final float DEFAULT_FILL_FACTOR = 0.7f;
 
     private final static long RESTART_OP = Long.MIN_VALUE;
     private final static int MAX_RESTARTS = 10;
-    private final static int rootPage = 1;
         
-    private final IFreePageManager freePageManager;
-    private final IBufferCache bufferCache;    
-    private final ITreeIndexFrameFactory interiorFrameFactory;
-    private final ITreeIndexFrameFactory leafFrameFactory;
-    private final int fieldCount;
-    private final IBinaryComparatorFactory[] cmpFactories;
-    private final ReadWriteLock treeLatch;
-    private int fileId;
+
 
     public BTree(IBufferCache bufferCache, int fieldCount, IBinaryComparatorFactory[] cmpFactories, IFreePageManager freePageManager,
             ITreeIndexFrameFactory interiorFrameFactory, ITreeIndexFrameFactory leafFrameFactory) {
-        this.bufferCache = bufferCache;
-        this.fieldCount = fieldCount;
-        this.cmpFactories = cmpFactories;
-        this.interiorFrameFactory = interiorFrameFactory;
-        this.leafFrameFactory = leafFrameFactory;        
-        this.freePageManager = freePageManager;
-        this.treeLatch = new ReentrantReadWriteLock(true);
+    	super(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory, leafFrameFactory);
     }
 
     @Override
@@ -663,196 +649,6 @@ public class BTree implements ITreeIndex {
         }
     }
 
-    public class BulkLoadContext implements IIndexBulkLoadContext {
-        public final MultiComparator cmp;
-        public final int slotSize;
-        public final int leafMaxBytes;
-        public final int interiorMaxBytes;
-        public final BTreeSplitKey splitKey;
-        // we maintain a frontier of nodes for each level
-        private final ArrayList<NodeFrontier> nodeFrontiers = new ArrayList<NodeFrontier>();
-        private final IBTreeLeafFrame leafFrame;
-        private final IBTreeInteriorFrame interiorFrame;
-        private final ITreeIndexMetaDataFrame metaFrame;
-        private final ITreeIndexTupleWriter tupleWriter;        
-        
-        public BulkLoadContext(float fillFactor, IBTreeLeafFrame leafFrame, IBTreeInteriorFrame interiorFrame,
-                ITreeIndexMetaDataFrame metaFrame, IBinaryComparatorFactory[] cmpFactories) throws HyracksDataException {
-            this.cmp = MultiComparator.create(cmpFactories);
-            
-        	leafFrame.setMultiComparator(cmp);
-        	interiorFrame.setMultiComparator(cmp);
-        	
-            splitKey = new BTreeSplitKey(leafFrame.getTupleWriter().createTupleReference());
-            tupleWriter = leafFrame.getTupleWriter();
-
-            NodeFrontier leafFrontier = new NodeFrontier(leafFrame.createTupleReference());
-            leafFrontier.pageId = freePageManager.getFreePage(metaFrame);
-            leafFrontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId),
-                    true);
-            leafFrontier.page.acquireWriteLatch();
-
-            interiorFrame.setPage(leafFrontier.page);
-            interiorFrame.initBuffer((byte) 0);
-            interiorMaxBytes = (int) ((float) interiorFrame.getBuffer().capacity() * fillFactor);
-
-            leafFrame.setPage(leafFrontier.page);
-            leafFrame.initBuffer((byte) 0);
-            leafMaxBytes = (int) ((float) leafFrame.getBuffer().capacity() * fillFactor);
-
-            slotSize = leafFrame.getSlotSize();
-
-            this.leafFrame = leafFrame;
-            this.interiorFrame = interiorFrame;
-            this.metaFrame = metaFrame;
-
-            nodeFrontiers.add(leafFrontier);
-        }
-
-        private void addLevel() throws HyracksDataException {
-            NodeFrontier frontier = new NodeFrontier(tupleWriter.createTupleReference());
-            frontier.pageId = freePageManager.getFreePage(metaFrame);
-            frontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, frontier.pageId), true);
-            frontier.page.acquireWriteLatch();
-            frontier.lastTuple.setFieldCount(cmp.getKeyFieldCount());
-            interiorFrame.setPage(frontier.page);
-            interiorFrame.initBuffer((byte) nodeFrontiers.size());
-            nodeFrontiers.add(frontier);
-        }
-    }
-
-    private void propagateBulk(BulkLoadContext ctx, int level) throws HyracksDataException {
-
-        if (ctx.splitKey.getBuffer() == null)
-            return;
-
-        if (level >= ctx.nodeFrontiers.size())
-            ctx.addLevel();
-
-        NodeFrontier frontier = ctx.nodeFrontiers.get(level);
-        ctx.interiorFrame.setPage(frontier.page);
-
-        ITupleReference tuple = ctx.splitKey.getTuple();
-        int spaceNeeded = ctx.tupleWriter.bytesRequired(tuple, 0, ctx.cmp.getKeyFieldCount()) + ctx.slotSize + 4;
-        int spaceUsed = ctx.interiorFrame.getBuffer().capacity() - ctx.interiorFrame.getTotalFreeSpace();
-        if (spaceUsed + spaceNeeded > ctx.interiorMaxBytes) {
-
-            BTreeSplitKey copyKey = ctx.splitKey.duplicate(ctx.leafFrame.getTupleWriter().createTupleReference());
-            tuple = copyKey.getTuple();
-
-            frontier.lastTuple.resetByTupleIndex(ctx.interiorFrame, ctx.interiorFrame.getTupleCount() - 1);
-            int splitKeySize = ctx.tupleWriter.bytesRequired(frontier.lastTuple, 0, ctx.cmp.getKeyFieldCount());
-            ctx.splitKey.initData(splitKeySize);
-            ctx.tupleWriter
-                    .writeTupleFields(frontier.lastTuple, 0, ctx.cmp.getKeyFieldCount(), ctx.splitKey.getBuffer().array(), 0);
-            ctx.splitKey.getTuple().resetByTupleOffset(ctx.splitKey.getBuffer(), 0);
-            ctx.splitKey.setLeftPage(frontier.pageId);
-
-            ctx.interiorFrame.deleteGreatest();
-
-            frontier.page.releaseWriteLatch();
-            bufferCache.unpin(frontier.page);
-            frontier.pageId = freePageManager.getFreePage(ctx.metaFrame);
-
-            ctx.splitKey.setRightPage(frontier.pageId);
-            propagateBulk(ctx, level + 1);
-
-            frontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, frontier.pageId), true);
-            frontier.page.acquireWriteLatch();
-            ctx.interiorFrame.setPage(frontier.page);
-            ctx.interiorFrame.initBuffer((byte) level);
-        }
-        ctx.interiorFrame.insertSorted(tuple);
-    }
-
-    // assumes btree has been created and opened
-    @Override
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws TreeIndexException, HyracksDataException {
-        IBTreeLeafFrame leafFrame = (IBTreeLeafFrame)leafFrameFactory.createFrame();
-    	if (!isEmptyTree(leafFrame)) {
-    		throw new BTreeException("Trying to Bulk-load a non-empty BTree.");
-    	}
-    	
-        BulkLoadContext ctx = new BulkLoadContext(fillFactor, leafFrame,
-                (IBTreeInteriorFrame)interiorFrameFactory.createFrame(), freePageManager.getMetaDataFrameFactory().createFrame(), cmpFactories);
-        ctx.splitKey.getTuple().setFieldCount(ctx.cmp.getKeyFieldCount());
-        return ctx;
-    }
-
-    @Override
-    public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException {
-        BulkLoadContext ctx = (BulkLoadContext) ictx;
-        NodeFrontier leafFrontier = ctx.nodeFrontiers.get(0);
-        IBTreeLeafFrame leafFrame = ctx.leafFrame;
-
-        int spaceNeeded = ctx.tupleWriter.bytesRequired(tuple) + ctx.slotSize;
-        int spaceUsed = leafFrame.getBuffer().capacity() - leafFrame.getTotalFreeSpace();
-
-        // try to free space by compression
-        if (spaceUsed + spaceNeeded > ctx.leafMaxBytes) {
-            leafFrame.compress();
-            spaceUsed = leafFrame.getBuffer().capacity() - leafFrame.getTotalFreeSpace();
-        }
-
-        if (spaceUsed + spaceNeeded > ctx.leafMaxBytes) {
-            leafFrontier.lastTuple.resetByTupleIndex(leafFrame, leafFrame.getTupleCount() - 1);
-            int splitKeySize = ctx.tupleWriter.bytesRequired(leafFrontier.lastTuple, 0, ctx.cmp.getKeyFieldCount());
-            ctx.splitKey.initData(splitKeySize);
-            ctx.tupleWriter.writeTupleFields(leafFrontier.lastTuple, 0, ctx.cmp.getKeyFieldCount(),
-                    ctx.splitKey.getBuffer().array(), 0);
-            ctx.splitKey.getTuple().resetByTupleOffset(ctx.splitKey.getBuffer(), 0);
-            ctx.splitKey.setLeftPage(leafFrontier.pageId);
-            leafFrontier.pageId = freePageManager.getFreePage(ctx.metaFrame);
-
-            leafFrame.setNextLeaf(leafFrontier.pageId);
-            leafFrontier.page.releaseWriteLatch();
-            bufferCache.unpin(leafFrontier.page);
-
-            ctx.splitKey.setRightPage(leafFrontier.pageId);
-            propagateBulk(ctx, 1);
-
-            leafFrontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId),
-                    true);
-            leafFrontier.page.acquireWriteLatch();
-            leafFrame.setPage(leafFrontier.page);
-            leafFrame.initBuffer((byte) 0);
-        }
-
-        leafFrame.setPage(leafFrontier.page);
-        leafFrame.insertSorted(tuple);
-    }
-
-    @Override
-    public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException {
-        // copy root
-        BulkLoadContext ctx = (BulkLoadContext) ictx;
-        ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rootPage), true);
-        rootNode.acquireWriteLatch();
-        NodeFrontier lastNodeFrontier = ctx.nodeFrontiers.get(ctx.nodeFrontiers.size() - 1);
-        IBTreeInteriorFrame interiorFrame = ctx.interiorFrame;
-        try {
-            ICachedPage toBeRoot = lastNodeFrontier.page;
-            System.arraycopy(toBeRoot.getBuffer().array(), 0, rootNode.getBuffer().array(), 0, toBeRoot.getBuffer()
-                    .capacity());
-        } finally {
-            rootNode.releaseWriteLatch();
-            bufferCache.unpin(rootNode);
-
-            // register old root as free page
-            freePageManager.addFreePage(ctx.metaFrame, lastNodeFrontier.pageId);
-
-            // make old root a free page
-            interiorFrame.setPage(lastNodeFrontier.page);
-            interiorFrame.initBuffer(freePageManager.getFreePageLevelIndicator());
-
-            // cleanup
-            for (int i = 0; i < ctx.nodeFrontiers.size(); i++) {
-                ctx.nodeFrontiers.get(i).page.releaseWriteLatch();
-                bufferCache.unpin(ctx.nodeFrontiers.get(i).page);
-            }
-        }
-    }
-
     private BTreeOpContext createOpContext() {
         return new BTreeOpContext(leafFrameFactory, interiorFrameFactory, freePageManager.getMetaDataFrameFactory()
                 .createFrame(), cmpFactories);
@@ -899,22 +695,6 @@ public class BTree implements ITreeIndex {
         try {
             leafFrame.setPage(rootNode);
             return leafFrame.getLevel();
-        } finally {
-            rootNode.releaseReadLatch();
-            bufferCache.unpin(rootNode);
-        }
-    }
-    
-    public boolean isEmptyTree(IBTreeLeafFrame leafFrame) throws HyracksDataException {
-    	ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rootPage), false);
-        rootNode.acquireReadLatch();
-        try {
-            leafFrame.setPage(rootNode);
-            if (leafFrame.getLevel() == 0 && leafFrame.getTupleCount() == 0) {
-            	return true;
-            } else {
-            	return false;
-            }
         } finally {
             rootNode.releaseReadLatch();
             bufferCache.unpin(rootNode);
@@ -1040,4 +820,26 @@ public class BTree implements ITreeIndex {
 			return ctx;
 		}
     }
+
+	@Override
+	public AbstractTreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException {
+		try {
+			return new BTreeBulkLoader(fillFactor);
+		} catch (HyracksDataException e) {
+			throw new TreeIndexException(e);
+		}
+	}
+	
+	public class BTreeBulkLoader extends AbstractTreeIndex.AbstractTreeIndexBulkLoader {
+		public BTreeBulkLoader(float fillFactor) throws TreeIndexException,
+				HyracksDataException {
+			super(fillFactor);
+		}
+
+		@Override
+		public ISplitKey createSplitKey(ITreeIndexTupleReference tuple) {
+			return new BTreeSplitKey(leafFrame.getTupleWriter().createTupleReference());
+		}
+		
+	}
 }

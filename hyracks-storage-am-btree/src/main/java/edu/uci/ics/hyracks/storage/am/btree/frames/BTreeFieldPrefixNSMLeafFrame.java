@@ -703,4 +703,9 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
 		this.cmp = cmp;
 		this.slotManager.setMultiComparator(cmp);
 	}
+
+	@Override
+	public void deleteGreatest() {
+		// FIXME Used for BulkLoad hooks
+	}
 }

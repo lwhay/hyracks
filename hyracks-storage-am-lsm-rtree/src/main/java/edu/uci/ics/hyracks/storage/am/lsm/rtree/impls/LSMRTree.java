@@ -38,10 +38,14 @@ import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
+import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex.AbstractTreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMTree;
@@ -54,6 +58,7 @@ import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.SearchPredicate;
+import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree.RTreeBulkLoader;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
@@ -227,36 +232,6 @@ public class LSMRTree implements ILSMTree {
     }
 
     @Override
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws TreeIndexException, HyracksDataException {
-        // Note that by using a flush target file name, we state that the new
-        // bulk loaded tree is "newer" than any other merged tree.
-
-        String fileName = fileNameManager.getFlushFileName();
-        RTree diskRTree = (RTree) createDiskTree(diskRTreeFactory, fileName + "-rtree", true);
-        // For each RTree, we require to have a buddy BTree. thus, we create an
-        // empty BTree. This can be optimized later.
-        BTree diskBTree = (BTree) createDiskTree(diskBTreeFactory, fileName + "-btree", true);
-        LSMRTreeBulkLoadContext bulkLoadCtx = new LSMRTreeBulkLoadContext(diskRTree, diskBTree);
-        bulkLoadCtx.beginBulkLoad(fillFactor);
-        return bulkLoadCtx;
-    }
-
-    @Override
-    public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException {
-        LSMRTreeBulkLoadContext bulkLoadCtx = (LSMRTreeBulkLoadContext) ictx;
-        bulkLoadCtx.getRTree().bulkLoadAddTuple(tuple, bulkLoadCtx.getBulkLoadCtx());
-
-    }
-
-    @Override
-    public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException {
-        LSMRTreeBulkLoadContext bulkLoadCtx = (LSMRTreeBulkLoadContext) ictx;
-        bulkLoadCtx.getRTree().endBulkLoad(bulkLoadCtx.getBulkLoadCtx());
-        LSMRTreeComponent diskComponent = new LSMRTreeComponent(bulkLoadCtx.getRTree(), bulkLoadCtx.getBTree());
-        lsmHarness.addBulkLoadedComponent(diskComponent);
-    }
-
-    @Override
     public ITreeIndexFrameFactory getLeafFrameFactory() {
         return null;
     }
@@ -392,18 +367,18 @@ public class LSMRTree implements ILSMTree {
         RTree diskRTree = (RTree) createDiskTree(diskRTreeFactory, fileName + "-rtree", true);
 
         // BulkLoad the tuples from the in-memory tree into the new disk RTree.
-        IIndexBulkLoadContext rtreeBulkLoadCtx = diskRTree.beginBulkLoad(1.0f);
+        AbstractTreeIndexBulkLoader bulkLoader = diskRTree.createBulkLoader(1.0f);
 
         try {
             while (rtreeScanCursor.hasNext()) {
                 rtreeScanCursor.next();
                 ITupleReference frameTuple = rtreeScanCursor.getTuple();
-                diskRTree.bulkLoadAddTuple(frameTuple, rtreeBulkLoadCtx);
+                bulkLoader.add(frameTuple);
             }
         } finally {
             rtreeScanCursor.close();
         }
-        diskRTree.endBulkLoad(rtreeBulkLoadCtx);
+        bulkLoader.end();
 
         // scan the memory BTree
         ITreeIndexAccessor memBTreeAccessor = memComponent.getBTree().createAccessor();
@@ -414,17 +389,17 @@ public class LSMRTree implements ILSMTree {
         BTree diskBTree = (BTree) createDiskTree(diskBTreeFactory, fileName + "-btree", true);
 
         // BulkLoad the tuples from the in-memory tree into the new disk BTree.
-        IIndexBulkLoadContext btreeBulkLoadCtx = diskBTree.beginBulkLoad(1.0f);
+        AbstractTreeIndexBulkLoader diskBulkLoader = diskBTree.createBulkLoader(1.0f);
         try {
             while (btreeScanCursor.hasNext()) {
                 btreeScanCursor.next();
                 ITupleReference frameTuple = btreeScanCursor.getTuple();
-                diskBTree.bulkLoadAddTuple(frameTuple, btreeBulkLoadCtx);
+                diskBulkLoader.add(frameTuple);
             }
         } finally {
             btreeScanCursor.close();
         }
-        diskBTree.endBulkLoad(btreeBulkLoadCtx);
+        diskBulkLoader.end();
         return new LSMRTreeComponent(diskRTree, diskBTree);
     }
 
@@ -443,17 +418,17 @@ public class LSMRTree implements ILSMTree {
         RTree mergedRTree = (RTree) createDiskTree(diskRTreeFactory, fileName + "-rtree", true);
         BTree mergedBTree = (BTree) createDiskTree(diskBTreeFactory, fileName + "-btree", true);
 
-        IIndexBulkLoadContext bulkLoadCtx = mergedRTree.beginBulkLoad(1.0f);
+        AbstractTreeIndexBulkLoader bulkLoader = mergedRTree.createBulkLoader(1.0f);
         try {
             while (cursor.hasNext()) {
                 cursor.next();
                 ITupleReference frameTuple = cursor.getTuple();
-                mergedRTree.bulkLoadAddTuple(frameTuple, bulkLoadCtx);
+                bulkLoader.add(frameTuple);
             }
         } finally {
             cursor.close();
         }
-        mergedRTree.endBulkLoad(bulkLoadCtx);
+        bulkLoader.end();
         return new LSMRTreeComponent(mergedRTree, mergedBTree);
     }
 
@@ -530,4 +505,48 @@ public class LSMRTree implements ILSMTree {
     public IBinaryComparatorFactory[] getComparatorFactories() {
         return rtreeCmpFactories;
     }
+
+
+	@Override
+	public ITreeIndexBulkLoader createBulkLoader(float fillLevel)
+			throws TreeIndexException {
+		return new LSMRTreeBulkLoader(fillLevel);
+	}
+	
+	public class LSMRTreeBulkLoader implements ITreeIndexBulkLoader {
+		private final RTree diskRTree;
+		private final BTree diskBTree;
+		private final RTreeBulkLoader bulkLoader;
+
+		public LSMRTreeBulkLoader(float fillFactor) throws TreeIndexException {
+			// Note that by using a flush target file name, we state that the new
+	        // bulk loaded tree is "newer" than any other merged tree.
+			
+			try {
+		        String fileName = fileNameManager.getFlushFileName();
+		        diskRTree = (RTree) createDiskTree(diskRTreeFactory, fileName + "-rtree", true);
+		        // For each RTree, we require to have a buddy BTree. thus, we create an
+		        // empty BTree. This can be optimized later.
+		        diskBTree = (BTree) createDiskTree(diskBTreeFactory, fileName + "-btree", true);
+			} catch(HyracksDataException e) {
+				throw new TreeIndexException(e);
+			}
+	        
+	        bulkLoader = (RTreeBulkLoader) diskRTree.createBulkLoader(fillFactor);
+		}
+
+		@Override
+		public void add(ITupleReference tuple) throws HyracksDataException,
+				PageAllocationException {
+			bulkLoader.add(tuple);
+		}
+
+		@Override
+		public void end() throws HyracksDataException, PageAllocationException {
+	        bulkLoader.end();
+	        LSMRTreeComponent diskComponent = new LSMRTreeComponent(diskRTree, diskBTree);
+	        lsmHarness.addBulkLoadedComponent(diskComponent);
+		}
+		
+	}
 }
