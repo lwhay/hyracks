@@ -39,7 +39,7 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
     private SearchPredicate pred;
     private PathList pathList;
     private int rootPage;
-    ITupleReference searchKey;
+    private ITupleReference searchKey;
 
     private int tupleIndex = 0;
     private int tupleIndexInc = 0;
@@ -49,9 +49,6 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
     private ITreeIndexTupleReference frameTuple;
     private boolean readLatched = false;
 
-    private int pin = 0;
-    private int unpin = 0;
-
     public RTreeSearchCursor(IRTreeInteriorFrame interiorFrame, IRTreeLeafFrame leafFrame) {
         this.interiorFrame = interiorFrame;
         this.leafFrame = leafFrame;
@@ -59,7 +56,7 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() throws HyracksDataException {
         if (readLatched) {
             page.releaseReadLatch();
             bufferCache.unpin(page);
@@ -80,12 +77,11 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
         return page;
     }
 
-    public boolean fetchNextLeafPage() throws HyracksDataException {
+    private boolean fetchNextLeafPage() throws HyracksDataException {
         boolean succeed = false;
         if (readLatched) {
             page.releaseReadLatch();
             bufferCache.unpin(page);
-            unpin++;
             readLatched = false;
         }
 
@@ -94,7 +90,6 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
             long parentLsn = pathList.getLastPageLsn();
             pathList.moveLast();
             ICachedPage node = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, pageId), false);
-            pin++;
             node.acquireReadLatch();
             readLatched = true;
             try {
@@ -112,12 +107,20 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
                 }
 
                 if (!isLeaf) {
-                    for (int i = 0; i < interiorFrame.getTupleCount(); i++) {
-                        int childPageId = interiorFrame.getChildPageIdIfIntersect(searchKey, i, cmp);
-                        if (childPageId != -1) {
+                    if (searchKey != null) {
+                        for (int i = 0; i < interiorFrame.getTupleCount(); i++) {
+                            int childPageId = interiorFrame.getChildPageIdIfIntersect(searchKey, i, cmp);
+                            if (childPageId != -1) {
+                                pathList.add(childPageId, pageLsn, -1);
+                            }
+                        }
+                    } else {
+                        for (int i = 0; i < interiorFrame.getTupleCount(); i++) {
+                            int childPageId = interiorFrame.getChildPageId(i);
                             pathList.add(childPageId, pageLsn, -1);
                         }
                     }
+
                 } else {
                     page = node;
                     leafFrame.setPage(page);
@@ -131,7 +134,6 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
                         node.releaseReadLatch();
                         readLatched = false;
                         bufferCache.unpin(node);
-                        unpin++;
                     }
                 }
             }
@@ -140,7 +142,7 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public boolean hasNext() throws Exception {
+    public boolean hasNext() throws HyracksDataException {
         if (page == null) {
             return false;
         }
@@ -153,7 +155,13 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
 
         do {
             for (int i = tupleIndex; i < leafFrame.getTupleCount(); i++) {
-                if (leafFrame.intersect(searchKey, i, cmp)) {
+                if (searchKey != null) {
+                    if (leafFrame.intersect(searchKey, i, cmp)) {
+                        frameTuple.resetByTupleIndex(leafFrame, i);
+                        tupleIndexInc = i + 1;
+                        return true;
+                    }
+                } else {
                     frameTuple.resetByTupleIndex(leafFrame, i);
                     tupleIndexInc = i + 1;
                     return true;
@@ -164,7 +172,7 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void next() throws Exception {
+    public void next() throws HyracksDataException {
         tupleIndex = tupleIndexInc;
     }
 
@@ -185,14 +193,17 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
         cmp = pred.getLowKeyComparator();
         searchKey = pred.getSearchKey();
 
-        int maxFieldPos = cmp.getKeyFieldCount() / 2;
-        for (int i = 0; i < maxFieldPos; i++) {
-            int j = maxFieldPos + i;
-            int c = cmp.getComparators()[i].compare(searchKey.getFieldData(i), searchKey.getFieldStart(i),
-                    searchKey.getFieldLength(i), searchKey.getFieldData(j), searchKey.getFieldStart(j),
-                    searchKey.getFieldLength(j));
-            if (c > 0) {
-                throw new IllegalArgumentException("The low key point has larger coordinates than the high key point.");
+        if (searchKey != null) {
+            int maxFieldPos = cmp.getKeyFieldCount() / 2;
+            for (int i = 0; i < maxFieldPos; i++) {
+                int j = maxFieldPos + i;
+                int c = cmp.getComparators()[i].compare(searchKey.getFieldData(i), searchKey.getFieldStart(i),
+                        searchKey.getFieldLength(i), searchKey.getFieldData(j), searchKey.getFieldStart(j),
+                        searchKey.getFieldLength(j));
+                if (c > 0) {
+                    throw new IllegalArgumentException(
+                            "The low key point has larger coordinates than the high key point.");
+                }
             }
         }
 
@@ -220,8 +231,8 @@ public class RTreeSearchCursor implements ITreeIndexCursor {
         this.fileId = fileId;
     }
 
-	@Override
-	public boolean exclusiveLatchNodes() {
-		return false;
-	}
+    @Override
+    public boolean exclusiveLatchNodes() {
+        return false;
+    }
 }

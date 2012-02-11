@@ -37,7 +37,8 @@ public class BufferCache implements IBufferCacheInternal {
     private static final Logger LOGGER = Logger.getLogger(BufferCache.class.getName());
     private static final int MAP_FACTOR = 2;
 
-    private static final int MAX_VICTIMIZATION_TRY_COUNT = 3;
+    //private static final int MAX_VICTIMIZATION_TRY_COUNT = 3;
+    private static final int MAX_VICTIMIZATION_TRY_COUNT = 1000000;
 
     private final int maxOpenFiles;
 
@@ -94,8 +95,11 @@ public class BufferCache implements IBufferCacheInternal {
         }
 
         // check whether file has been created and opened
-        int fileId = BufferedFileHandle.getFileId(dpid);
-        BufferedFileHandle fInfo = fileInfoMap.get(fileId);
+        int fileId = BufferedFileHandle.getFileId(dpid);        
+        BufferedFileHandle fInfo = null;
+        synchronized(fileInfoMap) {
+        	fInfo = fileInfoMap.get(fileId);
+        }
         if (fInfo == null) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been created.");
         } else if (fInfo.getReferenceCount() <= 0) {
@@ -134,10 +138,11 @@ public class BufferCache implements IBufferCacheInternal {
 
         CachedPage cPage = findPage(dpid, newPage);
         if (cPage == null) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(dumpState());
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine(dumpState());
             }
-            throw new HyracksDataException("Failed to pin page because all pages are pinned.");
+            throw new HyracksDataException("Failed to pin page " + BufferedFileHandle.getFileId(dpid) + ":"
+                    + BufferedFileHandle.getPageId(dpid) + " because all pages are pinned.");
         }
         if (!newPage) {
             if (!cPage.valid) {
@@ -380,6 +385,9 @@ public class BufferCache implements IBufferCacheInternal {
 
     private void write(CachedPage cPage) throws HyracksDataException {
         BufferedFileHandle fInfo = getFileInfo(cPage);
+        if(fInfo.fileHasBeenDeleted()){
+            return;
+        }
         cPage.buffer.position(0);
         cPage.buffer.limit(pageSize);
         ioManager.syncWrite(fInfo.getFileHandle(), (long) BufferedFileHandle.getPageId(cPage.dpid) * pageSize,
@@ -525,7 +533,7 @@ public class BufferCache implements IBufferCacheInternal {
                                         cPage.pinCount.decrementAndGet();
                                         synchronized (cleanNotification) {
                                             ++cleanCount;
-                                            cleanNotification.notifyAll();
+                                            cleanNotification.notify();
                                         }
                                     }
                                 } finally {
@@ -555,7 +563,7 @@ public class BufferCache implements IBufferCacheInternal {
 
     @Override
     public void close() {
-        closed = true;
+    	closed = true;
         synchronized (cleanerThread) {
             cleanerThread.shutdownStart = true;
             cleanerThread.notifyAll();
@@ -698,8 +706,11 @@ public class BufferCache implements IBufferCacheInternal {
     public void closeFile(int fileId) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Closing file: " + fileId + " in cache: " + this);
-            LOGGER.info(dumpState());
         }
+        if (LOGGER.isLoggable(Level.FINE)) {            
+            LOGGER.fine(dumpState());
+        }
+        
         synchronized (fileInfoMap) {
             BufferedFileHandle fInfo = fileInfoMap.get(fileId);
             if (fInfo == null) {
@@ -709,12 +720,20 @@ public class BufferCache implements IBufferCacheInternal {
                 throw new HyracksDataException("Closed fileId: " + fileId + " more times than it was opened.");
             }
         }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Closed file: " + fileId + " in cache: " + this);
+        }
     }
 
     @Override
-    public synchronized void deleteFile(int fileId) throws HyracksDataException {
+    public synchronized void deleteFile(int fileId, boolean flushDirtyPages) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Deleting file: " + fileId + " in cache: " + this);
+        }
+        if (flushDirtyPages) {
+        	synchronized (fileInfoMap) {
+        		sweepAndFlush(fileId, flushDirtyPages);
+        	}
         }
         synchronized (fileInfoMap) {
             BufferedFileHandle fInfo = null;

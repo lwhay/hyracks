@@ -45,10 +45,12 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
     private static final int childPtrSize = 4;
     private static IBinaryComparator childPtrCmp = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY)
             .createBinaryComparator();
+    private final int keyFieldCount;
 
     public RTreeNSMInteriorFrame(ITreeIndexTupleWriter tupleWriter, IPrimitiveValueProvider[] keyValueProviders) {
         super(tupleWriter, keyValueProviders);
-        frameTuple.setFieldCount(keyValueProviders.length);
+        keyFieldCount = keyValueProviders.length;
+        frameTuple.setFieldCount(keyFieldCount);
     }
 
     @Override
@@ -151,6 +153,13 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
     }
 
     @Override
+    public ITreeIndexTupleReference createTupleReference() {
+        ITreeIndexTupleReference tuple = tupleWriter.createTupleReference();
+        tuple.setFieldCount(keyFieldCount);
+        return tuple;
+    }
+
+    @Override
     public int getBestChildPageId() {
         return buf.getInt(getChildPointerOff(frameTuple));
     }
@@ -166,6 +175,12 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
             }
         }
         return -1;
+    }
+
+    @Override
+    public int getChildPageId(int tupleIndex) {
+        frameTuple.resetByTupleIndex(this, tupleIndex);
+        return buf.getInt(getChildPointerOff(frameTuple));
     }
 
     @Override
@@ -437,7 +452,7 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
         frameTuple.setFieldCount(tuple.getFieldCount());
         slotManager.insertSlot(-1, buf.getInt(freeSpaceOff));
         int freeSpace = buf.getInt(freeSpaceOff);
-        int bytesWritten = tupleWriter.writeTupleFields(tuple, 0, tuple.getFieldCount(), buf, freeSpace);
+        int bytesWritten = tupleWriter.writeTupleFields(tuple, 0, tuple.getFieldCount(), buf.array(), freeSpace);
         System.arraycopy(tuple.getFieldData(tuple.getFieldCount() - 1), getChildPointerOff(tuple), buf.array(),
                 freeSpace + bytesWritten, childPtrSize);
         int tupleSize = bytesWritten + childPtrSize;
@@ -585,6 +600,27 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
     }
 
     @Override
+    public boolean checkEnlargement(ITupleReference tuple, MultiComparator cmp) {
+        int maxFieldPos = cmp.getKeyFieldCount() / 2;
+        for (int i = 0; i < maxFieldPos; i++) {
+            int j = maxFieldPos + i;
+            int c = cmp.getComparators()[i].compare(frameTuple.getFieldData(i), frameTuple.getFieldStart(i),
+                    frameTuple.getFieldLength(i), tuple.getFieldData(i), tuple.getFieldStart(i),
+                    tuple.getFieldLength(i));
+            if (c > 0) {
+                return true;
+            }
+            c = cmp.getComparators()[j].compare(frameTuple.getFieldData(j), frameTuple.getFieldStart(j),
+                    frameTuple.getFieldLength(j), tuple.getFieldData(j), tuple.getFieldStart(j),
+                    tuple.getFieldLength(j));
+            if (c < 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public void enlarge(ITupleReference tuple, MultiComparator cmp) {
         int maxFieldPos = cmp.getKeyFieldCount() / 2;
         for (int i = 0; i < maxFieldPos; i++) {
@@ -614,5 +650,22 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
         }
 
         adjustMBRImpl(tuples);
+    }
+
+    // For debugging.
+    public ArrayList<Integer> getChildren(MultiComparator cmp) {
+        ArrayList<Integer> ret = new ArrayList<Integer>();
+        frameTuple.setFieldCount(cmp.getKeyFieldCount());
+        int tupleCount = buf.getInt(tupleCountOff);
+        for (int i = 0; i < tupleCount; i++) {
+            int tupleOff = slotManager.getTupleOff(slotManager.getSlotOff(i));
+            frameTuple.resetByTupleOffset(buf, tupleOff);
+            int intVal = IntegerSerializerDeserializer.getInt(
+                    buf.array(),
+                    frameTuple.getFieldStart(frameTuple.getFieldCount() - 1)
+                            + frameTuple.getFieldLength(frameTuple.getFieldCount() - 1));
+            ret.add(intVal);
+        }
+        return ret;
     }
 }

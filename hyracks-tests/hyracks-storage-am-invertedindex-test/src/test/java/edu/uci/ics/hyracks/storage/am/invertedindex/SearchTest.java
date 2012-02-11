@@ -25,12 +25,12 @@ import java.util.logging.Level;
 import org.junit.Before;
 import org.junit.Test;
 
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ByteArrayAccessibleOutputStream;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
-import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
@@ -52,9 +52,15 @@ public class SearchTest extends AbstractInvIndexSearchTest {
 	protected List<String> firstNames = new ArrayList<String>();
 	protected List<String> lastNames = new ArrayList<String>();
 
+	protected IBinaryComparator[] btreeBinCmps;
+	
 	@Before
 	public void start() throws Exception {
 		super.start();
+		btreeBinCmps = new IBinaryComparator[btreeCmpFactories.length];
+		for (int i = 0; i < btreeCmpFactories.length; i++) {
+			btreeBinCmps[i] = btreeCmpFactories[i].createBinaryComparator();
+		}
 		tokenFactory = new UTF8NGramTokenFactory();
 		tokenizer = new NGramUTF8StringBinaryTokenizer(3, false, true, false,
 				tokenFactory);
@@ -130,7 +136,7 @@ public class SearchTest extends AbstractInvIndexSearchTest {
 		}
 	}
 
-	public void loadData() throws IOException, TreeIndexException, PageAllocationException {
+	public void loadData() throws IOException, TreeIndexException {
 		List<TokenIdPair> pairs = new ArrayList<TokenIdPair>();
 		// generate pairs for subsequent sorting and bulk-loading
 		int id = 0;
