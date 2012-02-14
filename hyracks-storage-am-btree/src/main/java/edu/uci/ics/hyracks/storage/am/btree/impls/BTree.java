@@ -689,6 +689,11 @@ public class BTree extends AbstractTreeIndex {
     	return fileId;
     }
     
+    @Override
+    public IBufferCache getBufferCache() {
+        return bufferCache;
+    }
+    
     public byte getTreeHeight(IBTreeLeafFrame leafFrame) throws HyracksDataException {
         ICachedPage rootNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rootPage), false);
         rootNode.acquireReadLatch();

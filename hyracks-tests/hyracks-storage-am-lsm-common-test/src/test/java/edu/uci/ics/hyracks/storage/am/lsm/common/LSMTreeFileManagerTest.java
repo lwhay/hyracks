@@ -49,7 +49,7 @@ public class LSMTreeFileManagerTest {
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
     protected final static String sep = System.getProperty("file.separator");
     protected IOManager ioManager;
-    protected String baseDir;    
+    protected String baseDir;
     
     @Before
     public void setUp() throws HyracksException {
@@ -73,13 +73,13 @@ public class LSMTreeFileManagerTest {
         int numFileNames = 100;
         long sleepTime = 5;
         for (int i = 0; i < numFileNames; i++) {
-            String flushFileName = fileManager.getFlushFileName();
+            String flushFileName = (String) fileManager.getRelFlushFileName();
             if (testFlushFileName) {
                 fileNames.addFirst(flushFileName);
             }
             Thread.sleep(sleepTime);
             if (!testFlushFileName) {
-                String secondFlushFileName = fileManager.getFlushFileName();
+                String secondFlushFileName = (String) fileManager.getRelFlushFileName();
                 String mergeFileName = getMergeFileName(fileManager, flushFileName, secondFlushFileName);
                 fileNames.addFirst(mergeFileName);
                 Thread.sleep(sleepTime);
@@ -115,9 +115,8 @@ public class LSMTreeFileManagerTest {
         long sleepTime = 5;
         // Generate a bunch of flush files.
         for (int i = 0; i < numFileNames; i++) {
-            FileReference flushTempFile = fileManager.createTempFile();            
-            String flushFileName = fileManager.getFlushFileName();
-            FileReference flushFile = fileManager.rename(flushTempFile, flushFileName);
+            String relFlushFileName = (String) fileManager.getRelFlushFileName();
+            FileReference flushFile = fileManager.createFlushFile(relFlushFileName);
             flushFiles.add(flushFile);
             Thread.sleep(sleepTime);            
         }
@@ -146,8 +145,9 @@ public class LSMTreeFileManagerTest {
         FileReference mergeFile7 = simulateMerge(fileManager, mergeFile3, mergeFile4);
         allFiles.add(mergeFile7);
         
-        // Set delete on exit for all files.
+        // Create all files and set delete on exit for all files.
         for (FileReference fileRef : allFiles) {            
+            fileRef.getFile().createNewFile();
             fileRef.getFile().deleteOnExit();
         }
         
@@ -168,12 +168,13 @@ public class LSMTreeFileManagerTest {
         // Sort expected files.
         Collections.sort(expectedValidFiles, fileManager.getFileNameComparator());
         
-        List<String> validFiles = fileManager.cleanupAndGetValidFiles();
+        List<Object> validFiles = fileManager.cleanupAndGetValidFiles();
         
         // Check actual files against expected files.
         assertEquals(expectedValidFiles.size(), validFiles.size());
         for (int i = 0; i < expectedValidFiles.size(); i++) {
-            File f = new File(validFiles.get(i));
+            String fileName = (String) validFiles.get(i);
+            File f = new File(fileName);
             assertEquals(expectedValidFiles.get(i), f.getName());
         }
         
@@ -248,15 +249,14 @@ public class LSMTreeFileManagerTest {
     }
     
     private FileReference simulateMerge(ILSMFileManager fileManager, FileReference a, FileReference b) throws HyracksDataException {
-        FileReference tempMergeFile = fileManager.createTempFile();
-        String mergeFileName = fileManager.getMergeFileName(a.getFile().getName(), b.getFile().getName());
-        FileReference mergeFile = fileManager.rename(tempMergeFile, mergeFileName);
+        String relMergeFileName = (String) fileManager.getRelMergeFileName(a.getFile().getName(), b.getFile().getName());
+        FileReference mergeFile = fileManager.createMergeFile(relMergeFileName);
         return mergeFile;
     }
     
     private String getMergeFileName(ILSMFileManager fileNameManager, String firstFile, String lastFile) throws HyracksDataException {
         File f1 = new File(firstFile);
         File f2 = new File(lastFile);
-        return fileNameManager.getMergeFileName(f1.getName(), f2.getName());
+        return (String) fileNameManager.getRelMergeFileName(f1.getName(), f2.getName());
     }
 }
