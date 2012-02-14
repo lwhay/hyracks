@@ -11,12 +11,14 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
@@ -62,6 +64,49 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
             bufferCache.unpin(rootNode);
         }
     }
+    
+    public void open(int fileId) {
+        this.fileId = fileId;
+    }
+
+    public void close() {
+        fileId = -1;
+    }
+    
+    public ITreeIndexFrameFactory getInteriorFrameFactory() {
+        return interiorFrameFactory;
+    }
+
+    public ITreeIndexFrameFactory getLeafFrameFactory() {
+        return leafFrameFactory;
+    }
+
+    public IBinaryComparatorFactory[] getComparatorFactories() {
+        return cmpFactories;
+    }
+
+    public IFreePageManager getFreePageManager() {
+        return freePageManager;
+    }
+    
+    public int getRootPageId() {
+        return rootPage;
+    }    
+
+    public int getFieldCount() {
+        return fieldCount;
+    }
+    
+    public int getFileId() {
+        return fileId;
+    }
+    
+    public IBufferCache getBufferCache() {
+        return bufferCache;
+    }
+    
+    public abstract IndexType getIndexType();
+    public abstract ITreeIndexAccessor createAccessor();
 	
 	public abstract class AbstractTreeIndexBulkLoader implements ITreeIndexBulkLoader {
 		protected final MultiComparator cmp;

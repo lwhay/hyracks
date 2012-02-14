@@ -79,16 +79,6 @@ public class BTree extends AbstractTreeIndex {
         }
     }
 
-    @Override
-    public void open(int fileId) {
-    	this.fileId = fileId;
-    }
-
-    @Override
-    public void close() {
-        fileId = -1;
-    }
-
     private void diskOrderScan(ITreeIndexCursor icursor, BTreeOpContext ctx) throws HyracksDataException {
         TreeDiskOrderScanCursor cursor = (TreeDiskOrderScanCursor) icursor;
         ctx.reset();
@@ -653,45 +643,10 @@ public class BTree extends AbstractTreeIndex {
         return new BTreeOpContext(leafFrameFactory, interiorFrameFactory, freePageManager.getMetaDataFrameFactory()
                 .createFrame(), cmpFactories);
     }
-    
-    public ITreeIndexFrameFactory getInteriorFrameFactory() {
-        return interiorFrameFactory;
-    }
-
-    public ITreeIndexFrameFactory getLeafFrameFactory() {
-        return leafFrameFactory;
-    }
-
-    public IBinaryComparatorFactory[] getComparatorFactories() {
-        return cmpFactories;
-    }
-
-    public IFreePageManager getFreePageManager() {
-        return freePageManager;
-    }
-
-    public int getRootPageId() {
-        return rootPage;
-    }    
-
-    @Override
-    public int getFieldCount() {
-        return fieldCount;
-    }
 
     @Override
     public IndexType getIndexType() {
         return IndexType.BTREE;
-    }
-    
-    @Override
-    public int getFileId() {
-    	return fileId;
-    }
-    
-    @Override
-    public IBufferCache getBufferCache() {
-        return bufferCache;
     }
     
     public byte getTreeHeight(IBTreeLeafFrame leafFrame) throws HyracksDataException {

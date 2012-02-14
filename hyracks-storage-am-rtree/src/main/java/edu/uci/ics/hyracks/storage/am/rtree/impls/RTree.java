@@ -165,26 +165,6 @@ public class RTree extends AbstractTreeIndex {
         }
     }
 
-    @Override
-    public void open(int fileId) {
-        this.fileId = fileId;
-    }
-
-    @Override
-    public void close() {
-        fileId = -1;
-    }
-
-    @Override
-    public int getFileId() {
-        return fileId;
-    }
-
-    @Override
-    public IBufferCache getBufferCache() {
-        return bufferCache;
-    }
-
     private RTreeOpContext createOpContext() {
         return new RTreeOpContext((IRTreeLeafFrame) leafFrameFactory.createFrame(),
                 (IRTreeInteriorFrame) interiorFrameFactory.createFrame(), freePageManager.getMetaDataFrameFactory()
@@ -725,25 +705,6 @@ public class RTree extends AbstractTreeIndex {
         ctx.cursor.open(ctx.cursorInitialState, (SearchPredicate) searchPred);
     }
 
-    @Override
-    public ITreeIndexFrameFactory getInteriorFrameFactory() {
-        return interiorFrameFactory;
-    }
-
-    @Override
-    public ITreeIndexFrameFactory getLeafFrameFactory() {
-        return leafFrameFactory;
-    }
-
-    public IBinaryComparatorFactory[] getComparatorFactories() {
-        return cmpFactories;
-    }
-
-    @Override
-    public IFreePageManager getFreePageManager() {
-        return freePageManager;
-    }
-
     private void update(ITupleReference tuple, RTreeOpContext ctx) {
         throw new UnsupportedOperationException("RTree Update not implemented.");
     }
@@ -772,16 +733,6 @@ public class RTree extends AbstractTreeIndex {
             bufferCache.unpin(page);
             throw new HyracksDataException(e);
         }
-    }
-
-    @Override
-    public int getRootPageId() {
-        return rootPage;
-    }
-
-    @Override
-    public int getFieldCount() {
-        return fieldCount;
     }
 
     @Override
