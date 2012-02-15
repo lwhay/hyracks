@@ -196,7 +196,7 @@ public abstract class TreeIndexTestUtils {
         int c = 1;
         for (CheckTuple checkTuple : checkTuples) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                if (c % (numTuples / 10) == 0) {
+                if (numTuples < 10 || c % (numTuples / 10) == 0) {
                     LOGGER.info("Bulk Loading Tuple " + c + "/" + numTuples);
                 }
             }
