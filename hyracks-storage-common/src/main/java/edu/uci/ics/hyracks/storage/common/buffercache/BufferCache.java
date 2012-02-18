@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.storage.common.buffercache;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,8 @@ public class BufferCache implements IBufferCacheInternal {
     private static final Logger LOGGER = Logger.getLogger(BufferCache.class.getName());
     private static final int MAP_FACTOR = 2;
 
-    private static final int MAX_VICTIMIZATION_TRY_COUNT = 3;
+    //private static final int MAX_VICTIMIZATION_TRY_COUNT = 3;
+    private static final int MAX_VICTIMIZATION_TRY_COUNT = 1000000;
 
     private final int maxOpenFiles;
 
@@ -94,8 +96,11 @@ public class BufferCache implements IBufferCacheInternal {
         }
 
         // check whether file has been created and opened
-        int fileId = BufferedFileHandle.getFileId(dpid);
-        BufferedFileHandle fInfo = fileInfoMap.get(fileId);
+        int fileId = BufferedFileHandle.getFileId(dpid);        
+        BufferedFileHandle fInfo = null;
+        synchronized(fileInfoMap) {
+        	fInfo = fileInfoMap.get(fileId);
+        }
         if (fInfo == null) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been created.");
         } else if (fInfo.getReferenceCount() <= 0) {
@@ -134,10 +139,11 @@ public class BufferCache implements IBufferCacheInternal {
 
         CachedPage cPage = findPage(dpid, newPage);
         if (cPage == null) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(dumpState());
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine(dumpState());
             }
-            throw new HyracksDataException("Failed to pin page because all pages are pinned.");
+            throw new HyracksDataException("Failed to pin page " + BufferedFileHandle.getFileId(dpid) + ":"
+                    + BufferedFileHandle.getPageId(dpid) + " because all pages are pinned.");
         }
         if (!newPage) {
             if (!cPage.valid) {
@@ -380,6 +386,9 @@ public class BufferCache implements IBufferCacheInternal {
 
     private void write(CachedPage cPage) throws HyracksDataException {
         BufferedFileHandle fInfo = getFileInfo(cPage);
+        if(fInfo.fileHasBeenDeleted()){
+            return;
+        }
         cPage.buffer.position(0);
         cPage.buffer.limit(pageSize);
         ioManager.syncWrite(fInfo.getFileHandle(), (long) BufferedFileHandle.getPageId(cPage.dpid) * pageSize,
@@ -505,37 +514,56 @@ public class BufferCache implements IBufferCacheInternal {
             setPriority(MAX_PRIORITY);
         }
 
+        public void cleanPage(CachedPage cPage, boolean force) {
+        	if (cPage.dirty.get()) {
+        		boolean proceed = false;
+        		if (force) {        			
+        			cPage.latch.writeLock().lock();
+        			proceed = true;
+        		} else {        			
+        			proceed = cPage.latch.readLock().tryLock();
+        		}
+                if (proceed) {
+                	try {
+                		// Make sure page is still dirty.
+                    	if (!cPage.dirty.get()) {
+                    		return;
+                    	}
+                        boolean cleaned = true;
+                        try {
+                            write(cPage);
+                        } catch (HyracksDataException e) {
+                            cleaned = false;
+                        }
+                        if (cleaned) {                           	                        	
+                        	cPage.dirty.set(false);
+                        	cPage.pinCount.decrementAndGet();
+                        	synchronized (cleanNotification) {
+                        		++cleanCount;
+                        		cleanNotification.notify();
+                        	}
+                        }
+                    } finally {
+                        if (force) {
+                        	cPage.latch.writeLock().unlock();
+                        } else {
+                        	cPage.latch.readLock().unlock();
+                        }
+                    }
+                } else if (shutdownStart) {
+                    throw new IllegalStateException(
+                            "Cache closed, but unable to acquire read lock on dirty page: " + cPage.dpid);
+                }
+            }
+        }
+        
         @Override
         public synchronized void run() {
             try {
                 while (true) {
-                    for (int i = 0; i < numPages; ++i) {
-                        CachedPage cPage = cachedPages[i];
-                        if (cPage.dirty.get()) {
-                            if (cPage.latch.readLock().tryLock()) {
-                                try {
-                                    boolean cleaned = true;
-                                    try {
-                                        write(cPage);
-                                    } catch (HyracksDataException e) {
-                                        cleaned = false;
-                                    }
-                                    if (cleaned) {
-                                        cPage.dirty.set(false);
-                                        cPage.pinCount.decrementAndGet();
-                                        synchronized (cleanNotification) {
-                                            ++cleanCount;
-                                            cleanNotification.notifyAll();
-                                        }
-                                    }
-                                } finally {
-                                    cPage.latch.readLock().unlock();
-                                }
-                            } else if (shutdownStart) {
-                                throw new IllegalStateException(
-                                        "Cache closed, but unable to acquire read lock on dirty page: " + cPage.dpid);
-                            }
-                        }
+                    for (int i = 0; i < numPages; ++i) {                        
+                    	CachedPage cPage = cachedPages[i];
+                        cleanPage(cPage, false);
                     }
                     if (shutdownStart) {
                         break;
@@ -555,7 +583,7 @@ public class BufferCache implements IBufferCacheInternal {
 
     @Override
     public void close() {
-        closed = true;
+    	closed = true;
         synchronized (cleanerThread) {
             cleanerThread.shutdownStart = true;
             cleanerThread.notifyAll();
@@ -604,7 +632,7 @@ public class BufferCache implements IBufferCacheInternal {
             fInfo = fileInfoMap.get(fileId);
             if (fInfo == null) {
 
-                // map is full, make room by removing cleaning up unreferenced files
+                // map is full, make room by cleaning up unreferenced files
                 boolean unreferencedFileFound = true;
                 while (fileInfoMap.size() >= maxOpenFiles && unreferencedFileFound) {
                     unreferencedFileFound = false;
@@ -675,7 +703,7 @@ public class BufferCache implements IBufferCacheInternal {
     private boolean invalidateIfFileIdMatch(int fileId, CachedPage cPage, boolean flushDirtyPages)
             throws HyracksDataException {
         if (BufferedFileHandle.getFileId(cPage.dpid) == fileId) {
-            int pinCount;
+            int pinCount = -1;
             if (cPage.dirty.get()) {
                 if (flushDirtyPages) {
                     write(cPage);
@@ -686,7 +714,7 @@ public class BufferCache implements IBufferCacheInternal {
                 pinCount = cPage.pinCount.get();
             }
             if (pinCount != 0) {
-                throw new IllegalStateException("Page is pinned and file is being closed");
+                throw new IllegalStateException("Page is pinned and file is being closed. Pincount is: " + pinCount);
             }
             cPage.invalidate();
             return true;
@@ -698,8 +726,11 @@ public class BufferCache implements IBufferCacheInternal {
     public void closeFile(int fileId) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Closing file: " + fileId + " in cache: " + this);
-            LOGGER.info(dumpState());
         }
+        if (LOGGER.isLoggable(Level.FINE)) {            
+            LOGGER.fine(dumpState());
+        }
+        
         synchronized (fileInfoMap) {
             BufferedFileHandle fInfo = fileInfoMap.get(fileId);
             if (fInfo == null) {
@@ -709,12 +740,39 @@ public class BufferCache implements IBufferCacheInternal {
                 throw new HyracksDataException("Closed fileId: " + fileId + " more times than it was opened.");
             }
         }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Closed file: " + fileId + " in cache: " + this);
+        }
     }
 
     @Override
-    public synchronized void deleteFile(int fileId) throws HyracksDataException {
+    public void flushDirtyPage(ICachedPage page) throws HyracksDataException {
+    	// Assumes the caller has pinned the page.
+    	cleanerThread.cleanPage((CachedPage)page, true);
+    }
+	
+	@Override
+    public void force(int fileId, boolean metadata) throws HyracksDataException {
+    	BufferedFileHandle fInfo = null;
+    	synchronized (fileInfoMap) {
+    		fInfo = fileInfoMap.get(fileId);
+    		try {
+    			fInfo.getFileHandle().getFileChannel().force(metadata);
+    		} catch (IOException e) {
+    			throw new HyracksDataException(e);
+    		}
+    	}    	
+    }
+	
+    @Override
+    public synchronized void deleteFile(int fileId, boolean flushDirtyPages) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Deleting file: " + fileId + " in cache: " + this);
+        }
+        if (flushDirtyPages) {
+        	synchronized (fileInfoMap) {
+        		sweepAndFlush(fileId, flushDirtyPages);
+        	}
         }
         synchronized (fileInfoMap) {
             BufferedFileHandle fInfo = null;

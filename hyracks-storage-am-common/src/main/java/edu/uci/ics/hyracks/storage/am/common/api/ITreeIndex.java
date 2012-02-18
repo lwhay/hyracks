@@ -15,9 +15,11 @@
 
 package edu.uci.ics.hyracks.storage.am.common.api;
 
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndex;
+import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 /**
  * Interface describing the operations of tree-based index structures. Indexes
@@ -47,12 +49,10 @@ public interface ITreeIndex extends IIndex {
 	 *             If the BufferCache throws while un/pinning or un/latching.
 	 * @throws TreeIndexException
 	 *             If the tree is not empty.
-	 * @throws PageAllocationException
 	 * @returns A new context for bulk loading, required for appending tuples.
 	 */
 	public IIndexBulkLoadContext beginBulkLoad(float fillFactor)
-			throws TreeIndexException, HyracksDataException,
-			PageAllocationException;
+			throws TreeIndexException, HyracksDataException;
 
 	/**
 	 * Append a tuple to the index in the context of a bulk load.
@@ -63,11 +63,9 @@ public interface ITreeIndex extends IIndex {
 	 *            Existing bulk load context.
 	 * @throws HyracksDataException
 	 *             If the BufferCache throws while un/pinning or un/latching.
-	 * @throws PageAllocationException
 	 */
 	public void bulkLoadAddTuple(ITupleReference tuple,
-			IIndexBulkLoadContext ictx) throws HyracksDataException,
-			PageAllocationException;
+			IIndexBulkLoadContext ictx) throws HyracksDataException;
 
 	/**
 	 * Finalize the bulk loading operation in the given context.
@@ -76,10 +74,9 @@ public interface ITreeIndex extends IIndex {
 	 *            Existing bulk load context to be finalized.
 	 * @throws HyracksDataException
 	 *             If the BufferCache throws while un/pinning or un/latching.
-	 * @throws PageAllocationException
 	 */
 	public void endBulkLoad(IIndexBulkLoadContext ictx)
-			throws HyracksDataException, PageAllocationException;
+			throws HyracksDataException;
 
 	/**
 	 * @return The index's leaf frame factory.
@@ -110,4 +107,19 @@ public interface ITreeIndex extends IIndex {
 	 * @return An enum of the concrete type of this index.
 	 */
 	public IndexType getIndexType();
+	
+	/**
+     * @return The file id of this index.
+     */
+    public int getFileId();
+    
+    /**
+     * @return BufferCache underlying this tree index.
+     */
+    public IBufferCache getBufferCache();
+    
+    /**
+     * @return Comparator factories.
+     */
+    public IBinaryComparatorFactory[] getComparatorFactories(); 
 }

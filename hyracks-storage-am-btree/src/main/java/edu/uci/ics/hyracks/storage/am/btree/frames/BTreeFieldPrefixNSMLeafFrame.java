@@ -58,8 +58,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     protected static final int uncompressedTupleCountOff = smFlagOff + 1; // 22
     protected static final int prefixTupleCountOff = uncompressedTupleCountOff + 4; // 26
 
-    protected static final int prevLeafOff = prefixTupleCountOff + 4; // 30
-    protected static final int nextLeafOff = prevLeafOff + 4; // 34
+    protected static final int nextLeafOff = prefixTupleCountOff + 4; // 30
 
     protected ICachedPage page = null;
     protected ByteBuffer buf = null;
@@ -252,7 +251,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
 
         int freeSpace = buf.getInt(freeSpaceOff);
         int bytesWritten = tupleWriter.writeTupleFields(tuple, numPrefixFields,
-                tuple.getFieldCount() - numPrefixFields, buf, freeSpace);
+                tuple.getFieldCount() - numPrefixFields, buf.array(), freeSpace);
 
         buf.putInt(tupleCountOff, buf.getInt(tupleCountOff) + 1);
         buf.putInt(freeSpaceOff, buf.getInt(freeSpaceOff) + bytesWritten);
@@ -315,11 +314,11 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
         
         if (inPlace) {
             // Overwrite the old tuple suffix in place.
-            bytesWritten = tupleWriter.writeTupleFields(newTuple, numPrefixFields, fieldCount - numPrefixFields, buf, suffixTupleStartOff);
+            bytesWritten = tupleWriter.writeTupleFields(newTuple, numPrefixFields, fieldCount - numPrefixFields, buf.array(), suffixTupleStartOff);
         } else {
             // Insert the new tuple suffix at the end of the free space, and change the slot value (effectively "deleting" the old tuple).
             int newSuffixTupleStartOff = buf.getInt(freeSpaceOff);
-            bytesWritten = tupleWriter.writeTupleFields(newTuple, numPrefixFields, fieldCount - numPrefixFields, buf, newSuffixTupleStartOff);
+            bytesWritten = tupleWriter.writeTupleFields(newTuple, numPrefixFields, fieldCount - numPrefixFields, buf.array(), newSuffixTupleStartOff);
             // Update slot value using the same prefix slot num.
             slotManager.setSlot(tupleSlotOff, slotManager.encodeSlotFields(prefixSlotNum, newSuffixTupleStartOff));
             // Update contiguous free space pointer.
@@ -343,7 +342,6 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
         buf.putInt(prefixTupleCountOff, 0);
         buf.put(levelOff, level);
         buf.put(smFlagOff, (byte) 0);
-        buf.putInt(prevLeafOff, -1);
         buf.putInt(nextLeafOff, -1);
     }
 
@@ -402,7 +400,6 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
         strBuilder.append("smFlagOff:                 " + smFlagOff + "\n");
         strBuilder.append("uncompressedTupleCountOff: " + uncompressedTupleCountOff + "\n");
         strBuilder.append("prefixTupleCountOff:       " + prefixTupleCountOff + "\n");
-        strBuilder.append("prevLeafOff:               " + prevLeafOff + "\n");
         strBuilder.append("nextLeafOff:               " + nextLeafOff + "\n");
         return strBuilder.toString();
     }
@@ -493,7 +490,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
         }
 
         int bytesWritten = tupleWriter.writeTupleFields(tuple, fieldsToTruncate, tuple.getFieldCount()
-                - fieldsToTruncate, buf, freeSpace);
+                - fieldsToTruncate, buf.array(), freeSpace);
 
         // insert slot
         int prefixSlotNum = FieldPrefixSlotManager.TUPLE_UNCOMPRESSED;
@@ -634,7 +631,7 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
 
         int splitKeySize = tupleWriter.bytesRequired(frameTuple, 0, cmp.getKeyFieldCount());
         splitKey.initData(splitKeySize);
-        tupleWriter.writeTupleFields(frameTuple, 0, cmp.getKeyFieldCount(), splitKey.getBuffer(), 0);
+        tupleWriter.writeTupleFields(frameTuple, 0, cmp.getKeyFieldCount(), splitKey.getBuffer().array(), 0);
         splitKey.getTuple().resetByTupleOffset(splitKey.getBuffer(), 0);
     }
 
@@ -658,18 +655,8 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public void setPrevLeaf(int page) {
-        buf.putInt(prevLeafOff, page);
-    }
-
-    @Override
     public int getNextLeaf() {
         return buf.getInt(nextLeafOff);
-    }
-
-    @Override
-    public int getPrevLeaf() {
-        return buf.getInt(prevLeafOff);
     }
 
     public int getUncompressedTupleCount() {

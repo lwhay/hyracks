@@ -38,10 +38,10 @@ public interface IIndex {
      * @param indexFileId
      *            The file id backing this index.
      */
-    public void open(int indexFileId);
+    public void open(int indexFileId) throws HyracksDataException;
     
     /**
      * Closes the index.
      */
-    public void close();
+    public void close() throws HyracksDataException;
 }
