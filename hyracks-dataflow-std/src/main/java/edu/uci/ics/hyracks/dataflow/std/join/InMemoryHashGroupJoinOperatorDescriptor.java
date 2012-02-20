@@ -40,8 +40,6 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private static final long serialVersionUID = 1L;
     private final int[] keys0;
     private final int[] keys1;
-//    private final ITuplePartitionComputerFactory gByTpc0;
-//    private final ITuplePartitionComputerFactory gByTpc1;
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
@@ -49,17 +47,13 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private final INullWriterFactory[] nullWriterFactories1;
     private final int tableSize;
 
-    public InMemoryHashGroupJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
-            IBinaryComparatorFactory[] joinComparatorFactories,
-//            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1, 
-            IBinaryComparatorFactory[] groupComparatorFactories,
-            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, 
-            int tableSize) {
+    public InMemoryHashGroupJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1,
+    		IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
+    		IBinaryComparatorFactory[] groupComparatorFactories, IAggregatorDescriptorFactory aggregatorFactory,
+    		RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, int tableSize) {
         super(spec, 2, 1);
         this.keys0 = keys0;
         this.keys1 = keys1;
-//        this.gByTpc0 = gByTpc0;
-//        this.gByTpc1 = gByTpc1;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
         this.groupComparatorFactories = groupComparatorFactories;
@@ -151,7 +145,11 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
                 public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
                     ByteBuffer copyBuffer = ctx.allocateFrame();
                     FrameUtils.copy(buffer, copyBuffer);
-                    state.joiner.build(copyBuffer);
+                    try{
+                    	state.joiner.build(copyBuffer);
+                    } catch (IOException e){
+                    	
+                    }
                 }
 
                 @Override
@@ -200,7 +198,6 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
 
                 @Override
                 public void fail() throws HyracksDataException {
-//                    writer.fail();
                     throw new HyracksDataException("InMemoryHashGroupJoinOperator has failed.");
                 }
                 

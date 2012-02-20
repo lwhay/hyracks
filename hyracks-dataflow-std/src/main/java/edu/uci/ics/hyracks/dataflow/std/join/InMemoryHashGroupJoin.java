@@ -1,5 +1,6 @@
 package edu.uci.ics.hyracks.dataflow.std.join;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +44,7 @@ public class InMemoryHashGroupJoin {
         		aggregatorFactory, gByInRecordDescriptor, gByOutRecordDescriptor, nullWriters1, tableSize);
     }
 
-    public void build(ByteBuffer buffer) throws HyracksDataException {
+    public void build(ByteBuffer buffer) throws HyracksDataException, IOException {
         buffers.add(buffer);
         gByTable.build(accessorBuild, buffer);
     }

@@ -125,18 +125,6 @@ public class MultiFieldsAggregatorFactory implements IAggregatorDescriptorFactor
                 }
             }
 
-            public void init(ArrayTupleBuilder tupleBuilder, IFrameTupleAccessor accessor, int tIndex,
-                    AggregateState state, boolean delayedInit) throws HyracksDataException {
-                DataOutput dos = tupleBuilder.getDataOutput();
-
-                for (int i = 0; i < aggregators.length; i++) {
-                    aggregators[i].init(accessor, tIndex, dos, ((AggregateState[]) state.state)[i]);
-                    if (aggregators[i].needsBinaryState()) {
-                        tupleBuilder.addFieldEndOffset();
-                    }
-                }
-            }
-
             @Override
             public AggregateState createAggregateStates() {
                 AggregateState[] states = new AggregateState[aggregators.length];

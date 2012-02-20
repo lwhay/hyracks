@@ -39,6 +39,7 @@ import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.normalizers.IntegerNormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.FloatParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IntegerParserFactory;
@@ -52,6 +53,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.HashGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.CountFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
@@ -77,7 +79,7 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
                 @Override
                 public void writeNull(DataOutput out) throws HyracksDataException {
                     try {
-                        out.writeInt(-1);
+                        out.writeInt(0);
                     } catch (IOException e) {
                         throw new HyracksDataException(e);
                     }
@@ -251,7 +253,7 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
                 spec,
                 4,
                 10,
-                200,
+                256,
                 1.2,
                 new int[] { 0 },
                 new int[] { 1 },
@@ -352,17 +354,32 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
         
         HybridHashGroupJoinOperatorDescriptor groupJoin = new HybridHashGroupJoinOperatorDescriptor(
                 spec,
-                4,
+                8,
                 10,
-                200,
+                20,
                 1.2,
+                50,
                 new int[] { 0 },
                 new int[] { 1 },
                 new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
-                custOrderGroupJoinDesc, nullWriterFactories);
+                new IntegerNormalizedKeyComputerFactory(),
+                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true, false) }),
+                custDesc,
+                custOrderGroupJoinDesc,
+                new HashSpillableTableFactory(
+                		new FieldHashPartitionComputerFactory(
+                				new int[] { 0 },
+                				new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }
+                				),
+                		200),
+                new HashSpillableTableFactory(
+                		new FieldHashPartitionComputerFactory(
+                				new int[] { 1 },
+                				new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }
+                				),
+                		200), nullWriterFactories);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, groupJoin, NC1_ID);
 
@@ -375,13 +392,13 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
         		);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
-*/        
+        
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
                 createTempFile().getAbsolutePath()) });
         IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+*/        
         
-        
-//        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
