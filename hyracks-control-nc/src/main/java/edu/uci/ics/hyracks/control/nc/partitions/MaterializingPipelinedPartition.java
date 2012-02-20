@@ -169,7 +169,7 @@ public class MaterializingPipelinedPartition implements IFrameWriter, IPartition
             notifyAll();
         }
         if (commit) {
-            manager.updatePartitionState(pid, taId, this, PartitionState.COMMITTED);
+//            manager.updatePartitionState(pid, taId, this, PartitionState.COMMITTED);
         }
     }
 }

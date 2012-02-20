@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
@@ -36,9 +38,13 @@ import edu.uci.ics.hyracks.control.nc.io.WorkspaceFileFactory;
 import edu.uci.ics.hyracks.control.nc.resources.DefaultDeallocatableRegistry;
 
 public class PartitionManager implements IPartitionRequestListener {
+    private static final Logger LOGGER = Logger.getLogger(PartitionManager.class.getName());
+
     private final NodeControllerService ncs;
 
     private final Map<PartitionId, List<IPartition>> partitionMap;
+
+    private final Map<PartitionId, List<IFrameWriter>> partitionRequestMap;
 
     private final DefaultDeallocatableRegistry deallocatableRegistry;
 
@@ -47,13 +53,29 @@ public class PartitionManager implements IPartitionRequestListener {
     public PartitionManager(NodeControllerService ncs) {
         this.ncs = ncs;
         partitionMap = new HashMap<PartitionId, List<IPartition>>();
+        partitionRequestMap = new HashMap<PartitionId, List<IFrameWriter>>();
         deallocatableRegistry = new DefaultDeallocatableRegistry();
         fileFactory = new WorkspaceFileFactory(deallocatableRegistry, (IOManager) ncs.getRootContext().getIOManager());
     }
 
     public void registerPartition(PartitionId pid, TaskAttemptId taId, IPartition partition, PartitionState state)
             throws HyracksDataException {
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("Partition Registration: " + pid);
+        }
         synchronized (this) {
+            List<IFrameWriter> requests = partitionRequestMap.get(pid);
+            if (requests != null && !requests.isEmpty()) {
+                Iterator<IFrameWriter> i = requests.iterator();
+                while (i.hasNext()) {
+                    IFrameWriter fw = i.next();
+                    i.remove();
+                    partition.writeTo(fw);
+                    if (!partition.isReusable()) {
+                        return;
+                    }
+                }
+            }
             List<IPartition> pList = partitionMap.get(pid);
             if (pList == null) {
                 pList = new ArrayList<IPartition>();
@@ -61,7 +83,6 @@ public class PartitionManager implements IPartitionRequestListener {
             }
             pList.add(partition);
         }
-        updatePartitionState(pid, taId, partition, state);
     }
 
     public void updatePartitionState(PartitionId pid, TaskAttemptId taId, IPartition partition, PartitionState state)
@@ -90,11 +111,22 @@ public class PartitionManager implements IPartitionRequestListener {
                 i.remove();
             }
         }
+        for (Iterator<Map.Entry<PartitionId, List<IFrameWriter>>> i = partitionRequestMap.entrySet().iterator(); i
+                .hasNext();) {
+            Map.Entry<PartitionId, List<IFrameWriter>> e = i.next();
+            PartitionId pid = e.getKey();
+            if (jobId.equals(pid.getJobId())) {
+                i.remove();
+            }
+        }
     }
 
     @Override
     public synchronized void registerPartitionRequest(PartitionId partitionId, IFrameWriter writer)
             throws HyracksException {
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("Partition Request: " + partitionId);
+        }
         List<IPartition> pList = partitionMap.get(partitionId);
         if (pList != null && !pList.isEmpty()) {
             IPartition partition = pList.get(0);
@@ -103,7 +135,12 @@ public class PartitionManager implements IPartitionRequestListener {
                 partitionMap.remove(partitionId);
             }
         } else {
-            throw new HyracksException("Request for unknown partition " + partitionId);
+            List<IFrameWriter> prList = partitionRequestMap.get(partitionId);
+            if (prList == null) {
+                prList = new ArrayList<IFrameWriter>();
+                partitionRequestMap.put(partitionId, prList);
+            }
+            prList.add(writer);
         }
     }
 

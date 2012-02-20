@@ -46,6 +46,7 @@ public class JobStartWork extends SynchronizableWork {
             try {
                 run.getScheduler().startJob();
             } catch (Exception e) {
+                e.printStackTrace();
                 ccs.getWorkQueue().schedule(new JobCleanupWork(ccs, run.getJobId(), JobStatus.FAILURE, e));
             }
             callback.setValue(null);

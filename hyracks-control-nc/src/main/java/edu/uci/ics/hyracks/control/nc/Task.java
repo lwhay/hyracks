@@ -16,18 +16,24 @@ package edu.uci.ics.hyracks.control.nc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
+import edu.uci.ics.hyracks.api.comm.NetworkAddress;
+import edu.uci.ics.hyracks.api.comm.PartitionChannel;
 import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
@@ -44,12 +50,12 @@ import edu.uci.ics.hyracks.api.job.profiling.counters.ICounter;
 import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
 import edu.uci.ics.hyracks.api.partitions.PartitionId;
 import edu.uci.ics.hyracks.api.resources.IDeallocatable;
-import edu.uci.ics.hyracks.control.common.job.PartitionState;
 import edu.uci.ics.hyracks.control.common.job.profiling.counters.Counter;
 import edu.uci.ics.hyracks.control.common.job.profiling.om.PartitionProfile;
 import edu.uci.ics.hyracks.control.common.job.profiling.om.TaskProfile;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.control.nc.io.WorkspaceFileFactory;
+import edu.uci.ics.hyracks.control.nc.net.NetworkInputChannel;
 import edu.uci.ics.hyracks.control.nc.resources.DefaultDeallocatableRegistry;
 
 public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
@@ -59,7 +65,9 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     private final String displayName;
 
-    private final Executor executor;
+    private final NetworkAddress[][] inputPartitionLocations;
+
+    private final NodeControllerService ncs;
 
     private final IWorkspaceFileFactory fileFactory;
 
@@ -85,11 +93,13 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     private volatile boolean aborted;
 
-    public Task(Joblet joblet, TaskAttemptId taskId, String displayName, Executor executor) {
+    public Task(Joblet joblet, TaskAttemptId taskId, String displayName, NetworkAddress[][] inputPartitionLocations,
+            NodeControllerService ncs) {
         this.joblet = joblet;
         this.taskAttemptId = taskId;
         this.displayName = displayName;
-        this.executor = executor;
+        this.inputPartitionLocations = inputPartitionLocations;
+        this.ncs = ncs;
         fileFactory = new WorkspaceFileFactory(this, (IOManager) joblet.getIOManager());
         deallocatableRegistry = new DefaultDeallocatableRegistry();
         counterMap = new HashMap<String, Counter>();
@@ -182,7 +192,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     public void start() throws HyracksException {
         aborted = false;
-        executor.execute(this);
+        ncs.getExecutor().execute(this);
     }
 
     public synchronized void abort() {
@@ -228,7 +238,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                         final IFrameWriter writer = operator.getInputFrameWriter(i);
                         sem.acquire();
                         final int cIdx = i;
-                        executor.execute(new Runnable() {
+                        ncs.getExecutor().execute(new Runnable() {
                             public void run() {
                                 if (aborted) {
                                     return;
@@ -238,7 +248,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                                 String oldName = thread.getName();
                                 thread.setName(displayName + ":" + taskAttemptId + ":" + cIdx);
                                 try {
-                                    pushFrames(collector, writer);
+                                    pushFrames(cIdx, collector, writer);
                                 } catch (HyracksDataException e) {
                                     synchronized (Task.this) {
                                         failed = true;
@@ -255,7 +265,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                         });
                     }
                     try {
-                        pushFrames(collectors[0], operator.getInputFrameWriter(0));
+                        pushFrames(0, collectors[0], operator.getInputFrameWriter(0));
                     } finally {
                         sem.acquire(collectors.length - 1);
                     }
@@ -284,15 +294,24 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
         }
     }
 
-    private void pushFrames(IPartitionCollector collector, IFrameWriter writer) throws HyracksDataException {
+    private void pushFrames(int inputIndex, IPartitionCollector collector, IFrameWriter writer)
+            throws HyracksDataException {
         if (aborted) {
             return;
         }
         try {
             collector.open();
             try {
-                joblet.advertisePartitionRequest(taskAttemptId, collector.getRequiredPartitionIds(), collector,
-                        PartitionState.STARTED);
+                Collection<PartitionId> requiredPartitionIds = collector.getRequiredPartitionIds();
+                List<PartitionChannel> pcs = new ArrayList<PartitionChannel>();
+                for (PartitionId pid : requiredPartitionIds) {
+                    NetworkAddress na = inputPartitionLocations[inputIndex][pid.getSenderIndex()];
+                    PartitionChannel pc = new PartitionChannel(pid, new NetworkInputChannel(ncs.getRootContext(),
+                            ncs.getNetworkManager(), new InetSocketAddress(InetAddress.getByAddress(na.getIpAddress()),
+                                    na.getPort()), pid, 5));
+                    pcs.add(pc);
+                }
+                collector.addPartitions(pcs);
                 IFrameReader reader = collector.getReader();
                 reader.open();
                 try {
