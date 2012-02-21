@@ -105,5 +105,6 @@
     <module>hyracks-documentation</module>
     <module>hyracks-hadoop-compat</module>
     <module>hyracks-algebricks</module>
+    <module>hyracks-storage-am-lsm-invertedindex</module>
   </modules>
 </project>
