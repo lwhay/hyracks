@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2012 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -35,14 +35,9 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
-import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
-import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
-import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearcher;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
@@ -63,21 +58,15 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
     protected List<ByteBuffer> swap = null;
     protected int maxResultBufIdx = 0;
 
-    protected final ITreeIndexFrame leafFrame;
-    protected final ITreeIndexFrame interiorFrame;
-    protected final ITreeIndexCursor btreeCursor;
-    protected final FrameTupleReference searchKey = new FrameTupleReference();
-    protected final RangePredicate btreePred = new RangePredicate(null, null, true, true, null, null);
-    protected final ITreeIndexAccessor btreeAccessor;
-
     protected RecordDescriptor queryTokenRecDesc = new RecordDescriptor(
             new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE });
     protected ArrayTupleBuilder queryTokenBuilder = new ArrayTupleBuilder(queryTokenRecDesc.getFieldCount());
     protected DataOutput queryTokenDos = queryTokenBuilder.getDataOutput();
     protected FrameTupleAppender queryTokenAppender;
     protected ByteBuffer queryTokenFrame;
+    protected FrameTupleReference searchKey = new FrameTupleReference();
 
-    protected final InvertedIndex invIndex;
+    protected final IInvertedIndex invIndex;
     protected final MultiComparator invListCmp;
     protected final IBinaryTokenizer queryTokenizer;
     protected final ITypeTraits[] invListFieldsWithCount;
@@ -87,16 +76,12 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
     protected List<IInvertedListCursor> invListCursorCache = new ArrayList<IInvertedListCursor>(cursorCacheSize);
     protected List<IInvertedListCursor> invListCursors = new ArrayList<IInvertedListCursor>(cursorCacheSize);
 
-    public TOccurrenceSearcher(IHyracksCommonContext ctx, InvertedIndex invIndex, IBinaryTokenizer queryTokenizer) {
+    public TOccurrenceSearcher(IHyracksCommonContext ctx, IInvertedIndex invIndex, IBinaryTokenizer queryTokenizer) {
         this.ctx = ctx;
         this.invIndex = invIndex;
         this.invListCmp = MultiComparator.create(invIndex.getInvListElementCmpFactories());
         this.queryTokenizer = queryTokenizer;
 
-        leafFrame = invIndex.getBTree().getLeafFrameFactory().createFrame();
-        interiorFrame = invIndex.getBTree().getInteriorFrameFactory().createFrame();
-
-        btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame, false);
         ITypeTraits[] invListFields = invIndex.getTypeTraits();
         invListFieldsWithCount = new ITypeTraits[invListFields.length + 1];
         int tmp = 0;
@@ -114,22 +99,14 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
         newResultBuffers.add(ctx.allocateFrame());
         prevResultBuffers.add(ctx.allocateFrame());
 
-        MultiComparator searchCmp = MultiComparator.create(invIndex.getBTree().getComparatorFactories());
-        btreePred.setLowKeyComparator(searchCmp);
-        btreePred.setHighKeyComparator(searchCmp);
-        btreePred.setLowKey(searchKey, true);
-        btreePred.setHighKey(searchKey, true);
-
         // pre-create cursor objects
         for (int i = 0; i < cursorCacheSize; i++) {
-            invListCursorCache.add(new FixedSizeElementInvertedListCursor(invIndex.getBufferCache(), invIndex
-                    .getInvListsFileId(), invIndex.getTypeTraits()));
+            invListCursorCache.add(invIndex.createInvertedListCursor());
         }
 
         queryTokenAppender = new FrameTupleAppender(ctx.getFrameSize());
         queryTokenFrame = ctx.allocateFrame();
 
-        btreeAccessor = invIndex.getBTree().createAccessor();
         currentNumResults = 0;
     }
 
@@ -143,12 +120,13 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
         currentNumResults = 0;
     }
 
-    public void search(InvertedIndexSearchCursor resultCursor, InvertedIndexSearchPredicate searchPred) throws HyracksDataException, IndexException {
+    public void search(InvertedIndexSearchCursor resultCursor, InvertedIndexSearchPredicate searchPred)
+            throws HyracksDataException, IndexException {
         ITupleReference queryTuple = searchPred.getQueryTuple();
         int queryFieldIndex = searchPred.getQueryFieldIndex();
         IInvertedIndexSearchModifier searchModifier = searchPred.getSearchModifier();
-        
-        queryTokenAppender.reset(queryTokenFrame, true);                
+
+        queryTokenAppender.reset(queryTokenFrame, true);
         queryTokenizer.reset(queryTuple.getFieldData(queryFieldIndex), queryTuple.getFieldStart(queryFieldIndex),
                 queryTuple.getFieldLength(queryFieldIndex));
 
@@ -175,15 +153,14 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
         if (numQueryTokens > invListCursorCache.size()) {
             int diff = numQueryTokens - invListCursorCache.size();
             for (int i = 0; i < diff; i++) {
-                invListCursorCache.add(new FixedSizeElementInvertedListCursor(invIndex.getBufferCache(), invIndex
-                        .getInvListsFileId(), invIndex.getTypeTraits()));
+                invListCursorCache.add(invIndex.createInvertedListCursor());
             }
         }
 
         invListCursors.clear();
         for (int i = 0; i < numQueryTokens; i++) {
             searchKey.reset(queryTokenAccessor, i);
-            invIndex.openCursor(btreeCursor, btreePred, btreeAccessor, invListCursorCache.get(i));
+            invIndex.openInvertedListCursor(invListCursorCache.get(i), searchKey);
             invListCursors.add(invListCursorCache.get(i));
         }
 
@@ -216,7 +193,8 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
         return maxPrevBufIdx;
     }
 
-    protected int mergeSuffixLists(int numPrefixTokens, int numQueryTokens, int maxPrevBufIdx) throws HyracksDataException {
+    protected int mergeSuffixLists(int numPrefixTokens, int numQueryTokens, int maxPrevBufIdx)
+            throws HyracksDataException {
         for (int i = numPrefixTokens; i < numQueryTokens; i++) {
             swap = prevResultBuffers;
             prevResultBuffers = newResultBuffers;
@@ -283,7 +261,8 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
     }
 
     protected int mergeSuffixListScan(IInvertedListCursor invListCursor, List<ByteBuffer> prevResultBuffers,
-            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers, int invListIx, int numQueryTokens) {
+            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers, int invListIx, int numQueryTokens)
+            throws HyracksDataException {
         int newBufIdx = 0;
         ByteBuffer newCurrentBuffer = newResultBuffers.get(0);
 
@@ -375,7 +354,7 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
     }
 
     protected int mergePrefixList(IInvertedListCursor invListCursor, List<ByteBuffer> prevResultBuffers,
-            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers) {
+            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers) throws HyracksDataException {
         int newBufIdx = 0;
         ByteBuffer newCurrentBuffer = newResultBuffers.get(0);
 

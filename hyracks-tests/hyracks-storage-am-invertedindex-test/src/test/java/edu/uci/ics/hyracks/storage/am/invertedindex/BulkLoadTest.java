@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2012 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -64,7 +64,6 @@ import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.FixedSizeElementInvertedListBuilder;
-import edu.uci.ics.hyracks.storage.am.invertedindex.impls.FixedSizeElementInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.util.InvertedIndexUtils;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
@@ -122,8 +121,8 @@ public class BulkLoadTest extends AbstractInvIndexTest {
 
         IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
 
-        BTree btree = new BTree(bufferCache, btreeTypeTraits.length, cmpFactories, freePageManager, interiorFrameFactory,
-                leafFrameFactory);
+        BTree btree = new BTree(bufferCache, btreeTypeTraits.length, cmpFactories, freePageManager,
+                interiorFrameFactory, leafFrameFactory);
         btree.create(btreeFileId);
         btree.open(btreeFileId);
 
@@ -136,7 +135,8 @@ public class BulkLoadTest extends AbstractInvIndexTest {
         invListCmpFactories[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY);
 
         IInvertedListBuilder invListBuilder = new FixedSizeElementInvertedListBuilder(invListTypeTraits);
-        InvertedIndex invIndex = new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories, invListBuilder, null);
+        InvertedIndex invIndex = new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories,
+                invListBuilder, null);
         invIndex.open(invListsFileId);
 
         Random rnd = new Random();
@@ -212,8 +212,7 @@ public class BulkLoadTest extends AbstractInvIndexTest {
         MultiComparator btreeCmp = MultiComparator.create(cmpFactories);
         RangePredicate btreePred = new RangePredicate(searchKey, searchKey, true, true, btreeCmp, btreeCmp);
 
-        IInvertedListCursor invListCursor = new FixedSizeElementInvertedListCursor(bufferCache, invListsFileId,
-                invListTypeTraits);
+        IInvertedListCursor invListCursor = invIndex.createInvertedListCursor();
 
         ISerializerDeserializer[] tokenSerde = { UTF8StringSerializerDeserializer.INSTANCE };
         RecordDescriptor tokenRecDesc = new RecordDescriptor(tokenSerde);
@@ -238,7 +237,7 @@ public class BulkLoadTest extends AbstractInvIndexTest {
 
             searchKey.reset(tokenAccessor, 0);
 
-            invIndex.openCursor(btreeCursor, btreePred, btreeAccessor, invListCursor);
+            invIndex.openInvertedListCursor(invListCursor, searchKey);
 
             invListCursor.pinPagesSync();
             int checkIndex = 0;
@@ -273,7 +272,7 @@ public class BulkLoadTest extends AbstractInvIndexTest {
 
             searchKey.reset(tokenAccessor, 0);
 
-            invIndex.openCursor(btreeCursor, btreePred, btreeAccessor, invListCursor);
+            invIndex.openInvertedListCursor(invListCursor, searchKey);
 
             invListCursor.pinPagesSync();
             Assert.assertEquals(invListCursor.hasNext(), false);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2012 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -28,15 +28,16 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 
 public class TOccurrenceSearcherSuffixScanOnly extends TOccurrenceSearcher {
 
-	protected final MultiComparator invListCmp;
-	
+    protected final MultiComparator invListCmp;
+
     public TOccurrenceSearcherSuffixScanOnly(IHyracksTaskContext ctx, InvertedIndex invIndex,
             IBinaryTokenizer queryTokenizer) {
         super(ctx, invIndex, queryTokenizer);
         this.invListCmp = MultiComparator.create(invIndex.getInvListElementCmpFactories());
     }
 
-    protected int mergeSuffixLists(int numPrefixTokens, int numQueryTokens, int maxPrevBufIdx) throws HyracksDataException {
+    protected int mergeSuffixLists(int numPrefixTokens, int numQueryTokens, int maxPrevBufIdx)
+            throws HyracksDataException {
         for (int i = numPrefixTokens; i < numQueryTokens; i++) {
             swap = prevResultBuffers;
             prevResultBuffers = newResultBuffers;
@@ -52,7 +53,8 @@ public class TOccurrenceSearcherSuffixScanOnly extends TOccurrenceSearcher {
     }
 
     protected int mergeSuffixListScan(IInvertedListCursor invListCursor, List<ByteBuffer> prevResultBuffers,
-            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers, int invListIx, int numQueryTokens) {
+            int maxPrevBufIdx, List<ByteBuffer> newResultBuffers, int invListIx, int numQueryTokens)
+            throws HyracksDataException {
 
         int newBufIdx = 0;
         ByteBuffer newCurrentBuffer = newResultBuffers.get(0);
