@@ -92,7 +92,6 @@ public class FixedSizeElementInvertedListCursor implements IInvertedListCursor {
         }
     }
 
-    @Override
     public void positionCursor(int elementIx) {
         int numPages = endPageId - startPageId + 1;
 

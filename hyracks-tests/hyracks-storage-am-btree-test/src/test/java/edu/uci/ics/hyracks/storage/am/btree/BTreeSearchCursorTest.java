@@ -44,6 +44,7 @@ import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeException;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeCountingSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.btree.util.AbstractBTreeTest;
@@ -53,6 +54,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -78,14 +80,14 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
     }
 
     @Test
-    public void uniqueIndexTest() throws Exception {
+    public void uniqueIndexCountingTest() throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("TESTING RANGE SEARCH CURSOR ON UNIQUE INDEX");
         }
 
         IBufferCache bufferCache = harness.getBufferCache();
         int btreeFileId = harness.getBTreeFileId();
-        
+
         // declare keys
         int keyFieldCount = 1;
         IBinaryComparatorFactory[] cmpFactories = new IBinaryComparatorFactory[keyFieldCount];
@@ -99,7 +101,105 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
         IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
 
-        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory, leafFrameFactory);
+        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory,
+                leafFrameFactory);
+        btree.create(btreeFileId);
+        btree.open(btreeFileId);
+
+        ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
+        ArrayTupleReference tuple = new ArrayTupleReference();
+
+        ITreeIndexAccessor indexAccessor = btree.createAccessor();
+
+        // generate keys
+        int numKeys = 200;
+        int key = 0;
+        ArrayList<Integer> keys = new ArrayList<Integer>();
+        while (keys.size() < numKeys) {
+            keys.add(key++);
+        }
+
+        // insert keys into btree
+        for (int i = 0; i < keys.size(); i++) {
+
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
+            tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
+
+            try {
+                indexAccessor.insert(tuple);
+            } catch (BTreeException e) {
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // btree.printTree(leafFrame, interiorFrame, recDescSers);
+
+        int minSearchKey = 25;
+        int maxSearchKey = 75;
+
+        // forward searches
+        performCount(keys.size(), btree, leafFrame, interiorFrame, minSearchKey, maxSearchKey, false, true);
+
+        btree.close();
+    }
+
+    public boolean performCount(int numKeys, BTree btree, IBTreeLeafFrame leafFrame, IBTreeInteriorFrame interiorFrame,
+            int minKey, int maxKey, boolean lowKeyInclusive, boolean highKeyInclusive) throws HyracksDataException,
+            IndexException {
+
+        ITreeIndexCursor countCursor = new BTreeCountingSearchCursor(leafFrame, false);
+        RangePredicate rangePred = createRangePredicate(minKey, maxKey, lowKeyInclusive, highKeyInclusive);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor();
+        indexAccessor.search(countCursor, rangePred);
+        Integer res = null;
+
+        try {
+            while (countCursor.hasNext()) {
+                countCursor.next();
+                ITupleReference frameTuple = countCursor.getTuple();
+                ByteArrayInputStream inStream = new ByteArrayInputStream(frameTuple.getFieldData(0),
+                        frameTuple.getFieldStart(0), frameTuple.getFieldLength(0));
+                DataInput dataIn = new DataInputStream(inStream);
+                res = IntegerSerializerDeserializer.INSTANCE.deserialize(dataIn);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            countCursor.close();
+        }
+
+        if (res != null) {
+            assert (res.intValue() == (maxKey - minKey));
+        }
+
+        return true;
+    }
+
+    @Test
+    public void uniqueIndexTest() throws Exception {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("TESTING RANGE SEARCH CURSOR ON UNIQUE INDEX");
+        }
+
+        IBufferCache bufferCache = harness.getBufferCache();
+        int btreeFileId = harness.getBTreeFileId();
+
+        // declare keys
+        int keyFieldCount = 1;
+        IBinaryComparatorFactory[] cmpFactories = new IBinaryComparatorFactory[keyFieldCount];
+        cmpFactories[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY);
+
+        ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
+        ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
+
+        IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) leafFrameFactory.createFrame();
+        IBTreeInteriorFrame interiorFrame = (IBTreeInteriorFrame) interiorFrameFactory.createFrame();
+
+        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
+
+        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory,
+                leafFrameFactory);
         btree.create(btreeFileId);
         btree.open(btreeFileId);
 
@@ -157,7 +257,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
         IBufferCache bufferCache = harness.getBufferCache();
         int btreeFileId = harness.getBTreeFileId();
-        
+
         // declare keys
         int keyFieldCount = 2;
         IBinaryComparatorFactory[] cmpFactories = new IBinaryComparatorFactory[keyFieldCount];
@@ -172,7 +272,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
         IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
 
-        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory, leafFrameFactory);
+        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory,
+                leafFrameFactory);
         btree.create(btreeFileId);
         btree.open(btreeFileId);
 
@@ -227,7 +328,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
         IBufferCache bufferCache = harness.getBufferCache();
         int btreeFileId = harness.getBTreeFileId();
-        
+
         // declare keys
         int keyFieldCount = 2;
         IBinaryComparatorFactory[] cmpFactories = new IBinaryComparatorFactory[keyFieldCount];
@@ -242,7 +343,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
         IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
 
-        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory, leafFrameFactory);
+        BTree btree = new BTree(bufferCache, fieldCount, cmpFactories, freePageManager, interiorFrameFactory,
+                leafFrameFactory);
         btree.create(btreeFileId);
         btree.open(btreeFileId);
 
@@ -289,8 +391,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         btree.close();
     }
 
-    public RangePredicate createRangePredicate(int lk, int hk, boolean lowKeyInclusive,
-            boolean highKeyInclusive) throws HyracksDataException {
+    public RangePredicate createRangePredicate(int lk, int hk, boolean lowKeyInclusive, boolean highKeyInclusive)
+            throws HyracksDataException {
 
         // create tuplereferences for search keys
         ITupleReference lowKey = TupleUtils.createIntegerTuple(lk);
@@ -300,8 +402,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         searchCmps[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY).createBinaryComparator();
         MultiComparator searchCmp = new MultiComparator(searchCmps);
 
-        RangePredicate rangePred = new RangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive,
-                searchCmp, searchCmp);
+        RangePredicate rangePred = new RangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive, searchCmp,
+                searchCmp);
         return rangePred;
     }
 
@@ -344,8 +446,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
                 int highKey = j;
 
                 ITreeIndexCursor rangeCursor = new BTreeRangeSearchCursor(leafFrame, false);
-                RangePredicate rangePred = createRangePredicate(lowKey, highKey, lowKeyInclusive,
-                        highKeyInclusive);
+                RangePredicate rangePred = createRangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive);
                 ITreeIndexAccessor indexAccessor = btree.createAccessor();
                 indexAccessor.search(rangeCursor, rangePred);
 

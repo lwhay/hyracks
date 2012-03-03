@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.storage.am.invertedindex.api;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 
 public interface IInvertedListCursor extends Comparable<IInvertedListCursor> {
@@ -33,7 +34,7 @@ public interface IInvertedListCursor extends Comparable<IInvertedListCursor> {
 
     void next() throws HyracksDataException;
 
-    ITupleReference getTuple();
+    ITupleReference getTuple() throws HyracksDataException;
 
     // getters
     int getNumElements();
@@ -44,10 +45,7 @@ public interface IInvertedListCursor extends Comparable<IInvertedListCursor> {
 
     int getStartOff();
 
-    // jump to a specific element
-    void positionCursor(int elementIx);
-
-    boolean containsKey(ITupleReference searchTuple, MultiComparator invListCmp);
+    boolean containsKey(ITupleReference searchTuple, MultiComparator invListCmp) throws HyracksDataException, IndexException;
 
     // for debugging
     String printInvList(ISerializerDeserializer[] serdes) throws HyracksDataException;

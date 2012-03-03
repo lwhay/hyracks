@@ -22,7 +22,6 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
-import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
@@ -54,10 +53,6 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     private final int numTokenFields;
     private final int numInvListKeys;
 
-    private final RangePredicate btreePred;
-    private final IBTreeLeafFrame leafFrame;
-    private final ITreeIndexCursor btreeCursor;
-    private final MultiComparator searchCmp;
     private final ArrayTupleBuilder btreeTupleBuilder;
     private final ArrayTupleReference btreeTupleReference;
 
@@ -73,14 +68,6 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
         this.numTokenFields = btree.getComparatorFactories().length;
         this.numInvListKeys = invListCmpFactories.length;
 
-        // setup for cursor creation
-        this.btreePred = new RangePredicate(null, null, true, true, null, null);
-        this.leafFrame = (IBTreeLeafFrame) btree.getLeafFrameFactory().createFrame();
-        this.btreeCursor = new BTreeRangeSearchCursor(leafFrame, false);
-        this.searchCmp = MultiComparator.create(btree.getComparatorFactories());
-        this.btreePred.setLowKeyComparator(searchCmp);
-        this.btreePred.setHighKeyComparator(searchCmp);
-        
         // To generate in-memory BTree tuples 
         this.btreeTupleBuilder = new ArrayTupleBuilder(btree.getFieldCount());
         this.btreeTupleReference = new ArrayTupleReference();
@@ -97,8 +84,9 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     @Override
     public void close() {
     }
-    
-    public boolean insertUpdateOrDelete(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException, TreeIndexException {        
+
+    public boolean insertUpdateOrDelete(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException,
+            TreeIndexException {
         LSMInvertedIndexOpContext ctx = (LSMInvertedIndexOpContext) ictx;
         // TODO: This will become much simpler once the BTree supports a true upsert operation.
 
@@ -108,12 +96,11 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
         //create a list of (term,doc-id)
         //sort the list in the order of term
         //insert a pair of (term, doc-id) into in-memory BTree until to the end of the list.
-        
-        byte[] docID = tuple.getFieldData(numTokenFields-1);
-        int docIDLength = tuple.getFieldLength(numTokenFields-1);
-        
-        for (int i=0; i < numTokenFields; i++)
-        {
+
+        byte[] docID = tuple.getFieldData(numTokenFields - 1);
+        int docIDLength = tuple.getFieldLength(numTokenFields - 1);
+
+        for (int i = 0; i < numTokenFields; i++) {
             tokenizer.reset(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
             while (tokenizer.hasNext()) {
                 tokenizer.next();
@@ -133,21 +120,17 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
         }
         return true;
     }
-    
+
     @Override
     public IInvertedListCursor createInvertedListCursor() {
-        return new InMemoryBtreeInvertedListCursor(btreeCursor);
+        return new InMemoryBtreeInvertedListCursor(btree, invListTypeTraits);
     }
 
     @Override
     public void openInvertedListCursor(IInvertedListCursor listCursor, IFrameTupleReference tupleReference)
             throws HyracksDataException, IndexException {
-        btreePred.setLowKey(tupleReference, true);
-        btreePred.setHighKey(tupleReference, true);
-
-        ITreeIndexAccessor btreeAccessor = btree.createAccessor();
-
-        btreeAccessor.search(btreeCursor, btreePred);
+        InMemoryBtreeInvertedListCursor inMemListCursor = (InMemoryBtreeInvertedListCursor) listCursor;
+        inMemListCursor.reset(tupleReference);
     }
 
     @Override
