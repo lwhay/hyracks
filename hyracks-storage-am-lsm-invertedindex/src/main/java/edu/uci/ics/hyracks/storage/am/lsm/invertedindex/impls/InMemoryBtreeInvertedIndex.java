@@ -17,24 +17,30 @@ package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
+import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
+import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
@@ -52,6 +58,8 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     private final IBTreeLeafFrame leafFrame;
     private final ITreeIndexCursor btreeCursor;
     private final MultiComparator searchCmp;
+    private final ArrayTupleBuilder btreeTupleBuilder;
+    private final ArrayTupleReference btreeTupleReference;
 
     public InMemoryBtreeInvertedIndex(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListTypeTraits,
             IBinaryComparatorFactory[] invListCmpFactories, IInvertedListBuilder invListBuilder,
@@ -66,12 +74,16 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
         this.numInvListKeys = invListCmpFactories.length;
 
         // setup for cursor creation
-        btreePred = new RangePredicate(null, null, true, true, null, null);
-        leafFrame = (IBTreeLeafFrame) btree.getLeafFrameFactory().createFrame();
-        btreeCursor = new BTreeRangeSearchCursor(leafFrame, false);
-        searchCmp = MultiComparator.create(btree.getComparatorFactories());
-        btreePred.setLowKeyComparator(searchCmp);
-        btreePred.setHighKeyComparator(searchCmp);
+        this.btreePred = new RangePredicate(null, null, true, true, null, null);
+        this.leafFrame = (IBTreeLeafFrame) btree.getLeafFrameFactory().createFrame();
+        this.btreeCursor = new BTreeRangeSearchCursor(leafFrame, false);
+        this.searchCmp = MultiComparator.create(btree.getComparatorFactories());
+        this.btreePred.setLowKeyComparator(searchCmp);
+        this.btreePred.setHighKeyComparator(searchCmp);
+        
+        // To generate in-memory BTree tuples 
+        this.btreeTupleBuilder = new ArrayTupleBuilder(btree.getFieldCount());
+        this.btreeTupleReference = new ArrayTupleReference();
     }
 
     @Override
@@ -85,7 +97,43 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     @Override
     public void close() {
     }
+    
+    public boolean insertUpdateOrDelete(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException, TreeIndexException {        
+        LSMInvertedIndexOpContext ctx = (LSMInvertedIndexOpContext) ictx;
+        // TODO: This will become much simpler once the BTree supports a true upsert operation.
 
+        //Tuple --> |Field1|Field2| ... |FieldN|doc-id|
+        //Each field represents a document and doc-id always comes at the last field.
+        //parse document
+        //create a list of (term,doc-id)
+        //sort the list in the order of term
+        //insert a pair of (term, doc-id) into in-memory BTree until to the end of the list.
+        
+        byte[] docID = tuple.getFieldData(numTokenFields-1);
+        int docIDLength = tuple.getFieldLength(numTokenFields-1);
+        
+        for (int i=0; i < numTokenFields; i++)
+        {
+            tokenizer.reset(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
+            while (tokenizer.hasNext()) {
+                tokenizer.next();
+                IToken token = tokenizer.getToken();
+                btreeTupleBuilder.reset();
+                btreeTupleBuilder.addField(token.getData(), token.getStart(), token.getTokenLength());
+                btreeTupleBuilder.addField(docID, 0, docIDLength);
+                btreeTupleReference.reset(btreeTupleBuilder.getFieldEndOffsets(), btreeTupleBuilder.getByteArray());
+
+                try {
+                    btree.createAccessor().insert(btreeTupleReference);
+                } catch (IndexException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+        }
+        return true;
+    }
+    
     @Override
     public IInvertedListCursor createInvertedListCursor() {
         return new InMemoryBtreeInvertedListCursor(btreeCursor);

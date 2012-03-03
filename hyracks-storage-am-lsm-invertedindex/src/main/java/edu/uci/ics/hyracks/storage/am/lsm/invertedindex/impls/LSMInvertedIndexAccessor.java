@@ -12,43 +12,43 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMHarness;
 
 public class LSMInvertedIndexAccessor implements ILSMIndexAccessor {
 
-	protected LSMHarness lsmHarness;
-	protected IIndexOpContext ctx;
+    protected LSMHarness lsmHarness;
+    protected IIndexOpContext ctx;
 
-	public LSMInvertedIndexAccessor (LSMHarness lsmHarness, IIndexOpContext ctx) {
-		this.lsmHarness = lsmHarness;
-		this.ctx = ctx;
-	}
+    public LSMInvertedIndexAccessor(LSMHarness lsmHarness, IIndexOpContext ctx) {
+        this.lsmHarness = lsmHarness;
+        this.ctx = ctx;
+    }
 
-	public void insert(ITupleReference tuple) throws HyracksDataException, IndexException {
-		ctx.reset(IndexOp.INSERT);
-		lsmHarness.insertUpdateOrDelete(tuple, ctx);
-	}
+    public void insert(ITupleReference tuple) throws HyracksDataException, IndexException {
+        ctx.reset(IndexOp.INSERT);
+        lsmHarness.insertUpdateOrDelete(tuple, ctx);
+    }
 
-	public void update(ITupleReference tuple) throws HyracksDataException, IndexException {
-		//not supported yet
-	}
+    public void update(ITupleReference tuple) throws HyracksDataException, IndexException {
+        //not supported yet
+    }
 
-	public void delete(ITupleReference tuple) throws HyracksDataException, IndexException {
-		//not supported yet
-	}
+    public void delete(ITupleReference tuple) throws HyracksDataException, IndexException {
+        //not supported yet
+    }
 
-	public IIndexCursor createSearchCursor() {
-		return (IIndexCursor) new Object();  //TODO change this!!
-		//return new LSMInvertedIndexSearchCursor(); 
-	}
+    public IIndexCursor createSearchCursor() {
+        return (IIndexCursor) new Object(); //TODO change this!!
+        //return new LSMInvertedIndexSearchCursor(); 
+    }
 
-	public void search(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
-		ctx.reset(IndexOp.SEARCH);
-		//search include in-memory components
-		lsmHarness.search(cursor, searchPred, ctx, true); 
-	}
+    public void search(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
+        ctx.reset(IndexOp.SEARCH);
+        //search include in-memory components
+        lsmHarness.search(cursor, searchPred, ctx, true);
+    }
 
-	public void flush() throws HyracksDataException, IndexException {
-		lsmHarness.flush();
-	}
+    public void flush() throws HyracksDataException, IndexException {
+        lsmHarness.flush();
+    }
 
-	public void merge() throws HyracksDataException, IndexException {
-		lsmHarness.merge();
-	}
+    public void merge() throws HyracksDataException, IndexException {
+        lsmHarness.merge();
+    }
 }

@@ -29,31 +29,25 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
-public class InvertedIndexFactory <T extends IInvertedIndex> {
-	
-	protected IBufferCache 					bufferCache; 
-	protected BTree 						btree;
-	protected ITypeTraits[] 				invListTypeTraits;
-	protected IBinaryComparatorFactory[] 	invListCmpFactories; 
-	protected IInvertedListBuilder 			invListBuilder;
-	protected IBinaryTokenizer 				tokenizer;
-	protected int 							numTokenFields;
-	protected int 							numInvListKeys;
+public class InvertedIndexFactory<T extends IInvertedIndex> {
 
-	protected RangePredicate 				btreePred;
-	protected ITreeIndexFrame 				leafFrame;
-	protected ITreeIndexCursor 				btreeCursor;
-	protected MultiComparator 				searchCmp;
-	
-    public InvertedIndexFactory(
-    		IBufferCache 				bufferCache, 
-    		BTree 						btree, 
-    		ITypeTraits[] 				invListTypeTraits,
-            IBinaryComparatorFactory[] 	invListCmpFactories, 
-            IInvertedListBuilder 		invListBuilder,
-            IBinaryTokenizer 			tokenizer
-    ) 
-    {
+    protected IBufferCache bufferCache;
+    protected BTree btree;
+    protected ITypeTraits[] invListTypeTraits;
+    protected IBinaryComparatorFactory[] invListCmpFactories;
+    protected IInvertedListBuilder invListBuilder;
+    protected IBinaryTokenizer tokenizer;
+    protected int numTokenFields;
+    protected int numInvListKeys;
+
+    protected RangePredicate btreePred;
+    protected ITreeIndexFrame leafFrame;
+    protected ITreeIndexCursor btreeCursor;
+    protected MultiComparator searchCmp;
+
+    public InvertedIndexFactory(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListTypeTraits,
+            IBinaryComparatorFactory[] invListCmpFactories, IInvertedListBuilder invListBuilder,
+            IBinaryTokenizer tokenizer) {
         this.bufferCache = bufferCache;
         this.btree = btree;
         this.invListTypeTraits = invListTypeTraits;
@@ -71,9 +65,9 @@ public class InvertedIndexFactory <T extends IInvertedIndex> {
         btreePred.setLowKeyComparator(searchCmp);
         btreePred.setHighKeyComparator(searchCmp);
     }
-	
-    public T createIndexInstance() 
-    {
-    	return (T) new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories, invListBuilder, tokenizer);
-	}    
+
+    public T createIndexInstance() {
+        return (T) new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories, invListBuilder,
+                tokenizer);
+    }
 }

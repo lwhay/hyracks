@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
@@ -38,52 +39,49 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 public class LSMInvertedIndex implements ILSMIndex {
-	
-    private final LSMHarness 				lsmHarness;
-    private final IInvertedIndex			memoryBTreeInvertedIndex;
-    private final InvertedIndexFactory 		diskInvertedIndexFactory;
-    private final ILSMFileManager 			fileManager;
-    private final IFileMapProvider 			diskFileMapProvider;
-    private final ILSMComponentFinalizer 	componentFinalizer;
-    private LinkedList<Object> 				diskInvertedIndex = new LinkedList<Object>();
-    
-	public LSMInvertedIndex(
-			IInvertedIndex 			memoryBTreeInvertedIndex,
-			InvertedIndexFactory 	diskInvertedIndexFactory,
-			ILSMFileManager 		fileManager,
-			IFileMapProvider 		diskFileMapProvider	
-	)
-	{
-		this.memoryBTreeInvertedIndex = memoryBTreeInvertedIndex;
-		this.diskInvertedIndexFactory = diskInvertedIndexFactory;
-		this.fileManager = fileManager;
-		this.diskFileMapProvider = diskFileMapProvider;
-		this.lsmHarness = new LSMHarness(this);
-		this.componentFinalizer = new TreeIndexComponentFinalizer(diskFileMapProvider); 
-	}
-    
-	@Override
+
+    private final LSMHarness lsmHarness;
+    private final IInvertedIndex memoryInvertedIndex;
+    private final InvertedIndexFactory diskInvertedIndexFactory;
+    private final ILSMFileManager fileManager;
+    private final IFileMapProvider diskFileMapProvider;
+    private final ILSMComponentFinalizer componentFinalizer;
+    private LinkedList<Object> diskInvertedIndex = new LinkedList<Object>();
+
+    public LSMInvertedIndex(IInvertedIndex memoryBTreeInvertedIndex, InvertedIndexFactory diskInvertedIndexFactory,
+            ILSMFileManager fileManager, IFileMapProvider diskFileMapProvider) {
+        this.memoryInvertedIndex = memoryBTreeInvertedIndex;
+        this.diskInvertedIndexFactory = diskInvertedIndexFactory;
+        this.fileManager = fileManager;
+        this.diskFileMapProvider = diskFileMapProvider;
+        this.lsmHarness = new LSMHarness(this);
+        this.componentFinalizer = new TreeIndexComponentFinalizer(diskFileMapProvider);
+    }
+
+    @Override
     public void create(int indexFileId) throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void open(int indexFileId) throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void close() throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
-    @Override
     public IIndexAccessor createAccessor() {
-        // TODO Auto-generated method stub
-        return null;
+        return new LSMInvertedIndexAccessor(lsmHarness, createOpContext());
+    }
+    
+    public LSMInvertedIndexOpContext createOpContext() {
+        return new LSMInvertedIndexOpContext(memoryInvertedIndex);
     }
 
     @Override
@@ -95,13 +93,13 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
@@ -116,18 +114,25 @@ public class LSMInvertedIndex implements ILSMIndex {
         return null;
     }
 
-    @Override
     public boolean insertUpdateOrDelete(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException,
             IndexException {
-        // TODO Auto-generated method stub
-        return false;
+
+        LSMInvertedIndexOpContext ctx = (LSMInvertedIndexOpContext) ictx;
+
+        try {
+            ctx.getAccessor().insert(tuple);
+        } catch (BTreeDuplicateKeyException e) {
+            // This case should never happen in InMemoryBTreeInvertedIndex.
+        }
+
+        return true;
     }
 
     @Override
     public void search(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
             boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
@@ -139,13 +144,13 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void addMergedComponent(Object newComponent, List<Object> mergedComponents) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
     public void cleanUpAfterMerge(List<Object> mergedComponents) throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
@@ -157,7 +162,7 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void addFlushedComponent(Object index) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
@@ -169,7 +174,7 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void resetInMemoryComponent() throws HyracksDataException {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
