@@ -27,47 +27,57 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.BTreeFactory;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class InvertedIndexFactory<T extends IInvertedIndex> {
 
     protected IBufferCache bufferCache;
-    protected BTree btree;
     protected ITypeTraits[] invListTypeTraits;
     protected IBinaryComparatorFactory[] invListCmpFactories;
     protected IInvertedListBuilder invListBuilder;
     protected IBinaryTokenizer tokenizer;
     protected int numTokenFields;
     protected int numInvListKeys;
-
+    
     protected RangePredicate btreePred;
     protected ITreeIndexFrame leafFrame;
     protected ITreeIndexCursor btreeCursor;
     protected MultiComparator searchCmp;
-
-    public InvertedIndexFactory(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListTypeTraits,
+    
+    protected ILSMFileManager fileManager;
+    
+    public InvertedIndexFactory(IBufferCache bufferCache, ITypeTraits[] invListTypeTraits,
             IBinaryComparatorFactory[] invListCmpFactories, IInvertedListBuilder invListBuilder,
-            IBinaryTokenizer tokenizer) {
+            IBinaryTokenizer tokenizer, ILSMFileManager fileManager) {
         this.bufferCache = bufferCache;
-        this.btree = btree;
         this.invListTypeTraits = invListTypeTraits;
         this.invListCmpFactories = invListCmpFactories;
         this.invListBuilder = invListBuilder;
         this.tokenizer = tokenizer;
-        this.numTokenFields = btree.getComparatorFactories().length;
+        //this.numTokenFields = btree.getComparatorFactories().length;
         this.numInvListKeys = invListCmpFactories.length;
 
         // setup for cursor creation
-        btreePred = new RangePredicate(null, null, true, true, null, null);
-        leafFrame = btree.getLeafFrameFactory().createFrame();
-        btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame, false);
-        searchCmp = MultiComparator.create(btree.getComparatorFactories());
-        btreePred.setLowKeyComparator(searchCmp);
-        btreePred.setHighKeyComparator(searchCmp);
+//        
+//        btreePred = new RangePredicate(null, null, true, true, null, null);
+//        leafFrame = btree.getLeafFrameFactory().createFrame();
+//        btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame, false);
+//        searchCmp = MultiComparator.create(btree.getComparatorFactories());
+//        btreePred.setLowKeyComparator(searchCmp);
+//        btreePred.setHighKeyComparator(searchCmp);
+        
+        // fileManager for creating a file of a diskInvertedIndex
+        this.fileManager = fileManager;
     }
 
-    public T createIndexInstance() {
+    public T createIndexInstance(BTree btree) {
         return (T) new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories, invListBuilder,
-                tokenizer);
+                tokenizer);               
+    }
+    
+    public IBufferCache getBufferCache() {
+        return bufferCache;
     }
 }
