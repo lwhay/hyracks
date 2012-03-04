@@ -14,7 +14,7 @@
  */
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 
-import java.io.File;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -143,8 +143,25 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void search(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
             boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException {
-        // TODO Auto-generated method stub
+        IIndexAccessor componentAccessor;
 
+        // Over-provision by 1 if includeMemComponent == false, but that's okay!
+        ArrayList<IIndexAccessor> indexAccessors = new ArrayList<IIndexAccessor>(diskComponents.size() + 1);
+
+        if (includeMemComponent) {
+            componentAccessor = memoryInvertedIndex.createAccessor();
+            indexAccessors.add(componentAccessor);
+        }
+
+        for (int i = 0; i < diskComponents.size(); i++) {
+            componentAccessor = ((IInvertedIndex) diskComponents.get(i)).createAccessor();
+            indexAccessors.add(componentAccessor);
+        }
+
+        LSMInvertedIndexCursorInitialState initState = new LSMInvertedIndexCursorInitialState(indexAccessors,
+                includeMemComponent, searcherRefCount, lsmHarness);
+        LSMInvertedIndexSearchCursor lsmCursor = (LSMInvertedIndexSearchCursor) cursor;
+        lsmCursor.open(initState, pred);
     }
 
     @Override

@@ -34,8 +34,7 @@ public class LSMInvertedIndexAccessor implements ILSMIndexAccessor {
     }
 
     public IIndexCursor createSearchCursor() {
-        return (IIndexCursor) new Object(); //TODO change this!!
-        //return new LSMInvertedIndexSearchCursor(); 
+        return new LSMInvertedIndexSearchCursor(); 
     }
 
     public void search(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
