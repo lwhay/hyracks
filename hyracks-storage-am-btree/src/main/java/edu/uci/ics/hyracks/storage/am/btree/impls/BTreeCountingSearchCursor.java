@@ -166,6 +166,9 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
                 int nextLeafPage = frame.getNextLeaf();
                 if (nextLeafPage >= 0) {
                     fetchNextLeafPage(nextLeafPage);
+                } else {
+                    // No more pages. Done counting!
+                    break;
                 }
 
                 tupleIndex = 0;

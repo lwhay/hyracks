@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
-import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
@@ -56,6 +55,10 @@ public class LSMInvertedIndex implements ILSMIndex {
     private final ILSMComponentFinalizer componentFinalizer;
     private LinkedList<Object> diskInvertedIndexList = new LinkedList<Object>();
     private final IBufferCache diskBufferCache;
+    
+    private final IIndexAccessor memAccessor;
+
+    private boolean isOpen;
 
     public LSMInvertedIndex(IInvertedIndex memoryBTreeInvertedIndex, BTreeFactory diskBTreeFactory,
             InvertedIndexFactory diskInvertedIndexFactory, ILSMFileManager fileManager,
@@ -68,32 +71,49 @@ public class LSMInvertedIndex implements ILSMIndex {
         this.lsmHarness = new LSMHarness(this);
         this.componentFinalizer = new TreeIndexComponentFinalizer(diskFileMapProvider);
         this.diskBufferCache = diskBTreeFactory.getBufferCache();
+        this.memAccessor = memoryBTreeInvertedIndex.createAccessor();
     }
 
     @Override
     public void create(int indexFileId) throws HyracksDataException {
-        // TODO Auto-generated method stub
-
+        // TODO: What else is needed here?
+        memoryInvertedIndex.create(indexFileId);
+        fileManager.createDirs();
     }
 
     @Override
     public void open(int indexFileId) throws HyracksDataException {
-        // TODO Auto-generated method stub
+        synchronized (this) {
+            if (isOpen)
+                return;
+
+            isOpen = true;
+            memoryInvertedIndex.open(indexFileId);
+            // TODO: What else is needed here?
+            // ...
+        }
 
     }
 
     @Override
     public void close() throws HyracksDataException {
-        // TODO Auto-generated method stub
-
+        synchronized (this) {
+            if (!isOpen) {
+                return;
+            }
+            // TODO: What else is needed here?
+            // ...
+            memoryInvertedIndex.close();
+            isOpen = false;
+        }
     }
 
     public IIndexAccessor createAccessor() {
         return new LSMInvertedIndexAccessor(lsmHarness, createOpContext());
     }
 
-    public LSMInvertedIndexOpContext createOpContext() {
-        return new LSMInvertedIndexOpContext(memoryInvertedIndex);
+    private LSMInvertedIndexOpContext createOpContext() {
+        return new LSMInvertedIndexOpContext();
     }
 
     @Override
@@ -116,26 +136,20 @@ public class LSMInvertedIndex implements ILSMIndex {
 
     @Override
     public IBufferCache getBufferCache() {
-        // TODO Auto-generated method stub
-        return null;
+        return diskBufferCache;
     }
 
     @Override
     public IndexType getIndexType() {
-        // TODO Auto-generated method stub
-        return null;
+        return IndexType.INVERTED;
     }
 
     public boolean insertUpdateOrDelete(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException,
             IndexException {
-
+        // TODO: Only insert is supported for now. Will need the context for later when update and delete 
+        // are also supported.
         LSMInvertedIndexOpContext ctx = (LSMInvertedIndexOpContext) ictx;
-
-        try {
-            ctx.getAccessor().insert(tuple);
-        } catch (BTreeDuplicateKeyException e) {
-            // This case should never happen in InMemoryBTreeInvertedIndex.
-        }
+        memAccessor.insert(tuple);
 
         return true;
     }
@@ -208,7 +222,7 @@ public class LSMInvertedIndex implements ILSMIndex {
         BTree diskBTree = createBTreeFlushTarget();
         //    - Create an InvertedIndex instance
         InvertedIndex diskInvertedIndex = createInvertedIndexFlushTarget(diskBTree);
-        
+
         // #. Begin the bulkload of the diskInvertedIndex.
         IIndexBulkLoadContext bulkLoadCtx = diskInvertedIndex.beginBulkLoad(1.0f);
         try {
@@ -219,7 +233,7 @@ public class LSMInvertedIndex implements ILSMIndex {
         } finally {
             scanCursor.close();
         }
-        diskInvertedIndex.endBulkLoad(bulkLoadCtx);        
+        diskInvertedIndex.endBulkLoad(bulkLoadCtx);
 
         return diskInvertedIndex;
     }
@@ -280,7 +294,6 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public void resetInMemoryComponent() throws HyracksDataException {
         // TODO Auto-generated method stub
-
     }
 
     @Override

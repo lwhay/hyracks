@@ -15,33 +15,24 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
-import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 
 public class LSMInvertedIndexOpContext implements IIndexOpContext {
     
-    private IIndexAccessor memoryInvertedIndexAccessor;
-
-    public LSMInvertedIndexOpContext(IInvertedIndex memoryInvertedIndex) {
-        memoryInvertedIndexAccessor = memoryInvertedIndex.createAccessor();
+    private IndexOp op;
+    
+    public LSMInvertedIndexOpContext() {
     }
     
     @Override
     public void reset() {
         // TODO Auto-generated method stub
-
     }
 
     @Override
     public void reset(IndexOp newOp) {
-        // TODO Auto-generated method stub
-
+        op = newOp;
     }
     
-    public IIndexAccessor getAccessor() {
-        return memoryInvertedIndexAccessor;
-    }
-
 }

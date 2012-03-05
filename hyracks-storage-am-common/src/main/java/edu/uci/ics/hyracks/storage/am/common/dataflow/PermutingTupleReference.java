@@ -26,12 +26,12 @@ public class PermutingTupleReference implements ITupleReference {
 
     @Override
     public int getFieldStart(int fIdx) {
-        return (fieldPermutation[fIdx] == 0) ? 0 : fEndOffsets[fieldPermutation[fIdx - 1]];
+        return (fieldPermutation[fIdx] == 0) ? 0 : fEndOffsets[fieldPermutation[fIdx] - 1];
     }
 
     @Override
     public int getFieldLength(int fIdx) {
         return (fieldPermutation[fIdx] == 0) ? fEndOffsets[0] : fEndOffsets[fieldPermutation[fIdx]]
-                - fEndOffsets[fieldPermutation[fIdx - 1]];
+                - fEndOffsets[fieldPermutation[fIdx] - 1];
     }
 }

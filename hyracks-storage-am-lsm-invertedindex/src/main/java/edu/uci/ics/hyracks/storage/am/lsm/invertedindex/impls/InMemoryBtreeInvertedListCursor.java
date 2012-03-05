@@ -23,8 +23,11 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ByteArrayAccessibleOutputStream;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeCountingSearchCursor;
@@ -53,14 +56,15 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
         this.btreePred = new RangePredicate(null, null, true, true, null, null);
         this.leafFrame = (IBTreeLeafFrame) btree.getLeafFrameFactory().createFrame();
         this.btreeCursor = new BTreeRangeSearchCursor(leafFrame, false);
+        setTokenFieldComparators(btree.getComparatorFactories(), btree.getComparatorFactories().length
+                - invListFields.length);
         btreePred.setLowKeyComparator(tokenFieldsCmp);
         btreePred.setHighKeyComparator(tokenFieldsCmp);
-        setKeyFieldComparators(btree.getComparatorFactories(), invListFields.length);
     }
 
-    private void setKeyFieldComparators(IBinaryComparatorFactory[] cmpFactories, int numKeyFields) {
-        IBinaryComparatorFactory[] keyFieldCmpFactories = new IBinaryComparatorFactory[numKeyFields];
-        System.arraycopy(cmpFactories, 0, keyFieldCmpFactories, 0, numKeyFields);
+    private void setTokenFieldComparators(IBinaryComparatorFactory[] cmpFactories, int numTokenFields) {
+        IBinaryComparatorFactory[] keyFieldCmpFactories = new IBinaryComparatorFactory[numTokenFields];
+        System.arraycopy(cmpFactories, 0, keyFieldCmpFactories, 0, numTokenFields);
         tokenFieldsCmp = MultiComparator.create(keyFieldCmpFactories);
     }
 
@@ -70,11 +74,24 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
     }
 
     public void reset(ITupleReference tuple) throws HyracksDataException, IndexException {
+        numElements = -1;
         tokenTuple = tuple;
         btreeCursor = (BTreeRangeSearchCursor) btreeAccessor.createSearchCursor();
-        btreePred.setLowKey(tokenTuple, true);
-        btreePred.setHighKey(tokenTuple, true);
+        btreePred.setLowKey(tuple, true);
+        btreePred.setHighKey(tuple, true);
         btreeAccessor.search(btreeCursor, btreePred);
+//
+//        //        BTreeRangeSearchCursor scanCursor = (BTreeRangeSearchCursor) btreeAccessor.createSearchCursor();
+//        //        RangePredicate scanPred = new RangePredicate(null, null, true, true, MultiComparator.create(btree
+//        //                .getComparatorFactories()), MultiComparator.create(btree.getComparatorFactories()));
+//        //        btreeAccessor.search(scanCursor, scanPred);
+//                while (btreeCursor.hasNext()) {
+//                    btreeCursor.next();
+//                    String t = TupleUtils.printTuple(btreeCursor.getTuple(), new ISerializerDeserializer[] {
+//                            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+//                    System.out.println(t);
+//                }
+//                btreeCursor.close();
     }
 
     @Override
@@ -108,16 +125,33 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
     }
 
     public ITupleReference getTuple() throws HyracksDataException {
-        ITupleReference tuple = btreeCursor.getTuple();
         PermutingTupleReference projectedTuple = new PermutingTupleReference();
-        int[] fEndOffsets = new int[tokenFieldsCmp.getKeyFieldCount()];
-        int[] fieldPermutation = new int[tokenFieldsCmp.getKeyFieldCount()];
-        int numTokenKeys = btree.getFieldCount();
-        for (int i = 0; i < tuple.getFieldCount(); i++) {
+        ITupleReference tuple = btreeCursor.getTuple();
+        int tupleFieldCount = tuple.getFieldCount();
+        int tokensFieldCount = tokenFieldsCmp.getKeyFieldCount();
+
+        int[] fEndOffsets = new int[tupleFieldCount];
+        int[] fieldPermutation = new int[tupleFieldCount - tokensFieldCount];
+
+        for (int i = 0; i < tupleFieldCount; i++) {
             fEndOffsets[i] = tuple.getFieldStart(i) + tuple.getFieldLength(i);
-            fieldPermutation[i] = numTokenKeys + i;
         }
+
+        for (int i = 0; i < fieldPermutation.length; i++) {
+            fieldPermutation[i] = tokensFieldCount + i;
+        }
+
         projectedTuple.reset(fEndOffsets, fieldPermutation, tuple.getFieldData(0));
+//        System.out.println(TupleUtils.printTuple(tuple, new ISerializerDeserializer[] {
+//                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE }));
+//        //
+//        ByteArrayInputStream bais = new ByteArrayInputStream(tuple.getFieldData(0));
+//        bais.skip(projectedTuple.getFieldStart(0));
+//        DataInputStream dis = new DataInputStream(bais);
+//        int docId = IntegerSerializerDeserializer.INSTANCE.deserialize(dis).intValue();
+        //        System.out.println("DocID: " + docId);
+        //
+
         return projectedTuple;
     }
 
@@ -138,11 +172,13 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
                     DataInputStream dis = new DataInputStream(bais);
                     numElements = IntegerSerializerDeserializer.INSTANCE.deserialize(dis).intValue();
                 }
+                countCursor.close();
             } catch (HyracksDataException e) {
                 e.printStackTrace();
             } catch (IndexException e) {
                 e.printStackTrace();
             }
+
         }
 
         return numElements;

@@ -324,6 +324,7 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
 
             if (advanceCursor) {
                 invListTidx++;
+                invListCursor.hasNext();
                 invListCursor.next();
             }
         }
@@ -415,6 +416,7 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
 
             if (advanceCursor) {
                 invListTidx++;
+                invListCursor.hasNext();
                 invListCursor.next();
             }
         }
@@ -424,6 +426,7 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
             ITupleReference invListTuple = invListCursor.getTuple();
             newBufIdx = appendTupleToNewResults(invListTuple, 1, newBufIdx);
             invListTidx++;
+            invListCursor.hasNext();
             invListCursor.next();
         }
 

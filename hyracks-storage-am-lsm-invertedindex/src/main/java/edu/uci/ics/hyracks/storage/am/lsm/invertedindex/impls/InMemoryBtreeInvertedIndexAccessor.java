@@ -1,25 +1,36 @@
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 
+import edu.uci.ics.hyracks.api.context.IHyracksCommonContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
-import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
-import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
+import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearcher;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.DefaultHyracksCommonContext;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexSearchCursor;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexSearchPredicate;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.TOccurrenceSearcher;
+import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 
-public class InMemoryBtreeInvertedIndexAccessor implements ILSMIndexAccessor {
-
+public class InMemoryBtreeInvertedIndexAccessor implements IIndexAccessor {
+    private final IHyracksCommonContext hyracksCtx = new DefaultHyracksCommonContext();
+    private final IInvertedIndexSearcher searcher;
     protected IIndexOpContext ctx;
     protected InMemoryBtreeInvertedIndex memoryBtreeInvertedIndex;
-    
-    public InMemoryBtreeInvertedIndexAccessor(InMemoryBtreeInvertedIndex memoryBtreeInvertedIndex, IIndexOpContext ctx) {
+
+    public InMemoryBtreeInvertedIndexAccessor(InMemoryBtreeInvertedIndex memoryBtreeInvertedIndex, IIndexOpContext ctx,
+            IBinaryTokenizer tokenizer) {
         this.ctx = ctx;
         this.memoryBtreeInvertedIndex = memoryBtreeInvertedIndex;
+        this.searcher = new TOccurrenceSearcher(hyracksCtx, memoryBtreeInvertedIndex, tokenizer);
     }
-    
+
     public void insert(ITupleReference tuple) throws HyracksDataException, IndexException {
+        ctx.reset(IndexOp.INSERT);
         memoryBtreeInvertedIndex.insertUpdateOrDelete(tuple, ctx);
     }
 
@@ -37,26 +48,12 @@ public class InMemoryBtreeInvertedIndexAccessor implements ILSMIndexAccessor {
 
     @Override
     public IIndexCursor createSearchCursor() {
-        // TODO Auto-generated method stub
-        return null;
+        return new InvertedIndexSearchCursor(searcher);
     }
 
     @Override
     public void search(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void flush() throws HyracksDataException, IndexException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void merge() throws HyracksDataException, IndexException {
-        // TODO Auto-generated method stub
-
+        searcher.search((InvertedIndexSearchCursor) cursor, (InvertedIndexSearchPredicate) searchPred);
     }
 
 }

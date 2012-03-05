@@ -38,6 +38,13 @@
 			<type>jar</type>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.hyracks</groupId>
+			<artifactId>hyracks-data-std</artifactId>
+			<version>0.2.0-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 </project>
