@@ -7,10 +7,15 @@ import java.util.Date;
 import java.util.Random;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
+import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
+import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
+import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
@@ -21,7 +26,7 @@ import edu.uci.ics.hyracks.test.support.TestStorageManagerComponentHolder;
 import edu.uci.ics.hyracks.test.support.TestUtils;
 
 public class LSMInvertedIndexTestHarness {
-    
+
     private static final long RANDOM_SEED = 50;
     private static final int DEFAULT_DISK_PAGE_SIZE = 256;
     private static final int DEFAULT_DISK_NUM_PAGES = 1000;
@@ -29,27 +34,37 @@ public class LSMInvertedIndexTestHarness {
     private static final int DEFAULT_MEM_PAGE_SIZE = 256;
     private static final int DEFAULT_MEM_NUM_PAGES = 100;
     private static final int DEFAULT_HYRACKS_FRAME_SIZE = 128;
-    private static final int DUMMY_FILE_ID = -1;           
-    
+    private static final int DUMMY_FILE_ID = -1;
+
     protected final int diskPageSize;
     protected final int diskNumPages;
     protected final int diskMaxOpenFiles;
     protected final int memPageSize;
     protected final int memNumPages;
     protected final int hyracksFrameSize;
-    
+
     protected IOManager ioManager;
     protected IBufferCache diskBufferCache;
     protected IFileMapProvider diskFileMapProvider;
     protected InMemoryBufferCache memBufferCache;
     protected InMemoryFreePageManager memFreePageManager;
     protected IHyracksTaskContext ctx;
-    
+
     protected final Random rnd = new Random();
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
-    protected final static String sep = System.getProperty("file.separator");    
+    protected final static String sep = System.getProperty("file.separator");
     protected String onDiskDir;
-    
+
+    // Token information
+    protected ITypeTraits[] tokenTypeTraits = new ITypeTraits[] { UTF8StringPointable.TYPE_TRAITS };
+    protected IBinaryComparatorFactory[] tokenCmpFactories = new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+            .of(UTF8StringPointable.FACTORY) };
+
+    // Inverted list information
+    protected ITypeTraits[] invListTypeTraits = new ITypeTraits[] { IntegerPointable.TYPE_TRAITS };
+    protected IBinaryComparatorFactory[] invListCmpFactories = new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+            .of(IntegerPointable.FACTORY) };
+
     public LSMInvertedIndexTestHarness() {
         this.diskPageSize = DEFAULT_DISK_PAGE_SIZE;
         this.diskNumPages = DEFAULT_DISK_NUM_PAGES;
@@ -58,10 +73,9 @@ public class LSMInvertedIndexTestHarness {
         this.memNumPages = DEFAULT_MEM_NUM_PAGES;
         this.hyracksFrameSize = DEFAULT_HYRACKS_FRAME_SIZE;
     }
-    
-    public LSMInvertedIndexTestHarness(int diskPageSize, int diskNumPages,
-            int diskMaxOpenFiles, int memPageSize, int memNumPages,
-            int hyracksFrameSize) {
+
+    public LSMInvertedIndexTestHarness(int diskPageSize, int diskNumPages, int diskMaxOpenFiles, int memPageSize,
+            int memNumPages, int hyracksFrameSize) {
         this.diskPageSize = diskPageSize;
         this.diskNumPages = diskNumPages;
         this.diskMaxOpenFiles = diskMaxOpenFiles;
@@ -69,8 +83,8 @@ public class LSMInvertedIndexTestHarness {
         this.memNumPages = memNumPages;
         this.hyracksFrameSize = hyracksFrameSize;
     }
-    
-    public void setUp() throws HyracksException {        
+
+    public void setUp() throws HyracksException {
         onDiskDir = "lsm_invertedindex_" + simpleDateFormat.format(new Date()) + sep;
         ctx = TestUtils.create(getHyracksFrameSize());
         TestStorageManagerComponentHolder.init(diskPageSize, diskNumPages, diskMaxOpenFiles);
@@ -81,10 +95,10 @@ public class LSMInvertedIndexTestHarness {
         ioManager = TestStorageManagerComponentHolder.getIOManager();
         rnd.setSeed(RANDOM_SEED);
     }
-    
+
     public void tearDown() throws HyracksDataException {
         diskBufferCache.close();
-        for(IODeviceHandle dev : ioManager.getIODevices()) {            
+        for (IODeviceHandle dev : ioManager.getIODevices()) {
             File dir = new File(dev.getPath(), onDiskDir);
             FilenameFilter filter = new FilenameFilter() {
                 public boolean accept(File dir, String name) {
@@ -101,64 +115,80 @@ public class LSMInvertedIndexTestHarness {
             dir.delete();
         }
     }
-    
+
     public int getDiskPageSize() {
         return diskPageSize;
     }
-    
+
     public int getDiskNumPages() {
         return diskNumPages;
     }
-    
+
     public int getDiskMaxOpenFiles() {
         return diskMaxOpenFiles;
     }
-    
+
     public int getMemPageSize() {
         return memPageSize;
     }
-    
+
     public int getMemNumPages() {
         return memNumPages;
     }
-    
+
     public int getHyracksFrameSize() {
         return hyracksFrameSize;
     }
-    
+
     public int getFileId() {
         return DUMMY_FILE_ID;
     }
-    
+
     public IOManager getIOManager() {
         return ioManager;
     }
-    
+
     public IBufferCache getDiskBufferCache() {
         return diskBufferCache;
     }
-    
+
     public IFileMapProvider getDiskFileMapProvider() {
         return diskFileMapProvider;
     }
-    
+
     public InMemoryBufferCache getMemBufferCache() {
         return memBufferCache;
     }
-    
+
     public InMemoryFreePageManager getMemFreePageManager() {
         return memFreePageManager;
     }
-    
+
     public IHyracksTaskContext getHyracksTastContext() {
         return ctx;
     }
-    
+
     public String getOnDiskDir() {
         return onDiskDir;
     }
-    
+
     public Random getRandom() {
         return rnd;
+    }
+    
+    public ITypeTraits[] getTokenTypeTraits() {
+        return tokenTypeTraits;
+    }
+    
+    public ITypeTraits[] getInvertedListTypeTraits() {
+        return invListTypeTraits;
+    }
+    
+    public IBinaryComparatorFactory[] getTokenBinaryComparatorFactories() {
+        return tokenCmpFactories;
+    }
+    
+    public IBinaryComparatorFactory[] getInvertedListBinaryComparatorFactories() {
+        return invListCmpFactories;
     }
 }

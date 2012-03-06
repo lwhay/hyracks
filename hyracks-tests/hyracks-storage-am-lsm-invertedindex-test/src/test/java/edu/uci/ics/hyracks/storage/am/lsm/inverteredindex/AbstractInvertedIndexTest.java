@@ -1,33 +1,52 @@
 package edu.uci.ics.hyracks.storage.am.lsm.inverteredindex;
 
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ByteArrayAccessibleOutputStream;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexSearchPredicate;
+import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.ConjunctiveSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
 
 public abstract class AbstractInvertedIndexTest {
+    protected Logger LOGGER;
+    protected LSMInvertedIndexTestHarness harness = new LSMInvertedIndexTestHarness();
+
     protected IInvertedIndex invertedIndex;
     protected IIndexAccessor invertedIndexAccessor;
     protected IBinaryComparator[] tokenComparators;
@@ -36,15 +55,50 @@ public abstract class AbstractInvertedIndexTest {
     // This number will only be used in generating random documents.
     // If predefined data is generated, then the number of documents is fixed.
     protected int numDocuments = 1000;
-    protected int maxDocumentLength = 300;
+    protected int maxDocumentLength = 50;
     protected Set<String> documents = new HashSet<String>();
+    protected Map<String, SortedSet<Integer>> baselineInvertedIndex = new HashMap<String, SortedSet<Integer>>();
+    
+    // Generate random data is false by default (generate predefined data is true!)
+    protected boolean random = false;
+
+    // Subclasses must implement these methods by initializing the proper class members
+    protected abstract void setTokenizer();
+
+    protected abstract void setInvertedIndex();
+
+    protected abstract void setLogger();
+
+    protected abstract void setRandom();
 
     @Before
-    protected abstract void setUp();
+    public void setUp() throws HyracksException {
+        harness.setUp();
+        setTokenizer();
+        setInvertedIndex();
+        setLogger();
+        setRandom();
+        generateData();
+
+        invertedIndex.create(harness.getFileId());
+        invertedIndex.open(harness.getFileId());
+        invertedIndexAccessor = invertedIndex.createAccessor();
+    }
 
     @After
-    protected abstract void tearDown();
-    
+    public void tearDown() throws HyracksDataException {
+        invertedIndex.close();
+        harness.tearDown();
+    }
+
+    protected void generateData() {
+        if (random) {
+            generateRandomDocumentData();
+        } else {
+            generatePredefinedDocumentData();
+        }
+    }
+
     protected void generateRandomDocumentData() {
         int documentLength;
         String validCharacters = "abcdefghijklmnopqrstuvwxyz ";
@@ -142,5 +196,124 @@ public abstract class AbstractInvertedIndexTest {
                 return cmp;
             }
         }
+    }
+
+    protected void buildBaselineIndex() throws IOException {
+        ITupleReference tuple;
+        IToken token;
+        SortedSet<Integer> baselineInvertedList = null;
+        ByteArrayAccessibleOutputStream baos = new ByteArrayAccessibleOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        ISerializerDeserializer[] fieldSerDes = new ISerializerDeserializer[] {
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
+
+        int docId = 0;
+        for (String document : documents) {
+            tuple = TupleUtils.createTuple(fieldSerDes, document, docId);
+
+            // Insert into the baseline
+            tokenizer.reset(tuple.getFieldData(0), tuple.getFieldStart(0), tuple.getFieldLength(0));
+            while (tokenizer.hasNext()) {
+                baos.reset();
+                tokenizer.next();
+                token = tokenizer.getToken();
+                token.serializeToken(dos);
+                String tokenStr = (String) fieldSerDes[0].deserialize(new DataInputStream(new ByteArrayInputStream(baos
+                        .getByteArray())));
+                baselineInvertedList = baselineInvertedIndex.get(tokenStr);
+                if (baselineInvertedList == null) {
+                    baselineInvertedList = new TreeSet<Integer>();
+                    baselineInvertedIndex.put(tokenStr, baselineInvertedList);
+                }
+                baselineInvertedList.add(docId);
+            }
+            docId++;
+        }
+    }
+    
+    
+    protected void insertDocuments() throws HyracksDataException, IndexException {
+        ITupleReference tuple;
+        ISerializerDeserializer[] fieldSerDes = new ISerializerDeserializer[] {
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
+
+        // Insert the documents into the index while building the baseline
+        int docId = 0;
+        for (String document : documents) {
+            // Insert into the index to be tested
+            tuple = TupleUtils.createTuple(fieldSerDes, document, docId);
+            invertedIndexAccessor.insert(tuple);
+            docId++;
+        }
+    }
+
+    protected void verifyAgainstBaseline() throws HyracksDataException, IndexException {
+        ITupleReference tuple;
+        int docId;
+        SortedSet<Integer> baselineInvertedList = null;
+        SortedSet<Integer> testInvertedList = new TreeSet<Integer>();
+
+        // Query all tokens in the baseline
+        IIndexCursor resultCursor = invertedIndexAccessor.createSearchCursor();
+        ConjunctiveSearchModifier searchModifier = new ConjunctiveSearchModifier();
+        InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(searchModifier);
+        for (String tokenStr : baselineInvertedIndex.keySet()) {
+            tuple = TupleUtils.createTuple(new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE },
+                    tokenStr);
+            searchPred.setQueryTuple(tuple);
+            searchPred.setQueryFieldIndex(0);
+            resultCursor.reset();
+            invertedIndexAccessor.search(resultCursor, searchPred);
+
+            // Check the matches
+            testInvertedList.clear();
+            while (resultCursor.hasNext()) {
+                resultCursor.next();
+                baselineInvertedList = baselineInvertedIndex.get(tokenStr);
+                tuple = resultCursor.getTuple();
+                docId = IntegerSerializerDeserializer.getInt(tuple.getFieldData(0), tuple.getFieldStart(0));
+                testInvertedList.add(docId);
+            }
+
+            if (LOGGER != null && LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("\nQuery:\t\t\"" + tokenStr + "\"\n" + "Baseline:\t" + baselineInvertedList.toString()
+                        + "\n" + "Test:\t\t" + testInvertedList.toString() + "\n");
+            }
+            assertTrue(baselineInvertedList.containsAll(testInvertedList));
+        }
+    }
+    
+    protected void bulkLoadDocuments() throws IndexException, IOException {
+        List<TokenIdPair> pairs = new ArrayList<TokenIdPair>();
+        ArrayTupleBuilder tb = new ArrayTupleBuilder(2);
+        ArrayTupleReference tuple = new ArrayTupleReference();
+
+        // Generate pairs for sorting and bulk-loading
+        int docId = 0;
+        for (String s : documents) {
+            ByteArrayAccessibleOutputStream baaos = new ByteArrayAccessibleOutputStream();
+            DataOutputStream dos = new DataOutputStream(baaos);
+            UTF8StringSerializerDeserializer.INSTANCE.serialize(s, dos);
+            tokenizer.reset(baaos.getByteArray(), 0, baaos.size());
+            while (tokenizer.hasNext()) {
+                tokenizer.next();
+                IToken token = tokenizer.getToken();
+                pairs.add(new TokenIdPair(token, docId));
+            }
+            docId++;
+        }
+
+        Collections.sort(pairs);
+
+        IIndexBulkLoadContext bulkLoadCtx = invertedIndex.beginBulkLoad(1.0f);
+        for (TokenIdPair t : pairs) {
+            tb.reset();
+            tb.addField(t.baaos.getByteArray(), 0, t.baaos.getByteArray().length);
+            IntegerSerializerDeserializer.INSTANCE.serialize(t.id, tb.getDataOutput());
+            tb.addFieldEndOffset();
+            tuple.reset(tb.getFieldEndOffsets(), tb.getByteArray());
+            invertedIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
+        }
+        invertedIndex.endBulkLoad(bulkLoadCtx);
     }
 }

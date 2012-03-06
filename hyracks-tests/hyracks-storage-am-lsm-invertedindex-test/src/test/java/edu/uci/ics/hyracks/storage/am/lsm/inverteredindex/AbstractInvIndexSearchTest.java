@@ -15,7 +15,6 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.inverteredindex;
 
-import java.util.ArrayList;
 import java.util.Random;
 
 import org.junit.After;
@@ -24,7 +23,6 @@ import org.junit.Before;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
-import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;

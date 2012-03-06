@@ -18,37 +18,40 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.InMemoryBtreeInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.LSMInvertedIndex;
+import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class LSMInvertedIndexUtils {
     public static InMemoryBtreeInvertedIndex createInMemoryBTreeInvertedindex(InMemoryBufferCache memBufferCache,
-            InMemoryFreePageManager memFreePageManager, ITypeTraits[] btreeTypeTraits, ITypeTraits[] invListTypeTraits,
-            IBinaryComparatorFactory[] btreeCmpFactories, IBinaryComparatorFactory[] invListCmpFactories,
+            InMemoryFreePageManager memFreePageManager, ITypeTraits[] tokenTypeTraits, ITypeTraits[] invListTypeTraits,
+            IBinaryComparatorFactory[] tokenCmpFactories, IBinaryComparatorFactory[] invListCmpFactories,
             IBinaryTokenizer tokenizer) {
-        
+
         // Create the BTree
-        int fieldCount = btreeCmpFactories.length + invListCmpFactories.length;
-        IBinaryComparatorFactory[] combinedFactories = concatArrays(btreeCmpFactories, invListCmpFactories);
-        ITypeTraits[] combinedTraits = concatArrays(btreeTypeTraits, invListTypeTraits);
+        int fieldCount = tokenCmpFactories.length + invListCmpFactories.length;
+        IBinaryComparatorFactory[] combinedFactories = concatArrays(tokenCmpFactories, invListCmpFactories);
+        ITypeTraits[] combinedTraits = concatArrays(tokenTypeTraits, invListTypeTraits);
         ITreeIndexTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(combinedTraits);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
         BTree btree = new BTree(memBufferCache, fieldCount, combinedFactories, memFreePageManager,
                 interiorFrameFactory, leafFrameFactory);
-        
+
         return new InMemoryBtreeInvertedIndex(btree, invListTypeTraits, invListCmpFactories, tokenizer);
     }
 
-    private static <T> T[] concatArrays(T[] first, T[] last) {
-        T[] concated = Arrays.copyOf(first, first.length + last.length);
-        System.arraycopy(last, 0, concated, first.length, last.length);
-        return concated;
-    }
-
-    public static InvertedIndex createInvertedIndex() {
-        return null;
+    public static InvertedIndex createInvertedIndex(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListFields,
+            IBinaryComparatorFactory[] invListCmpFactories, IBinaryTokenizer tokenizer) {
+        IInvertedListBuilder builder = new FixedSizeElementInvertedListBuilder(invListFields);
+        return new InvertedIndex(bufferCache, btree, invListFields, invListCmpFactories, builder, tokenizer);
     }
 
     public static LSMInvertedIndex createLSMInvertedIndex() {
         return null;
+    }
+
+    private static <T> T[] concatArrays(T[] first, T[] last) {
+        T[] concatenated = Arrays.copyOf(first, first.length + last.length);
+        System.arraycopy(last, 0, concatenated, first.length, last.length);
+        return concatenated;
     }
 }
