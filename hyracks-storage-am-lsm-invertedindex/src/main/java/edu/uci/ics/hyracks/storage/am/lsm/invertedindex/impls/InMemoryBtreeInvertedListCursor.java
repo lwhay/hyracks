@@ -23,10 +23,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.ByteArrayAccessibleOutputStream;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
@@ -75,23 +73,11 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
 
     public void reset(ITupleReference tuple) throws HyracksDataException, IndexException {
         numElements = -1;
-        tokenTuple = tuple;
+        tokenTuple = TupleUtils.copyTuple(tuple);
         btreeCursor = (BTreeRangeSearchCursor) btreeAccessor.createSearchCursor();
         btreePred.setLowKey(tuple, true);
         btreePred.setHighKey(tuple, true);
         btreeAccessor.search(btreeCursor, btreePred);
-//
-//        //        BTreeRangeSearchCursor scanCursor = (BTreeRangeSearchCursor) btreeAccessor.createSearchCursor();
-//        //        RangePredicate scanPred = new RangePredicate(null, null, true, true, MultiComparator.create(btree
-//        //                .getComparatorFactories()), MultiComparator.create(btree.getComparatorFactories()));
-//        //        btreeAccessor.search(scanCursor, scanPred);
-//                while (btreeCursor.hasNext()) {
-//                    btreeCursor.next();
-//                    String t = TupleUtils.printTuple(btreeCursor.getTuple(), new ISerializerDeserializer[] {
-//                            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-//                    System.out.println(t);
-//                }
-//                btreeCursor.close();
     }
 
     @Override
@@ -142,15 +128,6 @@ public class InMemoryBtreeInvertedListCursor implements IInvertedListCursor {
         }
 
         projectedTuple.reset(fEndOffsets, fieldPermutation, tuple.getFieldData(0));
-//        System.out.println(TupleUtils.printTuple(tuple, new ISerializerDeserializer[] {
-//                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE }));
-//        //
-//        ByteArrayInputStream bais = new ByteArrayInputStream(tuple.getFieldData(0));
-//        bais.skip(projectedTuple.getFieldStart(0));
-//        DataInputStream dis = new DataInputStream(bais);
-//        int docId = IntegerSerializerDeserializer.INSTANCE.deserialize(dis).intValue();
-        //        System.out.println("DocID: " + docId);
-        //
 
         return projectedTuple;
     }

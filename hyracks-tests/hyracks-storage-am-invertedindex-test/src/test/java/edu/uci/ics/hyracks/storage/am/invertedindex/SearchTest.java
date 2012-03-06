@@ -212,7 +212,7 @@ public class SearchTest extends AbstractInvIndexSearchTest {
             }
             double avgTime = totalTime / (double) repeats;
             StringBuilder strBuilder = new StringBuilder();
-            strBuilder.append(i + ": " + "\"" + queryString + "\": " + avgTime + "ms" + "\n");
+            strBuilder.append(i + ": " + "\"" + queryString + "\" " + queryIndex + ": " + avgTime + "ms" + "\n");
             strBuilder.append("CANDIDATE RESULTS:\n");
             while (resultCursor.hasNext()) {
                 resultCursor.next();

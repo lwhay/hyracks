@@ -14,21 +14,15 @@
  */
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
@@ -36,9 +30,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
-import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
-import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
@@ -50,25 +42,20 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     private final IIndexAccessor btreeAccessor;
     private final ITypeTraits[] invListTypeTraits;
     private final IBinaryComparatorFactory[] invListCmpFactories;
-    private final IInvertedListBuilder invListBuilder;
     private final IBinaryTokenizer tokenizer;
     private final int numTokenFields;
-    private final int numInvListKeys;
 
     private final ArrayTupleBuilder btreeTupleBuilder;
     private final ArrayTupleReference btreeTupleReference;
 
     public InMemoryBtreeInvertedIndex(BTree btree, ITypeTraits[] invListTypeTraits,
-            IBinaryComparatorFactory[] invListCmpFactories, IInvertedListBuilder invListBuilder,
-            IBinaryTokenizer tokenizer) {
+            IBinaryComparatorFactory[] invListCmpFactories, IBinaryTokenizer tokenizer) {
         this.btree = btree;
         this.btreeAccessor = btree.createAccessor();
         this.invListTypeTraits = invListTypeTraits;
         this.invListCmpFactories = invListCmpFactories;
-        this.invListBuilder = invListBuilder;
         this.tokenizer = tokenizer;
         this.numTokenFields = btree.getComparatorFactories().length - invListCmpFactories.length;
-        this.numInvListKeys = invListCmpFactories.length;
 
         // To generate in-memory BTree tuples 
         this.btreeTupleBuilder = new ArrayTupleBuilder(btree.getFieldCount());
@@ -101,17 +88,13 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
         //sort the list in the order of term
         //insert a pair of (term, doc-id) into in-memory BTree until to the end of the list.
 
-//        byte[] docID = tuple.getFieldData(numTokenFields - 1);
-//        int docIDStart = tuple.getFieldStart(numTokenFields - 1);
-//        int docIDLength = tuple.getFieldLength(numTokenFields - 1);
-
         for (int i = 0; i < numTokenFields; i++) {
             tokenizer.reset(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
             while (tokenizer.hasNext()) {
                 tokenizer.next();
                 IToken token = tokenizer.getToken();
                 btreeTupleBuilder.reset();
-                
+
                 try {
                     token.serializeToken(btreeTupleBuilder.getDataOutput());
                 } catch (IOException e) {
@@ -121,16 +104,14 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
 
                 // This doesn't work for some reason.
                 //  btreeTupleBuilder.addField(token.getData(), token.getStart(), token.getTokenLength());
-                
+
                 btreeTupleBuilder.addField(tuple.getFieldData(0), tuple.getFieldStart(1), tuple.getFieldLength(1));
                 btreeTupleReference.reset(btreeTupleBuilder.getFieldEndOffsets(), btreeTupleBuilder.getByteArray());
-//                String strTuple = TupleUtils.printTuple(btreeTupleReference, new ISerializerDeserializer[] {
-//                        UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-//                System.out.println(strTuple);
+
                 try {
                     btreeAccessor.insert(btreeTupleReference);
                 } catch (BTreeDuplicateKeyException e) {
-                    // Consciously ignoring
+                    // Consciously ignoring... guarantees uniqueness!
                 }
             }
         }

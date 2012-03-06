@@ -20,11 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
-import org.apache.commons.lang3.text.WordUtils;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
@@ -33,20 +31,15 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDes
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
-import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleReference;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifier;
-import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexSearchPredicate;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.OccurrenceThresholdPanicException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.ConjunctiveSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.EditDistanceSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.JaccardSearchModifier;
-import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.DelimitedUTF8StringBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.NGramUTF8StringBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.UTF8NGramTokenFactory;
-import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.UTF8WordTokenFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.InMemoryBtreeInvertedIndexAccessor;
 
 public class SearchTest extends AbstractInvIndexSearchTest {
@@ -57,10 +50,8 @@ public class SearchTest extends AbstractInvIndexSearchTest {
 
     @Override
     protected void setTokenizer() {
-//        tokenFactory = new UTF8WordTokenFactory();
-//        tokenizer = new DelimitedUTF8StringBinaryTokenizer(true, false, tokenFactory);
-      tokenFactory = new UTF8NGramTokenFactory();
-      tokenizer = new NGramUTF8StringBinaryTokenizer(3, false, true, false, tokenFactory);
+        tokenFactory = new UTF8NGramTokenFactory();
+        tokenizer = new NGramUTF8StringBinaryTokenizer(3, false, true, false, tokenFactory);
     }
 
     @Before
@@ -120,31 +111,8 @@ public class SearchTest extends AbstractInvIndexSearchTest {
         for (String s : dataStrings) {
             TupleUtils.createTuple(tb, tuple, new ISerializerDeserializer[] {
                     UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE }, s, id++);
-//            System.out.println(TupleUtils.printTuple(tuple, new ISerializerDeserializer[] {
-//                    UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE }));
             accessor.insert(tuple);
         }
-        
-//        IIndexCursor searchCursor = accessor.createSearchCursor();
-//        IInvertedIndexSearchModifier searchModifier = new ConjunctiveSearchModifier();
-//        InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(searchModifier);
-//        queryTb.reset();
-//        UTF8StringSerializerDeserializer.INSTANCE.serialize(dataStrings.get(0), queryTb.getDataOutput());
-//        queryTb.addFieldEndOffset();
-//        queryTuple.reset(queryTb.getFieldEndOffsets(), queryTb.getByteArray());
-//
-//        // Set query tuple in search predicate.
-//        searchPred.setQueryTuple(queryTuple);
-//        searchPred.setQueryFieldIndex(0);
-//        searchCursor.reset();
-//        accessor.search(searchCursor, searchPred);
-//        while (searchCursor.hasNext()) {
-//            searchCursor.next();
-//            ITupleReference resultTuple = searchCursor.getTuple();
-//            int retId = IntegerSerializerDeserializer
-//                    .getInt(resultTuple.getFieldData(0), resultTuple.getFieldStart(0));
-//            System.out.println(dataStrings.get(0) + retId);
-//        }
     }
 
     /**

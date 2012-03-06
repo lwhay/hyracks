@@ -35,7 +35,7 @@ public class InvertedIndexSearchCursor implements IIndexCursor {
     private final IInvertedIndexSearcher invIndexSearcher;
     private final IFrameTupleAccessor fta;
     private final FixedSizeTupleReference resultTuple;
-    
+
     public InvertedIndexSearchCursor(IInvertedIndexSearcher invIndexSearcher) {
         this.invIndexSearcher = invIndexSearcher;
         this.fta = invIndexSearcher.createResultFrameTupleAccessor();
@@ -52,7 +52,7 @@ public class InvertedIndexSearchCursor implements IIndexCursor {
             fta.reset(resultBuffers.get(0));
         }
     }
-    
+
     @Override
     public boolean hasNext() {
         if (currentBufferIndex < numResultBuffers && tupleIndex < fta.getTupleCount()) {

@@ -35,9 +35,7 @@ public class LSMInvertedIndexUtils {
         BTree btree = new BTree(memBufferCache, fieldCount, combinedFactories, memFreePageManager,
                 interiorFrameFactory, leafFrameFactory);
         
-        IInvertedListBuilder listBuilder = new FixedSizeElementInvertedListBuilder(invListTypeTraits);
-        
-        return new InMemoryBtreeInvertedIndex(btree, invListTypeTraits, invListCmpFactories, listBuilder, tokenizer);
+        return new InMemoryBtreeInvertedIndex(btree, invListTypeTraits, invListCmpFactories, tokenizer);
     }
 
     private static <T> T[] concatArrays(T[] first, T[] last) {
