@@ -366,6 +366,12 @@ public class LSMBTree implements ILSMIndex, ITreeIndex {
         lsmTreeCursor.initPriorityQueue();
     }
     
+    //Temporary function to make InvertedIndex merge operation compatible to LSMHarness
+    public void mergeSearch(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
+            boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException {
+        //do nothing!
+    }
+    
     public ITreeIndex merge(List<Object> mergedComponents) throws HyracksDataException, IndexException  {
         LSMBTreeOpContext ctx = createOpContext();
         ITreeIndexCursor cursor = new LSMBTreeRangeSearchCursor();

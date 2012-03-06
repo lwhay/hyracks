@@ -319,5 +319,9 @@ public class InvertedIndex implements IInvertedIndex {
     public IndexType getIndexType() {
         return IndexType.INVERTED;
     }
+    
+    public int getFileId() {
+        return fileId;
+    }
 
 }

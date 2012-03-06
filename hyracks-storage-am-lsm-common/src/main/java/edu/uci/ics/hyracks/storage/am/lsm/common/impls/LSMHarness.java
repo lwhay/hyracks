@@ -172,6 +172,43 @@ public class LSMHarness {
         return diskComponentSnapshot;
     }
 
+    public List<Object> mergeSearch(IIndexCursor cursor, ISearchPredicate pred, IIndexOpContext ctx,
+            boolean includeMemComponent) throws HyracksDataException, IndexException {
+        // If the search doesn't include the in-memory component, then we don't have
+        // to synchronize with a flush.
+        if (includeMemComponent) {
+            boolean waitForFlush = true;
+            do {
+                synchronized (this) {
+                    if (!flushFlag) {
+                        // The corresponding threadExit() is in
+                        // LSMTreeRangeSearchCursor.close().
+                        threadEnter();
+                        waitForFlush = false;
+                    }
+                }
+            } while (waitForFlush);
+        }
+
+        // Get a snapshot of the current on-disk Trees.
+        // If includeMemComponent is true, then no concurrent
+        // flush can add another on-disk Tree (due to threadEnter());
+        // If includeMemComponent is false, then it is possible that a concurrent
+        // flush adds another on-disk Tree.
+        // Since this mode is only used for merging trees, it doesn't really
+        // matter if the merge excludes the new on-disk Tree.
+        List<Object> diskComponentSnapshot = new ArrayList<Object>();
+        AtomicInteger localSearcherRefCount = null;
+        synchronized (diskComponentsSync) {
+            diskComponentSnapshot.addAll(lsmIndex.getDiskComponents());
+            localSearcherRefCount = searcherRefCount;
+            localSearcherRefCount.incrementAndGet();
+        }
+
+        lsmIndex.mergeSearch(cursor, diskComponentSnapshot, pred, ctx, includeMemComponent, localSearcherRefCount);
+        return diskComponentSnapshot;
+    }
+    
     public void merge() throws HyracksDataException, IndexException  {
         if (!isMerging.compareAndSet(false, true)) {
             throw new LSMMergeInProgressException("Merge already in progress in LSMTree. Only one concurrent merge allowed.");

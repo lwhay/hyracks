@@ -14,9 +14,11 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 public class InvertedIndexAccessor implements IIndexAccessor {
     private final IHyracksCommonContext ctx = new DefaultHyracksCommonContext();
     private final IInvertedIndexSearcher searcher;
+    private final IInvertedIndex invIndex;
 
     public InvertedIndexAccessor(IInvertedIndex index, IBinaryTokenizer tokenizer) {
         this.searcher = new TOccurrenceSearcher(ctx, index, tokenizer);
+        this.invIndex = index;
     }
 
     @Override
@@ -42,6 +44,14 @@ public class InvertedIndexAccessor implements IIndexAccessor {
     @Override
     public void search(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
         searcher.search((InvertedIndexSearchCursor) cursor, (InvertedIndexSearchPredicate) searchPred);
+    }
+    
+    public IIndexCursor createRangeSearchCursor() {
+        return new InvertedIndexRangeSearchCursor(invIndex);
+    }
+
+    public void rangeSearch(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
+        cursor.open(null, searchPred);
     }
 
     public IInvertedIndexSearcher getSearcher() {

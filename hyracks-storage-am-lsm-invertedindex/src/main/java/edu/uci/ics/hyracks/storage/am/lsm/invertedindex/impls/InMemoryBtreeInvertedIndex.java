@@ -34,6 +34,7 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
+import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
@@ -112,6 +113,12 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
                     btreeAccessor.insert(btreeTupleReference);
                 } catch (BTreeDuplicateKeyException e) {
                     // Consciously ignoring... guarantees uniqueness!
+                    // When duplication occurs, the current insert can be simply ignored 
+                    // since the current inverted list stores doc-id only.
+                    // TODO 
+                    // We may work around this duplication issue by pre-processing the inserted document.
+                    // This pre-processing will generate only unique <term, doc-id> pair for each document.
+                    // Therefore there will be no duplication in in-memory BTree.    
                 }
             }
         }
@@ -173,5 +180,4 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     public BTree getBTree() {
         return btree;
     }
-
 }

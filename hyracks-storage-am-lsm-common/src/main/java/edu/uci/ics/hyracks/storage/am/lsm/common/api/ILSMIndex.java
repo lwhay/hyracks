@@ -43,6 +43,10 @@ public interface ILSMIndex extends IIndex {
     public void search(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred,
             IIndexOpContext ictx, boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException;
 
+    //Temporary function to make InvertedIndex merge operation compatible to LSMHarness
+    public void mergeSearch(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
+            boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException;
+    
     public Object merge(List<Object> mergedComponents) throws HyracksDataException, IndexException;
 
     public void addMergedComponent(Object newComponent, List<Object> mergedComponents);

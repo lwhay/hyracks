@@ -425,6 +425,12 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         return new LSMRTreeComponent(diskRTree, diskBTree);
     }
 
+    //Temporary function to make InvertedIndex merge operation compatible to LSMHarness
+    public void mergeSearch(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
+            boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException {
+        //do nothing!
+    }
+    
     @Override
     public Object merge(List<Object> mergedComponents) throws HyracksDataException, IndexException {
         // Renaming order is critical because we use assume ordering when we
