@@ -41,6 +41,7 @@ public class LSMInvertedIndexUtils {
 
     public static InvertedIndex createInvertedIndex(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListFields,
             IBinaryComparatorFactory[] invListCmpFactories, IBinaryTokenizer tokenizer) {
+        
         IInvertedListBuilder builder = new FixedSizeElementInvertedListBuilder(invListFields);
         return new InvertedIndex(bufferCache, btree, invListFields, invListCmpFactories, builder, tokenizer);
     }

@@ -9,11 +9,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.logging.Level;
@@ -23,6 +21,7 @@ import org.junit.After;
 import org.junit.Before;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
@@ -38,7 +37,9 @@ import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
+import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndexSearchPredicate;
+import edu.uci.ics.hyracks.storage.am.invertedindex.impls.OccurrenceThresholdPanicException;
 import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.ConjunctiveSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
@@ -55,17 +56,17 @@ public abstract class AbstractInvertedIndexTest {
     // This number will only be used in generating random documents.
     // If predefined data is generated, then the number of documents is fixed.
     protected int numDocuments = 1000;
-    protected int maxDocumentLength = 50;
-    protected Set<String> documents = new HashSet<String>();
+    protected int maxDocumentLength = 200;
+    protected List<String> documents = new ArrayList<String>();
     protected Map<String, SortedSet<Integer>> baselineInvertedIndex = new HashMap<String, SortedSet<Integer>>();
-    
+
     // Generate random data is false by default (generate predefined data is true!)
     protected boolean random = false;
 
     // Subclasses must implement these methods by initializing the proper class members
     protected abstract void setTokenizer();
 
-    protected abstract void setInvertedIndex();
+    protected abstract void setInvertedIndex() throws HyracksDataException;
 
     protected abstract void setLogger();
 
@@ -79,10 +80,13 @@ public abstract class AbstractInvertedIndexTest {
         setLogger();
         setRandom();
         generateData();
-
-        invertedIndex.create(harness.getFileId());
-        invertedIndex.open(harness.getFileId());
         invertedIndexAccessor = invertedIndex.createAccessor();
+
+        IBinaryComparatorFactory[] tokenCmpFactories = harness.getTokenBinaryComparatorFactories();
+        tokenComparators = new IBinaryComparator[tokenCmpFactories.length];
+        for (int i = 0; i < tokenCmpFactories.length; i++) {
+            tokenComparators[i] = tokenCmpFactories[i].createBinaryComparator();
+        }
     }
 
     @After
@@ -230,8 +234,7 @@ public abstract class AbstractInvertedIndexTest {
             docId++;
         }
     }
-    
-    
+
     protected void insertDocuments() throws HyracksDataException, IndexException {
         ITupleReference tuple;
         ISerializerDeserializer[] fieldSerDes = new ISerializerDeserializer[] {
@@ -282,7 +285,7 @@ public abstract class AbstractInvertedIndexTest {
             assertTrue(baselineInvertedList.containsAll(testInvertedList));
         }
     }
-    
+
     protected void bulkLoadDocuments() throws IndexException, IOException {
         List<TokenIdPair> pairs = new ArrayList<TokenIdPair>();
         ArrayTupleBuilder tb = new ArrayTupleBuilder(2);
@@ -293,6 +296,7 @@ public abstract class AbstractInvertedIndexTest {
         for (String s : documents) {
             ByteArrayAccessibleOutputStream baaos = new ByteArrayAccessibleOutputStream();
             DataOutputStream dos = new DataOutputStream(baaos);
+            baaos.reset();
             UTF8StringSerializerDeserializer.INSTANCE.serialize(s, dos);
             tokenizer.reset(baaos.getByteArray(), 0, baaos.size());
             while (tokenizer.hasNext()) {
@@ -315,5 +319,72 @@ public abstract class AbstractInvertedIndexTest {
             invertedIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
         }
         invertedIndex.endBulkLoad(bulkLoadCtx);
+    }
+    
+    
+
+    /**
+     * Runs a specified number of randomly picked strings from dataStrings as
+     * queries. We run each query, measure it's time, and print it's results.
+     */
+    protected void runQueries(IInvertedIndexSearchModifier searchModifier, int numQueries) throws Exception {
+        ISerializerDeserializer[] querySerde = { UTF8StringSerializerDeserializer.INSTANCE };
+        ArrayTupleBuilder queryTb = new ArrayTupleBuilder(querySerde.length);
+        ArrayTupleReference queryTuple = new ArrayTupleReference();
+        IIndexCursor resultCursor;
+        
+        Random rnd = harness.getRandom();
+        rnd.setSeed(50);
+
+        InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(searchModifier);
+
+        for (int i = 0; i < numQueries; i++) {
+
+            int queryIndex = Math.abs(rnd.nextInt() % documents.size());
+            String queryString = documents.get(queryIndex);
+
+            // Serialize query.
+            queryTb.reset();
+            UTF8StringSerializerDeserializer.INSTANCE.serialize(queryString, queryTb.getDataOutput());
+            queryTb.addFieldEndOffset();
+            queryTuple.reset(queryTb.getFieldEndOffsets(), queryTb.getByteArray());
+
+            // Set query tuple in search predicate.
+            searchPred.setQueryTuple(queryTuple);
+            searchPred.setQueryFieldIndex(0);
+
+            resultCursor = invertedIndexAccessor.createSearchCursor();
+
+            int repeats = 1;
+            double totalTime = 0;
+            for (int j = 0; j < repeats; j++) {
+                long timeStart = System.currentTimeMillis();
+                try {
+                    resultCursor.reset();
+                    invertedIndexAccessor.search(resultCursor, searchPred);
+                } catch (OccurrenceThresholdPanicException e) {
+                    // ignore panic queries
+                }
+                long timeEnd = System.currentTimeMillis();
+                totalTime += timeEnd - timeStart;
+            }
+            double avgTime = totalTime / (double) repeats;
+            StringBuilder strBuilder = new StringBuilder();
+            strBuilder.append(i + ": " + "\"" + queryString + "\" " + queryIndex + ": " + avgTime + "ms" + "\n");
+            strBuilder.append("CANDIDATE RESULTS:\n");
+            while (resultCursor.hasNext()) {
+                resultCursor.next();
+                ITupleReference resultTuple = resultCursor.getTuple();
+                int id = IntegerSerializerDeserializer
+                        .getInt(resultTuple.getFieldData(0), resultTuple.getFieldStart(0));
+                strBuilder.append(id + " " + documents.get(id));
+                strBuilder.append('\n');
+            }
+            // remove trailing newline
+            strBuilder.deleteCharAt(strBuilder.length() - 1);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(strBuilder.toString());
+            }
+        }
     }
 }

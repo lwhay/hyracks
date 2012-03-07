@@ -11,6 +11,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
@@ -31,7 +32,7 @@ public class LSMInvertedIndexTestHarness {
     private static final int DEFAULT_DISK_PAGE_SIZE = 256;
     private static final int DEFAULT_DISK_NUM_PAGES = 1000;
     private static final int DEFAULT_DISK_MAX_OPEN_FILES = 200;
-    private static final int DEFAULT_MEM_PAGE_SIZE = 256;
+    private static final int DEFAULT_MEM_PAGE_SIZE = 512;
     private static final int DEFAULT_MEM_NUM_PAGES = 100;
     private static final int DEFAULT_HYRACKS_FRAME_SIZE = 128;
     private static final int DUMMY_FILE_ID = -1;
@@ -54,6 +55,10 @@ public class LSMInvertedIndexTestHarness {
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
     protected final static String sep = System.getProperty("file.separator");
     protected String onDiskDir;
+    protected String btreeFileName = "btree_vocab";
+    protected String invIndexFileName = "inv_index";
+    protected FileReference btreeFileRef;
+    protected FileReference invIndexFileRef;
 
     // Token information
     protected ITypeTraits[] tokenTypeTraits = new ITypeTraits[] { UTF8StringPointable.TYPE_TRAITS };
@@ -94,9 +99,24 @@ public class LSMInvertedIndexTestHarness {
         memFreePageManager = new InMemoryFreePageManager(memNumPages, new LIFOMetaDataFrameFactory());
         ioManager = TestStorageManagerComponentHolder.getIOManager();
         rnd.setSeed(RANDOM_SEED);
+        
+        File btreeFile = new File(onDiskDir + btreeFileName);
+        btreeFile.deleteOnExit();
+        File invIndexFile = new File(onDiskDir + invIndexFileName);
+        invIndexFile.deleteOnExit();
+        btreeFileRef = new FileReference(btreeFile);
+        invIndexFileRef = new FileReference(invIndexFile);
+        diskBufferCache.createFile(btreeFileRef);
+        diskBufferCache.openFile(diskFileMapProvider.lookupFileId(btreeFileRef));
+        diskBufferCache.createFile(invIndexFileRef);
+        diskBufferCache.openFile(diskFileMapProvider.lookupFileId(invIndexFileRef));
     }
 
     public void tearDown() throws HyracksDataException {
+        diskBufferCache.closeFile(diskFileMapProvider.lookupFileId(btreeFileRef));
+        diskBufferCache.deleteFile(diskFileMapProvider.lookupFileId(btreeFileRef), false);
+        diskBufferCache.closeFile(diskFileMapProvider.lookupFileId(invIndexFileRef));
+        diskBufferCache.deleteFile(diskFileMapProvider.lookupFileId(invIndexFileRef), false);
         diskBufferCache.close();
         for (IODeviceHandle dev : ioManager.getIODevices()) {
             File dir = new File(dev.getPath(), onDiskDir);
@@ -114,6 +134,14 @@ public class LSMInvertedIndexTestHarness {
             }
             dir.delete();
         }
+    }
+    
+    public int getDiskInvertedIndexFileId() throws HyracksDataException {
+        return diskFileMapProvider.lookupFileId(invIndexFileRef);
+    }
+    
+    public int getDiskBtreeFileId() throws HyracksDataException {
+        return diskFileMapProvider.lookupFileId(btreeFileRef);
     }
 
     public int getDiskPageSize() {

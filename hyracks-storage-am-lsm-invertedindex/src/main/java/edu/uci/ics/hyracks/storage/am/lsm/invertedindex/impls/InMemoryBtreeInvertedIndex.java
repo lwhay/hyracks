@@ -25,6 +25,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
+import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
@@ -34,27 +35,46 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
-import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
 
-    private BTree btree;
+    private final BTree btree;
     private final IIndexAccessor btreeAccessor;
-    private final ITypeTraits[] invListTypeTraits;
-    private final IBinaryComparatorFactory[] invListCmpFactories;
+//    private final ITypeTraits[] tokenTypeTraits;
+//    private final IBinaryComparatorFactory[] tokenCmpFactories;
+    private final ITypeTraits[] invertedListTypeTraits;
+    private final IBinaryComparatorFactory[] invertedListCmpFactories;
     private final IBinaryTokenizer tokenizer;
     private final int numTokenFields;
 
     private final ArrayTupleBuilder btreeTupleBuilder;
     private final ArrayTupleReference btreeTupleReference;
 
+//    public InMemoryBtreeInvertedIndex(IBufferCache inMemBufferCache, IFreePageManager inMemFreePageManager,
+//            ITypeTraits[] tokenTypeTraits, IBinaryComparatorFactory[] tokenCmpFactories,
+//            ITypeTraits[] invertedListTypeTraits, IBinaryComparatorFactory[] invertedListCmpFactories,
+//            IBinaryTokenizer tokenizer) {
+//        this.tokenTypeTraits = tokenTypeTraits;
+//        this.tokenCmpFactories = tokenCmpFactories;
+//        this.invertedListTypeTraits = invertedListTypeTraits;
+//        this.invertedListCmpFactories = invertedListCmpFactories;
+//        this.tokenizer = tokenizer;
+//        
+//        this.btreeTupleBuilder = new ArrayTupleBuilder(btree.getFieldCount());
+//        this.btreeTupleReference = new ArrayTupleReference();
+//    }
+
     public InMemoryBtreeInvertedIndex(BTree btree, ITypeTraits[] invListTypeTraits,
             IBinaryComparatorFactory[] invListCmpFactories, IBinaryTokenizer tokenizer) {
+        // membufcache, tokenCmpFactories, memfpmgr, tokentypetraits
+        //
+        // IBufferCache bufferCache, int fieldCount, IBinaryComparatorFactory[] cmpFactories, IFreePageManager freePageManager,
+        // ITreeIndexFrameFactory interiorFrameFactory, ITreeIndexFrameFactory leafFrameFactory
         this.btree = btree;
         this.btreeAccessor = btree.createAccessor();
-        this.invListTypeTraits = invListTypeTraits;
-        this.invListCmpFactories = invListCmpFactories;
+        this.invertedListTypeTraits = invListTypeTraits;
+        this.invertedListCmpFactories = invListCmpFactories;
         this.tokenizer = tokenizer;
         this.numTokenFields = btree.getComparatorFactories().length - invListCmpFactories.length;
 
@@ -127,7 +147,7 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
 
     @Override
     public IInvertedListCursor createInvertedListCursor() {
-        return new InMemoryBtreeInvertedListCursor(btree, invListTypeTraits);
+        return new InMemoryBtreeInvertedListCursor(btree, invertedListTypeTraits);
     }
 
     @Override
@@ -169,12 +189,12 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
 
     @Override
     public IBinaryComparatorFactory[] getInvListElementCmpFactories() {
-        return invListCmpFactories;
+        return invertedListCmpFactories;
     }
 
     @Override
     public ITypeTraits[] getTypeTraits() {
-        return invListTypeTraits;
+        return invertedListTypeTraits;
     }
 
     public BTree getBTree() {

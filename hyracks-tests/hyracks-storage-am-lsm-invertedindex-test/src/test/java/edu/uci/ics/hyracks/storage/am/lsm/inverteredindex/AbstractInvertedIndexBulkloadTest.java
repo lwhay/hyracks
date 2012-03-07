@@ -9,7 +9,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 public abstract class AbstractInvertedIndexBulkloadTest extends AbstractInvertedIndexTest {
 
     @Test
-    protected void bulkLoadTest() throws IndexException, IOException {
+    public void bulkLoadTest() throws IndexException, IOException {
         bulkLoadDocuments();
         buildBaselineIndex();
         verifyAgainstBaseline();
