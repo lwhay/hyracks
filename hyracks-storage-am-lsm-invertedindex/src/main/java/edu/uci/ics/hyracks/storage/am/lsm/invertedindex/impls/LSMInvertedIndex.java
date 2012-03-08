@@ -19,8 +19,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.http.TokenIterator;
+
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
@@ -33,6 +38,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
+import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFinalizer;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
@@ -44,7 +50,7 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.LSMInvertedIndexFi
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
-public class LSMInvertedIndex implements ILSMIndex {
+public class LSMInvertedIndex implements ILSMIndex, IInvertedIndex {
 
     private final LSMHarness lsmHarness;
     private final IInvertedIndex memoryInvertedIndex;
@@ -402,6 +408,29 @@ public class LSMInvertedIndex implements ILSMIndex {
     @Override
     public ILSMComponentFinalizer getComponentFinalizer() {
         return componentFinalizer;
+    }
+
+    @Override
+    public IInvertedListCursor createInvertedListCursor() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void openInvertedListCursor(IInvertedListCursor listCursor, IFrameTupleReference tupleReference)
+            throws HyracksDataException, IndexException {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public IBinaryComparatorFactory[] getInvListElementCmpFactories() {
+        return memoryInvertedIndex.getInvListElementCmpFactories();
+    }
+
+    @Override
+    public ITypeTraits[] getTypeTraits() {
+        return memoryInvertedIndex.getTypeTraits();
     }
 
 }

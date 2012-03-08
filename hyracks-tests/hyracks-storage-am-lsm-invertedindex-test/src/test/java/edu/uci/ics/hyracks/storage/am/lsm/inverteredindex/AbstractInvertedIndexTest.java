@@ -265,7 +265,6 @@ public abstract class AbstractInvertedIndexTest {
                     tokenStr);
             searchPred.setQueryTuple(tuple);
             searchPred.setQueryFieldIndex(0);
-            resultCursor.reset();
             invertedIndexAccessor.search(resultCursor, searchPred);
 
             // Check the matches

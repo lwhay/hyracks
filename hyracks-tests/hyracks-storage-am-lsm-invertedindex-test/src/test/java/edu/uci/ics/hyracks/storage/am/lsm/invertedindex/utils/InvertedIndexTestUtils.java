@@ -15,6 +15,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManager;
+import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManagerFactory;
 import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.invertedindex.impls.InvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
@@ -23,7 +24,8 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.LSMInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.inverteredindex.LSMInvertedIndexTestHarness;
 
 public class InvertedIndexTestUtils {
-    public static InvertedIndex createTestInvertedIndex(LSMInvertedIndexTestHarness harness, IBinaryTokenizer tokenizer) throws HyracksDataException {
+    public static InvertedIndex createTestInvertedIndex(LSMInvertedIndexTestHarness harness, IBinaryTokenizer tokenizer)
+            throws HyracksDataException {
         ITreeIndexMetaDataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
         ITypeTraits[] btreeTypeTraits = new ITypeTraits[] { UTF8StringPointable.TYPE_TRAITS,
                 IntegerPointable.TYPE_TRAITS, IntegerPointable.TYPE_TRAITS, IntegerPointable.TYPE_TRAITS,
@@ -51,7 +53,13 @@ public class InvertedIndexTestUtils {
                 tokenizer);
     }
 
-    public static LSMInvertedIndex createTestLSMInvertedIndex() {
-        return null;
+    public static LSMInvertedIndex createTestLSMInvertedIndex(LSMInvertedIndexTestHarness harness,
+            IBinaryTokenizer tokenizer) {
+        return LSMInvertedIndexUtils.createLSMInvertedIndex(harness.getMemBufferCache(),
+                harness.getMemFreePageManager(), harness.getTokenTypeTraits(), harness.getInvertedListTypeTraits(),
+                harness.getTokenBinaryComparatorFactories(), harness.getInvertedListBinaryComparatorFactories(),
+                tokenizer, harness.getDiskBufferCache(),
+                new LinkedListFreePageManagerFactory(harness.getDiskBufferCache(), new LIFOMetaDataFrameFactory()),
+                harness.getIOManager(), harness.getOnDiskDir(), harness.getDiskFileMapProvider());
     }
 }

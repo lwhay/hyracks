@@ -32,8 +32,8 @@ public class LSMInvertedIndexTestHarness {
     private static final int DEFAULT_DISK_PAGE_SIZE = 256;
     private static final int DEFAULT_DISK_NUM_PAGES = 1000;
     private static final int DEFAULT_DISK_MAX_OPEN_FILES = 200;
-    private static final int DEFAULT_MEM_PAGE_SIZE = 512;
-    private static final int DEFAULT_MEM_NUM_PAGES = 100;
+    private static final int DEFAULT_MEM_PAGE_SIZE = 4096;
+    private static final int DEFAULT_MEM_NUM_PAGES = 200;
     private static final int DEFAULT_HYRACKS_FRAME_SIZE = 128;
     private static final int DUMMY_FILE_ID = -1;
 
