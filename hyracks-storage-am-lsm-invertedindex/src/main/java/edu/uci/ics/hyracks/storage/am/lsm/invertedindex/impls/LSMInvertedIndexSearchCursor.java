@@ -34,9 +34,13 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     private boolean includeMemComponent;
     private AtomicInteger searcherRefCount;
     private List<IIndexAccessor> indexAccessors;
-    private List<IIndexCursor> indexCursors;
+    private List<IIndexCursor> indexCursors;// = new ArrayList<IIndexCursor>();
     private ISearchPredicate searchPred;
-
+    
+    public LSMInvertedIndexSearchCursor() {
+        indexCursors = new ArrayList<IIndexCursor>();
+    }
+    
     @Override
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMInvertedIndexCursorInitialState lsmInitialState = (LSMInvertedIndexCursorInitialState) initialState;
@@ -44,7 +48,8 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
         includeMemComponent = lsmInitialState.getIncludeMemComponent();
         searcherRefCount = lsmInitialState.getSearcherRefCount();
         indexAccessors = lsmInitialState.getIndexAccessors();
-        indexCursors = new ArrayList<IIndexCursor>(indexAccessors.size());
+        indexCursors.clear();
+//        indexCursors = new ArrayList<IIndexCursor>(indexAccessors.size());
         cursorIndex = 0;
         this.searchPred = searchPred;
 
@@ -101,6 +106,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
                     return true;
                 } else {
                     cursorIndex++;
+                    currentCursor.close();
                 }
             }
         }

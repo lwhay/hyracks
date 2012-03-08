@@ -43,6 +43,7 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.impls.OccurrenceThresholdPan
 import edu.uci.ics.hyracks.storage.am.invertedindex.searchmodifiers.ConjunctiveSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
+import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls.LSMInvertedIndexAccessor;
 
 public abstract class AbstractInvertedIndexTest {
     protected Logger LOGGER;
@@ -253,6 +254,7 @@ public abstract class AbstractInvertedIndexTest {
     protected void verifyAgainstBaseline() throws HyracksDataException, IndexException {
         ITupleReference tuple;
         int docId;
+        int count = 0;
         SortedSet<Integer> baselineInvertedList = null;
         SortedSet<Integer> testInvertedList = new TreeSet<Integer>();
 
@@ -265,8 +267,9 @@ public abstract class AbstractInvertedIndexTest {
                     tokenStr);
             searchPred.setQueryTuple(tuple);
             searchPred.setQueryFieldIndex(0);
+            resultCursor.reset();
             invertedIndexAccessor.search(resultCursor, searchPred);
-
+            
             // Check the matches
             testInvertedList.clear();
             while (resultCursor.hasNext()) {
@@ -276,6 +279,11 @@ public abstract class AbstractInvertedIndexTest {
                 docId = IntegerSerializerDeserializer.getInt(tuple.getFieldData(0), tuple.getFieldStart(0));
                 testInvertedList.add(docId);
             }
+            count++;
+            
+//            if(count > 100) {
+//                ((LSMInvertedIndexAccessor)invertedIndexAccessor).merge();
+//            }
 
             if (LOGGER != null && LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("\nQuery:\t\t\"" + tokenStr + "\"\n" + "Baseline:\t" + baselineInvertedList.toString()

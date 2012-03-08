@@ -427,8 +427,9 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
             ITupleReference invListTuple = invListCursor.getTuple();
             newBufIdx = appendTupleToNewResults(invListTuple, 1, newBufIdx);
             invListTidx++;
-            invListCursor.hasNext();
-            invListCursor.next();
+            if (invListCursor.hasNext()) {
+                invListCursor.next();
+            }
         }
 
         // append remaining elements from previous result set
