@@ -35,9 +35,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     private AtomicInteger searcherRefCount;
     private List<IIndexAccessor> indexAccessors;
     private List<IIndexCursor> indexCursors;
-
-    public LSMInvertedIndexSearchCursor() {
-    }
+    private ISearchPredicate searchPred;
 
     @Override
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
@@ -48,30 +46,25 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
         indexAccessors = lsmInitialState.getIndexAccessors();
         indexCursors = new ArrayList<IIndexCursor>(indexAccessors.size());
         cursorIndex = 0;
-    }
+        this.searchPred = searchPred;
 
-    @Override
-    public boolean hasNext() throws HyracksDataException {
-        IIndexAccessor currentAccessor;
-        IIndexCursor currentCursor;
-
+        IIndexAccessor currentAccessor = indexAccessors.get(cursorIndex);
+        IIndexCursor currentCursor = currentAccessor.createSearchCursor();
         while (cursorIndex < indexAccessors.size()) {
             // Open cursors and perform search lazily as each component is passed over
-            if (cursorIndex < indexCursors.size()) {
+            if (cursorIndex >= indexCursors.size()) {
                 currentAccessor = indexAccessors.get(cursorIndex);
                 currentCursor = currentAccessor.createSearchCursor();
                 try {
-                    currentAccessor.search(currentCursor, null);
+                    currentAccessor.search(currentCursor, searchPred);
                 } catch (IndexException e) {
                     throw new HyracksDataException(e);
                 }
                 indexCursors.add(currentCursor);
-            } else {
-                currentCursor = indexCursors.get(cursorIndex);
             }
 
             if (currentCursor.hasNext()) {
-                return true;
+                break;
             }
 
             // Close as we go to release any resources
@@ -79,12 +72,45 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
             cursorIndex++;
         }
 
-        return false;
+    }
+
+    @Override
+    public boolean hasNext() throws HyracksDataException {
+        if (cursorIndex < indexAccessors.size()) {
+            return indexCursors.get(cursorIndex).hasNext();
+        } else {
+            return false;
+        }
     }
 
     @Override
     public void next() throws HyracksDataException {
-        indexCursors.get(cursorIndex).next();
+        IIndexAccessor currentAccessor;
+        IIndexCursor currentCursor = indexCursors.get(cursorIndex);
+
+        if (currentCursor.hasNext()) {
+            currentCursor.next();
+        } else {
+            currentCursor.close();
+            cursorIndex++;
+            while (cursorIndex < indexAccessors.size()) {
+                currentAccessor = indexAccessors.get(cursorIndex);
+                currentCursor = currentAccessor.createSearchCursor();
+                try {
+                    currentAccessor.search(currentCursor, searchPred);
+                } catch (IndexException e) {
+                    throw new HyracksDataException(e);
+                }
+                indexCursors.add(currentCursor);
+
+                if (currentCursor.hasNext()) {
+                    currentCursor.next();
+                    break;
+                } else {
+                    cursorIndex++;
+                }
+            }
+        }
     }
 
     @Override
@@ -93,11 +119,12 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
         for (int i = 0; i < indexCursors.size(); i++) {
             indexCursors.get(i).close();
         }
+        indexCursors.clear();
         harness.closeSearchCursor(searcherRefCount, includeMemComponent);
     }
 
     @Override
-    public void reset() {
+    public void reset() throws HyracksDataException {
         cursorIndex = 0;
         for (int i = 0; i < indexCursors.size(); i++) {
             indexCursors.get(i).reset();
@@ -105,8 +132,12 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public ITupleReference getTuple() {
-        return indexCursors.get(cursorIndex).getTuple();
+    public ITupleReference getTuple() throws HyracksDataException {
+        if (cursorIndex < indexCursors.size()) {
+            return indexCursors.get(cursorIndex).getTuple();
+        } else {
+            return null;
+        }
     }
 
 }

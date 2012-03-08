@@ -24,7 +24,6 @@ import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 public class LSMInvertedIndexOpContext implements IIndexOpContext {
     
     private IndexOp op;
-    private IInvertedIndex memoryInvertedIndex;
     private final MultiComparator cmp;
     private final int invListFieldCount;
     private final int tokenFieldCount;
@@ -32,7 +31,6 @@ public class LSMInvertedIndexOpContext implements IIndexOpContext {
     public LSMInvertedIndexOpContext(IInvertedIndex memoryInvertedIndex) {
     	InMemoryBtreeInvertedIndex memoryBTreeInvertedIndex = (InMemoryBtreeInvertedIndex)memoryInvertedIndex;
     	BTree btree = memoryBTreeInvertedIndex.getBTree();
-    	this.memoryInvertedIndex = memoryInvertedIndex;
     	this.cmp = MultiComparator.create(btree.getComparatorFactories());
     	this.invListFieldCount = memoryBTreeInvertedIndex.getInvListElementCmpFactories().length;
     	this.tokenFieldCount = cmp.getKeyFieldCount() - invListFieldCount;

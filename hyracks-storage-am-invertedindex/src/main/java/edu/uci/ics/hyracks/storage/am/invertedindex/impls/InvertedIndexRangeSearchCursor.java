@@ -14,8 +14,6 @@
  */
 package edu.uci.ics.hyracks.storage.am.invertedindex.impls;
 
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -30,176 +28,150 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
-import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndex;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
 
 public class InvertedIndexRangeSearchCursor implements IIndexCursor {
 
-	private final BTree btree;
-	private final ITreeIndexAccessor btreeAccessor;
-	private final IInvertedIndex invIndex;
-	private final ITypeTraits[] invListTypeTraits;
-	private final IBinaryComparatorFactory[] invListCmpFactories;
-	private final int numTokenFields;
-	private final int numInvListKeys;
-	private IInvertedListCursor invListCursor;
+    private final BTree btree;
+    private final ITreeIndexAccessor btreeAccessor;
+    private final IInvertedIndex invIndex;
+    private IInvertedListCursor invListCursor;
 
-	// for btree cursor creation
-	private final RangePredicate btreePred;
-	private final ITreeIndexFrame leafFrame;
-	private final ITreeIndexCursor btreeCursor;
-	private final MultiComparator searchCmp;
-	private boolean flagEOF = false;
-	private boolean flagFirstHasNext = true;
+    // for btree cursor creation
+    private RangePredicate btreePred;
+    private final ITreeIndexFrame leafFrame;
+    private final ITreeIndexCursor btreeCursor;
+    private boolean flagEOF;
 
-	private ITupleReference tokenTuple;
-	private ITupleReference invListTuple;
-	/*
-	 * compositeTuple : this tuple consists of token(the first field of
-	 * tokenTuple) and doc-id(the first field of invListTuple).
-	 */
-	private CompositeTupleReference compositeTuple;
+    private ITupleReference tokenTuple;
+    private ITupleReference invListTuple;
+    /*
+     * compositeTuple : this tuple consists of token(the first field of
+     * tokenTuple) and doc-id(the first field of invListTuple).
+     */
+    private CompositeTupleReference compositeTuple;
 
-	public InvertedIndexRangeSearchCursor(IInvertedIndex invIndex) {
-		this.btree = ((InvertedIndex) invIndex).getBTree();
-		this.btreeAccessor = btree.createAccessor();
-		this.invIndex = invIndex;
-		this.invListCmpFactories = invIndex.getInvListElementCmpFactories();
-		this.invListTypeTraits = invIndex.getTypeTraits();
-		this.numTokenFields = btree.getComparatorFactories().length;
-		this.numInvListKeys = invListCmpFactories.length;
+    public InvertedIndexRangeSearchCursor(IInvertedIndex invIndex) {
+        this.btree = ((InvertedIndex) invIndex).getBTree();
+        this.btreeAccessor = btree.createAccessor();
+        this.invIndex = invIndex;
 
-		// setup for btree cursor creation
-		btreePred = new RangePredicate(null, null, true, true, null, null);
-		leafFrame = btree.getLeafFrameFactory().createFrame();
-		btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame,
-				false);
-		searchCmp = MultiComparator.create(btree.getComparatorFactories());
-		btreePred.setLowKeyComparator(searchCmp);
-		btreePred.setHighKeyComparator(searchCmp);
-	}
+        // setup for btree cursor creation
+        leafFrame = btree.getLeafFrameFactory().createFrame();
+        btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame, false);
+    }
 
-	@Override
-	public void open(ICursorInitialState initialState,
-			ISearchPredicate searchPred) throws HyracksDataException {
+    @Override
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        flagEOF = false;
+        this.btreePred = (RangePredicate) searchPred;
+        // get token from btree
+        try {
+            btreeAccessor.search(btreeCursor, btreePred);
+        } catch (IndexException e) {
+            throw new HyracksDataException(e);
+        }
 
-		// get token from btree
-		try {
-			btreeAccessor.search(btreeCursor, btreePred);
-		} catch (IndexException e) {
-			throw new HyracksDataException(e);
-		}
+        if (btreeCursor.hasNext()) {
+            btreeCursor.next();
+            tokenTuple = btreeCursor.getTuple();
+            try {
+                // create and open invertedListCursor
+                invListCursor = invIndex.createInvertedListCursor();
+                invIndex.openInvertedListCursor(invListCursor, (IFrameTupleReference) tokenTuple);
+                invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
+                // pinPage - required?
+                //                invListCursor.pinPagesSync();
+                //                if (invListCursor.hasNext()) {
 
-		if (btreeCursor.hasNext()) {
-			btreeCursor.next();
-			tokenTuple = btreeCursor.getTuple();
-			try {
-				// create and open invertedListCursor
-				invListCursor = invIndex.createInvertedListCursor();
-				invIndex.openInvertedListCursor(invListCursor,
-						(IFrameTupleReference) tokenTuple);
-				// pinPage - required?
-				invListCursor.pinPagesSync();
-				if (invListCursor.hasNext()) {
+                // invListCursor.next();
+                // invListTuple = invListCursor.getTuple();
+                //
+                // // create a result tuple which consists of each first
+                // field
+                // // of the tokenTuple and the invListTuple
+                // compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
+                //                }
+                // This case seems erroneous and should never happen since if
+                // there is a token, there must exist at least a docId.
+                // else {
+                // flagEOF = true;
+                // }
+                // unPinPage - required?
+                //                invListCursor.unpinPages();
+            } catch (IndexException e) {
+                throw new HyracksDataException(e);
+            }
+        } else {
+            flagEOF = true;
+        }
+    }
 
-					// invListCursor.next();
-					// invListTuple = invListCursor.getTuple();
-					//
-					// // create a result tuple which consists of each first
-					// field
-					// // of the tokenTuple and the invListTuple
-					// compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
-				}
-				// This case seems erroneous and should never happen since if
-				// there is a token, there must exist at least a docId.
-				// else {
-				// flagEOF = true;
-				// }
-				// unPinPage - required?
-				invListCursor.unpinPages();
-			} catch (IndexException e) {
-				throw new HyracksDataException(e);
-			}
-		} else {
-			flagEOF = true;
-		}
-	}
+    @Override
+    public boolean hasNext() throws HyracksDataException {
+        if (flagEOF) {
+            return false;
+        }
+        // check each cursor.
+        if (!invListCursor.hasNext() && !btreeCursor.hasNext()) {
+            flagEOF = true;
+            return false;
+        }
 
-	@Override
-	public boolean hasNext() throws HyracksDataException {
-		if (flagEOF) {
-			return false;
-		} else {
+        return true;
+    }
 
-			if (flagFirstHasNext) {
-				return true;
-			} else {
-				// check each cursor.
-				invListCursor.pinPagesSync();
-				if (!invListCursor.hasNext() && !btreeCursor.hasNext()) {
-					flagEOF = true;
-					invListCursor.unpinPages();
-					return false;
-				} else {
-					invListCursor.unpinPages();
-					return true;
-				}
-			}
-		}
-	}
+    @Override
+    public void next() throws HyracksDataException {
+        if (flagEOF) {
+            return;
+        }
 
-	@Override
-	public void next() throws HyracksDataException {
-		if (flagEOF) {
-			return;
-		}
-		flagFirstHasNext = false;
+        if (invListCursor.hasNext()) {
+            invListCursor.next();
+            // create a result tuple which consists of each first field
+            // of the tokenTuple and the invListTuple
+            invListTuple = invListCursor.getTuple();
+            compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
+        } else {
+            if (btreeCursor.hasNext()) {
+                // read the next token from btreeCursor
+                btreeCursor.next();
+                tokenTuple = btreeCursor.getTuple();
+                try {
+                    invListCursor.unpinPages();
+                    invIndex.openInvertedListCursor(invListCursor, (IFrameTupleReference) tokenTuple);
+                    invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
+                    invListCursor.hasNext(); // required?
+                    invListCursor.next();
+                    invListTuple = invListCursor.getTuple();
+                    compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
+                } catch (IndexException e) {
+                    throw new HyracksDataException(e);
+                }
+            } else {
+                //no more token
+                flagEOF = true;
+            }
+        }
+    }
 
-		invListCursor.pinPagesSync();
-		if (invListCursor.hasNext()) {
-			invListCursor.next();
-			// create a result tuple which consists of each first field
-			// of the tokenTuple and the invListTuple
-			compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
-		} else {
-			if (btreeCursor.hasNext()) {
-				// read the next token from btreeCursor
-				btreeCursor.next();
-				tokenTuple = btreeCursor.getTuple();
-				try {
-					invIndex.openInvertedListCursor(invListCursor,
-							(IFrameTupleReference) tokenTuple);
-					invListCursor.hasNext(); // required?
-					invListCursor.next();
-					invListTuple = invListCursor.getTuple();
-					compositeTuple.reset(tokenTuple, 0, invListTuple, 0);
-				} catch (IndexException e) {
-					throw new HyracksDataException(e);
-				}
-			}
-			else
-			{
-				//no more token
-				flagEOF = true;
-			}
-		}
-		invListCursor.unpinPages();
-	}
+    @Override
+    public void close() throws HyracksDataException {
+        invListCursor.unpinPages();
+        btreeCursor.close();
+    }
 
-	@Override
-	public void close() throws HyracksDataException {
-		btreeCursor.close();
-	}
+    @Override
+    public void reset() throws HyracksDataException {
+        invListCursor.unpinPages();
+        open(null, btreePred);
+    }
 
-	@Override
-	public void reset() {
-		// do nothing!
-	}
-
-	@Override
-	public ITupleReference getTuple() {
-		return compositeTuple;
-	}
+    @Override
+    public ITupleReference getTuple() throws HyracksDataException {
+        return compositeTuple;
+    }
 
 }

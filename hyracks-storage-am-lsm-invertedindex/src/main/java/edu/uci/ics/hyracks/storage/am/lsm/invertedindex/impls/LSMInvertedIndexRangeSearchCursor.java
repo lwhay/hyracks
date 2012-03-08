@@ -1,6 +1,7 @@
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.impls;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -33,9 +34,7 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
     private int tokenFieldCount;
     private int invListFieldCount;
     private ITupleReference resultTuple;
-
-    public LSMInvertedIndexRangeSearchCursor() {
-    }
+    private BitSet closedCursors;
 
     @Override
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
@@ -49,11 +48,12 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
         this.memoryInvertedIndexComparator = opContext.getComparator();
         this.tokenFieldCount = opContext.getTokenFieldCount();
         this.invListFieldCount = opContext.getInvListFieldCount();
+        closedCursors = new BitSet(indexAccessors.size());
 
         //create all cursors
         IIndexCursor cursor;
-        for (IIndexAccessor a : indexAccessors) {
-            InvertedIndexAccessor invIndexAccessor = (InvertedIndexAccessor) a;
+        for (IIndexAccessor accessor : indexAccessors) {
+            InvertedIndexAccessor invIndexAccessor = (InvertedIndexAccessor) accessor;
             cursor = invIndexAccessor.createRangeSearchCursor();
             try {
                 invIndexAccessor.rangeSearch(cursor, searchPred);
@@ -135,8 +135,13 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
                 pqElement = new PriorityQueueElement(cursor.getTuple(), cursorIndex);
                 outputPriorityQueue.offer(pqElement);
             } else {
+                cursor.close();
+                closedCursors.set(cursorIndex, true);
+                
                 // If the current cursor reached EOF, read a tuple from another cursor and insert into the priority queue.
                 for (int i = 0; i < indexCursors.size(); i++) {
+                    if(closedCursors.get(i)) continue;
+                    
                     cursor = indexCursors.get(i);
                     if (cursor.hasNext()) {
                         cursor.next();
@@ -144,9 +149,10 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
                         outputPriorityQueue.offer(pqElement);
                         break;
                     }
-                    //else {
-                    //    //do nothing for the cursor who reached EOF.
-                    //}
+                    else {
+                        cursor.close();
+                        closedCursors.set(i, true);
+                    }
                 }
                 //if (i == indexCursors.size()) {
                 //    all cursors reached EOF and the only tuples that you have are in the priority queue.
@@ -164,11 +170,13 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
     @Override
     public void close() throws HyracksDataException {
         try {
-            outputPriorityQueue.clear();
             for (int i = 0; i < indexCursors.size(); i++) {
+                if(closedCursors.get(i)) {
+                    continue;
+                }
                 indexCursors.get(i).close();
+                closedCursors.set(i, true);
             }
-            indexCursors = null;
         } finally {
             harness.closeSearchCursor(searcherRefCount, includeMemComponent);
         }
@@ -177,7 +185,6 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
     @Override
     public void reset() {
         // TODO Auto-generated method stub
-
     }
 
     @Override
