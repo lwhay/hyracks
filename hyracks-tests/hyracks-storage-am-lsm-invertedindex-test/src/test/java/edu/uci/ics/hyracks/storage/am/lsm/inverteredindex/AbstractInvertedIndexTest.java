@@ -254,43 +254,49 @@ public abstract class AbstractInvertedIndexTest {
     protected void verifyAgainstBaseline() throws HyracksDataException, IndexException {
         ITupleReference tuple;
         int docId;
-        int count = 0;
+//        int count = 0;
         SortedSet<Integer> baselineInvertedList = null;
         SortedSet<Integer> testInvertedList = new TreeSet<Integer>();
 
         // Query all tokens in the baseline
-        IIndexCursor resultCursor = invertedIndexAccessor.createSearchCursor();
+
         ConjunctiveSearchModifier searchModifier = new ConjunctiveSearchModifier();
         InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(searchModifier);
+        IIndexCursor resultCursor = invertedIndexAccessor.createSearchCursor();
         for (String tokenStr : baselineInvertedIndex.keySet()) {
             tuple = TupleUtils.createTuple(new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE },
                     tokenStr);
             searchPred.setQueryTuple(tuple);
             searchPred.setQueryFieldIndex(0);
-            resultCursor.reset();
-            invertedIndexAccessor.search(resultCursor, searchPred);
-            
-            // Check the matches
-            testInvertedList.clear();
-            while (resultCursor.hasNext()) {
-                resultCursor.next();
+
+            try {
+                resultCursor.reset();
+                invertedIndexAccessor.search(resultCursor, searchPred);
+
                 baselineInvertedList = baselineInvertedIndex.get(tokenStr);
-                tuple = resultCursor.getTuple();
-                docId = IntegerSerializerDeserializer.getInt(tuple.getFieldData(0), tuple.getFieldStart(0));
-                testInvertedList.add(docId);
+                // Check the matches
+                testInvertedList.clear();
+                while (resultCursor.hasNext()) {
+                    resultCursor.next();
+                    tuple = resultCursor.getTuple();
+                    docId = IntegerSerializerDeserializer.getInt(tuple.getFieldData(0), tuple.getFieldStart(0));
+                    testInvertedList.add(docId);
+                }
+            } finally {
+                resultCursor.close();
             }
-            count++;
-            
-            if(count%6500 == 0) {
-                System.out.println("################# count: " + count);
-                ((LSMInvertedIndexAccessor)invertedIndexAccessor).merge();
-            }
+//            count++;
+
+//            if (count % 6500 == 0) {
+//                System.out.println("################# count: " + count);
+//                ((LSMInvertedIndexAccessor) invertedIndexAccessor).merge();
+//            }
 
             if (LOGGER != null && LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("\nQuery:\t\t\"" + tokenStr + "\"\n" + "Baseline:\t" + baselineInvertedList.toString()
                         + "\n" + "Test:\t\t" + testInvertedList.toString() + "\n");
             }
-            assertTrue(baselineInvertedList.containsAll(testInvertedList));
+            assertTrue(baselineInvertedList.equals(testInvertedList));
         }
     }
 
@@ -328,8 +334,6 @@ public abstract class AbstractInvertedIndexTest {
         }
         invertedIndex.endBulkLoad(bulkLoadCtx);
     }
-    
-    
 
     /**
      * Runs a specified number of randomly picked strings from dataStrings as
@@ -340,7 +344,7 @@ public abstract class AbstractInvertedIndexTest {
         ArrayTupleBuilder queryTb = new ArrayTupleBuilder(querySerde.length);
         ArrayTupleReference queryTuple = new ArrayTupleReference();
         IIndexCursor resultCursor;
-        
+
         Random rnd = harness.getRandom();
         rnd.setSeed(50);
 

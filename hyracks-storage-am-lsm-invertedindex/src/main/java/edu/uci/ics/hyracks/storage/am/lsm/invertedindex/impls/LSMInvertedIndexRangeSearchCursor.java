@@ -7,8 +7,12 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
@@ -66,11 +70,11 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
 
     @Override
     public boolean hasNext() throws HyracksDataException {
-        
+
         if (flagEOF) {
             return false;
         }
-        
+
         if (flagFirstNextCall) {
             for (IIndexCursor c : indexCursors) {
                 if (c.hasNext()) {
@@ -97,7 +101,7 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
         if (flagEOF) {
             return;
         }
-        
+
         //When the next() is called for the first time, initialize priority queue.
         if (flagFirstNextCall) {
             flagFirstNextCall = false;
@@ -137,19 +141,19 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
             } else {
                 cursor.close();
                 closedCursors.set(cursorIndex, true);
-                
-                // If the current cursor reached EOF, read a tuple from another cursor and insert into the priority queue.
+
+//                 If the current cursor reached EOF, read a tuple from another cursor and insert into the priority queue.
                 for (int i = 0; i < indexCursors.size(); i++) {
-                    if(closedCursors.get(i)) continue;
-                    
+                    if (closedCursors.get(i))
+                        continue;
+
                     cursor = indexCursors.get(i);
                     if (cursor.hasNext()) {
                         cursor.next();
                         pqElement = new PriorityQueueElement(cursor.getTuple(), i);
                         outputPriorityQueue.offer(pqElement);
                         break;
-                    }
-                    else {
+                    } else {
                         cursor.close();
                         closedCursors.set(i, true);
                     }
@@ -171,7 +175,7 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
     public void close() throws HyracksDataException {
         try {
             for (int i = 0; i < indexCursors.size(); i++) {
-                if(closedCursors.get(i)) {
+                if (closedCursors.get(i)) {
                     continue;
                 }
                 indexCursors.get(i).close();
@@ -223,7 +227,13 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
         private int cursorIndex;
 
         public PriorityQueueElement(ITupleReference tuple, int cursorIndex) {
-            reset(tuple, cursorIndex);
+//            reset(tuple, cursorIndex);
+            try {
+                reset(TupleUtils.copyTuple(tuple), cursorIndex);
+            } catch (HyracksDataException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         }
 
         public ITupleReference getTuple() {

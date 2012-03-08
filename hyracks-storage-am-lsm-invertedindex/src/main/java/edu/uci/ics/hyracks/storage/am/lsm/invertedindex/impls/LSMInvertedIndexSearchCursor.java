@@ -107,7 +107,6 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
                 } else {
                     currentCursor.close();
                     cursorIndex++;
-                    currentCursor.close();
                 }
             }
         }

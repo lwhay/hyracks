@@ -14,9 +14,13 @@
  */
 package edu.uci.ics.hyracks.storage.am.invertedindex.impls;
 
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
@@ -81,7 +85,7 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
                 // create and open invertedListCursor
                 invListCursor = invIndex.createInvertedListCursor();
                 invIndex.openInvertedListCursor(invListCursor, (ITupleReference) tokenTuple);
-//                invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
+                //                invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
                 // pinPage - required?
                 //                invListCursor.pinPagesSync();
                 //                if (invListCursor.hasNext()) {
@@ -161,13 +165,13 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
 
     @Override
     public void close() throws HyracksDataException {
-//        invListCursor.unpinPages();
+        //        invListCursor.unpinPages();
         btreeCursor.close();
     }
 
     @Override
     public void reset() throws HyracksDataException {
-//        invListCursor.unpinPages();
+        //        invListCursor.unpinPages();
         open(null, btreePred);
     }
 
