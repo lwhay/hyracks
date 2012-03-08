@@ -107,7 +107,7 @@ public abstract class AbstractInvertedIndexTest {
         int documentLength;
         String validCharacters = "abcdefghijklmnopqrstuvwxyz ";
         StringBuilder builder = new StringBuilder();
-        Random rng = new Random();
+        Random rng = harness.getRandom();
 
         // Generate numDocuments random documents (strings)
         documents.clear();
