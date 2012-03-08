@@ -110,7 +110,7 @@ public class InvertedIndex implements IInvertedIndex {
     }
 
     @Override
-    public void openInvertedListCursor(IInvertedListCursor listCursor, IFrameTupleReference tupleReference)
+    public void openInvertedListCursor(IInvertedListCursor listCursor, ITupleReference tupleReference)
             throws HyracksDataException, IndexException {
         btreePred.setLowKey(tupleReference, true);
         btreePred.setHighKey(tupleReference, true);

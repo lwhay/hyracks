@@ -60,6 +60,7 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
         // setup for btree cursor creation
         leafFrame = btree.getLeafFrameFactory().createFrame();
         btreeCursor = new BTreeRangeSearchCursor((IBTreeLeafFrame) leafFrame, false);
+        compositeTuple = new CompositeTupleReference();
     }
 
     @Override
@@ -79,8 +80,8 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
             try {
                 // create and open invertedListCursor
                 invListCursor = invIndex.createInvertedListCursor();
-                invIndex.openInvertedListCursor(invListCursor, (IFrameTupleReference) tokenTuple);
-                invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
+                invIndex.openInvertedListCursor(invListCursor, (ITupleReference) tokenTuple);
+//                invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
                 // pinPage - required?
                 //                invListCursor.pinPagesSync();
                 //                if (invListCursor.hasNext()) {
@@ -127,7 +128,7 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
         if (flagEOF) {
             return;
         }
-
+        invListCursor.pinPagesSync();
         if (invListCursor.hasNext()) {
             invListCursor.next();
             // create a result tuple which consists of each first field
@@ -141,7 +142,7 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
                 tokenTuple = btreeCursor.getTuple();
                 try {
                     invListCursor.unpinPages();
-                    invIndex.openInvertedListCursor(invListCursor, (IFrameTupleReference) tokenTuple);
+                    invIndex.openInvertedListCursor(invListCursor, (ITupleReference) tokenTuple);
                     invListCursor.pinPagesSync(); // unpinned on cursor changeover or close()
                     invListCursor.hasNext(); // required?
                     invListCursor.next();
@@ -155,17 +156,18 @@ public class InvertedIndexRangeSearchCursor implements IIndexCursor {
                 flagEOF = true;
             }
         }
+        invListCursor.unpinPages();
     }
 
     @Override
     public void close() throws HyracksDataException {
-        invListCursor.unpinPages();
+//        invListCursor.unpinPages();
         btreeCursor.close();
     }
 
     @Override
     public void reset() throws HyracksDataException {
-        invListCursor.unpinPages();
+//        invListCursor.unpinPages();
         open(null, btreePred);
     }
 

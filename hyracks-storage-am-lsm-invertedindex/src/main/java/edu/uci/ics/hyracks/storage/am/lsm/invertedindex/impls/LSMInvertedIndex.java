@@ -232,12 +232,14 @@ public class LSMInvertedIndex implements ILSMIndex, IInvertedIndex {
         InvertedIndex mergedDiskInvertedIndex = createDiskInvertedIndex(
                 fileManager.createMergeFile(fNameComponent.getInvertedFileName()), true, diskBTree);
 
+        int count = 0;
         IIndexBulkLoadContext bulkLoadCtx = mergedDiskInvertedIndex.beginBulkLoad(1.0f);
         try {
             while (cursor.hasNext()) {
                 cursor.next();
                 ITupleReference tuple = cursor.getTuple();
                 mergedDiskInvertedIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
+                count++;
             }
         } finally {
             cursor.close();
@@ -417,7 +419,7 @@ public class LSMInvertedIndex implements ILSMIndex, IInvertedIndex {
     }
 
     @Override
-    public void openInvertedListCursor(IInvertedListCursor listCursor, IFrameTupleReference tupleReference)
+    public void openInvertedListCursor(IInvertedListCursor listCursor, ITupleReference tupleReference)
             throws HyracksDataException, IndexException {
         // TODO Auto-generated method stub
         

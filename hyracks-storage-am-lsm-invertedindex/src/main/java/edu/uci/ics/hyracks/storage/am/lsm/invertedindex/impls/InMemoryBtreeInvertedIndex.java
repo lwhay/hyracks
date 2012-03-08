@@ -151,7 +151,7 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
     }
 
     @Override
-    public void openInvertedListCursor(IInvertedListCursor listCursor, IFrameTupleReference tupleReference)
+    public void openInvertedListCursor(IInvertedListCursor listCursor, ITupleReference tupleReference)
             throws HyracksDataException, IndexException {
         InMemoryBtreeInvertedListCursor inMemListCursor = (InMemoryBtreeInvertedListCursor) listCursor;
         inMemListCursor.reset(tupleReference);

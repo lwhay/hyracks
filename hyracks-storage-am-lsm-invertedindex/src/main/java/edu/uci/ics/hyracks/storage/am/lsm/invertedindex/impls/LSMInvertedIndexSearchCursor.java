@@ -105,6 +105,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
                 if (currentCursor.hasNext()) {
                     return true;
                 } else {
+                    currentCursor.close();
                     cursorIndex++;
                     currentCursor.close();
                 }

@@ -281,9 +281,10 @@ public abstract class AbstractInvertedIndexTest {
             }
             count++;
             
-//            if(count > 100) {
-//                ((LSMInvertedIndexAccessor)invertedIndexAccessor).merge();
-//            }
+            if(count%6500 == 0) {
+                System.out.println("################# count: " + count);
+                ((LSMInvertedIndexAccessor)invertedIndexAccessor).merge();
+            }
 
             if (LOGGER != null && LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("\nQuery:\t\t\"" + tokenStr + "\"\n" + "Baseline:\t" + baselineInvertedList.toString()
