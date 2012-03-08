@@ -159,7 +159,7 @@ public class InMemoryBtreeInvertedIndex implements IInvertedIndex {
 
     @Override
     public IIndexAccessor createAccessor() {
-        return new InMemoryBtreeInvertedIndexAccessor(this, new LSMInvertedIndexOpContext(), tokenizer);
+        return new InMemoryBtreeInvertedIndexAccessor(this, new LSMInvertedIndexOpContext(this), tokenizer);
     }
 
     @Override

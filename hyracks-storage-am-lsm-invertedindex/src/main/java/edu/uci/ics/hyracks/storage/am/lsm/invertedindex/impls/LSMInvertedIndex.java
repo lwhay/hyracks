@@ -113,7 +113,7 @@ public class LSMInvertedIndex implements ILSMIndex {
     }
 
     private LSMInvertedIndexOpContext createOpContext() {
-        return new LSMInvertedIndexOpContext();
+        return new LSMInvertedIndexOpContext(memoryInvertedIndex);
     }
 
     @Override
@@ -172,7 +172,7 @@ public class LSMInvertedIndex implements ILSMIndex {
             indexAccessors.add(componentAccessor);
         }
 
-        LSMInvertedIndexCursorInitialState initState = new LSMInvertedIndexCursorInitialState(indexAccessors,
+        LSMInvertedIndexCursorInitialState initState = new LSMInvertedIndexCursorInitialState(indexAccessors, ictx,
                 includeMemComponent, searcherRefCount, lsmHarness);
         LSMInvertedIndexSearchCursor lsmCursor = (LSMInvertedIndexSearchCursor) cursor;
         lsmCursor.open(initState, pred);
@@ -181,7 +181,7 @@ public class LSMInvertedIndex implements ILSMIndex {
     public void mergeSearch(IIndexCursor cursor, List<Object> diskComponents, ISearchPredicate pred, IIndexOpContext ictx,
             boolean includeMemComponent, AtomicInteger searcherRefCount) throws HyracksDataException, IndexException {
         IIndexAccessor componentAccessor;
-
+        
         // Over-provision by 1 if includeMemComponent == false, but that's okay!
         ArrayList<IIndexAccessor> indexAccessors = new ArrayList<IIndexAccessor>(diskComponents.size() + 1);
 
@@ -195,7 +195,7 @@ public class LSMInvertedIndex implements ILSMIndex {
             indexAccessors.add(componentAccessor);
         }
 
-        LSMInvertedIndexCursorInitialState initState = new LSMInvertedIndexCursorInitialState(indexAccessors,
+        LSMInvertedIndexCursorInitialState initState = new LSMInvertedIndexCursorInitialState(indexAccessors, ictx,
                 includeMemComponent, searcherRefCount, lsmHarness);
         LSMInvertedIndexRangeSearchCursor rangeSearchCursor = (LSMInvertedIndexRangeSearchCursor) cursor;
         rangeSearchCursor.open(initState, pred);

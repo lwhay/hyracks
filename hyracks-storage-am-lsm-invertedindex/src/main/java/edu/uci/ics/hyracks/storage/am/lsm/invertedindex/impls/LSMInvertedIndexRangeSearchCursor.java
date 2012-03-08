@@ -24,102 +24,167 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
     private AtomicInteger searcherRefCount;
     private List<IIndexAccessor> indexAccessors;
     private List<IIndexCursor> indexCursors;
-    private ICursorInitialState initialState;
     private boolean flagEOF = false;
     private boolean flagFirstNextCall = true;
-    
+
     private PriorityQueue<PriorityQueueElement> outputPriorityQueue;
-    private MultiComparator cmp;
+    private MultiComparator memoryInvertedIndexComparator;
     private PriorityQueueComparator pqCmp;
-    private PriorityQueueElement outputElement;
-    
+    private int tokenFieldCount;
+    private int invListFieldCount;
+    private ITupleReference resultTuple;
+
     public LSMInvertedIndexRangeSearchCursor() {
     }
-    
-	@Override
-	public void open(ICursorInitialState initialState,
-			ISearchPredicate searchPred) throws HyracksDataException {
+
+    @Override
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMInvertedIndexCursorInitialState lsmInitialState = (LSMInvertedIndexCursorInitialState) initialState;
-        harness = lsmInitialState.getLSMHarness();
-        includeMemComponent = lsmInitialState.getIncludeMemComponent();
-        searcherRefCount = lsmInitialState.getSearcherRefCount();
-        indexAccessors = lsmInitialState.getIndexAccessors();
-        indexCursors = new ArrayList<IIndexCursor>(indexAccessors.size());
-        this.initialState = initialState;
+        this.harness = lsmInitialState.getLSMHarness();
+        this.includeMemComponent = lsmInitialState.getIncludeMemComponent();
+        this.searcherRefCount = lsmInitialState.getSearcherRefCount();
+        this.indexAccessors = lsmInitialState.getIndexAccessors();
+        this.indexCursors = new ArrayList<IIndexCursor>(indexAccessors.size());
+        LSMInvertedIndexOpContext opContext = (LSMInvertedIndexOpContext) lsmInitialState.getOpContext();
+        this.memoryInvertedIndexComparator = opContext.getComparator();
+        this.tokenFieldCount = opContext.getTokenFieldCount();
+        this.invListFieldCount = opContext.getInvListFieldCount();
 
         //create all cursors
         IIndexCursor cursor;
         for (IIndexAccessor a : indexAccessors) {
-        	InvertedIndexAccessor invIndexAccessor = (InvertedIndexAccessor) a;
+            InvertedIndexAccessor invIndexAccessor = (InvertedIndexAccessor) a;
             cursor = invIndexAccessor.createRangeSearchCursor();
             try {
-            	invIndexAccessor.rangeSearch(cursor, searchPred);
+                invIndexAccessor.rangeSearch(cursor, searchPred);
             } catch (IndexException e) {
                 throw new HyracksDataException(e);
             }
             indexCursors.add(cursor);
         }
-	}
+    }
 
-	@Override
-	public boolean hasNext() throws HyracksDataException {
-		for (IIndexCursor c : indexCursors) {
-			if (c.hasNext()) {
-				return  true;
-			}
-		}
-		
-		flagEOF = true;
-		return false;
-	}
+    @Override
+    public boolean hasNext() throws HyracksDataException {
+        
+        if (flagEOF) {
+            return false;
+        }
+        
+        if (flagFirstNextCall) {
+            for (IIndexCursor c : indexCursors) {
+                if (c.hasNext()) {
+                    return true;
+                }
+            }
+        } else {
+            if (outputPriorityQueue.size() > 0) {
+                return true;
+            }
+        }
 
-	@Override
-	public void next() throws HyracksDataException {
-		
-		if (flagFirstNextCall){
-			flagFirstNextCall = false;
-			
-			//initialize PriorityQueue
-	
-			
-			
-			IIndexCursor cursor;
-			
-			//read the first tuple from each cursor.
-			for (int i = 0; i < indexCursors.size(); i++) {
-				cursor = indexCursors.get(i);
-				if (cursor.hasNext()) {
-					cursor.next();
-					cursor.getTuple();
-				} else {
-					//remove from the list
-					cursor.close();
-					indexCursors.remove(i);
-					i--;
-				}
-			}
-		}
+        flagEOF = true;
+        return false;
+    }
 
-	}
+    @Override
+    public void next() throws HyracksDataException {
 
-	@Override
-	public void close() throws HyracksDataException {
-		// TODO Auto-generated method stub
+        PriorityQueueElement pqElement;
+        IIndexCursor cursor;
+        int cursorIndex;
 
-	}
+        if (flagEOF) {
+            return;
+        }
+        
+        //When the next() is called for the first time, initialize priority queue.
+        if (flagFirstNextCall) {
+            flagFirstNextCall = false;
 
-	@Override
-	public void reset() {
-		// TODO Auto-generated method stub
+            //create and initialize PriorityQueue
+            pqCmp = new PriorityQueueComparator(memoryInvertedIndexComparator);
+            outputPriorityQueue = new PriorityQueue<PriorityQueueElement>(indexCursors.size(), pqCmp);
 
-	}
+            //read the first tuple from each cursor and insert into outputPriorityQueue
 
-	@Override
-	public ITupleReference getTuple() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
+            for (int i = 0; i < indexCursors.size(); i++) {
+                cursor = indexCursors.get(i);
+                if (cursor.hasNext()) {
+                    cursor.next();
+                    pqElement = new PriorityQueueElement(cursor.getTuple(), i);
+                    outputPriorityQueue.offer(pqElement);
+                }
+                //else {
+                //    //do nothing for the cursor who reached EOF.
+                //}
+            }
+        }
+
+        //If you reach here, priority queue is set up to provide the smallest <tokenFields, invListFields>
+        //Get the smallest element from priority queue. 
+        //This element will be the result tuple which will be served to the caller when getTuple() is called. 
+        //Then, insert new element from the cursor where the smallest element came from.
+        pqElement = outputPriorityQueue.poll();
+        if (pqElement != null) {
+            resultTuple = pqElement.getTuple();
+            cursorIndex = pqElement.getCursorIndex();
+            cursor = indexCursors.get(cursorIndex);
+            if (cursor.hasNext()) {
+                cursor.next();
+                pqElement = new PriorityQueueElement(cursor.getTuple(), cursorIndex);
+                outputPriorityQueue.offer(pqElement);
+            } else {
+                // If the current cursor reached EOF, read a tuple from another cursor and insert into the priority queue.
+                for (int i = 0; i < indexCursors.size(); i++) {
+                    cursor = indexCursors.get(i);
+                    if (cursor.hasNext()) {
+                        cursor.next();
+                        pqElement = new PriorityQueueElement(cursor.getTuple(), i);
+                        outputPriorityQueue.offer(pqElement);
+                        break;
+                    }
+                    //else {
+                    //    //do nothing for the cursor who reached EOF.
+                    //}
+                }
+                //if (i == indexCursors.size()) {
+                //    all cursors reached EOF and the only tuples that you have are in the priority queue.
+                //    do nothing here!.
+                //}
+            }
+        }
+        //else {
+        // do nothing!!
+        // which means when the getTuple() is called, the pre-existing result tuple or null will be returned to the caller.
+        //}
+
+    }
+
+    @Override
+    public void close() throws HyracksDataException {
+        try {
+            outputPriorityQueue.clear();
+            for (int i = 0; i < indexCursors.size(); i++) {
+                indexCursors.get(i).close();
+            }
+            indexCursors = null;
+        } finally {
+            harness.closeSearchCursor(searcherRefCount, includeMemComponent);
+        }
+    }
+
+    @Override
+    public void reset() {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public ITupleReference getTuple() {
+        return resultTuple;
+    }
+
     public class PriorityQueueComparator implements Comparator<PriorityQueueElement> {
 
         private final MultiComparator cmp;
@@ -145,11 +210,11 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
             return cmp;
         }
     }
-    
+
     public class PriorityQueueElement {
         private ITupleReference tuple;
         private int cursorIndex;
-        
+
         public PriorityQueueElement(ITupleReference tuple, int cursorIndex) {
             reset(tuple, cursorIndex);
         }
@@ -161,7 +226,7 @@ public class LSMInvertedIndexRangeSearchCursor implements IIndexCursor {
         public int getCursorIndex() {
             return cursorIndex;
         }
-        
+
         public void reset(ITupleReference tuple, int cursorIndex) {
             this.tuple = tuple;
             this.cursorIndex = cursorIndex;
