@@ -12,13 +12,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.algebricks.core.algebra.functions;
+package edu.uci.ics.hyracks.algebricks.examples.piglet.metadata;
 
-public class FunctionInfoImpl implements IFunctionInfo {
+import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import edu.uci.ics.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
+public class PigletFunction implements IFunctionInfo {
     private final FunctionIdentifier fid;
 
-    public FunctionInfoImpl(FunctionIdentifier fid) {
+    public PigletFunction(FunctionIdentifier fid) {
         this.fid = fid;
     }
 
@@ -29,7 +31,6 @@ public class FunctionInfoImpl implements IFunctionInfo {
 
     @Override
     public Object getInfo() {
-        throw new IllegalStateException();
+        return null;
     }
-
 }
