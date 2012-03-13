@@ -63,7 +63,7 @@ public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
         }
         AbstractFunctionCallExpression fexp = (AbstractFunctionCallExpression) expr;
         FunctionIdentifier fi = fexp.getFunctionIdentifier();
-        if (fi != AlgebricksBuiltinFunctions.AND) {
+        if (!fi.equals(AlgebricksBuiltinFunctions.AND)) {
             return false;
         }
         eqVarVarComps.clear();
@@ -103,7 +103,7 @@ public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
             return false;
         }
         AbstractFunctionCallExpression f = (AbstractFunctionCallExpression) expr;
-        if (f.getFunctionIdentifier() != AlgebricksBuiltinFunctions.EQ) {
+        if (!f.getFunctionIdentifier().equals(AlgebricksBuiltinFunctions.EQ)) {
             return false;
         }
         ILogicalExpression e1 = f.getArguments().get(0).getValue();

@@ -28,9 +28,4 @@ public class PigletFunction implements IFunctionInfo {
     public FunctionIdentifier getFunctionIdentifier() {
         return fid;
     }
-
-    @Override
-    public Object getInfo() {
-        return null;
-    }
 }
