@@ -10,8 +10,8 @@ import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.api.io.FileHandle;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IFileHandle;
 import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.io.IIOManager.FileReadWriteMode;
 import edu.uci.ics.hyracks.api.io.IIOManager.FileSyncMode;
@@ -95,7 +95,7 @@ public class BufferCacheRegressionTests {
         // reset with 0's.
         IIOManager ioManager = ctx.getIOManager();
         FileReference testFileRef = new FileReference(new File(fileName));
-        FileHandle testFileHandle = ioManager.open(testFileRef, FileReadWriteMode.READ_ONLY,
+        IFileHandle testFileHandle = ioManager.open(testFileRef, FileReadWriteMode.READ_ONLY,
                 FileSyncMode.METADATA_SYNC_DATA_SYNC);
         ByteBuffer testBuffer = ByteBuffer.allocate(PAGE_SIZE);
         ioManager.syncRead(testFileHandle, 0, testBuffer);
