@@ -45,4 +45,6 @@ public interface IIOManager {
     public IIOFuture asyncRead(FileHandle fHandle, long offset, ByteBuffer data);
 
     public void close(FileHandle fHandle) throws HyracksDataException;
+
+    public void sync(FileHandle fileHandle, boolean metadata) throws HyracksDataException;
 }

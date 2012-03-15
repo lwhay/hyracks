@@ -79,4 +79,8 @@ public class FileHandle {
     public FileChannel getFileChannel() {
         return channel;
     }
+
+    public void sync(boolean metadata) throws IOException {
+        channel.force(metadata);
+    }
 }

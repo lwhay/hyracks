@@ -225,4 +225,13 @@ public class IOManager implements IIOManager {
             return syncWrite(fHandle, offset, data);
         }
     }
+
+    @Override
+    public void sync(FileHandle fileHandle, boolean metadata) throws HyracksDataException {
+        try {
+            fileHandle.sync(metadata);
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
 }
