@@ -15,17 +15,19 @@
 
 package edu.uci.ics.hyracks.storage.am.rtree.impls;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
-import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
@@ -36,6 +38,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
 import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.impls.NodeFrontier;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeDiskOrderScanCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -43,6 +46,7 @@ import edu.uci.ics.hyracks.storage.am.common.util.TreeIndexUtils;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMInteriorFrame;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
@@ -811,17 +815,101 @@ public class RTree extends AbstractTreeIndex {
 	}
 	
 	public class RTreeBulkLoader extends AbstractTreeIndex.AbstractTreeIndexBulkLoader {
-
+		ITreeIndexFrame lowerFrame, prevInteriorFrame;
+				
 		public RTreeBulkLoader(float fillFactor) throws TreeIndexException,
 				HyracksDataException {
 			super(fillFactor);
-		}
-
-		@Override
-		public ISplitKey createSplitKey(ITreeIndexTupleReference tuple) {
-			return new RTreeSplitKey(leafFrame.getTupleWriter().createTupleReference(),
-					leafFrame.getTupleWriter().createTupleReference());
+			prevInteriorFrame = interiorFrameFactory.createFrame();
 		}
 		
+		@Override
+	    public void add(ITupleReference tuple) throws HyracksDataException {
+	        NodeFrontier leafFrontier = nodeFrontiers.get(0);
+
+	        int spaceNeeded = tupleWriter.bytesRequired(tuple) + slotSize;
+	        int spaceUsed = leafFrame.getBuffer().capacity() - leafFrame.getTotalFreeSpace();
+
+	        // try to free space by compression
+	        if (spaceUsed + spaceNeeded > leafMaxBytes) {
+	            leafFrame.compress();
+	            spaceUsed = leafFrame.getBuffer().capacity() - leafFrame.getTotalFreeSpace();
+	        }
+
+	        if (spaceUsed + spaceNeeded > leafMaxBytes) {
+	            propagateBulk(1, false);
+	            
+	            leafFrontier.pageId = freePageManager.getFreePage(metaFrame);
+
+	            leafFrontier.page.releaseWriteLatch();
+	            bufferCache.unpin(leafFrontier.page);
+
+	            leafFrontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId),
+	                    true);
+	            leafFrontier.page.acquireWriteLatch();
+	            leafFrame.setPage(leafFrontier.page);
+	            leafFrame.initBuffer((byte) 0);
+	        }
+
+	        leafFrame.setPage(leafFrontier.page);
+	        leafFrame.insertSorted(tuple);
+	    }
+		
+		public void end() throws HyracksDataException {
+			propagateBulk(1, true);
+			super.end();
+		}
+		
+
+		protected void propagateBulk(int level, boolean toRoot) throws HyracksDataException {
+			boolean propagated = false;
+			
+			if(level == 1) lowerFrame = leafFrame;
+			
+			if(lowerFrame.getTupleCount() == 0) return;
+			
+	        if (level >= nodeFrontiers.size())
+	            addLevel();
+
+	        ITreeIndexTupleReference mbrTuple = interiorFrame.createTupleReference();
+	        ((RTreeNSMFrame) lowerFrame).adjustMBR();
+            mbrTuple.resetByTupleIndex(lowerFrame, 0);
+            
+            NodeFrontier frontier = nodeFrontiers.get(level);
+	        interiorFrame.setPage(frontier.page);
+                    	        
+            interiorFrame.insert(mbrTuple, -1);
+                                  
+            interiorFrame.getBuffer().putInt(interiorFrame.getTupleOffset(interiorFrame.getTupleCount() - 1) + mbrTuple.getTupleSize(), nodeFrontiers.get(level - 1).pageId);
+
+            int spaceNeeded = tupleWriter.bytesRequired(mbrTuple, 0, cmp.getKeyFieldCount()) - 1 + slotSize + 4;
+	        int spaceUsed = interiorFrame.getBuffer().capacity() - interiorFrame.getTotalFreeSpace();
+            
+	        if (spaceUsed + spaceNeeded > interiorMaxBytes && !toRoot) {
+	            lowerFrame = prevInteriorFrame;
+	            lowerFrame.setPage(frontier.page);
+	            
+	            propagateBulk(level + 1, toRoot);
+	        	propagated = true;
+	            
+	            frontier.page.releaseWriteLatch();
+	            bufferCache.unpin(frontier.page);
+	            frontier.pageId = freePageManager.getFreePage(metaFrame);
+	            
+	            frontier.page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, frontier.pageId), true);
+	            frontier.page.acquireWriteLatch();
+	            interiorFrame.setPage(frontier.page);
+	            interiorFrame.initBuffer((byte) level);
+	        }
+	        
+	        if(toRoot && !propagated && level < nodeFrontiers.size() - 1) {
+	        	lowerFrame = prevInteriorFrame;
+	            lowerFrame.setPage(frontier.page);
+	            propagateBulk(level + 1, true);
+	        }
+	        	
+		
+	        leafFrame.setPage(nodeFrontiers.get(0).page);
+		}
 	}
 }

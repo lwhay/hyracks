@@ -15,6 +15,8 @@
 
 package edu.uci.ics.hyracks.storage.am.rtree.frames;
 
+import java.nio.ByteBuffer;
+
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
@@ -116,7 +118,7 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
         buf.putInt(rightPageOff, rightPage);
     }
 
-    protected ITreeIndexTupleReference[] getTuples() {
+    public ITreeIndexTupleReference[] getTuples() {
         return tuples;
     }
 
@@ -323,6 +325,17 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
 
         adjustMBRImpl(tuples);
     }
+    
+	public void writeMBR(ByteBuffer bb, int pos) {
+		RTreeTypeAwareTupleWriter rTreeTupleWriterLeftFrame = ((RTreeTypeAwareTupleWriter) tupleWriter);
+
+		int tupleOff = slotManager.getTupleOff(slotManager.getSlotEndOff());
+		frameTuple.resetByTupleOffset(buf, tupleOff);
+
+		this.adjustMBR();
+		rTreeTupleWriterLeftFrame.writeTupleFields(tuples, 0,
+				bb, pos);
+	}
 
     public abstract int getFieldCount();
 
@@ -334,6 +347,5 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
 	@Override
 	public void insertSorted(ITupleReference tuple) {
 		insert(tuple, -1);
-		// FIXME -1 correct?
 	}
 }

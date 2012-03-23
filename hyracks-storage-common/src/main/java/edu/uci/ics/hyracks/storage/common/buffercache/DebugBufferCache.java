@@ -30,16 +30,16 @@ public class DebugBufferCache implements IBufferCache {
 
     // Actual BufferCache functionality is delegated to this bufferCache.
     private final IBufferCache bufferCache;
-    private AtomicLong pinCount;
-    private AtomicLong unpinCount;
-    private AtomicLong readLatchCount;
-    private AtomicLong readUnlatchCount;
-    private AtomicLong writeLatchCount;
-    private AtomicLong writeUnlatchCount;
-    private AtomicLong createFileCount;
-    private AtomicLong deleteFileCount;
-    private AtomicLong openFileCount;
-    private AtomicLong closeFileCount;
+    private AtomicLong pinCount = new AtomicLong();
+    private AtomicLong unpinCount = new AtomicLong();
+    private AtomicLong readLatchCount = new AtomicLong();
+    private AtomicLong readUnlatchCount = new AtomicLong();
+    private AtomicLong writeLatchCount = new AtomicLong();
+    private AtomicLong writeUnlatchCount = new AtomicLong();
+    private AtomicLong createFileCount = new AtomicLong();
+    private AtomicLong deleteFileCount = new AtomicLong();
+    private AtomicLong openFileCount = new AtomicLong();
+    private AtomicLong closeFileCount = new AtomicLong();
 
     public DebugBufferCache(IBufferCache bufferCache) {
         this.bufferCache = bufferCache;
@@ -164,5 +164,18 @@ public class DebugBufferCache implements IBufferCache {
 	@Override
 	public void force(int fileId, boolean metadata) throws HyracksDataException {
 		bufferCache.force(fileId, metadata);
+	}
+	
+	public void print() {
+		System.out.println("pinCount: " + pinCount);
+		System.out.println("unpinCount: " + unpinCount);
+		System.out.println("readLatchCount: " + readLatchCount);
+		System.out.println("readUnlatchCount: " + readUnlatchCount);
+		System.out.println("writeLatchCount: " + writeLatchCount);
+		System.out.println("writeUnlatchCount: " + writeUnlatchCount);
+		System.out.println("createFileCount: " + createFileCount);
+		System.out.println("deleteFileCount: " + deleteFileCount);
+		System.out.println("openFileCount: " + openFileCount);
+		System.out.println("closeFileCount: " + closeFileCount);
 	}
 }
