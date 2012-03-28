@@ -1,0 +1,202 @@
+package org.apache.vxquery.datamodel;
+
+external Int8 {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.BytePointable",
+    fixed-length = "true",
+    length = "1"
+};
+
+external Int16 {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.ShortPointable",
+    fixed-length = "true",
+    length = "2"
+};
+
+external Int32 {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.IntegerPointable",
+    fixed-length = "true",
+    length = "4"
+};
+
+external Int64 {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.LongPointable",
+    fixed-length = "true",
+    length = "8"
+};
+
+external Float {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.FloatPointable",
+    fixed-length = "true",
+    length = "4"
+};
+
+external Double {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.DoublePointable",
+    fixed-length = "true",
+    length = "8"
+};
+
+external String {
+    type = "class",
+    class = "edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable",
+    fixed-length = "false"
+};
+
+external ValueTagEnum {
+    type = "enum",
+    class = "org.apache.vxquery.datamodel.ValueTag"
+};
+
+struct TaggedValue {
+    ValueTagEnum tag;
+    QName type;
+    Values(tag) value;
+};
+
+tagged-union Values {
+    SEQUENCE: Sequence sequence;
+    ATTRIBUTE: AttributeNode attribute;
+    COMMENT: CommentNode comment;
+    DOCUMENT: DocumentNode document;
+    ELEMENT: ElementNode element;
+    PROCESSING_INSTRUCTION: ProcessingInstructionNode pi;
+    TEXT: TextNode text;
+    UNTYPED_ATOMIC: String untypedAtomic;
+    DATETIME: Datetime datetime;
+    DATE: Date date;
+    TIME: Time time;
+    DURATION: Duration duration;
+    FLOAT: Float float;
+    DOUBLE: Double double;
+    DECIMAL: Decimal decimal;
+    GYEAR_MONTH: GYearMonth gYearMonth;
+    GYEAR: Int32 gYear;
+    GMONTH: Int8 gMonth;
+    GMONTH_DAY: GMonthDay gMonthDay;
+    GDAY: Int8 gDay;
+    BOOLEAN: Int8 boolean;
+    BASE64_BINARY: Binary base64Binary;
+    HEX_BINARY: Binary hexBinary;
+    ANY_URI: String anyURI;
+    QNAME: QName qname;
+    STRING: String string;
+    NOTATION: String notation;
+};
+
+struct Sequence {
+    Int32 length;
+    TaggedValue[length] items;
+};
+
+struct AttributeNode {
+    QName name;
+    QName typeAnnotation;
+    TaggedValue value;
+};
+
+struct CommentNode {
+    String content;
+};
+
+struct DocumentNode {
+    Sequence content;
+};
+
+struct ElementNode {
+    QName name;
+    QName typeAnnotation;
+    Sequence content;
+};
+
+struct ProcessingInstructionNode {
+    String target;
+    String content;
+};
+
+struct TextNode {
+    String content;
+};
+
+struct Datetime {
+    Date date;
+    Time time;
+    Int16 timezone;
+};
+
+struct Date {
+    Integer year;
+    Int8 month;
+    Int8 day;
+    Int16 timezone;
+};
+
+struct Time {
+    Int8 hour;
+    Int8 minutes;
+    Int32 seconds;
+    Int16 timezone;
+};
+
+struct QName {
+    String namespace;
+    String localName;
+};
+
+struct Integer {
+    Int64 value;
+};
+
+struct Duration {
+    YMDuration ymDuration;
+    DTDuration dtDuration;
+};
+
+struct YMDuration {
+    Int32 months;
+};
+
+struct DTDuration {
+    Int32 msecs;
+};
+
+struct Decimal {
+    Int64 value;
+    Int8 exponent;
+};
+
+struct GYearMonth {
+    Int32 months;
+    Int16 timezone;
+};
+
+struct GYear {
+    Int32 year;
+    Int16 timezone;
+};
+
+struct GMonth {
+    Int8 month;
+    Int16 timezone;
+};
+
+struct GMonthDay {
+    Int8 month;
+    Int8 day;
+    Int16 timezone;
+};
+
+struct GDay {
+    Int8 day;
+    Int16 timezone;
+};
+
+struct Binary {
+    Int32 length;
+    Int8[length] bytes;
+};
