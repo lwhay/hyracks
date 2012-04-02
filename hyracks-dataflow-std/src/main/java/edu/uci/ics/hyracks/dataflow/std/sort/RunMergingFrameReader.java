@@ -40,6 +40,7 @@ public class RunMergingFrameReader implements IFrameReader {
     private ReferencedPriorityQueue topTuples;
     private int[] tupleIndexes;
     private FrameTupleAccessor[] tupleAccessors;
+    private Comparator<ReferenceEntry> comparator;
 
     public RunMergingFrameReader(IHyracksTaskContext ctx, IFrameReader[] runCursors, List<ByteBuffer> inFrames,
             int[] sortFields, IBinaryComparator[] comparators, RecordDescriptor recordDesc) {
@@ -55,7 +56,7 @@ public class RunMergingFrameReader implements IFrameReader {
     @Override
     public void open() throws HyracksDataException {
         tupleAccessors = new FrameTupleAccessor[inFrames.size()];
-        Comparator<ReferenceEntry> comparator = createEntryComparator(comparators);
+        comparator = createEntryComparator(comparators);
         topTuples = new ReferencedPriorityQueue(ctx.getFrameSize(), recordDesc, inFrames.size(), comparator);
         tupleIndexes = new int[inFrames.size()];
         for (int i = 0; i < inFrames.size(); i++) {
@@ -101,6 +102,22 @@ public class RunMergingFrameReader implements IFrameReader {
         for (int i = 0; i < inFrames.size(); ++i) {
             closeRun(i, runCursors, tupleAccessors);
         }
+    }
+
+    public int[] getTupleIndexes() {
+        return tupleIndexes;
+    }
+
+    public ReferencedPriorityQueue getTopTuples() {
+        return topTuples;
+    }
+
+    public FrameTupleAccessor[] getTupleAccessors() {
+        return tupleAccessors;
+    }
+
+    public Comparator<ReferenceEntry> getComparator() {
+        return comparator;
     }
 
     private void setNextTopTuple(int runIndex, int[] tupleIndexes, IFrameReader[] runCursors,

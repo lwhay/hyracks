@@ -17,6 +17,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
+import edu.uci.ics.hyracks.dataflow.std.sort.PredictingFrameReaderCollection;
 
 /**
  * @author pouria This class defines the logic for merging the run, generated
@@ -146,13 +147,33 @@ public class ExternalSortRunMerger {
             writer.open();
         }
         try {
-            IFrameReader[] runCursors = new RunFileReader[inFrames.size()];
+            IFrameReader[] runCursors = new PredictingFrameReader[inFrames.size()];
+            PredictingFrameReaderCollection predictorsCollection = new PredictingFrameReaderCollection(ctx, runCursors, runs);
+
             for (int i = 0; i < inFrames.size(); i++) {
-                runCursors[i] = runs.get(i);
+                runCursors[i] = predictorsCollection.getPredictingFrameReader(i);
             }
             RunMergingFrameReader merger = new RunMergingFrameReader(ctx, runCursors, inFrames, sortFields,
                     comparators, recordDesc);
             merger.open();
+
+            /* There is a cyclic dependency here, we can't pass these parameters
+             * on to the constructor of predictorsCollection because we don't
+             * have access to the tupleIndexes array, topTuples priority queue,
+             * tupleAccessors array and the comparators until we initialize and
+             * open the merger. On the other hand, we can't wait to initialize
+             * the predictorsCollection until we initialize and open the merger
+             * because, merger.open needs access to the initialized runCursors
+             * elements to set the topTuples and to have these runCursors
+             * elements initialized we want predictorsCollection to be
+             * initialized since we get the runCursors elements through
+             * predictorsCollection. Hence we set the tupleIndexes array in
+             * the predictorsCollection after opening the merger.
+             */
+            predictorsCollection.setMergerParams(
+                    merger.getTupleIndexes(), merger.getTopTuples(),
+                    merger.getTupleAccessors(), merger.getComparator());
+
             try {
                 while (merger.nextFrame(outFrame)) {
                     FrameUtils.flushFrame(outFrame, writer);
