@@ -96,19 +96,4 @@ public class RTreeNSMLeafFrame extends RTreeNSMFrame implements IRTreeLeafFrame 
     public int getFieldCount() {
         return frameTuple.getFieldCount();
     }
-
-	@Override
-	public void setNextLeaf(int pageId) {
-		// FIXME Used for BulkLoad hooks
-	}
-
-	@Override
-	public void deleteGreatest() {
-		// FIXME Used for BulkLoad hooks
-	}
-
-	@Override
-	public void setMultiComparator(MultiComparator cmp) {
-		// FIXME Used for BulkLoad hooks
-	}
 }

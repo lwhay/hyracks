@@ -16,25 +16,20 @@
 package edu.uci.ics.hyracks.storage.am.lsm.rtree.impls;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFinalizer;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.TreeIndexComponentFinalizer;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTree.LSMRTreeComponent;
+import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
-public class LSMRTreeComponentFinalizer implements ILSMComponentFinalizer {
+public class LSMRTreeComponentFinalizer extends TreeIndexComponentFinalizer {
 
-	TreeIndexComponentFinalizer treeIndexFinalizer = new TreeIndexComponentFinalizer();
-	
-	@Override
-	public boolean isValid(Object lsmComponent) throws HyracksDataException {
-		LSMRTreeComponent component = (LSMRTreeComponent) lsmComponent;
-		return treeIndexFinalizer.isValid(component.getRTree())
-				&& treeIndexFinalizer.isValid(component.getBTree());
-	}
+	public LSMRTreeComponentFinalizer(IFileMapProvider fileMapProvider) {
+        super(fileMapProvider);
+    }
 
-	@Override
+    @Override
 	public void finalize(Object lsmComponent) throws HyracksDataException {
 		LSMRTreeComponent component = (LSMRTreeComponent) lsmComponent;
-		treeIndexFinalizer.finalize(component.getRTree());
-		treeIndexFinalizer.finalize(component.getBTree());
+		super.finalize(component.getRTree());
+		super.finalize(component.getBTree());
 	}
 }

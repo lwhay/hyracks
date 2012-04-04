@@ -18,8 +18,11 @@ package edu.uci.ics.hyracks.storage.am.common.dataflow;
 import java.io.Serializable;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexIdProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallbackProvider;
 
 public interface IIndexDataflowHelperFactory extends Serializable {
     public IndexDataflowHelper createIndexDataflowHelper(IIndexOperatorDescriptor opDesc,
-            final IHyracksTaskContext ctx, int partition, boolean createIfNotExists);
+            final IHyracksTaskContext ctx, IOperationCallbackProvider opCallbackProvider,
+            IIndexIdProvider indexIdProvider, int partition, boolean createIfNotExists);
 }

@@ -23,14 +23,14 @@ import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyExceptio
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNonExistentKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNotUpdateableException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
+import edu.uci.ics.hyracks.storage.am.common.AbstractTreeIndexTestWorker;
+import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector;
+import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector.TestOperation;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
-import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.datagen.DataGenThread;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
-import edu.uci.ics.hyracks.storage.am.common.test.AbstractTreeIndexTestWorker;
-import edu.uci.ics.hyracks.storage.am.common.test.TestOperationSelector;
-import edu.uci.ics.hyracks.storage.am.common.test.TestOperationSelector.TestOperation;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.LSMBTree.LSMBTreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMMergeInProgressException;
@@ -50,9 +50,9 @@ public class LSMBTreeTestWorker extends AbstractTreeIndexTestWorker {
     }
     
     @Override
-    public void performOp(ITupleReference tuple, TestOperation op) throws HyracksDataException, TreeIndexException {        
+    public void performOp(ITupleReference tuple, TestOperation op) throws HyracksDataException, IndexException {        
         LSMBTreeIndexAccessor accessor = (LSMBTreeIndexAccessor) indexAccessor;
-        ITreeIndexCursor searchCursor = accessor.createSearchCursor();
+        IIndexCursor searchCursor = accessor.createSearchCursor();
         MultiComparator cmp = accessor.getMultiComparator();
         RangePredicate rangePred = new RangePredicate(tuple, tuple, true, true, cmp, cmp);
         
@@ -120,16 +120,6 @@ public class LSMBTreeTestWorker extends AbstractTreeIndexTestWorker {
                 
             default:
                 throw new HyracksDataException("Op " + op.toString() + " not supported.");
-        }
-    }
-    
-    private void consumeCursorTuples(ITreeIndexCursor cursor) throws HyracksDataException {
-        try {
-            while(cursor.hasNext()) {
-                cursor.next();
-            }
-        } finally {
-            cursor.close();
         }
     }
 }

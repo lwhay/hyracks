@@ -16,6 +16,8 @@
 package edu.uci.ics.hyracks.storage.am.btree.dataflow;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexIdProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IndexDataflowHelper;
@@ -26,7 +28,8 @@ public class BTreeDataflowHelperFactory implements IIndexDataflowHelperFactory {
 
     @Override
     public IndexDataflowHelper createIndexDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
-            int partition, boolean createIfNotExists) {
-        return new BTreeDataflowHelper(opDesc, ctx, partition, createIfNotExists);
+            IOperationCallbackProvider opCallbackProvider, IIndexIdProvider indexIdProvider, int partition,
+            boolean createIfNotExists) {
+        return new BTreeDataflowHelper(opDesc, ctx, opCallbackProvider, indexIdProvider, partition, createIfNotExists);
     }
 }

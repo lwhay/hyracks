@@ -22,7 +22,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
-import edu.uci.ics.hyracks.storage.am.btree.tests.OrderedIndexExamplesTest;
+import edu.uci.ics.hyracks.storage.am.btree.OrderedIndexExamplesTest;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.util.LSMBTreeTestHarness;
@@ -31,14 +31,13 @@ import edu.uci.ics.hyracks.storage.am.lsm.btree.util.LSMBTreeUtils;
 public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
 	private final LSMBTreeTestHarness harness = new LSMBTreeTestHarness();
 	
-	@Override
-	protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits,
-			IBinaryComparatorFactory[] cmpFactories) throws TreeIndexException {
-		return LSMBTreeUtils.createLSMTree(harness.getMemBufferCache(),
-				harness.getMemFreePageManager(), harness.getIOManager(), harness.getOnDiskDir(),
-				harness.getDiskBufferCache(), harness.getDiskFileMapProvider(),
-				typeTraits, cmpFactories);
-	}
+    @Override
+    protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories)
+            throws TreeIndexException {
+        return LSMBTreeUtils.createLSMTree(harness.getMemBufferCache(), harness.getMemOpCallback(),
+                harness.getMemFreePageManager(), harness.getIOManager(), harness.getOnDiskDir(),
+                harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), typeTraits, cmpFactories);
+    }
 
 	@Override
 	protected int getIndexFileId() {

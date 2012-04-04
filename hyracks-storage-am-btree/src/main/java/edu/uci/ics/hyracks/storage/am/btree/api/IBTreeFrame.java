@@ -22,10 +22,9 @@ import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 
 public interface IBTreeFrame extends ITreeIndexFrame {
 	public int findUpdateTupleIndex(ITupleReference tuple) throws TreeIndexException;
-	public int findInsertTupleIndex(ITupleReference tuple) throws TreeIndexException;
+	public int findInsertTupleIndex(ITupleReference tuple) throws TreeIndexException;	
 	public int findDeleteTupleIndex(ITupleReference tuple) throws TreeIndexException;
 	public void insertSorted(ITupleReference tuple);
     public boolean getSmFlag();
     public void setSmFlag(boolean smFlag);
-    public void setMultiComparator(MultiComparator cmp);
 }

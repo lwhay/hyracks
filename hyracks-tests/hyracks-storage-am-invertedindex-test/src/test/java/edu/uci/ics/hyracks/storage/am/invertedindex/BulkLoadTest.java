@@ -51,6 +51,7 @@ import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
@@ -58,6 +59,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManager;
+import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
@@ -119,10 +121,10 @@ public class BulkLoadTest extends AbstractInvIndexTest {
 
         ITreeIndexFrame leafFrame = leafFrameFactory.createFrame();
 
-        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, btreeFileId, 0, metaFrameFactory);
+        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
 
-        BTree btree = new BTree(bufferCache, btreeTypeTraits.length, cmpFactories, freePageManager, interiorFrameFactory,
-                leafFrameFactory);
+        BTree btree = new BTree(bufferCache, NoOpOperationCallback.INSTANCE, btreeTypeTraits.length, cmpFactories,
+                freePageManager, interiorFrameFactory, leafFrameFactory);
         btree.create(btreeFileId);
         btree.open(btreeFileId);
 
@@ -134,7 +136,8 @@ public class BulkLoadTest extends AbstractInvIndexTest {
         IBinaryComparatorFactory[] invListCmpFactories = new IBinaryComparatorFactory[invListKeys];
         invListCmpFactories[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY);
 
-        InvertedIndex invIndex = new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories);
+        IInvertedListBuilder invListBuilder = new FixedSizeElementInvertedListBuilder(invListTypeTraits);
+        InvertedIndex invIndex = new InvertedIndex(bufferCache, btree, invListTypeTraits, invListCmpFactories, invListBuilder, null);
         invIndex.open(invListsFileId);
 
         Random rnd = new Random();
@@ -172,18 +175,13 @@ public class BulkLoadTest extends AbstractInvIndexTest {
         int addProb = 0;
         int addProbStep = 10;
 
-        IInvertedListBuilder invListBuilder = new FixedSizeElementInvertedListBuilder(invListTypeTraits);
-        InvertedIndex.BulkLoadContext ctx = invIndex.beginBulkLoad(invListBuilder, HYRACKS_FRAME_SIZE,
-                BTree.DEFAULT_FILL_FACTOR);
+        IIndexBulkLoadContext ctx = invIndex.beginBulkLoad(BTree.DEFAULT_FILL_FACTOR);
 
-        int totalElements = 0;
         for (int i = 0; i < tokens.size(); i++) {
 
             addProb += addProbStep * (i + 1);
             for (int j = 0; j < maxId; j++) {
                 if ((Math.abs(rnd.nextInt()) % addProb) == 0) {
-
-                    totalElements++;
 
                     tb.reset();
                     UTF8StringSerializerDeserializer.INSTANCE.serialize(tokens.get(i), dos);
@@ -199,7 +197,7 @@ public class BulkLoadTest extends AbstractInvIndexTest {
                     tuple.reset(accessor, 0);
 
                     try {
-                        invIndex.bulkLoadAddTuple(ctx, tuple);
+                        invIndex.bulkLoadAddTuple(tuple, ctx);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

@@ -16,7 +16,6 @@
 package edu.uci.ics.hyracks.storage.am.rtree.api;
 
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 
 public interface IRTreeFrame extends ITreeIndexFrame {

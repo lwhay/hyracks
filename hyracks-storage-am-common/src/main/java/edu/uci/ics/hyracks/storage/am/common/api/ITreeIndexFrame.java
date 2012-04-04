@@ -90,12 +90,7 @@ public interface ITreeIndexFrame {
     public int getPageHeaderSize();
     
     public ITreeIndexTupleReference createTupleReference();
+    
+    public void setMultiComparator(MultiComparator cmp);
 
-	public void insertSorted(ITupleReference tuple);
-
-	public void setNextLeaf(int pageId);
-
-	public void deleteGreatest();
-
-	public void setMultiComparator(MultiComparator cmp);
 }

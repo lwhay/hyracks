@@ -24,14 +24,14 @@ import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNonExistentKeyExcept
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNotUpdateableException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
+import edu.uci.ics.hyracks.storage.am.common.AbstractTreeIndexTestWorker;
+import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector;
+import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector.TestOperation;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.datagen.DataGenThread;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
-import edu.uci.ics.hyracks.storage.am.common.test.AbstractTreeIndexTestWorker;
-import edu.uci.ics.hyracks.storage.am.common.test.TestOperationSelector;
-import edu.uci.ics.hyracks.storage.am.common.test.TestOperationSelector.TestOperation;
 
 public class BTreeTestWorker extends AbstractTreeIndexTestWorker {
     
@@ -78,7 +78,7 @@ public class BTreeTestWorker extends AbstractTreeIndexTestWorker {
                 }
                 break;
                 
-            case UPDATE: 
+            case UPDATE:
                 try {
                     accessor.update(tuple);
                 } catch (BTreeNonExistentKeyException e) {
@@ -86,6 +86,12 @@ public class BTreeTestWorker extends AbstractTreeIndexTestWorker {
                 } catch (BTreeNotUpdateableException e) {
                     // Ignore not updateable exception due to numKeys == numFields.
                 }
+                break;
+                
+            case UPSERT:
+                accessor.upsert(tuple);
+                // Upsert should not throw. If it does, there's 
+                // a bigger problem and the test should fail.
                 break;
                 
             case POINT_SEARCH: 

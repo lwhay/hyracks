@@ -25,6 +25,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.frames.TreeIndexNSMFrame;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.EntriesOrder;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.RTreeSplitKey;
@@ -325,17 +326,6 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
 
         adjustMBRImpl(tuples);
     }
-    
-	public void writeMBR(ByteBuffer bb, int pos) {
-		RTreeTypeAwareTupleWriter rTreeTupleWriterLeftFrame = ((RTreeTypeAwareTupleWriter) tupleWriter);
-
-		int tupleOff = slotManager.getTupleOff(slotManager.getSlotEndOff());
-		frameTuple.resetByTupleOffset(buf, tupleOff);
-
-		this.adjustMBR();
-		rTreeTupleWriterLeftFrame.writeTupleFields(tuples, 0,
-				bb, pos);
-	}
 
     public abstract int getFieldCount();
 
@@ -344,8 +334,8 @@ public abstract class RTreeNSMFrame extends TreeIndexNSMFrame implements IRTreeF
         return rightPageOff;
     }
     
-	@Override
-	public void insertSorted(ITupleReference tuple) {
-		insert(tuple, -1);
+    @Override
+	public void setMultiComparator(MultiComparator cmp) {
+    	// currently, R-Tree Frames are unsorted
 	}
 }

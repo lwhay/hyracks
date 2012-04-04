@@ -24,12 +24,12 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexIdProvider;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndex;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexRegistryProvider;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifier;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearchModifierFactory;
-import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.common.IStorageManagerInterface;
 
@@ -37,30 +37,28 @@ public class InvertedIndexSearchOperatorDescriptor extends AbstractInvertedIndex
     private static final long serialVersionUID = 1L;
 
     private final int queryField;
-    private final IBinaryTokenizerFactory queryTokenizerFactory;
     private final IInvertedIndexSearchModifierFactory searchModifierFactory;
 
-    public InvertedIndexSearchOperatorDescriptor(JobSpecification spec,
-            int queryField, IStorageManagerInterface storageManager, IFileSplitProvider btreeFileSplitProvider,
+    public InvertedIndexSearchOperatorDescriptor(JobSpecification spec, int queryField,
+            IStorageManagerInterface storageManager, IFileSplitProvider btreeFileSplitProvider,
             IFileSplitProvider invListsFileSplitProvider, IIndexRegistryProvider<IIndex> indexRegistryProvider,
             ITypeTraits[] tokenTypeTraits, IBinaryComparatorFactory[] tokenComparatorFactories,
             ITypeTraits[] invListsTypeTraits, IBinaryComparatorFactory[] invListComparatorFactories,
             IIndexDataflowHelperFactory btreeDataflowHelperFactory, IBinaryTokenizerFactory queryTokenizerFactory,
-            IInvertedIndexSearchModifierFactory searchModifierFactory, RecordDescriptor recDesc) {
+            IInvertedIndexSearchModifierFactory searchModifierFactory, RecordDescriptor recDesc,
+            IIndexIdProvider indexIdProvider) {
         super(spec, 1, 1, recDesc, storageManager, btreeFileSplitProvider, invListsFileSplitProvider,
                 indexRegistryProvider, tokenTypeTraits, tokenComparatorFactories, invListsTypeTraits,
-                invListComparatorFactories, btreeDataflowHelperFactory);
+                invListComparatorFactories, queryTokenizerFactory, btreeDataflowHelperFactory, indexIdProvider);
         this.queryField = queryField;
-        this.queryTokenizerFactory = queryTokenizerFactory;
         this.searchModifierFactory = searchModifierFactory;
     }
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        IBinaryTokenizer tokenizer = queryTokenizerFactory.createTokenizer();
         IInvertedIndexSearchModifier searchModifier = searchModifierFactory.createSearchModifier();
-        return new InvertedIndexSearchOperatorNodePushable(this, ctx, partition, queryField, searchModifier, tokenizer,
+        return new InvertedIndexSearchOperatorNodePushable(this, ctx, indexIdProvider, partition, queryField, searchModifier,
                 recordDescProvider);
     }
 }

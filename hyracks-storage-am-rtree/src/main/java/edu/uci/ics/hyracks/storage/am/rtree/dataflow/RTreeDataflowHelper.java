@@ -17,30 +17,29 @@ package edu.uci.ics.hyracks.storage.am.rtree.dataflow;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexIdProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallbackProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexDataflowHelper;
-import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
-import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManager;
-import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree;
-import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
+import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 
 public class RTreeDataflowHelper extends TreeIndexDataflowHelper {
 
-    public RTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx, int partition,
-            boolean createIfNotExists) {
-        super(opDesc, ctx, partition, createIfNotExists);
+    private final IPrimitiveValueProviderFactory[] valueProviderFactories;
+
+    public RTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
+            IOperationCallbackProvider opCallbackProvider, IIndexIdProvider indexIdProvider, int partition,
+            boolean createIfNotExists, IPrimitiveValueProviderFactory[] valueProviderFactories) {
+        super(opDesc, ctx, opCallbackProvider, indexIdProvider, partition, createIfNotExists);
+        this.valueProviderFactories = valueProviderFactories;
     }
 
     @Override
     public ITreeIndex createIndexInstance() throws HyracksDataException {
-        IBufferCache bufferCache = treeOpDesc.getStorageManager().getBufferCache(ctx);
-        ITreeIndexMetaDataFrameFactory metaDataFrameFactory = new LIFOMetaDataFrameFactory();
-        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, indexFileId, 0,
-                metaDataFrameFactory);
-        return new RTree(bufferCache, treeOpDesc.getTreeIndexTypeTraits().length, treeOpDesc.getTreeIndexComparatorFactories(), freePageManager,
-                treeOpDesc.getTreeIndexInteriorFactory(), treeOpDesc.getTreeIndexLeafFactory());
+        return RTreeUtils.createRTree(treeOpDesc.getStorageManager().getBufferCache(ctx),
+                treeOpDesc.getTreeIndexTypeTraits(), valueProviderFactories,
+                treeOpDesc.getTreeIndexComparatorFactories());
     }
 }

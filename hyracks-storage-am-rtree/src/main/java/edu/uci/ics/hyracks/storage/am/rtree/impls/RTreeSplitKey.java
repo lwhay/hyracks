@@ -130,12 +130,14 @@ public class RTreeSplitKey implements ISplitKey {
 
 	@Override
 	public ByteBuffer getBuffer() {
-		throw new UnsupportedOperationException();
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	@Override
 	public ITreeIndexTupleReference getTuple() {
-		throw new UnsupportedOperationException();
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	@Override
@@ -146,6 +148,7 @@ public class RTreeSplitKey implements ISplitKey {
 
 	@Override
 	public ISplitKey duplicate(ITreeIndexTupleReference copyTuple) {
-		throw new UnsupportedOperationException();
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

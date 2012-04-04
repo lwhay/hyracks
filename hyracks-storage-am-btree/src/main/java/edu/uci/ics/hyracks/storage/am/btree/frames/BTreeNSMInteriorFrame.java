@@ -407,9 +407,4 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         }
         return ret;
     }
-
-	@Override
-	public void setNextLeaf(int pageId) {
-		// FIXME Used for BulkLoad hooks
-	}
 }

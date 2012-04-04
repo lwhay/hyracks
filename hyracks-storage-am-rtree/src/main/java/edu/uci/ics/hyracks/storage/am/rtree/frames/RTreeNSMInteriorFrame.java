@@ -509,19 +509,4 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
     public int getFieldCount() {
         return keyValueProviders.length;
     }
-
-	@Override
-	public void setNextLeaf(int pageId) {
-		// FIXME Used for BulkLoad hooks
-	}
-
-	@Override
-	public void deleteGreatest() {
-		// FIXME Used for BulkLoad hooks
-	}
-
-	@Override
-	public void setMultiComparator(MultiComparator cmp) {
-		// FIXME Used for BulkLoad hooks
-	}
 }

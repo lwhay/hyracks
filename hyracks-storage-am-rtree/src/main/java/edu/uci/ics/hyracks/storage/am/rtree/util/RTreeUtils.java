@@ -35,7 +35,7 @@ import edu.uci.ics.hyracks.storage.am.rtree.tuples.RTreeTypeAwareTupleWriterFact
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class RTreeUtils {
-    public static RTree createRTree(IBufferCache bufferCache, int rtreeFileId, ITypeTraits[] typeTraits,
+    public static RTree createRTree(IBufferCache bufferCache, ITypeTraits[] typeTraits,
             IPrimitiveValueProviderFactory[] valueProviderFactories, IBinaryComparatorFactory[] cmpFactories) {
 
         RTreeTypeAwareTupleWriterFactory tupleWriterFactory = new RTreeTypeAwareTupleWriterFactory(typeTraits);
@@ -45,7 +45,7 @@ public class RTreeUtils {
                 valueProviderFactories);
         ITreeIndexMetaDataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
 
-        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, rtreeFileId, 0, metaFrameFactory);
+        IFreePageManager freePageManager = new LinkedListFreePageManager(bufferCache, 0, metaFrameFactory);
         RTree rtree = new RTree(bufferCache, typeTraits.length, cmpFactories, freePageManager, interiorFrameFactory,
                 leafFrameFactory);
         return rtree;

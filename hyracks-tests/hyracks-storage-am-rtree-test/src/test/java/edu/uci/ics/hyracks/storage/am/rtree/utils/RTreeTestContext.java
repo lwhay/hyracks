@@ -21,8 +21,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.dataflow.common.util.SerdeUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeTestContext;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree;
-import edu.uci.ics.hyracks.storage.am.rtree.tests.AbstractRTreeTestContext;
 import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
@@ -51,7 +51,7 @@ public class RTreeTestContext extends AbstractRTreeTestContext {
         ITypeTraits[] typeTraits = SerdeUtils.serdesToTypeTraits(fieldSerdes);
         IBinaryComparatorFactory[] cmpFactories = SerdeUtils.serdesToComparatorFactories(fieldSerdes, numKeyFields);
         RTree rtree = RTreeUtils
-                .createRTree(bufferCache, rtreeFileId, typeTraits, valueProviderFactories, cmpFactories);
+                .createRTree(bufferCache, typeTraits, valueProviderFactories, cmpFactories);
         rtree.create(rtreeFileId);
         rtree.open(rtreeFileId);
         RTreeTestContext testCtx = new RTreeTestContext(fieldSerdes, rtree);

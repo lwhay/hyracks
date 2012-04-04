@@ -38,11 +38,12 @@ public class BufferCache implements IBufferCacheInternal {
     private static final Logger LOGGER = Logger.getLogger(BufferCache.class.getName());
     private static final int MAP_FACTOR = 2;
 
-    //private static final int MAX_VICTIMIZATION_TRY_COUNT = 3;
-    private static final int MAX_VICTIMIZATION_TRY_COUNT = 1000000;
+    private static final int MAX_VICTIMIZATION_TRY_COUNT = 5;
+    private static final int MAX_WAIT_FOR_CLEANER_THREAD_TIME = 1000;
+    private static final int MIN_CLEANED_COUNT_DIFF = 4;
 
     private final int maxOpenFiles;
-
+    
     private final IIOManager ioManager;
     private final int pageSize;
     private final int numPages;
@@ -51,8 +52,8 @@ public class BufferCache implements IBufferCacheInternal {
     private final IPageReplacementStrategy pageReplacementStrategy;
     private final IFileMapManager fileMapManager;
     private final CleanerThread cleanerThread;
-    private final Map<Integer, BufferedFileHandle> fileInfoMap;
-
+    private final Map<Integer, BufferedFileHandle> fileInfoMap;    
+    
     private boolean closed;
 
     public BufferCache(IIOManager ioManager, ICacheMemoryAllocator allocator,
@@ -120,7 +121,7 @@ public class BufferCache implements IBufferCacheInternal {
             cPage = bucket.cachedPage;
             while (cPage != null) {
                 if (cPage.dpid == dpid) {
-                    cPage.pinCount.incrementAndGet();
+                	cPage.pinCount.incrementAndGet();
                     pageReplacementStrategy.notifyCachePageAccess(cPage);
                     return cPage;
                 }
@@ -169,12 +170,10 @@ public class BufferCache implements IBufferCacheInternal {
     }
 
     private CachedPage findPage(long dpid, boolean newPage) {
-        int victimizationTryCount = 0;
-        int localCleanCount = -1;
-        synchronized (cleanerThread.cleanNotification) {
-            localCleanCount = cleanerThread.cleanCount;
-        }
+        int victimizationTryCount = 0;        
         while (true) {
+        	int startCleanedCount = cleanerThread.cleanedCount;
+        	
             CachedPage cPage = null;
             /*
              * Hash dpid to get a bucket and then check if the page exists in the bucket.
@@ -186,7 +185,7 @@ public class BufferCache implements IBufferCacheInternal {
                 cPage = bucket.cachedPage;
                 while (cPage != null) {
                     if (cPage.dpid == dpid) {
-                        cPage.pinCount.incrementAndGet();
+                    	cPage.pinCount.incrementAndGet();
                         return cPage;
                     }
                     cPage = cPage.next;
@@ -228,8 +227,8 @@ public class BufferCache implements IBufferCacheInternal {
                         cPage = bucket.cachedPage;
                         while (cPage != null) {
                             if (cPage.dpid == dpid) {
-                                cPage.pinCount.incrementAndGet();
-                                victim.pinCount.decrementAndGet();
+                            	cPage.pinCount.incrementAndGet();
+                            	victim.pinCount.decrementAndGet();
                                 return cPage;
                             }
                             cPage = cPage.next;
@@ -250,14 +249,14 @@ public class BufferCache implements IBufferCacheInternal {
                     bucket.bucketLock.lock();
                     try {
                         if (victim.pinCount.get() != 1) {
-                            victim.pinCount.decrementAndGet();
+                        	victim.pinCount.decrementAndGet();
                             continue;
                         }
                         cPage = bucket.cachedPage;
                         while (cPage != null) {
                             if (cPage.dpid == dpid) {
-                                cPage.pinCount.incrementAndGet();
-                                victim.pinCount.decrementAndGet();
+                            	cPage.pinCount.incrementAndGet();
+                            	victim.pinCount.decrementAndGet();
                                 return cPage;
                             }
                             cPage = cPage.next;
@@ -281,14 +280,14 @@ public class BufferCache implements IBufferCacheInternal {
                     }
                     try {
                         if (victim.pinCount.get() != 1) {
-                            victim.pinCount.decrementAndGet();
+                        	victim.pinCount.decrementAndGet();                        	
                             continue;
                         }
                         cPage = bucket.cachedPage;
                         while (cPage != null) {
                             if (cPage.dpid == dpid) {
-                                cPage.pinCount.incrementAndGet();
-                                victim.pinCount.decrementAndGet();
+                            	cPage.pinCount.incrementAndGet();
+                            	victim.pinCount.decrementAndGet();
                                 return cPage;
                             }
                             cPage = cPage.next;
@@ -322,14 +321,19 @@ public class BufferCache implements IBufferCacheInternal {
             synchronized (cleanerThread) {
                 cleanerThread.notifyAll();
             }
+			// Heuristic optimization. Check whether the cleaner thread has
+			// cleaned pages since we did our last pin attempt.
+			if (cleanerThread.cleanedCount - startCleanedCount > MIN_CLEANED_COUNT_DIFF) {
+				// Don't go to sleep and wait for notification from the cleaner,
+				// just try to pin again immediately.
+				continue;
+			}
             synchronized (cleanerThread.cleanNotification) {
-                if (cleanerThread.cleanCount == localCleanCount) {
-                    try {
-                        cleanerThread.cleanNotification.wait(1000);
-                    } catch (InterruptedException e) {
-                        // Do nothing
-                    }
-                }
+            	try {
+            		cleanerThread.cleanNotification.wait(MAX_WAIT_FOR_CLEANER_THREAD_TIME);
+            	} catch (InterruptedException e) {
+            		// Do nothing
+            	}
             }
         }
     }
@@ -508,7 +512,12 @@ public class BufferCache implements IBufferCacheInternal {
         private boolean shutdownStart = false;
         private boolean shutdownComplete = false;
         private final Object cleanNotification = new Object();
-        private int cleanCount = 0;
+		// Simply keeps incrementing this counter when a page is cleaned.
+		// Used to implement wait-for-cleanerthread heuristic optimizations.
+		// A waiter can detect whether pages have been cleaned.
+		// No need to make this var volatile or synchronize it's access in any
+		// way because it is used for heuristics.
+        private int cleanedCount = 0;
 
         public CleanerThread() {
             setPriority(MAX_PRIORITY);
@@ -538,9 +547,9 @@ public class BufferCache implements IBufferCacheInternal {
                         if (cleaned) {                           	                        	
                         	cPage.dirty.set(false);
                         	cPage.pinCount.decrementAndGet();
-                        	synchronized (cleanNotification) {
-                        		++cleanCount;
-                        		cleanNotification.notify();
+                        	cleanedCount++;
+                        	synchronized (cleanNotification) {                        		
+                        		cleanNotification.notifyAll();
                         	}
                         }
                     } finally {
@@ -708,7 +717,7 @@ public class BufferCache implements IBufferCacheInternal {
                 if (flushDirtyPages) {
                     write(cPage);
                 }
-                cPage.dirty.set(false);
+                cPage.dirty.set(false);                
                 pinCount = cPage.pinCount.decrementAndGet();
             } else {
                 pinCount = cPage.pinCount.get();

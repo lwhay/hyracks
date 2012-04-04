@@ -15,10 +15,8 @@
 
 package edu.uci.ics.hyracks.storage.am.common.api;
 
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndex;
-import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 /**
  * Interface describing the operations of tree-based index structures. Indexes
@@ -27,16 +25,40 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
  * Users must perform operations on an ITreeIndex via an ITreeIndexAccessor.
  */
 public interface ITreeIndex extends IIndex {
+    /**
+     * @return The index's leaf frame factory.
+     */
+    public ITreeIndexFrameFactory getLeafFrameFactory();
 
-	/**
-	 * Creates an index accessor for performing operations on this index.
-	 * (insert/delete/update/search/diskorderscan). An ITreeIndexAccessor is not
-	 * thread safe, but different ITreeIndexAccessors can concurrently operate
-	 * on the same ITreeIndex
-	 * 
-	 * @returns ITreeIndexAccessor A tree index accessor for this tree.
-	 */
-	public ITreeIndexAccessor createAccessor();
+    /**
+     * @return The index's interior frame factory.
+     */
+    public ITreeIndexFrameFactory getInteriorFrameFactory();
+
+    /**
+     * @return The index's free page manager.
+     */
+    public IFreePageManager getFreePageManager();
+
+    /**
+     * @return The number of fields tuples of this index have.
+     */
+    public int getFieldCount();
+
+    /**
+     * @return The current root page id of this index.
+     */
+    public int getRootPageId();
+
+    /**
+     * @return The file id of this index.
+     */
+    public int getFileId();
+
+    /**
+     * @return Comparator factories.
+     */
+    public IBinaryComparatorFactory[] getComparatorFactories();
 
  	/**
 	 * @param fillFactor
@@ -44,45 +66,4 @@ public interface ITreeIndex extends IIndex {
 	 * loader
  	 */
 	public ITreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException;
- 
-
-	/**
-	 * @return The index's leaf frame factory.
-	 */
-	public ITreeIndexFrameFactory getLeafFrameFactory();
-
-	/**
-	 * @return The index's interior frame factory.
-	 */
-	public ITreeIndexFrameFactory getInteriorFrameFactory();
-
-	/**
-	 * @return The index's free page manager.
-	 */
-	public IFreePageManager getFreePageManager();
-
-	/**
-	 * @return The number of fields tuples of this index have.
-	 */
-	public int getFieldCount();
-
-	/**
-	 * @return The current root page id of this index.
-	 */
-	public int getRootPageId();
-
-	/**
-	 * @return An enum of the concrete type of this index.
-	 */
-	public IndexType getIndexType();
-	
-	/**
-     * @return The file id of this index.
-     */
-    public int getFileId();
-    
-    /**
-     * @return BufferCache underlying this tree index.
-     */
-    public IBufferCache getBufferCache();
 }

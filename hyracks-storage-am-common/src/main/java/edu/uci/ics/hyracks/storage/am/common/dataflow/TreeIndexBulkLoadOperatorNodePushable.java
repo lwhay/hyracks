@@ -23,15 +23,15 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexIdProvider;
+import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
-import edu.uci.ics.hyracks.storage.am.common.api.PageAllocationException;
 
 public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOperatorNodePushable {
     private float fillFactor;
     private final TreeIndexDataflowHelper treeIndexHelper;
     private FrameTupleAccessor accessor;
-    private ITreeIndexBulkLoader bulkLoader;
+    private IIndexBulkLoadContext bulkLoadCtx;
     private ITreeIndex treeIndex;
 
     private IRecordDescriptorProvider recordDescProvider;
@@ -39,9 +39,11 @@ public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSin
     private PermutingFrameTupleReference tuple = new PermutingFrameTupleReference();
 
     public TreeIndexBulkLoadOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
-            int partition, int[] fieldPermutation, float fillFactor, IRecordDescriptorProvider recordDescProvider) {
+            IOperationCallbackProvider opCallbackProvider, IIndexIdProvider indexIdProvider, int partition, int[] fieldPermutation, float fillFactor,
+            IRecordDescriptorProvider recordDescProvider) {
+
         treeIndexHelper = (TreeIndexDataflowHelper) opDesc.getIndexDataflowHelperFactory().createIndexDataflowHelper(
-                opDesc, ctx, partition, true);
+                opDesc, ctx, opCallbackProvider, indexIdProvider, partition, true);
         this.fillFactor = fillFactor;
         this.recordDescProvider = recordDescProvider;
         tuple.setFieldPermutation(fieldPermutation);
@@ -57,7 +59,7 @@ public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSin
             treeIndexHelper.init();
             treeIndex = (ITreeIndex) treeIndexHelper.getIndex();
             treeIndex.open(treeIndexHelper.getIndexFileId());
-            bulkLoader = treeIndex.createBulkLoader(fillFactor);
+            bulkLoadCtx = treeIndex.beginBulkLoad(fillFactor);
         } catch (Exception e) {
             // cleanup in case of failure
             treeIndexHelper.deinit();
@@ -71,18 +73,14 @@ public class TreeIndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSin
         int tupleCount = accessor.getTupleCount();
         for (int i = 0; i < tupleCount; i++) {
             tuple.reset(accessor, i);
-            try {
-				bulkLoader.add(tuple);
-			} catch (PageAllocationException e) {
-				throw new HyracksDataException(e);
-			}
+            treeIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
         }
     }
 
     @Override
     public void close() throws HyracksDataException {
         try {
-            bulkLoader.end();
+            treeIndex.endBulkLoad(bulkLoadCtx);
         } catch (Exception e) {
             throw new HyracksDataException(e);
         } finally {
