@@ -62,10 +62,12 @@ public class ExternalSortRunMerger {
     private int currentSize; // Used in External sort, with replacement
                              // selection and limit on output size
 
+    private final int predictionFramesLimit;
+
     // Constructor for external sort, no replacement selection
     public ExternalSortRunMerger(IHyracksTaskContext ctx, FrameSorter frameSorter, List<IFrameReader> runs,
             int[] sortFields, IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit,
-            IFrameWriter writer) {
+            IFrameWriter writer, int predictionFramesLimit) {
         this.ctx = ctx;
         this.frameSorter = frameSorter;
         this.runs = new LinkedList<IFrameReader>(runs);
@@ -75,11 +77,13 @@ public class ExternalSortRunMerger {
         this.framesLimit = framesLimit;
         this.writer = writer;
         this.outputLimit = -1;
+        this.predictionFramesLimit = predictionFramesLimit;
     }
 
     // Constructor for external sort with replacement selection
     public ExternalSortRunMerger(IHyracksTaskContext ctx, int outputLimit, List<IFrameReader> runs, int[] sortFields,
-            IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit, IFrameWriter writer) {
+            IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit, IFrameWriter writer,
+            int predictionFramesLimit) {
         this.ctx = ctx;
         this.runs = new LinkedList<IFrameReader>(runs);
         this.sortFields = sortFields;
@@ -90,6 +94,7 @@ public class ExternalSortRunMerger {
         this.outputLimit = outputLimit;
         this.currentSize = 0;
         this.frameSorter = null;
+        this.predictionFramesLimit = predictionFramesLimit;
     }
 
     public void process() throws HyracksDataException {
@@ -147,32 +152,29 @@ public class ExternalSortRunMerger {
             writer.open();
         }
         try {
-            IFrameReader[] runCursors = new PredictingFrameReader[inFrames.size()];
-            PredictingFrameReaderCollection predictorsCollection = new PredictingFrameReaderCollection(ctx, runCursors, runs);
-
+            IFrameReader[] currentMergeSet = new IFrameReader[inFrames.size()];
             for (int i = 0; i < inFrames.size(); i++) {
-                runCursors[i] = predictorsCollection.getPredictingFrameReader(i);
+                currentMergeSet[i] = runs.get(i);
             }
-            RunMergingFrameReader merger = new RunMergingFrameReader(ctx, runCursors, inFrames, sortFields,
-                    comparators, recordDesc);
+            runs.subList(0, inFrames.size()).clear();
+
+            PredictingFrameReaderCollection predictorsCollection = new PredictingFrameReaderCollection(ctx, recordDesc,
+                    currentMergeSet, predictionFramesLimit);
+
+            RunMergingFrameReader merger = new RunMergingFrameReader(ctx, predictorsCollection.getRunCursors(),
+                    inFrames, sortFields, comparators, recordDesc);
             merger.open();
 
-            /* There is a cyclic dependency here, we can't pass these parameters
-             * on to the constructor of predictorsCollection because we don't
-             * have access to the tupleIndexes array, topTuples priority queue,
-             * tupleAccessors array and the comparators until we initialize and
-             * open the merger. On the other hand, we can't wait to initialize
-             * the predictorsCollection until we initialize and open the merger
-             * because, merger.open needs access to the initialized runCursors
-             * elements to set the topTuples and to have these runCursors
-             * elements initialized we want predictorsCollection to be
-             * initialized since we get the runCursors elements through
-             * predictorsCollection. Hence we set the tupleIndexes array in
+            /* There is a cyclic dependency here, we can't pass these parameters on to the constructor of
+             * predictorsCollection because we don't have access to the comparators until we initialize
+             * and open the merger. On the other hand, we can't wait to initialize the
+             * predictorsCollection until we initialize and open the merger because, merger.open needs
+             * access to the initialized runCursors elements to set the topTuples and to have these
+             * runCursors elements initialized we want predictorsCollection to be initialized since we get
+             * the runCursors elements through predictorsCollection. Hence we set the tupleIndexes array in
              * the predictorsCollection after opening the merger.
              */
-            predictorsCollection.setMergerParams(
-                    merger.getTupleIndexes(), merger.getTopTuples(),
-                    merger.getTupleAccessors(), merger.getComparator());
+            predictorsCollection.setComparator(merger.getComparator());
 
             try {
                 while (merger.nextFrame(outFrame)) {
@@ -181,7 +183,7 @@ public class ExternalSortRunMerger {
             } finally {
                 merger.close();
             }
-            runs.subList(0, inFrames.size()).clear();
+
             if (!finalPass) {
                 runs.add(0, ((RunFileWriter) writer).createReader());
             }

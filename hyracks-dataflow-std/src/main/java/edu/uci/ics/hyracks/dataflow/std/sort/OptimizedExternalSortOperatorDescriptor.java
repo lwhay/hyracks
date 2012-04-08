@@ -67,26 +67,28 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
     private final IBinaryComparatorFactory[] comparatorFactories;
     private final int memSize;
     private final int outputLimit;
+    private final int predictionFramesLimit;
 
     public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
-            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
-        this(spec, framesLimit, NO_LIMIT, sortFields, null, comparatorFactories, recordDescriptor);
+            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor, int predictionFramesLimit) {
+        this(spec, framesLimit, NO_LIMIT, sortFields, null, comparatorFactories, recordDescriptor, predictionFramesLimit);
     }
 
     public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int outputLimit,
-            int[] sortFields, IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
-        this(spec, framesLimit, outputLimit, sortFields, null, comparatorFactories, recordDescriptor);
+            int[] sortFields, IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor, int predictionFramesLimit) {
+        this(spec, framesLimit, outputLimit, sortFields, null, comparatorFactories, recordDescriptor, predictionFramesLimit);
     }
 
     public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int memSize, int outputLimit,
             int[] sortFields, INormalizedKeyComputerFactory firstKeyNormalizerFactory,
-            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
+            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor, int predictionFramesLimit) {
         super(spec, 1, 1);
         this.memSize = memSize;
         this.outputLimit = outputLimit;
         this.sortFields = sortFields;
         this.firstKeyNormalizerFactory = firstKeyNormalizerFactory;
         this.comparatorFactories = comparatorFactories;
+        this.predictionFramesLimit = predictionFramesLimit;
         if (memSize <= 1) {
             throw new IllegalStateException();// minimum of 2 fames (1 in,1 out)
         }
@@ -203,7 +205,7 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
 
                     int necessaryFrames = Math.min(runs.size() + 2, memSize);
                     ExternalSortRunMerger merger = new ExternalSortRunMerger(ctx, outputLimit, runs, sortFields,
-                            comparators, recordDescriptors[0], necessaryFrames, writer);
+                            comparators, recordDescriptors[0], necessaryFrames, writer, predictionFramesLimit);
 
                     merger.processWithReplacementSelection();
 

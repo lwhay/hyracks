@@ -40,8 +40,7 @@ public class PredictingFrameReader implements IFrameReader {
     @Override
     public boolean nextFrame(ByteBuffer buffer) throws HyracksDataException {
         buffer.clear();
-        predictingFrameReaderCollection.getFrame(buffer, index);
-        return true;
+        return predictingFrameReaderCollection.getFrame(buffer, index);
     }
 
     @Override

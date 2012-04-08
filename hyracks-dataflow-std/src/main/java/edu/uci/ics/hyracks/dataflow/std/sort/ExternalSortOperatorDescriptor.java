@@ -50,20 +50,23 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
     private final INormalizedKeyComputerFactory firstKeyNormalizerFactory;
     private final IBinaryComparatorFactory[] comparatorFactories;
     private final int framesLimit;
+    private final int predictionFramesLimit;
 
     public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
-            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
-        this(spec, framesLimit, sortFields, null, comparatorFactories, recordDescriptor);
+            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor,
+            int predictionFramesLimit) {
+        this(spec, framesLimit, sortFields, null, comparatorFactories, recordDescriptor, predictionFramesLimit);
     }
 
     public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
-            RecordDescriptor recordDescriptor) {
+            RecordDescriptor recordDescriptor, int predictionFramesLimit) {
         super(spec, 1, 1);
         this.framesLimit = framesLimit;
         this.sortFields = sortFields;
         this.firstKeyNormalizerFactory = firstKeyNormalizerFactory;
         this.comparatorFactories = comparatorFactories;
+        this.predictionFramesLimit = predictionFramesLimit;
         if (framesLimit <= 1) {
             throw new IllegalStateException();// minimum of 2 fames (1 in,1 out)
         }
@@ -173,7 +176,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                     }
                     int necessaryFrames = Math.min(runs.size() + 2, framesLimit);
                     ExternalSortRunMerger merger = new ExternalSortRunMerger(ctx, frameSorter, runs, sortFields,
-                            comparators, recordDescriptors[0], necessaryFrames, writer);
+                            comparators, recordDescriptors[0], necessaryFrames, writer, predictionFramesLimit);
                     merger.process();
                 }
             };
