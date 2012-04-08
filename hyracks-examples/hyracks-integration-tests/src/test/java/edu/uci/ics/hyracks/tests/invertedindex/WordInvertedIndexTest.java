@@ -234,7 +234,7 @@ public class WordInvertedIndexTest extends AbstractIntegrationTest {
             RecordDescriptor outputRecDesc) {
         ExternalSortOperatorDescriptor externalSortOp = new ExternalSortOperatorDescriptor(spec, 1000, sortFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) }, outputRecDesc);
+                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) }, outputRecDesc, 1000);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, externalSortOp, NC1_ID);
         return externalSortOp;
     }
