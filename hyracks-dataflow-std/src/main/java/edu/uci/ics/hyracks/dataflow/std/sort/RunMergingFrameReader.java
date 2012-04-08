@@ -104,18 +104,6 @@ public class RunMergingFrameReader implements IFrameReader {
         }
     }
 
-    public int[] getTupleIndexes() {
-        return tupleIndexes;
-    }
-
-    public ReferencedPriorityQueue getTopTuples() {
-        return topTuples;
-    }
-
-    public FrameTupleAccessor[] getTupleAccessors() {
-        return tupleAccessors;
-    }
-
     public Comparator<ReferenceEntry> getComparator() {
         return comparator;
     }
