@@ -101,6 +101,10 @@ public class SelectionTree {
         losers[0] = currIdx;
     }
 
+    public boolean isEmpty() {
+        return available.isEmpty();
+    }
+
     public interface Entry extends Comparable<Entry> {
         public abstract boolean advance();
     }
