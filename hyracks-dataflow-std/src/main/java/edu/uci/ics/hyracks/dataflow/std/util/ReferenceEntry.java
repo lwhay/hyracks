@@ -18,13 +18,13 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class ReferenceEntry {
     private final int runid;
-    private FrameTupleAccessor acccessor;
+    private FrameTupleAccessor accessor;
     private int tupleIndex;
 
     public ReferenceEntry(int runid, FrameTupleAccessor fta, int tupleIndex) {
         super();
         this.runid = runid;
-        this.acccessor = fta;
+        this.accessor = fta;
         this.tupleIndex = tupleIndex;
     }
 
@@ -33,11 +33,11 @@ public class ReferenceEntry {
     }
 
     public FrameTupleAccessor getAccessor() {
-        return acccessor;
+        return accessor;
     }
 
     public void setAccessor(FrameTupleAccessor fta) {
-        this.acccessor = fta;
+        this.accessor = fta;
     }
 
     public int getTupleIndex() {
