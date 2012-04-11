@@ -57,7 +57,9 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] comparatorFactories;
     private final boolean isLeftOuter;
-    private final INullWriterFactory[] nullWriterFactories1;
+    private final boolean isRightOuter;
+    private final INullWriterFactory[] rightNullWriterFactories;
+    private final INullWriterFactory[] leftNullWriterFactories;
     private final int tableSize;
 
     public InMemoryHashJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1,
@@ -70,14 +72,15 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
         this.comparatorFactories = comparatorFactories;
         recordDescriptors[0] = recordDescriptor;
         this.isLeftOuter = false;
-        this.nullWriterFactories1 = null;
+        this.isRightOuter = false;
+        this.rightNullWriterFactories = null;
+        this.leftNullWriterFactories = null;
         this.tableSize = tableSize;
     }
 
     public InMemoryHashJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1,
             IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] comparatorFactories,
-            RecordDescriptor recordDescriptor, boolean isLeftOuter, INullWriterFactory[] nullWriterFactories1,
-            int tableSize) {
+            RecordDescriptor recordDescriptor, boolean isLeftOuter, INullWriterFactory[] rightNullWriterFactories, int tableSize) {
         super(spec, 2, 1);
         this.keys0 = keys0;
         this.keys1 = keys1;
@@ -85,7 +88,26 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
         this.comparatorFactories = comparatorFactories;
         recordDescriptors[0] = recordDescriptor;
         this.isLeftOuter = isLeftOuter;
-        this.nullWriterFactories1 = nullWriterFactories1;
+        this.isRightOuter = false;
+        this.rightNullWriterFactories = rightNullWriterFactories;
+        this.leftNullWriterFactories = null;
+        this.tableSize = tableSize;
+    }
+
+    public InMemoryHashJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1,
+            IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] comparatorFactories,
+            RecordDescriptor recordDescriptor, boolean isLeftOuter, boolean isRightOuter,
+            INullWriterFactory[] rightNullWriterFactories, INullWriterFactory[] leftNullWriterFactories, int tableSize) {
+        super(spec, 2, 1);
+        this.keys0 = keys0;
+        this.keys1 = keys1;
+        this.hashFunctionFactories = hashFunctionFactories;
+        this.comparatorFactories = comparatorFactories;
+        recordDescriptors[0] = recordDescriptor;
+        this.isLeftOuter = isLeftOuter;
+        this.isRightOuter = isRightOuter;
+        this.rightNullWriterFactories = rightNullWriterFactories;
+        this.leftNullWriterFactories = leftNullWriterFactories;
         this.tableSize = tableSize;
     }
 
@@ -95,10 +117,10 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
         HashProbeActivityNode hpa = new HashProbeActivityNode(new ActivityId(odId, 1));
 
         builder.addActivity(hba);
-        builder.addSourceEdge(1, hba, 0);
+        builder.addSourceEdge(0, hba, 0);
 
         builder.addActivity(hpa);
-        builder.addSourceEdge(0, hpa, 0);
+        builder.addSourceEdge(1, hpa, 0);
 
         builder.addTargetEdge(0, hpa, 0);
 
@@ -144,10 +166,16 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
             for (int i = 0; i < comparatorFactories.length; ++i) {
                 comparators[i] = comparatorFactories[i].createBinaryComparator();
             }
-            final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
+            final INullWriter[] rightNullWriters = isLeftOuter ? new INullWriter[rightNullWriterFactories.length] : null;
             if (isLeftOuter) {
-                for (int i = 0; i < nullWriterFactories1.length; i++) {
-                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
+                for (int i = 0; i < rightNullWriterFactories.length; i++) {
+                    rightNullWriters[i] = rightNullWriterFactories[i].createNullWriter();
+                }
+            }
+            final INullWriter[] leftNullWriters = isRightOuter ? new INullWriter[leftNullWriterFactories.length] : null;
+            if (isRightOuter) {
+                for (int i = 0; i < leftNullWriterFactories.length; i++) {
+                    leftNullWriters[i] = leftNullWriterFactories[i].createNullWriter();
                 }
             }
 
@@ -166,7 +194,7 @@ public class InMemoryHashJoinOperatorDescriptor extends AbstractOperatorDescript
                     state.joiner = new InMemoryHashJoin(ctx, tableSize,
                             new FrameTupleAccessor(ctx.getFrameSize(), rd0), hpc0, new FrameTupleAccessor(
                                     ctx.getFrameSize(), rd1), hpc1, new FrameTuplePairComparator(keys0, keys1,
-                                    comparators), isLeftOuter, nullWriters1, table);
+                                    comparators), isLeftOuter, isRightOuter, rightNullWriters, leftNullWriters, table);
                 }
 
                 @Override

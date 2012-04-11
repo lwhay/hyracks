@@ -66,16 +66,13 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
-//    private final ITuplePartitionComputerFactory gByTpc0;
-//    private final ITuplePartitionComputerFactory gByTpc1;
     private final IAggregatorDescriptorFactory aggregatorFactory;
     private final INullWriterFactory[] nullWriterFactories1;
 
     
     public GraceHashGroupJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
-            double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
-            IBinaryComparatorFactory[] groupComparatorFactories, 
-//            IBinaryComparatorFactory[] groupComparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1,
+            double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
+            IBinaryComparatorFactory[] joinComparatorFactories, IBinaryComparatorFactory[] groupComparatorFactories,
             IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1) 
             throws HyracksDataException {
         super(spec, 2, 1);
@@ -85,8 +82,6 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
         this.factor = factor;
         this.keys0 = keys0;
         this.keys1 = keys1;
-//        this.gByTpc0 = gByTpc0;
-//        this.gByTpc1 = gByTpc1;
         this.aggregatorFactory = aggregatorFactory;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
@@ -297,7 +292,6 @@ public class GraceHashGroupJoinOperatorDescriptor extends AbstractOperatorDescri
                         for (int partitionid = 0; partitionid < numPartitions; partitionid++) {
                             RunFileWriter buildWriter = buildWriters[partitionid];
                             RunFileWriter probeWriter = probeWriters[partitionid];
-//                            if ((buildWriter == null && !isLeftOuter) || probeWriter == null) {
                             if (buildWriter == null) {
                                 continue;
                             }

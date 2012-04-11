@@ -16,10 +16,23 @@ package edu.uci.ics.hyracks.tests.integration;
 
 import java.io.DataOutput;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Scanner;
 
+import org.apache.commons.io.FileUtils;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import edu.uci.ics.hyracks.api.client.HyracksConnection;
+import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
@@ -28,11 +41,16 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
-import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.job.JobFlag;
+import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
+import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
+import edu.uci.ics.hyracks.control.common.controllers.NCConfig;
+import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
@@ -52,22 +70,240 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileScanOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.HashGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.ExternalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.CountFieldAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.join.GraceHashGroupJoinOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.join.GraceHashJoinOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.join.HybridHashGroupJoinOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.join.HybridHashJoinOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.join.InMemoryHashGroupJoinOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.misc.PrinterOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.join.InMemoryHashJoinOperatorDescriptor;
 
-public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
-    private static final long serialVersionUID = 1L;
-    private static final boolean DEBUG = true;
+public class TPCHCustomerOrderGroupJoinTest {
+//    private static final Logger LOGGER = Logger.getLogger(AbstractIntegrationTest.class.getName());
+
+    public static final String NC1_ID = "nc1";
+
+    private static ClusterControllerService cc;
+    private static NodeControllerService nc1;
+    private static IHyracksClientConnection hcc;
+
+    private static List<File> outputFiles;
+
+//    private static final boolean DEBUG = true;
+    private static String scale = "s1";
+    private static String tablePath = "data/tpch0.001/";
+    private static String custTable = tablePath + "customer.tbl";
+    private static String ordTable = tablePath + "orders.tbl";
+    private static String ordTable2 = tablePath + "orders2.tbl";
+    
+    private static File file  = new File("/home/manish/asterix-project/results/result_" + scale + System.currentTimeMillis() + ".out");
+
+    private static int memsize = 5;
+    private static int custSize = 1000000;
+    private static int recordsPerFrame = 200;
+    private static double factor = 1.2;
+    
+    private static long runTime;
+
+    private static FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
+            custTable))) };
+    private static IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
+    private static RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+            IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
+
+    private static FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
+            ordTable))) };
+    private static IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
+    private static RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+            IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE });
+
+    private static FileSplit[] ordersSplits2 = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
+    		ordTable2))) };
+    private static IFileSplitProvider ordersSplitsProvider2 = new ConstantFileSplitProvider(ordersSplits2);
+    private static RecordDescriptor ordersDesc2 = new RecordDescriptor(new ISerializerDeserializer[] {
+            IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+            UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+
+    @Rule
+    public static TemporaryFolder outputFolder = new TemporaryFolder();
+
+    public TPCHCustomerOrderGroupJoinTest() throws IOException{
+        outputFiles = new ArrayList<File>();
+        runTime = 0;
+    }
+
+    @Test
+    public void main() throws Exception{
+        PrintStream printStream;
+
+//        for (int i=1; i<=50; i++){
+/*
+        	switch(i%5){
+        	case 1:
+        		scale = "s0.25";
+        		break;
+        	case 2:
+        		scale = "s0.5";
+        		break;
+        	case 3:
+        		scale = "s1";
+        		break;
+        	case 4:
+        		scale = "s2";
+        		break;
+        	case 0:
+        		scale = "s4";
+        		break;
+        	default: break;
+        	}
+*/        	
+        scale = "s16";
+        tablePath = "/media/New Volume_/tpch/" + scale + "/";
+        custTable = tablePath + "customer.tbl";
+        ordTable = tablePath + "orders.tbl";
+        ordTable2 = tablePath + "orders2.tbl";
+
+        custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(custTable))) };
+        custSplitsProvider = new ConstantFileSplitProvider(custSplits);
+        ordersSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(ordTable))) };
+        ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
+        ordersSplits2 = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(ordTable2))) };
+        ordersSplitsProvider2 = new ConstantFileSplitProvider(ordersSplits2);
+
+//    	custPrint();
+//    	ordPrint();
+//    	ord2Print();
+
+    	for (int i=1; i<=6; i++){
+    		file  = new File("/home/manish/asterix-project/results/IMGJ_" + scale + "_" + System.currentTimeMillis() + ".out");
+    		printStream = new PrintStream(new FileOutputStream(file));
+    		System.setErr(printStream);
+
+//    		init();
+
+    		customerOrderInMemoryGroupJoin();
+/*    		customerOrderGraceHashGroupJoin();
+    		customerOrderHybridHashGroupJoin();
+
+    		customerOrderInMemoryJoinAndGroup();
+    		customerOrderGraceHashJoinAndGroup();
+    		customerOrderHybridHashJoinAndGroup();
+*/
+//    		deinit();
+    		printStream.close();
+    	}
+    }
+    
+    @BeforeClass
+    public static void init() throws Exception {
+        CCConfig ccConfig = new CCConfig();
+        ccConfig.clientNetIpAddress = "127.0.0.1";
+        ccConfig.clientNetPort = 39000;
+        ccConfig.clusterNetIpAddress = "127.0.0.1";
+        ccConfig.clusterNetPort = 39001;
+        ccConfig.profileDumpPeriod = 10000;
+        File outDir = new File("target/ClusterController");
+        outDir.mkdirs();
+        File ccRoot = File.createTempFile(TPCHCustomerOrderGroupJoinTest.class.getName(), ".data", outDir);
+        ccRoot.delete();
+        ccRoot.mkdir();
+        ccConfig.ccRoot = ccRoot.getAbsolutePath();
+        cc = new ClusterControllerService(ccConfig);
+        cc.start();
+
+        NCConfig ncConfig1 = new NCConfig();
+        ncConfig1.ccHost = "localhost";
+        ncConfig1.ccPort = 39001;
+        ncConfig1.clusterNetIPAddress = "127.0.0.1";
+        ncConfig1.dataIPAddress = "127.0.0.1";
+        ncConfig1.nodeId = NC1_ID;
+        nc1 = new NodeControllerService(ncConfig1);
+        nc1.start();
+
+/*        NCConfig ncConfig2 = new NCConfig();
+        ncConfig2.ccHost = "localhost";
+        ncConfig2.ccPort = 39001;
+        ncConfig2.clusterNetIPAddress = "127.0.0.1";
+        ncConfig2.dataIPAddress = "127.0.0.1";
+        ncConfig2.nodeId = NC1_ID;
+        nc2 = new NodeControllerService(ncConfig2);
+        nc2.start();
+*/
+        hcc = new HyracksConnection(ccConfig.clientNetIpAddress, ccConfig.clientNetPort);
+        hcc.createApplication("test", null);
+    }
+    
+    @AfterClass
+    public static void deinit() throws Exception {
+//        nc2.stop();
+        nc1.stop();
+        cc.stop();
+    }
+
+    protected static void runTest(JobSpecification spec) throws Exception {
+        JobId jobId = hcc.createJob("test", spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        hcc.start(jobId);
+        hcc.waitForCompletion(jobId);
+//        dumpOutputFiles();
+    }
+    
+    private static void dumpOutputFiles() {
+            for (File f : outputFiles) {
+                if (f.exists() && f.isFile()) {
+                    try {
+                        System.err.println("Reading file: " + f.getAbsolutePath());
+                        		//+ " in test: " + getClass().getName());
+                        String data = FileUtils.readFileToString(f);
+                        System.err.println(data);
+                    } catch (IOException e) {
+                    	System.err.println("Error reading file: " + f.getAbsolutePath());
+                    	System.err.println(e.getMessage());
+                    }
+                }
+            }
+    }
+    
+    protected File createTempFile() throws IOException {
+        File tempFile = File.createTempFile(getClass().getName(), ".tmp", outputFolder.getRoot());
+        System.err.println("Output file: " + tempFile.getAbsolutePath());
+        outputFiles.add(tempFile);
+        return tempFile;
+    }
+    
+    private static void clearCache(){
+    	try{
+    		String cmd = "sync";
+    		Runtime run = Runtime.getRuntime();
+    		Process pr1 = run.exec(cmd);
+    		pr1.waitFor();
+    		cmd = "echo 3 > /proc/sys/vm/drop_caches";
+    		Process pr2 = run.exec(cmd);
+    		pr2.waitFor();
+    		System.err.println("~Cache dropped");
+    	}
+    	catch (Exception e){
+    		System.err.println("~Cache drop fail");
+    	}
+    }
+    
     private static class NoopNullWriterFactory implements INullWriterFactory {
 
+        private static final long serialVersionUID = 1L;
         public static final NoopNullWriterFactory INSTANCE = new NoopNullWriterFactory();
 
         private NoopNullWriterFactory() {
@@ -87,6 +323,99 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
             };
         }
     }
+    
+    public void dispIO(String s) throws IOException {
+    	Scanner sc = new Scanner(new File("/proc/self/io"));
+    	while(sc.hasNext()){
+    		System.err.println("~\t" + s + " " + sc.nextLine());
+    	}
+    }
+
+//    @Test
+    public void custPrint() throws Exception {
+    	System.err.println("~Starting Tests");
+    	JobSpecification spec = new JobSpecification();
+
+        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        }, '|'), custDesc);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
+
+        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] {
+                new FileSplit(NC1_ID, createTempFile().getAbsolutePath()) });
+        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn, custScanner, 0, printer, 0);
+
+        spec.addRoot(printer);
+        runTest(spec);
+        System.err.println();
+//        dummyWait();
+    }
+    
+//    @Test
+    public void ordPrint() throws Exception {
+    	System.err.println("~" + this.getClass().getSimpleName());
+    	System.err.println("~Starting Tests");
+    	JobSpecification spec = new JobSpecification();
+
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { 
+                		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
+
+        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] {
+                new FileSplit(NC1_ID, createTempFile().getAbsolutePath()) });
+        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn, ordScanner, 0, printer, 0);
+
+        spec.addRoot(printer);
+        runTest(spec);
+        System.err.println();
+//        dummyWait();
+    }
+
+//    @Test
+    public void ord2Print() throws Exception {
+    	System.err.println("~" + this.getClass().getSimpleName());
+    	System.err.println("~Starting Tests");
+    	JobSpecification spec = new JobSpecification();
+
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider2,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE }, '|'), ordersDesc2);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
+
+        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] {
+                new FileSplit(NC1_ID, createTempFile().getAbsolutePath()) });
+        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn, ordScanner, 0, printer, 0);
+
+        spec.addRoot(printer);
+        runTest(spec);
+        System.err.println();
+//        dummyWait();
+    }
 
     /*
      * TPCH Customer table: CREATE TABLE CUSTOMER ( C_CUSTKEY INTEGER NOT NULL,
@@ -101,32 +430,17 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
      * NULL, O_COMMENT VARCHAR(79) NOT NULL );
      */
 
-    @Test
+//    @Test
     public void customerOrderInMemoryGroupJoin() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderInMemoryGroupJoin start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
         RecordDescriptor custOrderGroupJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-
+        		IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+        
         FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
                 new DelimitedDataTupleParserFactory(new IValueParserFactory[] { 
                 		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
@@ -157,27 +471,36 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
                 new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
-                custOrderGroupJoinDesc, nullWriterFactories, 128);
+                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+                custOrderGroupJoinDesc, nullWriterFactories, custSize);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, groupJoin, NC1_ID);
 
-        HashGroupOperatorDescriptor finalGroup = new HashGroupOperatorDescriptor(
-        		spec, new int[] { 1 },
-        		new FieldHashPartitionComputerFactory( new int[] { 1 }, new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }),
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
-                custOrderGroupJoinDesc, 128	
-        		);
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 1 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                custOrderGroupJoinDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
 
-/*        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
+        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
                 createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-*/        
+        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
         
-        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+        
+//        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -198,30 +521,19 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
 
         spec.addRoot(printer);
         runTest(spec);
+        
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderInMemoryGroupJoin stop. run time: " + runTime);
     }
 
-    @Test
+//    @Test
     public void customerOrderGraceHashGroupJoin() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderGraceHashGroupJoin start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
 
         RecordDescriptor custOrderGroupJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
@@ -251,27 +563,36 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
         
         GraceHashGroupJoinOperatorDescriptor groupJoin = new GraceHashGroupJoinOperatorDescriptor(
                 spec,
-                4,
-                10,
-                256,
-                1.2,
+                memsize,
+                custSize,
+                recordsPerFrame,
+                factor,
                 new int[] { 0 },
                 new int[] { 1 },
                 new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
+                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
                 custOrderGroupJoinDesc, nullWriterFactories);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, groupJoin, NC1_ID);
 
-        HashGroupOperatorDescriptor finalGroup = new HashGroupOperatorDescriptor(
-        		spec, new int[] { 1 },
-        		new FieldHashPartitionComputerFactory( new int[] { 1 }, new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }),
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
-                custOrderGroupJoinDesc, 128	
-        		);
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 1 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                custOrderGroupJoinDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
         
@@ -301,30 +622,19 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
 
         spec.addRoot(printer);
         runTest(spec);
+
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderGraceHashGroupJoin stop. run time: " + runTime);
     }
 
-    @Test
+//    @Test
     public void customerOrderHybridHashGroupJoin() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderHybridHashGroupJoin start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "/media/New Volume_/tpch/s0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
 
         RecordDescriptor custOrderGroupJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
@@ -351,54 +661,49 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
         for (int j = 0; j < nullWriterFactories.length; j++) {
             nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
         }        
-        
+
         HybridHashGroupJoinOperatorDescriptor groupJoin = new HybridHashGroupJoinOperatorDescriptor(
                 spec,
-                8,
-                10,
-                20,
-                1.2,
-                50,
+                memsize,
+                custSize,
+                recordsPerFrame,
+                factor,
                 new int[] { 0 },
                 new int[] { 1 },
                 new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new IntegerNormalizedKeyComputerFactory(),
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true, false) }),
-                custDesc,
+                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
                 custOrderGroupJoinDesc,
-                new HashSpillableTableFactory(
-                		new FieldHashPartitionComputerFactory(
-                				new int[] { 0 },
-                				new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }
-                				),
-                		200),
-                new HashSpillableTableFactory(
-                		new FieldHashPartitionComputerFactory(
-                				new int[] { 1 },
-                				new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }
-                				),
-                		200), nullWriterFactories);
+                nullWriterFactories);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, groupJoin, NC1_ID);
 
-/*        HashGroupOperatorDescriptor finalGroup = new HashGroupOperatorDescriptor(
-        		spec, new int[] { 1 },
-        		new FieldHashPartitionComputerFactory( new int[] { 1 }, new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) }),
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(true) }),
-                custOrderGroupJoinDesc, 128	
-        		);
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 1 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                custOrderGroupJoinDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
         
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
                 createTempFile().getAbsolutePath()) });
         IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
-*/        
         
-        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+        
+//        IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
         
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -408,878 +713,409 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
         IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
         spec.connect(ordJoinConn, ordScanner, 0, groupJoin, 1);
 
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, groupJoin, 0, printer, 0);
+//        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
+//        spec.connect(joinPrinterConn, groupJoin, 0, printer, 0);
 
-/*        IConnectorDescriptor finalGroupConn = new OneToOneConnectorDescriptor(spec);
+        IConnectorDescriptor finalGroupConn = new OneToOneConnectorDescriptor(spec);
         spec.connect(finalGroupConn, groupJoin, 0, finalGroup, 0);
 
         IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
         spec.connect(joinPrinterConn, finalGroup, 0, printer, 0);
-*/
+
         spec.addRoot(printer);
         runTest(spec);
+
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderHybridHashGroupJoin stop. run time: " + runTime);
     }
 
-/*    @Test
-    public void customerOrderCIDGraceJoin() throws Exception {
+//    @Test
+    public void customerOrderInMemoryJoinAndGroup() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderInMemoryJoinAndGroup start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
 
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider2,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE }, '|'), ordersDesc2);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
 
         FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
+                        }, '|'), custDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
 
-        GraceHashJoinOperatorDescriptor join = new GraceHashJoinOperatorDescriptor(
+        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc2.getFieldCount()];
+        for (int j = 0; j < nullWriterFactories.length; j++) {
+            nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
+        }
+
+        InMemoryHashJoinOperatorDescriptor join = new InMemoryHashJoinOperatorDescriptor(
                 spec,
+                new int[] { 0 },
+                new int[] { 1 },
+                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
+                custOrderJoinDesc, true, false, nullWriterFactories, null, custSize*10);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
+
+        RecordDescriptor groupDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+        
+        ExternalGroupOperatorDescriptor group = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 0 },
                 4,
-                10,
-                200,
-                1.2,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(custOrderJoinDesc.getFieldCount()-1, false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 0 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, group, NC1_ID);
+		
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
+                spec,
                 new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+        
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
 
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+		IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
+		        createTempFile().getAbsolutePath()) });
+		IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+		        
+//		IOperatorDescriptor printer = new LineFileWriteOperatorDescriptor(spec, outSplits.getFileSplits(), new int[] { 0, custOrderJoinDesc.getFieldCount()-1 });
+		
+		//IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+		
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
+		IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(ordJoinConn, ordScanner, 0, join, 1);
+		
+		IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(custJoinConn, custScanner, 0, join, 0);
+		
+		IConnectorDescriptor joinGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(joinGroupConn, join, 0, group, 0);
+		
+		IConnectorDescriptor groupFinalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(groupFinalGroupConn, group, 0, finalGroup, 0);
 
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
+		IConnectorDescriptor finalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(finalGroupConn, finalGroup, 0, printer, 0);
 
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
+//        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
+//        spec.connect(joinPrinterConn, join, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);
+        
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderInMemoryJoinAndGroup stop. run time: " + runTime);
     }
 
-    @Test
-    public void customerOrderCIDHybridHashJoin() throws Exception {
+//    @Test
+    public void customerOrderGraceHashJoinAndGroup() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderGraceHashJoinAndGroup start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
         RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
 
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider2,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE }, '|'), ordersDesc2);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
 
         FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
+                        }, '|'), custDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
 
-        HybridHashJoinOperatorDescriptor join = new HybridHashJoinOperatorDescriptor(
-                spec,
-                5,
-                20,
-                200,
-                1.2,
-                new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
-
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
-
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDInMemoryHashLeftOuterJoin() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
-
-        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc.getFields().length];
-        for (int j = 0; j < nullWriterFactories.length; j++) {
-            nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
-        }
-
-        InMemoryHashJoinOperatorDescriptor join = new InMemoryHashJoinOperatorDescriptor(
-                spec,
-                new int[] { 0 },
-                new int[] { 1 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, true, nullWriterFactories, 128);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordScanner, 0, join, 1);
-
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custScanner, 0, join, 0);
-
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDGraceHashLeftOuterJoin() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
-
-        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc.getFields().length];
+        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc2.getFieldCount()];
         for (int j = 0; j < nullWriterFactories.length; j++) {
             nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
         }
 
         GraceHashJoinOperatorDescriptor join = new GraceHashJoinOperatorDescriptor(
                 spec,
-                5,
-                20,
-                200,
-                1.2,
+                memsize,
+                custSize,
+                recordsPerFrame,
+                factor,
                 new int[] { 0 },
                 new int[] { 1 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, true, nullWriterFactories);
+                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
+                custOrderJoinDesc, true, false, nullWriterFactories, null);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
 
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+        RecordDescriptor groupDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+        
+        ExternalGroupOperatorDescriptor group = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 0 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(custOrderJoinDesc.getFieldCount()-1, false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 0 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, group, NC1_ID);
+		
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 1 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+        
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
 
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordScanner, 0, join, 1);
+		IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
+		        createTempFile().getAbsolutePath()) });
+		IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+		        
+//		IOperatorDescriptor printer = new LineFileWriteOperatorDescriptor(spec, outSplits.getFileSplits(), new int[] { 0, custOrderJoinDesc.getFieldCount()-1 });
+		
+		//IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+		
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custScanner, 0, join, 0);
+		IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(ordJoinConn, ordScanner, 0, join, 1);
+		
+		IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(custJoinConn, custScanner, 0, join, 0);
+		
+		IConnectorDescriptor joinGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(joinGroupConn, join, 0, group, 0);
+		
+		IConnectorDescriptor groupFinalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(groupFinalGroupConn, group, 0, finalGroup, 0);
 
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
+		IConnectorDescriptor finalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(finalGroupConn, finalGroup, 0, printer, 0);
+
+//        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
+//        spec.connect(joinPrinterConn, join, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);
+        
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderGraceHashJoinAndGroup stop. run time: " + runTime);
     }
 
-    @Test
-    public void customerOrderCIDHybridHashLeftOuterJoin() throws Exception {
+//    @Test
+    public void customerOrderHybridHashJoinAndGroup() throws Exception {
+    	clearCache();
+    	System.err.println("~\n~customerOrderHybridHashJoinAndGroup start");
+    	dispIO("pre");
+    	runTime = System.currentTimeMillis();
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
         RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE,
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
 
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider2,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC2_ID);
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE }, '|'), ordersDesc2);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
 
         FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] {
+                		IntegerParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
+                        }, '|'), custDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
 
-        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc.getFields().length];
+        INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc2.getFieldCount()];
         for (int j = 0; j < nullWriterFactories.length; j++) {
             nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
         }
 
         HybridHashJoinOperatorDescriptor join = new HybridHashJoinOperatorDescriptor(
                 spec,
-                5,
-                20,
-                200,
-                1.2,
+                memsize,
+                custSize,
+                recordsPerFrame,
+                factor,
                 new int[] { 0 },
                 new int[] { 1 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, true, nullWriterFactories);
+                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
+                custOrderJoinDesc, true, false, nullWriterFactories, null);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
 
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordScanner, 0, join, 1);
-
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custScanner, 0, join, 0);
-
-        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDJoinMulti() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/customer-part2.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/orders-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/orders-part2.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-
-        InMemoryHashJoinOperatorDescriptor join = new InMemoryHashJoinOperatorDescriptor(
+        RecordDescriptor groupDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
+        
+        ExternalGroupOperatorDescriptor group = new ExternalGroupOperatorDescriptor(
+                spec,
+                new int[] { 0 },
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(custOrderJoinDesc.getFieldCount()-1, false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 0 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, group, NC1_ID);
+		
+        ExternalGroupOperatorDescriptor finalGroup = new ExternalGroupOperatorDescriptor(
                 spec,
                 new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, 128);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
+                4,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                        .of(IntegerPointable.FACTORY) },
+                new IntegerNormalizedKeyComputerFactory(),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
+		        new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false) }),
+                groupDesc,
+                new HashSpillableTableFactory(
+                        new FieldHashPartitionComputerFactory(
+                        		new int[] { 1 },
+                                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                        .of(IntegerPointable.FACTORY) }),
+                        128), true);
+        
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, finalGroup, NC1_ID);
 
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+		IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
+		        createTempFile().getAbsolutePath()) });
+		IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, "|");
+		        
+//		IOperatorDescriptor printer = new LineFileWriteOperatorDescriptor(spec, outSplits.getFileSplits(), new int[] { 0, custOrderJoinDesc.getFieldCount()-1 });
+		
+		//IOperatorDescriptor printer = DEBUG ? new PrinterOperatorDescriptor(spec) : new NullSinkOperatorDescriptor(spec);
+		
+		PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
-        IConnectorDescriptor ordJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 1 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
+		IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(ordJoinConn, ordScanner, 0, join, 1);
+		
+		IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(custJoinConn, custScanner, 0, join, 0);
+		
+		IConnectorDescriptor joinGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(joinGroupConn, join, 0, group, 0);
+		
+		IConnectorDescriptor groupFinalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(groupFinalGroupConn, group, 0, finalGroup, 0);
 
-        IConnectorDescriptor custJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
+		IConnectorDescriptor finalGroupConn = new OneToOneConnectorDescriptor(spec);
+		spec.connect(finalGroupConn, finalGroup, 0, printer, 0);
 
-        IConnectorDescriptor joinPrinterConn = new MToNReplicatingConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDGraceJoinMulti() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/customer-part2.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/orders-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/orders-part2.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-
-        GraceHashJoinOperatorDescriptor join = new GraceHashJoinOperatorDescriptor(
-                spec,
-                3,
-                20,
-                100,
-                1.2,
-                new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 1 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
-
-        IConnectorDescriptor custJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
-
-        IConnectorDescriptor joinPrinterConn = new MToNReplicatingConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
+//        IConnectorDescriptor joinPrinterConn = new OneToOneConnectorDescriptor(spec);
+//        spec.connect(joinPrinterConn, join, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);
+        
+    	runTime = System.currentTimeMillis() - runTime;
+    	dispIO("post");
+    	System.err.println("~customerOrderHybridHashJoinAndGroup stop. run time: " + runTime);
     }
-
-    @Test
-    public void customerOrderCIDHybridHashJoinMulti() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/customer-part2.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/orders-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/orders-part2.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-
-        HybridHashJoinOperatorDescriptor join = new HybridHashJoinOperatorDescriptor(
-                spec,
-                3,
-                20,
-                100,
-                1.2,
-                new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 1 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
-
-        IConnectorDescriptor custJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
-
-        IConnectorDescriptor joinPrinterConn = new MToNReplicatingConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDJoinAutoExpand() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/customer-part2.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/orders-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/orders-part2.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-
-        InMemoryHashJoinOperatorDescriptor join = new InMemoryHashJoinOperatorDescriptor(
-                spec,
-                new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, 128);
-        PartitionConstraintHelper.addPartitionCountConstraint(spec, join, 2);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 1 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(ordJoinConn, ordScanner, 0, join, 0);
-
-        IConnectorDescriptor custJoinConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(custJoinConn, custScanner, 0, join, 1);
-
-        IConnectorDescriptor joinPrinterConn = new MToNReplicatingConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-
-    @Test
-    public void customerOrderCIDJoinMultiMaterialized() throws Exception {
-        JobSpecification spec = new JobSpecification();
-
-        FileSplit[] custSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/customer-part2.tbl"))) };
-        IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
-        RecordDescriptor custDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileSplit[] ordersSplits = new FileSplit[] {
-                new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/orders-part1.tbl"))),
-                new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/orders-part2.tbl"))) };
-        IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
-        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        RecordDescriptor custOrderJoinDesc = new RecordDescriptor(new ISerializerDeserializer[] {
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-                UTF8StringSerializerDeserializer.INSTANCE });
-
-        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE }, '|'), ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID, NC2_ID);
-
-        FileScanOperatorDescriptor custScanner = new FileScanOperatorDescriptor(spec, custSplitsProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-
-        MaterializingOperatorDescriptor ordMat = new MaterializingOperatorDescriptor(spec, ordersDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordMat, NC1_ID, NC2_ID);
-
-        MaterializingOperatorDescriptor custMat = new MaterializingOperatorDescriptor(spec, custDesc);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custMat, NC1_ID, NC2_ID);
-
-        InMemoryHashJoinOperatorDescriptor join = new InMemoryHashJoinOperatorDescriptor(
-                spec,
-                new int[] { 1 },
-                new int[] { 0 },
-                new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) },
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-                custOrderJoinDesc, 128);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
-
-        IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
-                createTempFile().getAbsolutePath()) });
-        IOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec, outSplits, ",");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
-
-        IConnectorDescriptor ordPartConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 1 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(ordPartConn, ordScanner, 0, ordMat, 0);
-
-        IConnectorDescriptor custPartConn = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(new int[] { 0 },
-                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-                                .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(custPartConn, custScanner, 0, custMat, 0);
-
-        IConnectorDescriptor ordJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(ordJoinConn, ordMat, 0, join, 0);
-
-        IConnectorDescriptor custJoinConn = new OneToOneConnectorDescriptor(spec);
-        spec.connect(custJoinConn, custMat, 0, join, 1);
-
-        IConnectorDescriptor joinPrinterConn = new MToNReplicatingConnectorDescriptor(spec);
-        spec.connect(joinPrinterConn, join, 0, printer, 0);
-
-        spec.addRoot(printer);
-        runTest(spec);
-    }
-*/
 }

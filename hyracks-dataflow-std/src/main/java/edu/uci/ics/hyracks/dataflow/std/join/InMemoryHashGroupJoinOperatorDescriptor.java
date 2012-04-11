@@ -230,6 +230,7 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
                         writer.fail();
                         throw new HyracksDataException(e);
                     } finally {
+                    	table.closeJoin(writer);
                         writer.close();
                     }
 

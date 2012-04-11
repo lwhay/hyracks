@@ -571,7 +571,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                     InMemoryHashJoin joiner = new InMemoryHashJoin(ctx, tabSize, new FrameTupleAccessor(
                             ctx.getFrameSize(), probeRDesc), hpcRepLarger, new FrameTupleAccessor(ctx.getFrameSize(),
                             buildRDesc), hpcRepSmaller, new FrameTuplePairComparator(pKeys, bKeys, comparators),
-                            isLeftOuter, nullWriters1, table);
+                            isLeftOuter, false, nullWriters1, null, table);
 
                     bReader.open();
                     rPartbuff.clear();
