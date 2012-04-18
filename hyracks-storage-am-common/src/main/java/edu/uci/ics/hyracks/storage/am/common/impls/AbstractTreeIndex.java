@@ -210,7 +210,7 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
 	
 	@Deprecated
     public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException, TreeIndexException {
-		this.bulkloader = this.createBulkLoader(fillFactor);
+		if(this.bulkloader == null) this.bulkloader = this.createBulkLoader(fillFactor);
 		return null;
 	}
 

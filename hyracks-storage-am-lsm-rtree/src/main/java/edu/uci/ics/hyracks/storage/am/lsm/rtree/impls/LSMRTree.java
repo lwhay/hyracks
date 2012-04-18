@@ -46,6 +46,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.linearize.HilbertDoubleComparatorFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFinalizer;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndex;
@@ -84,6 +85,8 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
     }
 
     private final LSMHarness lsmHarness;
+    
+    private final IBinaryComparatorFactory linearizer;
 
     // In-memory components.
     private final LSMRTreeComponent memComponent;
@@ -140,6 +143,7 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         this.rtreeCmpFactories = rtreeCmpFactories;
         this.lsmHarness = new LSMHarness(this);
         componentFinalizer = new LSMRTreeComponentFinalizer(diskFileMapProvider);
+        this.linearizer = new HilbertDoubleComparatorFactory(2);
     }
 
     @Override
@@ -362,11 +366,10 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
             diskTreeIx++;
         }
 
-        LSMRTreeSearchCursor lsmRTreeCursor = (LSMRTreeSearchCursor) cursor;
         LSMRTreeCursorInitialState initialState = new LSMRTreeCursorInitialState(numTrees, rtreeLeafFrameFactory,
                 rtreeInteriorFrameFactory, btreeLeafFrameFactory, ctx.getBTreeMultiComparator(), rTreeAccessors,
                 bTreeAccessors, searcherRefCount, includeMemComponent, lsmHarness);
-        lsmRTreeCursor.open(initialState, pred);
+        cursor.open(initialState, pred);
     }
 
     @Override
@@ -428,7 +431,7 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         // The RTree should be renamed before the BTree.
 
         IIndexOpContext ctx = createOpContext();
-        ITreeIndexCursor cursor = new LSMRTreeSearchCursor();
+        ITreeIndexCursor cursor = new LSMRTreeSortedCursor(this.linearizer);
         ISearchPredicate rtreeSearchPred = new SearchPredicate(null, null);
         // Scan the RTrees, ignoring the in-memory RTree.
         List<Object> mergingComponents = lsmHarness.search(cursor, rtreeSearchPred, ctx, false);

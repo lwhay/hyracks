@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.uci.ics.hyracks</groupId>
   <artifactId>hyracks</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <build>
@@ -84,10 +84,8 @@
     <module>hyracks-dataflow-common</module>
     <module>hyracks-dataflow-std</module>
     <module>hyracks-dataflow-hadoop</module>
-    <module>hyracks-control-common</module>
-    <module>hyracks-control-cc</module>
+    <module>hyracks-control</module>
     <module>hyracks-net</module>
-    <module>hyracks-control-nc</module>
     <module>hyracks-data</module>
     <module>hyracks-cli</module>
     <module>hyracks-storage-common</module>
@@ -105,5 +103,6 @@
     <module>hyracks-documentation</module>
     <module>hyracks-hadoop-compat</module>
     <module>hyracks-algebricks</module>
+    <module>hyracks-maven-plugins</module>
   </modules>
 </project>

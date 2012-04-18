@@ -49,7 +49,9 @@ import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMInteriorFrame;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.tuples.RTreeTypeAwareTupleWriter;
+import edu.uci.ics.hyracks.storage.common.buffercache.BufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
@@ -877,6 +879,8 @@ public class RTree extends AbstractTreeIndex {
         RTreeTypeAwareTupleWriter tupleWriter = ((RTreeTypeAwareTupleWriter) interiorFrame.getTupleWriter());
         ITreeIndexTupleReference mbrTuple = interiorFrame.createTupleReference();
         ByteBuffer mbr;
+        
+        int DEBUG_count = 0;
 				
 		public RTreeBulkLoader(float fillFactor) throws TreeIndexException,
 				HyracksDataException {
@@ -914,11 +918,14 @@ public class RTree extends AbstractTreeIndex {
 
 	        leafFrame.setPage(leafFrontier.page);
 	        leafFrame.insert(tuple, -1);
+	        
+	        if(++DEBUG_count % 10000 == 0) System.out.println(DEBUG_count + " loaded");
 	    }
 		
 		public void end() throws HyracksDataException {
 			propagateBulk(1, true);
 			super.end();
+			printStatistics();
 		}
 		
 		protected void propagateBulk(int level, boolean toRoot) throws HyracksDataException {
@@ -976,5 +983,28 @@ public class RTree extends AbstractTreeIndex {
 		
 	        leafFrame.setPage(nodeFrontiers.get(0).page);
 		}
+	}
+	
+	public void printStatistics() throws HyracksDataException {
+/*		RTreeNSMLeafFrame leafFrame = (RTreeNSMLeafFrame) leafFrameFactory.createFrame();
+        RTreeNSMInteriorFrame interiorFrame = (RTreeNSMInteriorFrame) interiorFrameFactory.createFrame();
+        
+        int maxPage = freePageManager.getMaxPage(freePageManager.getMetaDataFrameFactory().createFrame());
+        
+        for(int i = rootPage; i < maxPage; i++) {
+        	ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, i), false);
+        	page.acquireReadLatch();
+        	interiorFrame.setPage(page);
+        	interiorFrame.getTuples()[0].getFieldData(0);
+        	if(interiorFrame.getLevel() == 0) {
+        		//
+        	} else {
+        		System.out.println(interiorFrame.getTupleCount());
+        		//double overlap = interiorFrame.overlappedArea(interiorFrame.getTuples()[0], null, interiorFrame.getTuples()[1], MultiComparator.create(cmpFactories));
+        		//System.out.println(overlap);
+        	}
+        	page.releaseReadLatch();
+            bufferCache.unpin(page);
+        }*/
 	}
 }
