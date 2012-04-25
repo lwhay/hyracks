@@ -3,6 +3,8 @@ package edu.uci.ics.hyracks.storage.am.common.impls;
 import java.util.ArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -10,11 +12,13 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
+import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
@@ -114,6 +118,21 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
     public int getFieldCount() {
         return fieldCount;
     }
+    
+    public abstract ITreeIndexAccessor createAccessor();
+    
+    public abstract AbstractTreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException;
+    
+    public TreeIndexInsertBulkLoader createInsertBulkLoader() throws TreeIndexException {
+        final Logger LOGGER = Logger.getLogger(TreeIndexInsertBulkLoader.class.getName());
+        
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Using insert bulkload. This might negatively impact your performance.");
+        }
+
+    	return new TreeIndexInsertBulkLoader();
+    }
+
 
 	public abstract class AbstractTreeIndexBulkLoader implements ITreeIndexBulkLoader {
 		protected final MultiComparator cmp;
@@ -205,8 +224,27 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         }
 	}
 	
+	public class TreeIndexInsertBulkLoader implements ITreeIndexBulkLoader {
+		ITreeIndexAccessor accessor = createAccessor();
+
+		@Override
+		public void add(ITupleReference tuple) throws HyracksDataException {
+			try {
+				accessor.insert(tuple);
+			} catch (IndexException e) {
+				throw new HyracksDataException(e);
+			}
+		}
+
+		@Override
+		public void end() throws HyracksDataException {
+			// do nothing
+		}
+		
+	}
+	
 	@Deprecated
-	private ITreeIndexBulkLoader bulkloader;
+	protected ITreeIndexBulkLoader bulkloader;
 	
 	@Deprecated
     public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException, TreeIndexException {

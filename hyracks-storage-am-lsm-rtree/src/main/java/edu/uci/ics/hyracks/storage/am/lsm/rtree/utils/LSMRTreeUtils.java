@@ -16,8 +16,11 @@
 package edu.uci.ics.hyracks.storage.am.lsm.rtree.utils;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
+import edu.uci.ics.hyracks.api.dataflow.value.NullLinearizeComparatorFactory;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
+import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
@@ -26,6 +29,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManagerFactory;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import edu.uci.ics.hyracks.storage.am.linearize.HilbertDoubleComparatorFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
@@ -66,12 +70,25 @@ public class LSMRTreeUtils {
         BTreeFactory diskBTreeFactory = new BTreeFactory(diskBufferCache, NoOpOperationCallback.INSTANCE,
                 freePageManagerFactory, btreeCmpFactories, typeTraits.length, btreeInteriorFrameFactory,
                 btreeLeafFrameFactory);
+        
+        ILinearizeComparatorFactory linearizer = NullLinearizeComparatorFactory.get(typeTraits.length / 2);
+        
+        if(typeTraits.length / 2 == 2) {
+        	boolean hilbertComparable = true;
+        	for(int i = 0; i < typeTraits.length; i++) {
+        		if(typeTraits[0] != DoublePointable.TYPE_TRAITS) {
+        			hilbertComparable = false;
+        			break;
+        		}
+        	}	
+        	if(hilbertComparable) linearizer = new HilbertDoubleComparatorFactory(2);
+        }
 
         ILSMFileManager fileNameManager = new LSMRTreeFileManager(ioManager, diskFileMapProvider, onDiskDir);
         LSMRTree lsmTree = new LSMRTree(memBufferCache, memFreePageManager, rtreeInteriorFrameFactory,
                 rtreeLeafFrameFactory, btreeInteriorFrameFactory, btreeLeafFrameFactory, fileNameManager,
                 diskRTreeFactory, diskBTreeFactory, diskFileMapProvider, typeTraits.length, rtreeCmpFactories,
-                btreeCmpFactories);
+                btreeCmpFactories, linearizer);
         return lsmTree;
     }
 }

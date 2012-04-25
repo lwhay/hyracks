@@ -14,13 +14,10 @@
  */
 package edu.uci.ics.hyracks.storage.am.linearize;
 
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
-import edu.uci.ics.hyracks.data.std.api.IComparable;
-import edu.uci.ics.hyracks.data.std.api.IPointable;
-import edu.uci.ics.hyracks.data.std.api.IPointableFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 
-public class HilbertDoubleComparatorFactory implements IBinaryComparatorFactory {
+public class HilbertDoubleComparatorFactory implements ILinearizeComparatorFactory {
     private static final long serialVersionUID = 1L;
     
     private int dim;
@@ -34,7 +31,7 @@ public class HilbertDoubleComparatorFactory implements IBinaryComparatorFactory 
     }
 
     @Override
-    public IBinaryComparator createBinaryComparator() {
+    public ILinearizeComparator createBinaryComparator() {
         return new HilbertDoubleComparator(dim);
     }
 }

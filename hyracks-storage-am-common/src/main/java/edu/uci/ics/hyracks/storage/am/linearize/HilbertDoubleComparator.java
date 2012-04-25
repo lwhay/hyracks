@@ -4,17 +4,39 @@ import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.util.Stack;
 
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparator;
+import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
+import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
 
-public class HilbertDoubleComparator implements IBinaryComparator {
+/*
+ * This compares two points based on the hilbert curve. Currently, it only supports
+ * doubles (this can be changed by changing all doubles to ints as there are no
+ * number generics in Java) in the two-dimensional space. For more dimensions, the
+ * state machine has to be automatically generated. The idea of the fractal generation
+ * of the curve is described e.g. in http://dl.acm.org/ft_gateway.cfm?id=383528&type=pdf
+ * 
+ * Unlike the described approach, this comparator does not compute the hilbert value at 
+ * any point. Instead, it only evaluates how the two inputs compare to each other. This
+ * is done by starting at the lowest hilbert resolution and zooming in on the fractal until
+ * the two points are in different quadrants.
+ * 
+ * As a performance optimization, the state of the state machine is saved in a stack and 
+ * maintained over comparisons. The idea behind this is that comparisons are usually in a
+ * similar area (e.g. geo coordinates). Zooming in from [-MAX_VALUE, MAX_VALUE] would take
+ * ~300 steps every time. Instead, the comparator start from the previous state and zooms out
+ * if necessary
+ */
+
+public class HilbertDoubleComparator implements ILinearizeComparator {
 	private final int dim; // dimension
 	private final HilbertState[] states;
 	
 	private double[] bounds;
 	private double stepsize;
 	private int state;
-	private Stack<Integer> stateStack = new Stack<Integer>();
-	private Stack<double[]> boundsStack = new Stack<double[]>();
+	private Stack<Integer> stateStack = new Stack<Integer>(); // use IntArrayList
+	private Stack<double[]> boundsStack = new Stack<double[]>(); // use DoubleArrayList[dim]
+	
 	
 	private int DEBUG_comps = 0;
 	
@@ -55,8 +77,6 @@ public class HilbertDoubleComparator implements IBinaryComparator {
 	public int compare(double[] ds, double[] ds2) {
 		boolean equal = true;
 		for(int i = 0; i < dim; i++) {
-			// for some reason, ds.equals(ds2) does not work -.-
-			// FIXME double comparison can be wrong
 			if(ds[i] != ds2[i]) equal = false;
 		}
 		if(equal) return 0;
@@ -100,6 +120,8 @@ public class HilbertDoubleComparator implements IBinaryComparator {
 				}
 			}
 			stepsize /= 2;
+			if(stepsize <= 2 * DoublePointable.getEpsilon()) return 0;
+				// avoid infinite loop due to machine epsilon problems
 			
 			if(quadrantA != quadrantB) {
 				// find the position of A and B's quadrants
@@ -117,7 +139,7 @@ public class HilbertDoubleComparator implements IBinaryComparator {
 	
 	@Override
 	public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
-		DoubleBuffer aIB = ByteBuffer.wrap(b1, s1, l1 * 2).asDoubleBuffer();
+		DoubleBuffer aIB = ByteBuffer.wrap(b1, s1, l1 * 2).asDoubleBuffer(); // FIXME use primitive value provider to avoid object creation
 		DoubleBuffer bIB = ByteBuffer.wrap(b2, s2, l2 * 2).asDoubleBuffer();
 		double[] a = new double[aIB.remaining()];
 		double[] b = new double[bIB.remaining()];
@@ -130,5 +152,10 @@ public class HilbertDoubleComparator implements IBinaryComparator {
 		if(DEBUG_comps % 1000000 == 0) System.out.println(DEBUG_comps + " comparisons");
 		
 		return compare(a, b);
+	}
+
+	@Override
+	public int getDimensions() {
+		return dim;
 	}
 }

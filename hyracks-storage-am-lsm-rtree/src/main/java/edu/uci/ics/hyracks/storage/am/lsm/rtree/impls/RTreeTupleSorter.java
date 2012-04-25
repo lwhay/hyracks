@@ -19,13 +19,16 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
+import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
-public class RTreeTupleSorter {
+public class RTreeTupleSorter implements ITreeIndexCursor {
     private final IBinaryComparator[] comparators;
     private int numTuples;
     private int currentTupleIndex;
@@ -184,5 +187,36 @@ public class RTreeTupleSorter {
         }
         return 0;
     }
+
+	@Override
+	public void open(ICursorInitialState initialState,
+			ISearchPredicate searchPred) throws HyracksDataException {
+		// do nothing
+	}
+
+	@Override
+	public void close() throws HyracksDataException {
+		// do nothing
+	}
+
+	@Override
+	public ICachedPage getPage() {
+		return null;
+	}
+
+	@Override
+	public void setBufferCache(IBufferCache bufferCache) {
+		// do nothing
+	}
+
+	@Override
+	public void setFileId(int fileId) {
+		// do nothing
+	}
+
+	@Override
+	public boolean exclusiveLatchNodes() {
+		return false;
+	}
 
 }

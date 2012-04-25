@@ -25,6 +25,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
@@ -925,7 +926,6 @@ public class RTree extends AbstractTreeIndex {
 		public void end() throws HyracksDataException {
 			propagateBulk(1, true);
 			super.end();
-			printStatistics();
 		}
 		
 		protected void propagateBulk(int level, boolean toRoot) throws HyracksDataException {
@@ -985,26 +985,9 @@ public class RTree extends AbstractTreeIndex {
 		}
 	}
 	
-	public void printStatistics() throws HyracksDataException {
-/*		RTreeNSMLeafFrame leafFrame = (RTreeNSMLeafFrame) leafFrameFactory.createFrame();
-        RTreeNSMInteriorFrame interiorFrame = (RTreeNSMInteriorFrame) interiorFrameFactory.createFrame();
-        
-        int maxPage = freePageManager.getMaxPage(freePageManager.getMetaDataFrameFactory().createFrame());
-        
-        for(int i = rootPage; i < maxPage; i++) {
-        	ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, i), false);
-        	page.acquireReadLatch();
-        	interiorFrame.setPage(page);
-        	interiorFrame.getTuples()[0].getFieldData(0);
-        	if(interiorFrame.getLevel() == 0) {
-        		//
-        	} else {
-        		System.out.println(interiorFrame.getTupleCount());
-        		//double overlap = interiorFrame.overlappedArea(interiorFrame.getTuples()[0], null, interiorFrame.getTuples()[1], MultiComparator.create(cmpFactories));
-        		//System.out.println(overlap);
-        	}
-        	page.releaseReadLatch();
-            bufferCache.unpin(page);
-        }*/
+	@Deprecated
+    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException, TreeIndexException {
+		if(this.bulkloader == null) this.bulkloader = this.createBulkLoader(fillFactor); /* use IndexBulkLoader */
+		return null;
 	}
 }
