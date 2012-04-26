@@ -38,6 +38,7 @@ import org.apache.commons.io.IOUtils;
 
 import edu.uci.ics.hyracks.api.application.IApplicationContext;
 import edu.uci.ics.hyracks.api.application.IBootstrap;
+import edu.uci.ics.hyracks.api.messages.IMessageBroker;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
 
@@ -54,6 +55,7 @@ public abstract class ApplicationContext implements IApplicationContext {
     protected Properties deploymentDescriptor;
     protected IBootstrap bootstrap;
     protected Serializable distributedState;
+    protected IMessageBroker statsConnector;
 
     public ApplicationContext(ServerContext serverCtx, String appName) throws IOException {
         this.serverCtx = serverCtx;
@@ -204,5 +206,15 @@ public abstract class ApplicationContext implements IApplicationContext {
 
     public ApplicationStatus getStatus() {
         return status;
+    }
+
+    @Override
+    public void setMessageBroker(IMessageBroker staticticsConnector) {
+        this.statsConnector = staticticsConnector;
+    }
+
+    @Override
+    public IMessageBroker getMessageBroker() {
+        return this.statsConnector;
     }
 }
