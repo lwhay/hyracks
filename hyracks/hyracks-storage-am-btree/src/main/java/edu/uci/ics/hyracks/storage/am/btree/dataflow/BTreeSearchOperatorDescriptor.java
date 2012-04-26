@@ -35,11 +35,14 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
     private static final long serialVersionUID = 1L;
 
     protected boolean isForward;
-    protected int[] lowKeyFields; // fields in input tuple to be used as low keys
+    protected int[] lowKeyFields; // fields in input tuple to be used as low
+                                  // keys
     protected int[] highKeyFields; // fields in input tuple to be used as high
     // keys
     protected boolean lowKeyInclusive;
     protected boolean highKeyInclusive;
+
+    protected boolean statsEnabled = true;
 
     public BTreeSearchOperatorDescriptor(JobSpecification spec, RecordDescriptor recDesc,
             IStorageManagerInterface storageManager, IIndexRegistryProvider<IIndex> indexRegistryProvider,
@@ -57,9 +60,11 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
     }
 
     @Override
-    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
-            int partition, int nPartitions) {
-        return new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, isForward, lowKeyFields,
-                highKeyFields, lowKeyInclusive, highKeyInclusive);
+    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
+            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
+        return statsEnabled ? (new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, isForward,
+                lowKeyFields, highKeyFields, lowKeyInclusive, highKeyInclusive)) : new BTreeSearchOperatorNodePushable(
+                this, ctx, partition, recordDescProvider, isForward, lowKeyFields, highKeyFields, lowKeyInclusive,
+                highKeyInclusive);
     }
 }
