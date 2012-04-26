@@ -100,4 +100,10 @@ public class TestTaskContext implements IHyracksTaskContext {
     public ITaskState getTaskState(TaskId taskId) {
         return null;
     }
+
+    @Override
+    public void sendMessage(byte[] message, String nodeId) throws Exception {
+        // TODO Auto-generated method stub
+
+    }
 }
