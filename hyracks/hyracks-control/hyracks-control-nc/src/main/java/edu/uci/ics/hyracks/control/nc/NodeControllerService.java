@@ -61,6 +61,7 @@ import edu.uci.ics.hyracks.control.nc.net.NetworkManager;
 import edu.uci.ics.hyracks.control.nc.partitions.PartitionManager;
 import edu.uci.ics.hyracks.control.nc.runtime.RootHyracksContext;
 import edu.uci.ics.hyracks.control.nc.work.AbortTasksWork;
+import edu.uci.ics.hyracks.control.nc.work.ApplicationMessageWork;
 import edu.uci.ics.hyracks.control.nc.work.BuildJobProfilesWork;
 import edu.uci.ics.hyracks.control.nc.work.CleanupJobletWork;
 import edu.uci.ics.hyracks.control.nc.work.CreateApplicationWork;
@@ -365,6 +366,12 @@ public class NodeControllerService extends AbstractRemoteService {
         public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload, Exception exception) {
             CCNCFunctions.Function fn = (CCNCFunctions.Function) payload;
             switch (fn.getFunctionId()) {
+                case SEND_APPLICATION_MESSAGE: {
+                    CCNCFunctions.SendApplicationMessageFunction amf = (CCNCFunctions.SendApplicationMessageFunction) fn;
+                    queue.schedule(new ApplicationMessageWork(NodeControllerService.this, amf.getMessage(), amf
+                            .getAppName(), amf.getNodeId()));
+                    return;
+                }
                 case START_TASKS: {
                     CCNCFunctions.StartTasksFunction stf = (CCNCFunctions.StartTasksFunction) fn;
                     queue.schedule(new StartTasksWork(NodeControllerService.this, stf.getAppName(), stf.getJobId(), stf
@@ -413,5 +420,9 @@ public class NodeControllerService extends AbstractRemoteService {
             throw new IllegalArgumentException("Unknown function: " + fn.getFunctionId());
 
         }
+    }
+
+    public void sendMessage(byte[] data, String appName, String nodeId) throws Exception {
+        ccs.sendMessage(data, appName, nodeId);
     }
 }
