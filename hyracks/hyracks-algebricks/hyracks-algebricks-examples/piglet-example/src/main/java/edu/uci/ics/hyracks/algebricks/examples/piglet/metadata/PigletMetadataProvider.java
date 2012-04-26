@@ -163,5 +163,4 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
         // TODO Auto-generated method stub
         return null;
     }
-
 }
