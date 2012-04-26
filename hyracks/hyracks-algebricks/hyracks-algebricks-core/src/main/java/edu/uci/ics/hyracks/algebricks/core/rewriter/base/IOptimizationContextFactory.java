@@ -25,5 +25,5 @@ public interface IOptimizationContextFactory {
             IExpressionEvalSizeComputer expressionEvalSizeComputer,
             IMergeAggregationExpressionFactory mergeAggregationExpressionFactory,
             IExpressionTypeComputer expressionTypeComputer, INullableTypeComputer nullableTypeComputer,
-            PhysicalOptimizationConfig physicalOptimizationConfig);
+            PhysicalOptimizationConfig physicalOptimizationConfig, boolean statisticsEnabled);
 }

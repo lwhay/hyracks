@@ -69,4 +69,5 @@ public interface IMetadataProvider<S, I> {
             JobSpecification spec) throws AlgebricksException;
 
     public IDataSourceIndex<I, S> findDataSourceIndex(I indexId, S dataSourceId) throws AlgebricksException;
+
 }

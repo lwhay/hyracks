@@ -54,6 +54,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.RunningAggr
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ScriptOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SinkOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.StatisticsOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
@@ -105,6 +106,14 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             throws AlgebricksException {
         AbstractLogicalOperator aop = (AbstractLogicalOperator) copyAndSubstituteVar(op, arg);
         if (aop.getOperatorTag() != LogicalOperatorTag.EMPTYTUPLESOURCE)
+            return Boolean.FALSE;
+        return Boolean.TRUE;
+    }
+
+    @Override
+    public Boolean visitStatsOperator(StatisticsOperator op, ILogicalOperator arg) throws AlgebricksException {
+        StatisticsOperator aop = (StatisticsOperator) copyAndSubstituteVar(op, arg);
+        if (aop.getOperatorTag() != LogicalOperatorTag.STATS)
             return Boolean.FALSE;
         return Boolean.TRUE;
     }
@@ -678,8 +687,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
                 throws AlgebricksException {
             ArrayList<Mutable<ILogicalExpression>> newExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newExpressions, Arrays.asList(op.getExpressions()));
-            return new PartitioningSplitOperator(newExpressions.toArray(new Mutable[0]),
-                    op.hasDefault());
+            return new PartitioningSplitOperator(newExpressions.toArray(new Mutable[0]), op.hasDefault());
         }
 
         @Override
@@ -806,6 +814,11 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
                 newOrdersAndExprs.add(new Pair<IOrder, Mutable<ILogicalExpression>>(pair.first,
                         deepCopyExpressionRef(pair.second)));
             return newOrdersAndExprs;
+        }
+
+        @Override
+        public ILogicalOperator visitStatsOperator(StatisticsOperator op, Void arg) throws AlgebricksException {
+            return new StatisticsOperator();
         }
     }
 
