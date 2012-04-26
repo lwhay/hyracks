@@ -20,6 +20,7 @@ import edu.uci.ics.hyracks.api.context.ICCContext;
 import edu.uci.ics.hyracks.api.job.IJobLifecycleListener;
 import edu.uci.ics.hyracks.api.job.IJobSpecificationFactory;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.api.messages.IMessageBroker;
 
 /**
  * Application Context at the Cluster Controller for an application.
@@ -66,4 +67,6 @@ public interface ICCApplicationContext extends IApplicationContext {
      * @return The Cluster Controller Context.
      */
     public ICCContext getCCContext();
+
+
 }
