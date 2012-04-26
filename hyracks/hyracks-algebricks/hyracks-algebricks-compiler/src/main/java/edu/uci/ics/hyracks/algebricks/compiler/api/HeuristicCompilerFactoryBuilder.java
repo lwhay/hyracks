@@ -45,10 +45,10 @@ public class HeuristicCompilerFactoryBuilder extends AbstractCompilerFactoryBuil
                 IExpressionEvalSizeComputer expressionEvalSizeComputer,
                 IMergeAggregationExpressionFactory mergeAggregationExpressionFactory,
                 IExpressionTypeComputer expressionTypeComputer, INullableTypeComputer nullableTypeComputer,
-                PhysicalOptimizationConfig physicalOptimizationConfig) {
+                PhysicalOptimizationConfig physicalOptimizationConfig, boolean statisticsEnabled) {
             return new AlgebricksOptimizationContext(varCounter, frameSize, expressionEvalSizeComputer,
                     mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
-                    physicalOptimizationConfig);
+                    physicalOptimizationConfig, false);
         }
     }
 
@@ -67,10 +67,10 @@ public class HeuristicCompilerFactoryBuilder extends AbstractCompilerFactoryBuil
         return new ICompilerFactory() {
             @Override
             public ICompiler createCompiler(final ILogicalPlan plan, final IMetadataProvider<?, ?> metadata,
-                    int varCounter) {
+                    int varCounter, final boolean statisticsEnabled) {
                 final IOptimizationContext oc = optCtxFactory.createOptimizationContext(varCounter, frameSize,
                         expressionEvalSizeComputer, mergeAggregationExpressionFactory, expressionTypeComputer,
-                        nullableTypeComputer, physicalOptimizationConfig);
+                        nullableTypeComputer, physicalOptimizationConfig, statisticsEnabled);
                 oc.setMetadataDeclarations(metadata);
                 final HeuristicOptimizer opt = new HeuristicOptimizer(plan, logicalRewrites, physicalRewrites, oc);
                 return new ICompiler() {
@@ -88,7 +88,8 @@ public class HeuristicCompilerFactoryBuilder extends AbstractCompilerFactoryBuil
                                 typeTraitProvider, binaryBooleanInspector, binaryIntegerInspector, printerProvider,
                                 nullWriterFactory, normalizedKeyComputerFactoryProvider, exprJobGen,
                                 expressionTypeComputer, nullableTypeComputer, oc, expressionEvalSizeComputer,
-                                partialAggregationTypeComputer, frameSize, clusterLocations);
+                                partialAggregationTypeComputer, frameSize, clusterLocations
+                                );
                         PlanCompiler pc = new PlanCompiler(context);
                         return pc.compilePlan(plan, null);
                     }
