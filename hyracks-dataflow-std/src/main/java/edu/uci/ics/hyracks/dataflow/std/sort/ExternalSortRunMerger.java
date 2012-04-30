@@ -80,6 +80,12 @@ public class ExternalSortRunMerger {
         this.predictionFramesLimit = predictionFramesLimit;
     }
 
+    public ExternalSortRunMerger(IHyracksTaskContext ctx, FrameSorter frameSorter, List<IFrameReader> runs,
+            int[] sortFields, IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit,
+            IFrameWriter writer) {
+        this(ctx, frameSorter, runs, sortFields, comparators, recordDesc, framesLimit, writer, 0);
+    }
+
     // Constructor for external sort with replacement selection
     public ExternalSortRunMerger(IHyracksTaskContext ctx, int outputLimit, List<IFrameReader> runs, int[] sortFields,
             IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit, IFrameWriter writer,
@@ -95,6 +101,11 @@ public class ExternalSortRunMerger {
         this.currentSize = 0;
         this.frameSorter = null;
         this.predictionFramesLimit = predictionFramesLimit;
+    }
+
+    public ExternalSortRunMerger(IHyracksTaskContext ctx, int outputLimit, List<IFrameReader> runs, int[] sortFields,
+            IBinaryComparator[] comparators, RecordDescriptor recordDesc, int framesLimit, IFrameWriter writer) {
+        this(ctx, outputLimit, runs, sortFields, comparators, recordDesc, framesLimit, writer, 0);
     }
 
     public void process() throws HyracksDataException {

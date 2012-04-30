@@ -53,9 +53,20 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
     private final int predictionFramesLimit;
 
     public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
+            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
+        this(spec, framesLimit, sortFields, null, comparatorFactories, recordDescriptor);
+    }
+
+    public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor,
             int predictionFramesLimit) {
         this(spec, framesLimit, sortFields, null, comparatorFactories, recordDescriptor, predictionFramesLimit);
+    }
+
+    public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
+            INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
+            RecordDescriptor recordDescriptor) {
+        this(spec, framesLimit, sortFields, null, comparatorFactories, recordDescriptor, 0);
     }
 
     public ExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
