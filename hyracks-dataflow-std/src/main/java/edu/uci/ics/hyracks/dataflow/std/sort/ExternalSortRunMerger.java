@@ -163,29 +163,39 @@ public class ExternalSortRunMerger {
             writer.open();
         }
         try {
+            PredictingFrameReaderCollection predictorsCollection = null;
+
             IFrameReader[] currentMergeSet = new IFrameReader[inFrames.size()];
             for (int i = 0; i < inFrames.size(); i++) {
                 currentMergeSet[i] = runs.get(i);
             }
             runs.subList(0, inFrames.size()).clear();
 
-            PredictingFrameReaderCollection predictorsCollection = new PredictingFrameReaderCollection(ctx, recordDesc,
-                    currentMergeSet, predictionFramesLimit);
+            if (predictionFramesLimit > 0) {
+                predictorsCollection = new PredictingFrameReaderCollection(ctx, recordDesc, currentMergeSet,
+                        predictionFramesLimit);
+                currentMergeSet = predictorsCollection.getRunCursors();
+            }
 
-            RunMergingFrameReader merger = new RunMergingFrameReader(ctx, predictorsCollection.getRunCursors(),
-                    inFrames, sortFields, comparators, recordDesc);
+            RunMergingFrameReader merger = new RunMergingFrameReader(ctx, currentMergeSet, inFrames, sortFields,
+                    comparators, recordDesc);
             merger.open();
 
-            /* There is a cyclic dependency here, we can't pass these parameters on to the constructor of
-             * predictorsCollection because we don't have access to the comparators until we initialize
-             * and open the merger. On the other hand, we can't wait to initialize the
-             * predictorsCollection until we initialize and open the merger because, merger.open needs
-             * access to the initialized runCursors elements to set the topTuples and to have these
-             * runCursors elements initialized we want predictorsCollection to be initialized since we get
-             * the runCursors elements through predictorsCollection. Hence we set the tupleIndexes array in
-             * the predictorsCollection after opening the merger.
+            /* This if condition could also have been predictionCollection != null, but to keep the code
+             * consistent we have chosen the same condition as before.
              */
-            predictorsCollection.setComparator(merger.getComparator());
+            if (predictionFramesLimit > 0) {
+                /* There is a cyclic dependency here, we can't pass these parameters on to the constructor of
+                 * predictorsCollection because we don't have access to the comparators until we initialize
+                 * and open the merger. On the other hand, we can't wait to initialize the
+                 * predictorsCollection until we initialize and open the merger because, merger.open needs
+                 * access to the initialized runCursors elements to set the topTuples and to have these
+                 * runCursors elements initialized we want predictorsCollection to be initialized since we get
+                 * the runCursors elements through predictorsCollection. Hence we set the tupleIndexes array in
+                 * the predictorsCollection after opening the merger.
+                 */
+                predictorsCollection.setComparator(merger.getComparator());
+            }
 
             try {
                 while (merger.nextFrame(outFrame)) {
