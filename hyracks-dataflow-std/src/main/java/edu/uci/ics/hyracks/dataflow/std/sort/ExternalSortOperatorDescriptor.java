@@ -73,7 +73,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             RecordDescriptor recordDescriptor, int predictionFramesLimit) {
         super(spec, 1, 1);
-        this.framesLimit = framesLimit;
+        this.framesLimit = framesLimit - predictionFramesLimit;
         this.sortFields = sortFields;
         this.firstKeyNormalizerFactory = firstKeyNormalizerFactory;
         this.comparatorFactories = comparatorFactories;
