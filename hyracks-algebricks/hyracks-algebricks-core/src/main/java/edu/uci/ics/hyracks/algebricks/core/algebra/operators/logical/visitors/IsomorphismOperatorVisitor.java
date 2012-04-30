@@ -39,6 +39,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -177,6 +178,17 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             return Boolean.FALSE;
         DieOperator dieOpArg = (DieOperator) copyAndSubstituteVar(op, arg);
         boolean isomorphic = op.getAfterObjects().getValue().equals(dieOpArg.getAfterObjects().getValue());
+        return isomorphic;
+    }
+
+    @Override
+    public Boolean visitGroupJoinOperator(GroupJoinOperator op, ILogicalOperator arg)
+            throws AlgebricksException {
+        AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
+        if (aop.getOperatorTag() != LogicalOperatorTag.GROUPJOIN)
+            return Boolean.FALSE;
+        GroupJoinOperator joinOpArg = (GroupJoinOperator) copyAndSubstituteVar(op, arg);
+        boolean isomorphic = op.getCondition().getValue().equals(joinOpArg.getCondition().getValue());
         return isomorphic;
     }
 
@@ -626,6 +638,13 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         @Override
         public ILogicalOperator visitDieOperator(DieOperator op, Void arg) throws AlgebricksException {
             return new DieOperator(deepCopyExpressionRef(op.getAfterObjects()).getValue());
+        }
+
+        @Override
+        public ILogicalOperator visitGroupJoinOperator(GroupJoinOperator op, Void arg)
+                throws AlgebricksException {
+            return new GroupJoinOperator(deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
+                    .getInputs().get(1));
         }
 
         @Override

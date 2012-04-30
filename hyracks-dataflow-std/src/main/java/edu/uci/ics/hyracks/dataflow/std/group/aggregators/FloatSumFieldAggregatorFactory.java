@@ -39,36 +39,28 @@ public class FloatSumFieldAggregatorFactory implements
 
     private final boolean useObjectState;
     
-    private final boolean isInitialized;
-    
     public FloatSumFieldAggregatorFactory(int aggField, boolean useObjState){
         this.aggField = aggField;
         this.useObjectState = useObjState;
-        this.isInitialized = true;
-    }
-    
-    public FloatSumFieldAggregatorFactory(int aggField, boolean useObjState, boolean isInitialized){
-        this.aggField = aggField;
-        this.useObjectState = useObjState;
-        this.isInitialized = isInitialized;
     }
     
     /* (non-Javadoc)
      * @see edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory#createAggregator(edu.uci.ics.hyracks.api.context.IHyracksTaskContext, edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor, edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor)
      */
     @Override
-    public IFieldAggregateDescriptor createAggregator(IHyracksTaskContext ctx, RecordDescriptor inRecordDescriptor,
+    public IFieldAggregateDescriptor createAggregator(IHyracksTaskContext ctx,
+            RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor) throws HyracksDataException {
         return new IFieldAggregateDescriptor() {
-
+            
             @Override
             public void reset() {
                 
             }
             
             @Override
-            public void outputPartialResult(DataOutput fieldOutput, byte[] data, int offset, AggregateState state)
-            		throws HyracksDataException {
+            public void outputPartialResult(DataOutput fieldOutput, byte[] data,
+                    int offset, AggregateState state) throws HyracksDataException {
                 float sum;
                 if (!useObjectState) {
                     sum = FloatSerializerDeserializer.getFloat(data, offset);
@@ -109,14 +101,15 @@ public class FloatSumFieldAggregatorFactory implements
             }
             
             @Override
-            public void init(IFrameTupleAccessor accessor, int tIndex, DataOutput fieldOutput, AggregateState state)
+            public void init(IFrameTupleAccessor accessor, int tIndex,
+                    DataOutput fieldOutput, AggregateState state)
                     throws HyracksDataException {
                 float sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
-                if(isInitialized)
-                	sum += FloatSerializerDeserializer.getFloat(accessor.getBuffer().array(),
-                			tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
+
+                sum += FloatSerializerDeserializer.getFloat(accessor.getBuffer().array(),
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
 
                 if (!useObjectState) {
                     try {
@@ -141,7 +134,8 @@ public class FloatSumFieldAggregatorFactory implements
             }
             
             @Override
-            public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, AggregateState state)
+            public void aggregate(IFrameTupleAccessor accessor, int tIndex,
+                    byte[] data, int offset, AggregateState state)
                     throws HyracksDataException {
                 float sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);

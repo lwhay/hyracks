@@ -43,21 +43,11 @@ public class MinMaxStringFieldAggregatorFactory implements IFieldAggregateDescri
 
     private final boolean hasBinaryState;
 
-    private final boolean isInitialized;
-    
     public MinMaxStringFieldAggregatorFactory(int aggField, boolean isMax, boolean hasBinaryState) {
         this.aggField = aggField;
         this.isMax = isMax;
         this.hasBinaryState = hasBinaryState;
-        this.isInitialized = true;
     }
-    
-	public MinMaxStringFieldAggregatorFactory(int aggField, boolean isMax, boolean hasBinaryState, boolean isInitialized) {
-		this.aggField = aggField;
-		this.isMax = isMax;
-		this.hasBinaryState = hasBinaryState;
-		this.isInitialized = isInitialized;
-	}
 
     /*
      * (non-Javadoc)
@@ -117,9 +107,7 @@ public class MinMaxStringFieldAggregatorFactory implements IFieldAggregateDescri
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
                 int fieldLength = accessor.getFieldLength(tIndex, aggField);
-                String strField = null;
-                if (isInitialized)
-                	strField = UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
+                String strField = UTF8StringSerializerDeserializer.INSTANCE.deserialize(new DataInputStream(
                         new ByteArrayInputStream(accessor.getBuffer().array(), tupleOffset
                                 + accessor.getFieldSlotsLength() + fieldStart, fieldLength)));
                 if (hasBinaryState) {

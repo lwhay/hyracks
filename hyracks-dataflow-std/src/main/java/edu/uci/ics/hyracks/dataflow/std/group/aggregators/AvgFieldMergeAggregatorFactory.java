@@ -37,19 +37,10 @@ public class AvgFieldMergeAggregatorFactory implements IFieldAggregateDescriptor
     private final int aggField;
 
     private final boolean useObjectState;
-    
-    private final boolean isInitialized;
 
     public AvgFieldMergeAggregatorFactory(int aggField, boolean useObjectState) {
         this.aggField = aggField;
         this.useObjectState = useObjectState;
-        this.isInitialized = true;
-    }
-    
-    public AvgFieldMergeAggregatorFactory(int aggField, boolean useObjectState, boolean isInitialized) {
-        this.aggField = aggField;
-        this.useObjectState = useObjectState;
-        this.isInitialized = isInitialized;
     }
 
     /*
@@ -161,12 +152,10 @@ public class AvgFieldMergeAggregatorFactory implements IFieldAggregateDescriptor
                 int count = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
-                if (isInitialized) {
-                	sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
-                			tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
-                	count += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
-                			tupleOffset + accessor.getFieldSlotsLength() + fieldStart + 4);
-                }
+                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
+                count += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart + 4);
                 if (!useObjectState) {
                     try {
                         fieldOutput.writeInt(sum);

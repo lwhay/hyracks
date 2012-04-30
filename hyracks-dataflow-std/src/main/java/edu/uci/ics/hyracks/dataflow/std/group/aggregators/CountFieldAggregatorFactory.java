@@ -35,18 +35,10 @@ public class CountFieldAggregatorFactory implements IFieldAggregateDescriptorFac
     private static final long serialVersionUID = 1L;
 
     private final boolean useObjectState;
-    
-    private final boolean isInitialized;
 
     public CountFieldAggregatorFactory(boolean useObjectState) {
         this.useObjectState = useObjectState;
-        this.isInitialized = true;
     }
-    
-	public CountFieldAggregatorFactory(boolean useObjectState, boolean isInitialized){
-		this.useObjectState = useObjectState;
-		this.isInitialized = isInitialized;
-	}
 
     /*
      * (non-Javadoc)
@@ -101,11 +93,7 @@ public class CountFieldAggregatorFactory implements IFieldAggregateDescriptorFac
             @Override
             public void init(IFrameTupleAccessor accessor, int tIndex, DataOutput fieldOutput, AggregateState state)
                     throws HyracksDataException {
-            	int count;
-            	if(isInitialized)
-            		count = 1;
-            	else
-            		count = 0;
+                int count = 1;
                 if (!useObjectState) {
                     try {
                         fieldOutput.writeInt(count);

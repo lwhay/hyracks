@@ -37,20 +37,11 @@ public class AvgFieldGroupAggregatorFactory implements IFieldAggregateDescriptor
     private final int aggField;
 
     private final boolean useObjectState;
-    
-    private final boolean isInitialized;
 
     public AvgFieldGroupAggregatorFactory(int aggField, boolean useObjectState) {
         this.aggField = aggField;
         this.useObjectState = useObjectState;
-        this.isInitialized = true;
-	}
-
-	public AvgFieldGroupAggregatorFactory(int aggField, boolean useObjectState, boolean isInitialized) {
-		this.aggField = aggField;
-		this.useObjectState = useObjectState;
-		this.isInitialized = isInitialized;
-	}
+    }
 
     /*
      * (non-Javadoc)
@@ -117,11 +108,9 @@ public class AvgFieldGroupAggregatorFactory implements IFieldAggregateDescriptor
                 int count = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
-                if (isInitialized) {
-                	sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
-                			tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
-                	count += 1;
-                }
+                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
+                count += 1;
                 if (!useObjectState) {
                     try {
                         fieldOutput.writeInt(sum);
@@ -146,11 +135,9 @@ public class AvgFieldGroupAggregatorFactory implements IFieldAggregateDescriptor
                 int sum = 0, count = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
-                
                 sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
                         tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
                 count += 1;
-
                 if (!useObjectState) {
                     ByteBuffer buf = ByteBuffer.wrap(data);
                     sum += buf.getInt(offset);

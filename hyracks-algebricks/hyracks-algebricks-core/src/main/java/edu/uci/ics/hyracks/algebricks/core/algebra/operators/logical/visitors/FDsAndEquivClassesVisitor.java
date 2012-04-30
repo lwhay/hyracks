@@ -47,6 +47,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -303,6 +304,34 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         return null;
     }
 
+    @Override
+    public Void visitGroupJoinOperator(GroupJoinOperator op, IOptimizationContext ctx)
+            throws AlgebricksException {
+        Map<LogicalVariable, EquivalenceClass> equivalenceClasses = new HashMap<LogicalVariable, EquivalenceClass>();
+        List<FunctionalDependency> functionalDependencies = new ArrayList<FunctionalDependency>();
+        ctx.putEquivalenceClassMap(op, equivalenceClasses);
+        ctx.putFDList(op, functionalDependencies);
+        ILogicalOperator opLeft = op.getInputs().get(0).getValue();
+        ILogicalOperator opRight = op.getInputs().get(1).getValue();
+        functionalDependencies.addAll(getOrComputeFDs(opLeft, ctx));
+        functionalDependencies.addAll(getOrComputeFDs(opRight, ctx));
+        equivalenceClasses.putAll(getOrComputeEqClasses(opLeft, ctx));
+        equivalenceClasses.putAll(getOrComputeEqClasses(opRight, ctx));
+
+        Collection<LogicalVariable> leftSideVars;
+        if (opLeft.getSchema() == null) {
+            leftSideVars = new LinkedList<LogicalVariable>();
+            VariableUtilities.getLiveVariables(opLeft, leftSideVars);
+            // actually, not all produced vars. are visible (due to projection)
+            // so using cached schema is better and faster
+        } else {
+            leftSideVars = opLeft.getSchema();
+        }
+        ILogicalExpression expr = op.getCondition().getValue();
+        expr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
+        return null;
+    }
+    
     @Override
     public Void visitInnerJoinOperator(InnerJoinOperator op, IOptimizationContext ctx) throws AlgebricksException {
         Map<LogicalVariable, EquivalenceClass> equivalenceClasses = new HashMap<LogicalVariable, EquivalenceClass>();

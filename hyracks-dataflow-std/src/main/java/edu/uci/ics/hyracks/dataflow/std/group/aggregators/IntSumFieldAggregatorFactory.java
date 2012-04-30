@@ -38,18 +38,9 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
 
     private final boolean useObjectState;
 
-    private final boolean isInitialized;
-    
     public IntSumFieldAggregatorFactory(int aggField, boolean useObjState) {
         this.aggField = aggField;
         this.useObjectState = useObjState;
-        this.isInitialized = true;
-    }
-
-    public IntSumFieldAggregatorFactory(int aggField, boolean useObjState, boolean isInitialized) {
-        this.aggField = aggField;
-        this.useObjectState = useObjState;
-        this.isInitialized = isInitialized;
     }
 
     /*
@@ -111,9 +102,8 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
 
-                if (isInitialized)
-                	sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
-                			tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
+                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
 
                 if (!useObjectState) {
                     try {
@@ -150,7 +140,7 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
                 sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
-                		tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
+                        tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
 
                 if (!useObjectState) {
                     ByteBuffer buf = ByteBuffer.wrap(data);
