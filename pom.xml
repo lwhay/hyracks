@@ -101,5 +101,6 @@
     <module>hyracks-hadoop-compat</module>
     <module>hyracks-algebricks</module>
     <module>hyracks-maven-plugins</module>
+    <module>hyracks-scalops</module>
   </modules>
 </project>
