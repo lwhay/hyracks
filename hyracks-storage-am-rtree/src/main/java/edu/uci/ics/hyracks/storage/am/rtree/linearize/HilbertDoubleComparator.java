@@ -1,12 +1,14 @@
-package edu.uci.ics.hyracks.storage.am.linearize;
+package edu.uci.ics.hyracks.storage.am.rtree.linearize;
 
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
-import java.util.Stack;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparator;
 import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.DoubleArrayList;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.IntArrayList;
+import edu.uci.ics.hyracks.storage.am.rtree.impls.DoublePrimitiveValueProviderFactory;
 
 /*
  * This compares two points based on the hilbert curve. Currently, it only supports
@@ -34,8 +36,13 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 	private double[] bounds;
 	private double stepsize;
 	private int state;
-	private Stack<Integer> stateStack = new Stack<Integer>(); // use IntArrayList
-	private Stack<double[]> boundsStack = new Stack<double[]>(); // use DoubleArrayList[dim]
+	private IntArrayList stateStack = new IntArrayList(200, 100);
+	private DoubleArrayList[] boundsStack;
+	
+	private IPrimitiveValueProvider valueProvider = DoublePrimitiveValueProviderFactory.INSTANCE.createPrimitiveValueProvider();
+	
+	double[] a;
+	double[] b;
 	
 	
 	private int DEBUG_comps = 0;
@@ -61,23 +68,33 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 				new HilbertState(new int[] {0,2,3,3}, new int[]{0,3,1,2})
 		};
 		
+		boundsStack = new DoubleArrayList[dim];
+		for(int i = 0; i < dim; i++) {
+			boundsStack[i] = new DoubleArrayList(200, 100);
+		}
+		
+		a = new double[dim];
+		b = new double[dim];
+		
 		resetStateMachine();
 	}
 	
 	private void resetStateMachine() {
 		state = 0;
 		stateStack.clear();
-		stateStack.push(state);
+		stateStack.add(state);
 		stepsize = Double.MAX_VALUE / 2;
 		bounds = new double[dim];
-		boundsStack.clear();
-		boundsStack.push(bounds);
+		for(int i = 0; i < dim; i++) {
+			boundsStack[i].clear();
+			boundsStack[i].add(0d);
+		}
 	}
 	
-	public int compare(double[] ds, double[] ds2) {
+	public int compare() {
 		boolean equal = true;
 		for(int i = 0; i < dim; i++) {
-			if(ds[i] != ds2[i]) equal = false;
+			if(a[i] != b[i]) equal = false;
 		}
 		if(equal) return 0;
 		
@@ -92,10 +109,14 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 			}
 			boolean zoomOut = false;
 			for(int i = 0; i < dim; i++) {
-				if(ds[i] <= bounds[i] - stepsize || ds[i] >= bounds[i] + stepsize ||
-						ds2[i] <= bounds[i] - stepsize || ds2[i] >= bounds[i] + stepsize) {
-					state = stateStack.pop();
-					bounds = boundsStack.pop();
+				if(a[i] <= bounds[i] - stepsize || a[i] >= bounds[i] + stepsize ||
+						b[i] <= bounds[i] - stepsize || b[i] >= bounds[i] + stepsize) {
+					state = stateStack.getLast();
+					stateStack.removeLast();
+					for(int j = 0; j < dim; j++) {
+						bounds[j] = boundsStack[j].getLast();
+						boundsStack[j].removeLast();
+					}
 					stepsize *= 2;
 					zoomOut = true;
 					break;
@@ -108,14 +129,16 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 			// Find the quadrant in which A and B are
 			int quadrantA = 0, quadrantB = 0;
 			for(int i = dim-1; i >= 0; i--) {
-				if(ds[i] >= bounds[i]) quadrantA ^= (1 << (dim - i - 1));
-				if(ds2[i] >= bounds[i]) quadrantB ^= (1 << (dim - i - 1));
+				if(a[i] >= bounds[i]) quadrantA ^= (1 << (dim - i - 1));
+				if(b[i] >= bounds[i]) quadrantB ^= (1 << (dim - i - 1));
 				
-				if(ds[i] >= bounds[i]) {
-					boundsStack.push(bounds);
+				for(int j = 0; j < dim; j++) {
+					boundsStack[j].add(bounds[j]);
+				}
+				
+				if(a[i] >= bounds[i]) {
 					bounds[i] += stepsize;
 				} else {
-					boundsStack.push(bounds);
 					bounds[i] -= stepsize;
 				}
 			}
@@ -131,7 +154,7 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 				if(posA < posB) return -1; else return 1;
 			}
 						
-			stateStack.push(state);
+			stateStack.add(state);
 			state = states[state].nextState[quadrantA];
 		}
 	}
@@ -139,19 +162,15 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 	
 	@Override
 	public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
-		DoubleBuffer aIB = ByteBuffer.wrap(b1, s1, l1 * 2).asDoubleBuffer(); // FIXME use primitive value provider to avoid object creation
-		DoubleBuffer bIB = ByteBuffer.wrap(b2, s2, l2 * 2).asDoubleBuffer();
-		double[] a = new double[aIB.remaining()];
-		double[] b = new double[bIB.remaining()];
-		for(int i = 0; i < aIB.remaining() && i < dim; i++) {
-			a[i] = aIB.get();
-			b[i] = bIB.get();
+		for(int i = 0; i < dim; i++) {
+			a[i] = valueProvider.getValue(b1, s1 + (i * 8));
+			b[i] = valueProvider.getValue(b1, s1 + (i * 8));;
 		}
 		
 		DEBUG_comps++;
-		if(DEBUG_comps % 1000000 == 0) System.out.println(DEBUG_comps + " comparisons");
+		if(DEBUG_comps % 10000 == 0) System.out.println(DEBUG_comps + " comparisons");
 		
-		return compare(a, b);
+		return compare();
 	}
 
 	@Override
