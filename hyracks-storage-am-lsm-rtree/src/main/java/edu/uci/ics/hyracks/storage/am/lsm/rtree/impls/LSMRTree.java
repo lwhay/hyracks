@@ -45,6 +45,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex.AbstractTreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -395,6 +396,7 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         FileReference rtreeFile = fileManager.createFlushFile(fileNames.getRTreeFileName());
         RTree diskRTree = (RTree) createDiskTree(diskRTreeFactory, rtreeFile, true);
         ITreeIndexBulkLoader rTreeBulkloader;
+        ITreeIndexCursor cursor;
 
         if(!(linearizer instanceof NullLinearizeComparatorFactory)) {
         	IBinaryComparatorFactory[] linearizerArray = {linearizer};
@@ -418,18 +420,20 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
 	        }
 	        rTreeTupleSorter.sort();
 	        rTreeBulkloader = diskRTree.createBulkLoader(1.0f);
+	        cursor = rTreeTupleSorter;
         } else {
         	rTreeBulkloader = diskRTree.createInsertBulkLoader();
+        	cursor = rtreeScanCursor;
         }
 
         try {
-            while (rTreeTupleSorter.hasNext()) {
-                rTreeTupleSorter.next();
-                ITupleReference frameTuple = rTreeTupleSorter.getTuple();
+            while (cursor.hasNext()) {
+                cursor.next();
+                ITupleReference frameTuple = cursor.getTuple();
                 rTreeBulkloader.add(frameTuple);
             }
         } finally {
-            rtreeScanCursor.close();
+            cursor.close();
         }
         rTreeBulkloader.end();
         
@@ -483,17 +487,18 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         RTree mergedRTree = (RTree) createDiskTree(diskRTreeFactory, rtreeFile, true);
         BTree mergedBTree = (BTree) createDiskTree(diskBTreeFactory, btreeFile, true);
 
-        IIndexBulkLoadContext bulkLoadCtx = mergedRTree.beginBulkLoad(1.0f);
+        ITreeIndexBulkLoader bulkloader = (!(linearizer instanceof NullLinearizeComparatorFactory) ? 
+        		mergedRTree.createBulkLoader(1.0f) : mergedRTree.createInsertBulkLoader());
         try {
             while (cursor.hasNext()) {
                 cursor.next();
                 ITupleReference frameTuple = cursor.getTuple();
-                mergedRTree.bulkLoadAddTuple(frameTuple, bulkLoadCtx);
+                bulkloader.add(frameTuple);
             }
         } finally {
             cursor.close();
         }
-        mergedRTree.endBulkLoad(bulkLoadCtx);
+        bulkloader.end();
 
         // Load an empty BTree tree.
         IIndexBulkLoadContext btreeBulkLoadCtx = mergedBTree.beginBulkLoad(1.0f);

@@ -33,8 +33,8 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 	private double[] bounds;
 	private double stepsize;
 	private int state;
-	private IntArrayList stateStack = new IntArrayList(1000, 200); // use IntArrayList
-	private DoubleArrayList boundsStack = new DoubleArrayList(2000, 400); // use DoubleArrayList[dim]
+	private IntArrayList stateStack = new IntArrayList(1000, 200);
+	private DoubleArrayList boundsStack = new DoubleArrayList(2000, 400);
 	
 	private IPrimitiveValueProvider valueProvider = DoublePrimitiveValueProviderFactory.INSTANCE.createPrimitiveValueProvider();
 	
@@ -117,20 +117,7 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 				stepsize *= 2;
 				break;
 			}
-		}
-	
-		
-		while(stateStack.size() > 1020) {
-			state = stateStack.getLast();
-			stateStack.removeLast();
-			for(int j = dim - 1; j >= 0; j--) {
-				bounds[j] = boundsStack.getLast();
-				boundsStack.removeLast();
-			}
-			stepsize *= 2;
-		}
-		
-		
+		}		
 		
 		while(true) {
 			stateStack.add(state);
@@ -177,7 +164,7 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
 		}
 		
 		DEBUG_comps++;
-		if(DEBUG_comps % 10000 == 0) System.out.println(DEBUG_comps + " comparisons");
+		if(DEBUG_comps % 1000000 == 0) System.out.println(DEBUG_comps + " comparisons");
 		
 		return compare();
 	}
