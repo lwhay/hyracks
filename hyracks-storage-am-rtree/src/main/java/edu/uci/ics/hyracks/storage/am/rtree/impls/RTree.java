@@ -940,7 +940,7 @@ public class RTree extends AbstractTreeIndex {
 	        ((RTreeNSMFrame) lowerFrame).adjustMBR();
 
 	        if(mbr == null) {
-	        	int bytesRequired = tupleWriter.bytesRequired(((RTreeNSMFrame) lowerFrame).getTuples()[0], 0, cmp.getKeyFieldCount()) + 8;
+	        	int bytesRequired = tupleWriter.bytesRequired(((RTreeNSMFrame) lowerFrame).getTuples()[0], 0, cmp.getKeyFieldCount()) + ((RTreeNSMInteriorFrame) interiorFrame).getChildPointerSize();
 	        	mbr = ByteBuffer.allocate(bytesRequired);
 	        }
             tupleWriter.writeTupleFields(((RTreeNSMFrame) lowerFrame).getTuples(), 0, mbr, 0);

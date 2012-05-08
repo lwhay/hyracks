@@ -509,4 +509,8 @@ public class RTreeNSMInteriorFrame extends RTreeNSMFrame implements IRTreeInteri
     public int getFieldCount() {
         return keyValueProviders.length;
     }
+    
+    public int getChildPointerSize() {
+    	return childPtrSize;
+    }
 }
