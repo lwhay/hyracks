@@ -23,7 +23,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
@@ -50,9 +49,7 @@ import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMInteriorFrame;
-import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.tuples.RTreeTypeAwareTupleWriter;
-import edu.uci.ics.hyracks.storage.common.buffercache.BufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
@@ -925,6 +922,8 @@ public class RTree extends AbstractTreeIndex {
 		
 		public void end() throws HyracksDataException {
 			propagateBulk(1, true);
+			System.out.println(freePageManager.getFreePage(freePageManager.getMetaDataFrameFactory()
+                    .createFrame()) + " pages used");
 			super.end();
 		}
 		
@@ -941,7 +940,7 @@ public class RTree extends AbstractTreeIndex {
 	        ((RTreeNSMFrame) lowerFrame).adjustMBR();
 
 	        if(mbr == null) {
-	        	int bytesRequired = tupleWriter.bytesRequired(((RTreeNSMFrame) lowerFrame).getTuples()[0], 0, cmp.getKeyFieldCount()) + cmp.getKeyFieldCount();
+	        	int bytesRequired = tupleWriter.bytesRequired(((RTreeNSMFrame) lowerFrame).getTuples()[0], 0, cmp.getKeyFieldCount()) + 8;
 	        	mbr = ByteBuffer.allocate(bytesRequired);
 	        }
             tupleWriter.writeTupleFields(((RTreeNSMFrame) lowerFrame).getTuples(), 0, mbr, 0);
@@ -953,11 +952,8 @@ public class RTree extends AbstractTreeIndex {
             interiorFrame.insert(mbrTuple, -1);
                                   
             interiorFrame.getBuffer().putInt(interiorFrame.getTupleOffset(interiorFrame.getTupleCount() - 1) + mbrTuple.getTupleSize(), nodeFrontiers.get(level - 1).pageId);
-
-            int spaceNeeded = tupleWriter.bytesRequired(mbrTuple, 0, cmp.getKeyFieldCount()) - 1 + slotSize + 4;
-	        int spaceUsed = interiorFrame.getBuffer().capacity() - interiorFrame.getTotalFreeSpace();
             
-	        if (spaceUsed + spaceNeeded > interiorMaxBytes && !toRoot) {
+	        if (interiorFrame.hasSpaceInsert(mbrTuple) != FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE && !toRoot) {
 	            lowerFrame = prevInteriorFrame;
 	            lowerFrame.setPage(frontier.page);
 	            
@@ -987,7 +983,7 @@ public class RTree extends AbstractTreeIndex {
 	
 	@Deprecated
     public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException, TreeIndexException {
-		if(this.bulkloader == null) this.bulkloader = this.createBulkLoader(fillFactor); /* use IndexBulkLoader */
+		if(this.bulkloader == null) this.bulkloader = this.createBulkLoader(fillFactor);
 		return null;
 	}
 }
