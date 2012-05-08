@@ -42,8 +42,6 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
     protected boolean lowKeyInclusive;
     protected boolean highKeyInclusive;
 
-    protected boolean statsEnabled = true;
-
     public BTreeSearchOperatorDescriptor(JobSpecification spec, RecordDescriptor recDesc,
             IStorageManagerInterface storageManager, IIndexRegistryProvider<IIndex> indexRegistryProvider,
             IFileSplitProvider fileSplitProvider, ITreeIndexFrameFactory interiorFrameFactory,
@@ -62,9 +60,7 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
-        return statsEnabled ? (new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, isForward,
-                lowKeyFields, highKeyFields, lowKeyInclusive, highKeyInclusive)) : new BTreeSearchOperatorNodePushable(
-                this, ctx, partition, recordDescProvider, isForward, lowKeyFields, highKeyFields, lowKeyInclusive,
-                highKeyInclusive);
+        return new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, isForward, lowKeyFields,
+                highKeyFields, lowKeyInclusive, highKeyInclusive);
     }
 }
