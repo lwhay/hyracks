@@ -50,7 +50,7 @@ public class ApplicationMessageWork extends AbstractWork {
             final IMessage data = (IMessage) ctx.deserialize(message);
             (new Thread() {
                 public void run() {
-                    ctx.getMessageBroker().receivedMessageFromNC(data, nodeId);
+                    ctx.getMessageBroker().receivedMessage(data, nodeId);
                 }
             }).start();
         } catch (IOException e) {
