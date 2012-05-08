@@ -346,7 +346,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
     }
 
     @Override
-    public void sendMessage(byte[] message, String nodeId) throws Exception {
-        this.ncs.sendMessage(message, this.getJobletContext().getApplicationContext().getApplicationName(), nodeId);
+    public void sendApplicationMessageToCC(byte[] message, String nodeId) throws Exception {
+        this.ncs.sendApplicationMessageToCC(message, this.getJobletContext().getApplicationContext().getApplicationName(), nodeId);
     }
 }

@@ -29,6 +29,7 @@ import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
  */
 public class ApplicationMessageWork extends AbstractWork {
 
+    private static final Logger LOGGER = Logger.getLogger(ApplicationMessageWork.class.getName());
     private byte[] message;
     private String nodeId;
     private NodeControllerService ncs;
@@ -47,11 +48,15 @@ public class ApplicationMessageWork extends AbstractWork {
         NCApplicationContext ctx = ncs.getApplications().get(appName);
         try {
             IMessage data = (IMessage) ctx.deserialize(message);
-            ctx.getMessageBroker().receivedMessageFromNC(data, nodeId);
+            if (ctx.getMessageBroker() != null) {
+                ctx.getMessageBroker().receivedMessageFromNC(data, nodeId);
+            } else {
+                LOGGER.log(Level.WARNING, "Messsage was sent, but no Message Broker set!");
+            }
         } catch (IOException e) {
-            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in stats reporting", e);
+            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in application message delivery!", e);
         } catch (ClassNotFoundException e) {
-            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in stats reporting", e);
+            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in application message delivery!", e);
         }
     }
 
