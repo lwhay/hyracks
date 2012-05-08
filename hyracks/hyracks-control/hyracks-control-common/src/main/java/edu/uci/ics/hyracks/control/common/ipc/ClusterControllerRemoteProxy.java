@@ -102,7 +102,7 @@ public class ClusterControllerRemoteProxy implements IClusterController {
     }
 
     @Override
-    public void sendMessage(byte[] data, String appName, String nodeId) throws Exception {
+    public void sendApplicationMessageToCC(byte[] data, String appName, String nodeId) throws Exception {
         CCNCFunctions.SendApplicationMessageFunction fn = new CCNCFunctions.SendApplicationMessageFunction(data, appName, nodeId);
         ipcHandle.send(-1, fn, null);
     }

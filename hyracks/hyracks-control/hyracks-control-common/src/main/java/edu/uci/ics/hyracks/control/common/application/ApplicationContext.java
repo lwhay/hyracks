@@ -55,7 +55,7 @@ public abstract class ApplicationContext implements IApplicationContext {
     protected Properties deploymentDescriptor;
     protected IBootstrap bootstrap;
     protected Serializable distributedState;
-    protected IMessageBroker statsConnector;
+    protected IMessageBroker messageBroker;
 
     public ApplicationContext(ServerContext serverCtx, String appName) throws IOException {
         this.serverCtx = serverCtx;
@@ -209,12 +209,12 @@ public abstract class ApplicationContext implements IApplicationContext {
     }
 
     @Override
-    public void setMessageBroker(IMessageBroker staticticsConnector) {
-        this.statsConnector = staticticsConnector;
+    public void setMessageBroker(IMessageBroker messageBroker) {
+        this.messageBroker = messageBroker;
     }
 
     @Override
     public IMessageBroker getMessageBroker() {
-        return this.statsConnector;
+        return this.messageBroker;
     }
 }

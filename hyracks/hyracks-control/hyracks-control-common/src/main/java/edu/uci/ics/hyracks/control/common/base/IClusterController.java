@@ -49,5 +49,5 @@ public interface IClusterController {
 
     public void notifyApplicationStateChange(String nodeId, String appName, ApplicationStatus status) throws Exception;
 
-    public void sendMessage(byte[] data, String appName, String nodeId) throws Exception;
+    public void sendApplicationMessageToCC(byte[] data, String appName, String nodeId) throws Exception;
 }
