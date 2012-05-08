@@ -68,9 +68,12 @@ public class RTreeTupleSorter implements ITreeIndexCursor {
         }
         ICachedPage node1 = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, tPointers[currentTupleIndex * 2]),
                 false);
-        leafFrame1.setPage(node1);
-        frameTuple1.resetByTupleOffset(leafFrame1.getBuffer(), tPointers[currentTupleIndex * 2 + 1]);
-
+        try {
+            leafFrame1.setPage(node1);
+            frameTuple1.resetByTupleOffset(leafFrame1.getBuffer(), tPointers[currentTupleIndex * 2 + 1]);
+        } finally {
+            bufferCache.unpin(node1);
+        }
         return true;
     }
 
@@ -174,49 +177,53 @@ public class RTreeTupleSorter implements ITreeIndexCursor {
         ICachedPage node2 = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, i2), false);
         leafFrame2.setPage(node2);
 
-        frameTuple1.resetByTupleOffset(leafFrame1.getBuffer(), j1);
-        frameTuple2.resetByTupleOffset(leafFrame2.getBuffer(), j2);
+        try {
+            frameTuple1.resetByTupleOffset(leafFrame1.getBuffer(), j1);
+            frameTuple2.resetByTupleOffset(leafFrame2.getBuffer(), j2);
 
-        for (int f = 0; f < comparators.length; ++f) {
-            int c = comparators[f].compare(frameTuple1.getFieldData(f), frameTuple1.getFieldStart(f),
-                    frameTuple1.getFieldLength(f), frameTuple2.getFieldData(f), frameTuple2.getFieldStart(f),
-                    frameTuple2.getFieldLength(f));
-            if (c != 0) {
-                return c;
+            for (int f = 0; f < comparators.length; ++f) {
+                int c = comparators[f].compare(frameTuple1.getFieldData(f), frameTuple1.getFieldStart(f),
+                        frameTuple1.getFieldLength(f), frameTuple2.getFieldData(f), frameTuple2.getFieldStart(f),
+                        frameTuple2.getFieldLength(f));
+                if (c != 0) {
+                    return c;
+                }
             }
+        } finally {
+            bufferCache.unpin(node1);
+            bufferCache.unpin(node2);
         }
         return 0;
     }
 
-	@Override
-	public void open(ICursorInitialState initialState,
-			ISearchPredicate searchPred) throws HyracksDataException {
-		// do nothing
-	}
+    @Override
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        // do nothing
+    }
 
-	@Override
-	public void close() throws HyracksDataException {
-		// do nothing
-	}
+    @Override
+    public void close() throws HyracksDataException {
+        // do nothing
+    }
 
-	@Override
-	public ICachedPage getPage() {
-		return null;
-	}
+    @Override
+    public ICachedPage getPage() {
+        return null;
+    }
 
-	@Override
-	public void setBufferCache(IBufferCache bufferCache) {
-		// do nothing
-	}
+    @Override
+    public void setBufferCache(IBufferCache bufferCache) {
+        // do nothing
+    }
 
-	@Override
-	public void setFileId(int fileId) {
-		// do nothing
-	}
+    @Override
+    public void setFileId(int fileId) {
+        // do nothing
+    }
 
-	@Override
-	public boolean exclusiveLatchNodes() {
-		return false;
-	}
+    @Override
+    public boolean exclusiveLatchNodes() {
+        return false;
+    }
 
 }
