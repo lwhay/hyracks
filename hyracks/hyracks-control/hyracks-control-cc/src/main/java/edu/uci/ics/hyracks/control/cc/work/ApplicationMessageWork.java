@@ -29,6 +29,7 @@ import edu.uci.ics.hyracks.control.common.work.AbstractWork;
  */
 public class ApplicationMessageWork extends AbstractWork {
 
+    private static final Logger LOGGER = Logger.getLogger(ApplicationMessageWork.class.getName());
     private byte[] message;
     private String nodeId;
     private ClusterControllerService ccs;
@@ -53,7 +54,7 @@ public class ApplicationMessageWork extends AbstractWork {
                 }
             }).start();
         } catch (IOException e) {
-            Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in stats reporting", e);
+            LOGGER.log(Level.WARNING, "Error in stats reporting", e);
         } catch (ClassNotFoundException e) {
             Logger.getLogger(this.getClass().getName()).log(Level.WARNING, "Error in stats reporting", e);
         }
