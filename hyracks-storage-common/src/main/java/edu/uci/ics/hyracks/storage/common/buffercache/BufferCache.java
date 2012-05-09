@@ -591,6 +591,7 @@ public class BufferCache implements IBufferCacheInternal {
 
     @Override
     public void close() {
+    	System.out.println(numPages + " pages used");
         closed = true;
         synchronized (cleanerThread) {
             cleanerThread.shutdownStart = true;
