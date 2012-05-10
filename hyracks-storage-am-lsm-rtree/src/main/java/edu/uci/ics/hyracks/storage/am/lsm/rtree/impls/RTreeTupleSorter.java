@@ -66,6 +66,9 @@ public class RTreeTupleSorter implements ITreeIndexCursor {
         if (numTuples <= currentTupleIndex) {
             return false;
         }
+        // We don't latch pages since this code is only used by flush () before
+        // bulk-loading the r-tree to disk and flush is not concurrent.
+        //
         ICachedPage node1 = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, tPointers[currentTupleIndex * 2]),
                 false);
         try {
