@@ -45,7 +45,6 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
-import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex.AbstractTreeIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -412,6 +411,10 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
             // BulkLoad the tuples from the in-memory tree into the new disk
             // RTree.
 
+            boolean isEmpty = true;
+            if (rtreeScanCursor.hasNext()) {
+                isEmpty = true;
+            }
             try {
                 while (rtreeScanCursor.hasNext()) {
                     rtreeScanCursor.next();
@@ -420,7 +423,9 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
             } finally {
                 rtreeScanCursor.close();
             }
-            rTreeTupleSorter.sort();
+            if (!isEmpty) {
+                rTreeTupleSorter.sort();
+            }
             rTreeBulkloader = diskRTree.createBulkLoader(1.0f);
             cursor = rTreeTupleSorter;
         } else {
