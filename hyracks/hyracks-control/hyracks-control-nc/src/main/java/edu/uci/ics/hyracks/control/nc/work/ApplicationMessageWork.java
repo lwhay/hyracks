@@ -49,7 +49,7 @@ public class ApplicationMessageWork extends AbstractWork {
         try {
             IMessage data = (IMessage) ctx.deserialize(message);
             if (ctx.getMessageBroker() != null) {
-                ctx.getMessageBroker().receivedMessageFromNC(data, nodeId);
+                ctx.getMessageBroker().receivedMessage(data, nodeId);
             } else {
                 LOGGER.log(Level.WARNING, "Messsage was sent, but no Message Broker set!");
             }

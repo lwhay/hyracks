@@ -423,6 +423,6 @@ public class NodeControllerService extends AbstractRemoteService {
     }
 
     public void sendApplicationMessageToCC(byte[] data, String appName, String nodeId) throws Exception {
-        ccs.sendMessage(data, appName, nodeId);
+        ccs.sendApplicationMessageToCC(data, appName, nodeId);
     }
 }
