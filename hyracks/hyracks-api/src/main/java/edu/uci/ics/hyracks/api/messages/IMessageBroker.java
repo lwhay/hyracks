@@ -20,6 +20,6 @@ package edu.uci.ics.hyracks.api.messages;
  */
 public interface IMessageBroker {
 
-    public void receivedMessageFromNC(IMessage message, String nodeId);
+    public void receivedMessage(IMessage message, String nodeId);
 
 }
