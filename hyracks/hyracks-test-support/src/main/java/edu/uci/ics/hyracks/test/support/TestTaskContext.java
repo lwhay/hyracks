@@ -102,7 +102,7 @@ public class TestTaskContext implements IHyracksTaskContext {
     }
 
     @Override
-    public void sendMessage(byte[] message, String nodeId) throws Exception {
+    public void sendApplicationMessageToCC(byte[] message, String nodeId) throws Exception {
         // TODO Auto-generated method stub
 
     }
