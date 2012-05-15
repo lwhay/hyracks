@@ -53,6 +53,4 @@ public interface INCApplicationContext extends IApplicationContext {
      * @return Application Object
      */
     public Object getApplicationObject();
-
-    public String getApplicationName();
 }

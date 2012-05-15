@@ -42,7 +42,9 @@ public interface IApplicationContext {
      */
     public Serializable getDistributedState();
 
-    public void setMessageBroker(IMessageBroker staticticsConnector);
+    public void setMessageBroker(IMessageBroker messageBroker);
 
     public IMessageBroker getMessageBroker();
+
+    public String getApplicationName();
 }

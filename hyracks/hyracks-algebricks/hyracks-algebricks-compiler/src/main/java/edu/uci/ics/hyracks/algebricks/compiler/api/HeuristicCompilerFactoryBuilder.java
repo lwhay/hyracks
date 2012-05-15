@@ -45,10 +45,10 @@ public class HeuristicCompilerFactoryBuilder extends AbstractCompilerFactoryBuil
                 IExpressionEvalSizeComputer expressionEvalSizeComputer,
                 IMergeAggregationExpressionFactory mergeAggregationExpressionFactory,
                 IExpressionTypeComputer expressionTypeComputer, INullableTypeComputer nullableTypeComputer,
-                PhysicalOptimizationConfig physicalOptimizationConfig, boolean statisticsEnabled) {
+                PhysicalOptimizationConfig physicalOptimizationConfig) {
             return new AlgebricksOptimizationContext(varCounter, frameSize, expressionEvalSizeComputer,
                     mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
-                    physicalOptimizationConfig, false);
+                    physicalOptimizationConfig);
         }
     }
 
@@ -67,10 +67,10 @@ public class HeuristicCompilerFactoryBuilder extends AbstractCompilerFactoryBuil
         return new ICompilerFactory() {
             @Override
             public ICompiler createCompiler(final ILogicalPlan plan, final IMetadataProvider<?, ?> metadata,
-                    int varCounter, final boolean statisticsEnabled) {
+                    int varCounter) {
                 final IOptimizationContext oc = optCtxFactory.createOptimizationContext(varCounter, frameSize,
                         expressionEvalSizeComputer, mergeAggregationExpressionFactory, expressionTypeComputer,
-                        nullableTypeComputer, physicalOptimizationConfig, statisticsEnabled);
+                        nullableTypeComputer, physicalOptimizationConfig);
                 oc.setMetadataDeclarations(metadata);
                 final HeuristicOptimizer opt = new HeuristicOptimizer(plan, logicalRewrites, physicalRewrites, oc);
                 return new ICompiler() {

@@ -148,13 +148,7 @@ public class PigletCompiler {
             LOGGER.info("Translated Plan:");
             LOGGER.info(getPrettyPrintedPlan(plan));
         }
-        ICompiler compiler = cFactory.createCompiler(plan, metadataProvider, varCounter, false /*
-                                                                                                * TODO
-                                                                                                * :
-                                                                                                * statistics
-                                                                                                * activation
-                                                                                                * ?
-                                                                                                */);
+        ICompiler compiler = cFactory.createCompiler(plan, metadataProvider, varCounter);
         compiler.optimize();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Optimized Plan:");

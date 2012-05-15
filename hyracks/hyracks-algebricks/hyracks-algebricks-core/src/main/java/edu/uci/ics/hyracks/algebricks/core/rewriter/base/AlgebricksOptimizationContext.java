@@ -37,8 +37,6 @@ import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
 
 public class AlgebricksOptimizationContext implements IOptimizationContext {
 
-    private boolean statisticsEnabled = false;
-
     private int varCounter;
     private final IExpressionEvalSizeComputer expressionEvalSizeComputer;
     private final IMergeAggregationExpressionFactory mergeAggregationExpressionFactory;
@@ -80,7 +78,7 @@ public class AlgebricksOptimizationContext implements IOptimizationContext {
             IExpressionEvalSizeComputer expressionEvalSizeComputer,
             IMergeAggregationExpressionFactory mergeAggregationExpressionFactory,
             IExpressionTypeComputer expressionTypeComputer, INullableTypeComputer nullableTypeComputer,
-            PhysicalOptimizationConfig physicalOptimizationConfig, boolean statisticsEnabled) {
+            PhysicalOptimizationConfig physicalOptimizationConfig) {
         this.varCounter = varCounter;
         this.frameSize = frameSize;
         this.expressionEvalSizeComputer = expressionEvalSizeComputer;
@@ -88,16 +86,6 @@ public class AlgebricksOptimizationContext implements IOptimizationContext {
         this.expressionTypeComputer = expressionTypeComputer;
         this.nullableTypeComputer = nullableTypeComputer;
         this.physicalOptimizationConfig = physicalOptimizationConfig;
-        this.statisticsEnabled = statisticsEnabled;
-    }
-
-    @Override
-    public boolean isStatisticsEnabled() {
-        return statisticsEnabled;
-    }
-
-    public void setStatisticsEnabled(boolean statisticsEnabled) {
-        this.statisticsEnabled = statisticsEnabled;
     }
 
     public int getVarCounter() {
