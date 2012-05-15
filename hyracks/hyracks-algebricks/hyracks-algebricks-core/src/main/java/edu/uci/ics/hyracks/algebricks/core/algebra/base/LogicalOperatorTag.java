@@ -45,5 +45,5 @@ public enum LogicalOperatorTag {
     INSERT_DELETE,
     INDEX_INSERT_DELETE,
     UPDATE,
-    STATS
+    EXTENSION_OPERATOR
 }

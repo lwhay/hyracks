@@ -15,7 +15,10 @@
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.IPhysicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
@@ -29,16 +32,23 @@ import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
  * @author rico
  * 
  */
-public class StatisticsOperator extends AbstractLogicalOperator {
+public class ExtensionOperator extends AbstractLogicalOperator {
 
-    public StatisticsOperator() {
+    private AbstractExtensibleLogicalOperator delegate;
+
+    public ExtensionOperator(AbstractExtensibleLogicalOperator delegate) {
         super();
-        setExecutionMode(AbstractLogicalOperator.ExecutionMode.PARTITIONED);
+        if (delegate == null) {
+            throw new IllegalArgumentException("delegate cannot be null!");
+        }
+        this.delegate = delegate;
+        setExecutionMode(delegate.getExecutionMode());
     }
 
     @Override
     public void recomputeSchema() throws AlgebricksException {
         schema = new ArrayList<LogicalVariable>(inputs.get(0).getValue().getSchema());
+        delegate.setSchema(schema);
     }
 
     @Override
@@ -48,12 +58,12 @@ public class StatisticsOperator extends AbstractLogicalOperator {
 
     @Override
     public <R, T> R accept(ILogicalOperatorVisitor<R, T> visitor, T arg) throws AlgebricksException {
-        return visitor.visitStatsOperator(this, arg);
+        return visitor.visitExtensionOperator(this, arg);
     }
 
     @Override
     public boolean isMap() {
-        return true;
+        return this.delegate.isMap();
     }
 
     @Override
@@ -68,7 +78,51 @@ public class StatisticsOperator extends AbstractLogicalOperator {
 
     @Override
     public LogicalOperatorTag getOperatorTag() {
-        return LogicalOperatorTag.STATS;
+        return LogicalOperatorTag.EXTENSION_OPERATOR;
+    }
+
+    public AbstractExtensibleLogicalOperator getNewInstanceOfDelegateOperator() {
+        return delegate.newInstance();
+    }
+
+    @Override
+    public List<LogicalVariable> getSchema() {
+        return this.schema;
+    }
+
+    @Override
+    public ExecutionMode getExecutionMode() {
+        return delegate.getExecutionMode();
+    }
+
+    @Override
+    public Map<String, Object> getAnnotations() {
+        return delegate.getAnnotations();
+    }
+
+    @Override
+    public void setExecutionMode(ExecutionMode mode) {
+        delegate.setExecutionMode(mode);
+    }
+
+    @Override
+    public IPhysicalOperator getPhysicalOperator() {
+        return delegate.getPhysicalOperator();
+    }
+
+    @Override
+    public boolean hasNestedPlans() {
+        return delegate.hasNestedPlans();
+    }
+
+    @Override
+    public void removeAnnotation(String annotationName) {
+        delegate.removeAnnotation(annotationName);
+    }
+
+    @Override
+    public IVariableTypeEnvironment computeInputTypeEnvironment(ITypingContext ctx) throws AlgebricksException {
+        return this.createPropagatingAllInputsTypeEnvironment(ctx);
     }
 
 }

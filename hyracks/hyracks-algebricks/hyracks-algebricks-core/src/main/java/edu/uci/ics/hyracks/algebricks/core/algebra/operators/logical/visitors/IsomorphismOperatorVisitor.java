@@ -38,6 +38,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DieOperator
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExtensionOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
@@ -54,7 +55,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.RunningAggr
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ScriptOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SinkOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.StatisticsOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
@@ -111,9 +111,9 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
     }
 
     @Override
-    public Boolean visitStatsOperator(StatisticsOperator op, ILogicalOperator arg) throws AlgebricksException {
-        StatisticsOperator aop = (StatisticsOperator) copyAndSubstituteVar(op, arg);
-        if (aop.getOperatorTag() != LogicalOperatorTag.STATS)
+    public Boolean visitExtensionOperator(ExtensionOperator op, ILogicalOperator arg) throws AlgebricksException {
+        ExtensionOperator aop = (ExtensionOperator) copyAndSubstituteVar(op, arg);
+        if (aop.getOperatorTag() != LogicalOperatorTag.EXTENSION_OPERATOR)
             return Boolean.FALSE;
         return Boolean.TRUE;
     }
@@ -817,8 +817,8 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         }
 
         @Override
-        public ILogicalOperator visitStatsOperator(StatisticsOperator op, Void arg) throws AlgebricksException {
-            return new StatisticsOperator();
+        public ILogicalOperator visitExtensionOperator(ExtensionOperator op, Void arg) throws AlgebricksException {
+            return new ExtensionOperator(op.getNewInstanceOfDelegateOperator());
         }
     }
 

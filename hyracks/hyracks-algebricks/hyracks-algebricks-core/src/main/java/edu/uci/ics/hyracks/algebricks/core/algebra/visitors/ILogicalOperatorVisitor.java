@@ -36,7 +36,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.RunningAggr
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ScriptOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SinkOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.StatisticsOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExtensionOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
@@ -69,7 +69,7 @@ public interface ILogicalOperatorVisitor<R, T> {
 
     public R visitSelectOperator(SelectOperator op, T arg) throws AlgebricksException;
 
-    public R visitStatsOperator(StatisticsOperator op, T arg) throws AlgebricksException;
+    public R visitExtensionOperator(ExtensionOperator op, T arg) throws AlgebricksException;
 
     public R visitProjectOperator(ProjectOperator op, T arg) throws AlgebricksException;
 
