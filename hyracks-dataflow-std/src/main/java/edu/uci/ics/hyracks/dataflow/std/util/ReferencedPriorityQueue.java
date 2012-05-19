@@ -137,6 +137,10 @@ public class ReferencedPriorityQueue {
         return runAvail.isEmpty();
     }
 
+    public boolean runIndexExists(int runIndex) {
+        return runAvail.get(runIndex);
+    }
+
     public int size() {
         return nItems;
     }
