@@ -132,34 +132,25 @@ public class PredictingFrameReaderCollection {
         private final PredictionBuffer[] heads;
         private final PredictionBuffer[] tails;
 
-        /* The code snippet involved the locks array initialization and synchronization is taken from Stack Overflow.
-         * The question is at: http://stackoverflow.com/questions/7751997/how-to-synchronize-single-element-of-integer-array
-         * The snippet used is from the answer by RAY.
-         * RAY's profile page is at: http://stackoverflow.com/users/453513/ray
-         */
-        private final Object[] locks;
-
         public ForecastQueues(int numQueues) {
             heads = new PredictionBuffer[numQueues];
             tails = new PredictionBuffer[numQueues];
-            locks = new Object[numQueues];
 
             for (int i = 0; i < numQueues; i++) {
                 heads[i] = null;
                 tails[i] = null;
-                locks[i] = new Object();
             }
         }
 
-        public boolean enqueue(BackQueueEntry entry) throws HyracksDataException, InterruptedException {
+        public boolean enqueue(ReferenceEntry entry, PredictionBuffer predBuffer) throws HyracksDataException,
+                InterruptedException {
+            PredictionBuffer prevTail;
             /* We always keep pre-fetching the next frame for the predicted run as long as we have
              * an empty buffer to predict, i.e. the emptyPredictionQueue is NOT empty. Since
              * emptyPredictionQueue is implemented as an ArrayBlockingQueue object this
              * automatically blocks this thread and handles the signalling when the
              * emptyPredictionQueue is empty so as not to proceed.
              */
-            PredictionBuffer predBuffer = emptyPredictionQueue.take();
-
             int runIndex = entry.getRunid();
             FrameTupleAccessor fta = entry.getAccessor();
 
@@ -169,52 +160,51 @@ public class PredictingFrameReaderCollection {
                 return false;
             }
 
-            synchronized (locks[runIndex]) {
-                tails[runIndex] = predBuffer;
-                fta.reset(predBuffer.getBuffer());
-                entry.setTupleIndex(hasBuffer ? fta.getTupleCount() - 1 : -1);
-                if (heads[runIndex] == null) {
-                    heads[runIndex] = predBuffer;
-                    locks[runIndex].notifyAll();
-                } else {
-                    tails[runIndex].setNext(predBuffer);
-                }
+            prevTail = tails[runIndex];
+            tails[runIndex] = predBuffer;
+            fta.reset(predBuffer.getBuffer());
+            entry.setTupleIndex(fta.getTupleCount() - 1);
+            if (heads[runIndex] == null) {
+                heads[runIndex] = predBuffer;
+                locks[0].notifyAll();
+            } else {
+                prevTail.setNext(predBuffer);
             }
             return hasBuffer;
         }
 
         public boolean deque(ByteBuffer buffer, int runIndex) throws InterruptedException {
-            boolean dequed = false;
-            BackQueueEntry entry = backQueueEntries[runIndex];
             FrameTupleAccessor fta = null;
             PredictionBuffer head = null;
 
-            if (entry != null) {
-                fta = entry.getAccessor();
-            } else {
-                return false;
-            }
+            synchronized (locks[0]) {
+                fta = tupleAccessors[runIndex];
 
-            synchronized (locks[runIndex]) {
+                if ((heads[runIndex] == null) && (!backQueue.runIndexExists(runIndex))) {
+                    return false;
+                }
+
                 while (heads[runIndex] == null) {
-                    locks[runIndex].wait();
+                    locks[0].wait();
+                    if (!backQueue.runIndexExists(runIndex)) {
+                        return false;
+                    }
                 }
 
                 head = heads[runIndex];
                 PredictionBuffer headNext = head.getNext();
                 head.setNext(null);
-
                 head.transfer(buffer);
 
                 if (headNext == null) {
                     fta.reset(buffer);
                 }
                 heads[runIndex] = headNext;
-                dequed = true;
-            }
-            emptyPredictionQueue.put(head);
 
-            return dequed;
+                emptyPredictionQueue.put(head);
+            }
+
+            return true;
         }
     }
 
