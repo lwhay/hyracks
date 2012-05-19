@@ -58,6 +58,23 @@
             </goals>
           </execution>
           <execution>
+            <id>textsortclient</id>
+            <phase>package</phase>
+            <goals>
+              <goal>assemble</goal>
+            </goals>
+            <configuration>
+              <programs>
+                <program>
+                  <mainClass>edu.uci.ics.hyracks.examples.text.client.TextSortMain</mainClass>
+                  <name>textsortclient</name>
+                </program>
+              </programs>
+              <repositoryLayout>flat</repositoryLayout>
+              <repositoryName>lib</repositoryName>
+            </configuration>
+          </execution>
+          <execution>
           	<id>groupclient</id>
             <configuration>
               <programs>
