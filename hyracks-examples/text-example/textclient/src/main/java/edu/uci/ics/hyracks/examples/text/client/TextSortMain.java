@@ -35,7 +35,6 @@ import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
-import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
 import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.normalizers.UTF8StringNormalizedKeyComputerFactory;
@@ -146,7 +145,7 @@ public class TextSortMain {
         int[] keys = new int[] { 0 };
 
         IBinaryComparatorFactory[] cfs = new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
-                .of(IntegerPointable.FACTORY) };
+                .of(UTF8StringPointable.FACTORY) };
         IOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, sbSize, keys,
                 new UTF8StringNormalizedKeyComputerFactory(), cfs, ordersDesc, fblim);
         createPartitionConstraint(spec, sorter, outSplits);
