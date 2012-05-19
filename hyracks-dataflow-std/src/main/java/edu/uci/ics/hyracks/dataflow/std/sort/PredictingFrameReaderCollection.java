@@ -23,22 +23,21 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.util.ReferenceEntry;
-import edu.uci.ics.hyracks.dataflow.std.util.SelectionTree;
-import edu.uci.ics.hyracks.dataflow.std.util.SelectionTree.Entry;
+import edu.uci.ics.hyracks.dataflow.std.util.ReferencedPriorityQueue;
 
 public class PredictingFrameReaderCollection {
+    private final IHyracksTaskContext ctx;
+    private final RecordDescriptor recordDesc;
     private final IFrameReader[] runCursors;
     private final IFrameReader[] fileReaders;
     private Comparator<ReferenceEntry> comparator;
 
     private final FrameTupleAccessor[] tupleAccessors;
 
-    // Each entry corresponding to the last tuple corresponding to the frame of the current run being sorted.
-    private final BackQueueEntry[] backQueueEntries;
-
     // Holds the reference to the last-tuple of each frame being sorted.
-    private SelectionTree backQueue;
+    private ReferencedPriorityQueue backQueue;
 
     /* The two blocking queues which hold the buffer and the runIndex of the corresponding buffer frame which are
      * used for prediction. The empty queue contains all the buffers that are available for prediction and the
@@ -52,6 +51,8 @@ public class PredictingFrameReaderCollection {
     // Constructor for PredictingFrameReaderCollection.
     public PredictingFrameReaderCollection(IHyracksTaskContext ctx, RecordDescriptor recordDesc, IFrameReader[] runs,
             int predictionFramesLimit) {
+        this.ctx = ctx;
+        this.recordDesc = recordDesc;
         this.fileReaders = new IFrameReader[runs.length];
 
         this.runCursors = new IFrameReader[runs.length];
@@ -72,11 +73,12 @@ public class PredictingFrameReaderCollection {
         forecastQueues = new ForecastQueues(runs.length);
 
         tupleAccessors = new FrameTupleAccessor[runs.length];
-        backQueueEntries = new BackQueueEntry[runs.length];
+
+        locks = new Object[runs.length];
 
         for (int i = 0; i < runs.length; i++) {
             tupleAccessors[i] = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-            backQueueEntries[i] = new BackQueueEntry(i, tupleAccessors[i], -1);
+            locks[i] = new Object();
         }
 
         // Start the predictor thread.
@@ -118,29 +120,11 @@ public class PredictingFrameReaderCollection {
          * operation. So heap building dominates the populating stage, so we can afford to run the
          * populating stage as a pre-processing step.
          */
-        backQueue = new SelectionTree(backQueueEntries);
-    }
-
-    private class BackQueueEntry extends ReferenceEntry implements Entry {
-        private boolean canAdvance;
-
-        public BackQueueEntry(int runIndex, FrameTupleAccessor fta, int tupleIndex) {
-            super(runIndex, fta, tupleIndex);
-            canAdvance = true;
-        }
-
-        @Override
-        public int compareTo(Entry o) {
-            return comparator.compare(this, (BackQueueEntry) o);
-        }
-
-        @Override
-        public boolean advance() {
-            return canAdvance;
-        }
-
-        public void update() throws HyracksDataException, InterruptedException {
-            canAdvance = forecastQueues.enqueue(this);
+        int runIndex;
+        backQueue = new ReferencedPriorityQueue(ctx.getFrameSize(), recordDesc, tupleAccessors.length, comparator);
+        for (int i = 0; i < tupleAccessors.length; i++) {
+            runIndex = backQueue.peek().getRunid();
+            backQueue.popAndReplace(tupleAccessors[runIndex], tupleAccessors[runIndex].getTupleCount() - 1);
         }
     }
 
@@ -279,14 +263,22 @@ public class PredictingFrameReaderCollection {
 
     private class PredictorThread implements Runnable {
         public void run() {
-            BackQueueEntry entry;
+            ReferenceEntry entry;
+            PredictionBuffer predBuffer;
 
-            while (!backQueue.isEmpty()) {
-                entry = (BackQueueEntry) backQueue.peek();
+            while (!backQueue.areRunsExhausted()) {
+                entry = backQueue.peek();
 
                 try {
-                    entry.update();
-                    backQueue.pop();
+                    predBuffer = emptyPredictionQueue.take();
+                    synchronized (locks[0]) {
+                        if (forecastQueues.enqueue(entry, predBuffer)) {
+                            backQueue.popAndReplace(entry.getAccessor(), entry.getAccessor().getTupleCount() - 1);
+                        } else {
+                            backQueue.pop();
+                            locks[0].notifyAll();
+                        }
+                    }
                 } catch (HyracksDataException e) {
                     /* Reading from the file failed, but we are inside a thread and cannot do much, so
                      * just pass. This will be caught later when the same frame is attempted to be read
