@@ -46,6 +46,13 @@ public class PredictingFrameReaderCollection {
     private ArrayBlockingQueue<PredictionBuffer> emptyPredictionQueue;
     private final ForecastQueues forecastQueues;
 
+    /* The code snippet involved the locks array initialization and synchronization is taken from Stack Overflow.
+     * The question is at: http://stackoverflow.com/questions/7751997/how-to-synchronize-single-element-of-integer-array
+     * The snippet used is from the answer by RAY.
+     * RAY's profile page is at: http://stackoverflow.com/users/453513/ray
+     */
+    private final Object[] locks;
+
     private final Thread predictorThread;
 
     // Constructor for PredictingFrameReaderCollection.
@@ -102,7 +109,6 @@ public class PredictingFrameReaderCollection {
             // For the initial fetch we will have to read from the file and then set the tuple accessors etc.
             success = fileReaders[runIndex].nextFrame(buffer);
             tupleAccessors[runIndex].reset(buffer);
-            backQueueEntries[runIndex].setTupleIndex(tupleAccessors[runIndex].getTupleCount() - 1);
         } else {
             try {
                 success = forecastQueues.deque(buffer, runIndex);
