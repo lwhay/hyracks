@@ -19,6 +19,7 @@ import java.io.File;
 import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
+import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
@@ -30,9 +31,11 @@ import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.normalizers.UTF8StringNormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningMergingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
@@ -134,6 +137,63 @@ public class SortMergeTest extends AbstractIntegrationTest {
                                 PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                                 PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }), sorter, 0,
                 printer, 0);
+
+        runTest(spec);
+    }
+
+    @Test
+    public void sortMergeTest03() throws Exception {
+        JobSpecification spec = new JobSpecification();
+
+        FileSplit[] inSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
+                "/path/to/sortdata/pilotsort.csv"))) };
+        IFileSplitProvider ordersSplitProvider = new ConstantFileSplitProvider(inSplits);
+        RecordDescriptor ordersDesc = new RecordDescriptor(new ISerializerDeserializer[] {
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
+                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
+
+        FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitProvider,
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
+                        UTF8StringParserFactory.INSTANCE }, ','), ordersDesc);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, ordScanner, NC1_ID);
+
+        int[] keys = new int[] { 0 };
+
+        FileSplit[] outSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
+                "/path/to/sorted/data/sorted"))) };
+        IBinaryComparatorFactory[] cfs = new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
+                .of(UTF8StringPointable.FACTORY) };
+        IOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, 100, keys,
+                new UTF8StringNormalizedKeyComputerFactory(), cfs, ordersDesc, 50);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor scanSortConn = new MToNPartitioningConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(keys,
+                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                .of(UTF8StringPointable.FACTORY) }));
+        spec.connect(scanSortConn, ordScanner, 0, sorter, 0);
+
+        IFileSplitProvider outSplitProvider = new ConstantFileSplitProvider(outSplits);
+        IOperatorDescriptor writer = new PlainFileWriterOperatorDescriptor(spec, outSplitProvider, ",");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, writer, NC2_ID);
+
+        IConnectorDescriptor sortPrinterConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(sortPrinterConn, sorter, 0, writer, 0);
+
+        spec.addRoot(writer);
 
         runTest(spec);
     }
