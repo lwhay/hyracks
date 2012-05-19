@@ -249,10 +249,6 @@ public class PredictingFrameReaderCollection {
         public void setNext(PredictionBuffer next) {
             this.next = next;
         }
-
-        public boolean hasValidBuffer() {
-            return hasBuffer;
-        }
     }
 
     private class PredictorThread implements Runnable {
