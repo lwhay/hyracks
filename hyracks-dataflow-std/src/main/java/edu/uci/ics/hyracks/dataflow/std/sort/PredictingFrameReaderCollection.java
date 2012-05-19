@@ -45,7 +45,7 @@ public class PredictingFrameReaderCollection {
      * full queue contains all the populated buffers.
      */
     private ArrayBlockingQueue<PredictionBuffer> emptyPredictionQueue;
-    private ArrayBlockingQueue<PredictionBuffer> fullPredictionQueue;
+    private final ForecastQueues forecastQueues;
 
     private final Thread predictorThread;
 
@@ -64,11 +64,12 @@ public class PredictingFrameReaderCollection {
         this.comparator = null;
 
         this.emptyPredictionQueue = new ArrayBlockingQueue<PredictionBuffer>(predictionFramesLimit);
-        this.fullPredictionQueue = new ArrayBlockingQueue<PredictionBuffer>(predictionFramesLimit);
 
         for (int i = 0; i < predictionFramesLimit; i++) {
             this.emptyPredictionQueue.add(new PredictionBuffer(ctx, this.fileReaders));
         }
+
+        forecastQueues = new ForecastQueues(runs.length);
 
         tupleAccessors = new FrameTupleAccessor[runs.length];
         backQueueEntries = new BackQueueEntry[runs.length];
@@ -102,9 +103,7 @@ public class PredictingFrameReaderCollection {
             backQueueEntries[runIndex].setTupleIndex(tupleAccessors[runIndex].getTupleCount() - 1);
         } else {
             try {
-                PredictionBuffer predBuf = fullPredictionQueue.take();
-                success = predBuf.transfer(buffer, runIndex);
-                emptyPredictionQueue.put(predBuf);
+                success = forecastQueues.deque(buffer, runIndex);
             } catch (InterruptedException e) {
                 // When the main thread is interrupted, we can't do much, just return.
                 return false;
@@ -140,51 +139,140 @@ public class PredictingFrameReaderCollection {
             return canAdvance;
         }
 
-        public void update(PredictionBuffer predictionBuffer) throws HyracksDataException {
-            FrameTupleAccessor fta = getAccessor();
-            canAdvance = predictionBuffer.nextRunFrame(getRunid(), getAccessor());
-            setTupleIndex(canAdvance ? fta.getTupleCount() - 1 : -1);
+        public void update() throws HyracksDataException, InterruptedException {
+            canAdvance = forecastQueues.enqueue(this);
+        }
+    }
+
+    private class ForecastQueues {
+        private final PredictionBuffer[] heads;
+        private final PredictionBuffer[] tails;
+
+        /* The code snippet involved the locks array initialization and synchronization is taken from Stack Overflow.
+         * The question is at: http://stackoverflow.com/questions/7751997/how-to-synchronize-single-element-of-integer-array
+         * The snippet used is from the answer by RAY.
+         * RAY's profile page is at: http://stackoverflow.com/users/453513/ray
+         */
+        private final Object[] locks;
+
+        public ForecastQueues(int numQueues) {
+            heads = new PredictionBuffer[numQueues];
+            tails = new PredictionBuffer[numQueues];
+            locks = new Object[numQueues];
+
+            for (int i = 0; i < numQueues; i++) {
+                heads[i] = null;
+                tails[i] = null;
+                locks[i] = new Object();
+            }
+        }
+
+        public boolean enqueue(BackQueueEntry entry) throws HyracksDataException, InterruptedException {
+            /* We always keep pre-fetching the next frame for the predicted run as long as we have
+             * an empty buffer to predict, i.e. the emptyPredictionQueue is NOT empty. Since
+             * emptyPredictionQueue is implemented as an ArrayBlockingQueue object this
+             * automatically blocks this thread and handles the signalling when the
+             * emptyPredictionQueue is empty so as not to proceed.
+             */
+            PredictionBuffer predBuffer = emptyPredictionQueue.take();
+
+            int runIndex = entry.getRunid();
+            FrameTupleAccessor fta = entry.getAccessor();
+
+            boolean hasBuffer = predBuffer.nextRunFrame(runIndex);
+            if (!hasBuffer) {
+                emptyPredictionQueue.put(predBuffer);
+                return false;
+            }
+
+            synchronized (locks[runIndex]) {
+                tails[runIndex] = predBuffer;
+                fta.reset(predBuffer.getBuffer());
+                entry.setTupleIndex(hasBuffer ? fta.getTupleCount() - 1 : -1);
+                if (heads[runIndex] == null) {
+                    heads[runIndex] = predBuffer;
+                    locks[runIndex].notifyAll();
+                } else {
+                    tails[runIndex].setNext(predBuffer);
+                }
+            }
+            return hasBuffer;
+        }
+
+        public boolean deque(ByteBuffer buffer, int runIndex) throws InterruptedException {
+            boolean dequed = false;
+            BackQueueEntry entry = backQueueEntries[runIndex];
+            FrameTupleAccessor fta = null;
+            PredictionBuffer head = null;
+
+            if (entry != null) {
+                fta = entry.getAccessor();
+            } else {
+                return false;
+            }
+
+            synchronized (locks[runIndex]) {
+                while (heads[runIndex] == null) {
+                    locks[runIndex].wait();
+                }
+
+                head = heads[runIndex];
+                PredictionBuffer headNext = head.getNext();
+                head.setNext(null);
+
+                head.transfer(buffer);
+
+                if (headNext == null) {
+                    fta.reset(buffer);
+                }
+                heads[runIndex] = headNext;
+                dequed = true;
+            }
+            emptyPredictionQueue.put(head);
+
+            return dequed;
         }
     }
 
     private class PredictionBuffer {
-        private final IHyracksTaskContext ctx;
         private final IFrameReader[] fileReaders;
-        private ByteBuffer buffer;
-        private FrameTupleAccessor fta;
-        private int runIndex;
+        private final ByteBuffer buffer;
+        private PredictionBuffer next;
         private boolean hasBuffer;
 
         public PredictionBuffer(IHyracksTaskContext ctx, IFrameReader[] fileReaders) {
-            this.ctx = ctx;
+            this.buffer = ctx.allocateFrame();
             this.fileReaders = fileReaders;
-            this.buffer = this.ctx.allocateFrame();
-            this.runIndex = -1;
-            this.fta = null;
+            this.next = null;
+            this.hasBuffer = false;
         }
 
-        public boolean nextRunFrame(int runIndex, FrameTupleAccessor fta) throws HyracksDataException {
+        public boolean nextRunFrame(int runIndex) throws HyracksDataException {
             buffer.clear();
             hasBuffer = fileReaders[runIndex].nextFrame(buffer);
             buffer.flip();
-            this.runIndex = runIndex;
-            this.fta = fta;
-            fta.reset(buffer);
             return hasBuffer;
         }
 
-        public boolean transfer(ByteBuffer buffer, int runIndex) throws HyracksDataException {
-            if (this.runIndex == runIndex) {
-                if (hasBuffer) {
-                    buffer.put(this.buffer);
-                    buffer.flip();
-                    this.fta.reset(buffer);
-                    this.fta = null;
-                    this.runIndex = -1;
-                }
-            } else {
-                throw new HyracksDataException();
-            }
+        public void transfer(ByteBuffer buffer) {
+            buffer.put(this.buffer);
+            buffer.flip();
+            hasBuffer = false;
+        }
+
+        public ByteBuffer getBuffer() {
+            return buffer;
+        }
+
+        public PredictionBuffer getNext() {
+            return next;
+        }
+
+        public void setNext(PredictionBuffer next) {
+            this.next = next;
+        }
+
+        public boolean hasValidBuffer() {
             return hasBuffer;
         }
     }
@@ -192,30 +280,12 @@ public class PredictingFrameReaderCollection {
     private class PredictorThread implements Runnable {
         public void run() {
             BackQueueEntry entry;
-            PredictionBuffer predBuf;
 
             while (!backQueue.isEmpty()) {
                 entry = (BackQueueEntry) backQueue.peek();
 
                 try {
-                    /* We always keep pre-fetching the next frame for the predicted run as long as we have
-                     * an empty buffer to predict, i.e. the emptyPredictionQueue is NOT empty. Since
-                     * emptyPredictionQueue is implemented as an ArrayBlockingQueue object this
-                     * automatically blocks this thread and handles the signalling when the
-                     * emptyPredictionQueue is empty so as not to proceed.
-                     *
-                     * Once we fetch, we insert this fetched prediction buffer object into
-                     * fullPredictionQueue. Again if this is full this thread gets blocked. But by design
-                     * it is not possible for fullPredictionQueue to be full without emptyPredictionQueue
-                     * to be empty and vice-versa since the total number of prediction buffers available
-                     * is equal to the total capacity of either of these queues.
-                     *
-                     * The sum total of number of elements in the emptyPredictionQueue and
-                     * fullPredictionQueue is always equal to the capacity of either of the queues.
-                     */
-                    predBuf = emptyPredictionQueue.take();
-                    entry.update(predBuf);
-                    fullPredictionQueue.put(predBuf);
+                    entry.update();
                     backQueue.pop();
                 } catch (HyracksDataException e) {
                     /* Reading from the file failed, but we are inside a thread and cannot do much, so
