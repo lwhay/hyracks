@@ -73,12 +73,12 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             RecordDescriptor recordDescriptor, int predictionFramesLimit) {
         super(spec, 1, 1);
-        this.framesLimit = framesLimit - predictionFramesLimit;
+        this.framesLimit = framesLimit;
         this.sortFields = sortFields;
         this.firstKeyNormalizerFactory = firstKeyNormalizerFactory;
         this.comparatorFactories = comparatorFactories;
         this.predictionFramesLimit = predictionFramesLimit;
-        if (framesLimit <= 1) {
+        if ((framesLimit <= 1) ||  (framesLimit <= predictionFramesLimit)) {
             throw new IllegalStateException();// minimum of 2 fames (1 in,1 out)
         }
         recordDescriptors[0] = recordDescriptor;
@@ -185,9 +185,10 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                     for (int i = 0; i < comparatorFactories.length; ++i) {
                         comparators[i] = comparatorFactories[i].createBinaryComparator();
                     }
-                    int necessaryFrames = Math.min(runs.size() + 2, framesLimit);
+                    int necessaryFrames = Math.min(runs.size() + 2, framesLimit - predictionFramesLimit);
+                    int predictionFrames = (predictionFramesLimit == 0) ? 0 : framesLimit - necessaryFrames;
                     ExternalSortRunMerger merger = new ExternalSortRunMerger(ctx, frameSorter, runs, sortFields,
-                            comparators, recordDescriptors[0], necessaryFrames, writer, predictionFramesLimit);
+                            comparators, recordDescriptors[0], necessaryFrames, writer, predictionFrames);
                     merger.process();
                 }
             };
