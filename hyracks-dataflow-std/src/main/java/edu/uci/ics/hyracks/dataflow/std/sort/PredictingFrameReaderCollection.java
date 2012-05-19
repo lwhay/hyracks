@@ -224,13 +224,11 @@ public class PredictingFrameReaderCollection {
         public boolean nextRunFrame(int runIndex) throws HyracksDataException {
             buffer.clear();
             hasBuffer = fileReaders[runIndex].nextFrame(buffer);
-            buffer.flip();
             return hasBuffer;
         }
 
         public void transfer(ByteBuffer buffer) {
-            buffer.put(this.buffer);
-            buffer.flip();
+            FrameUtils.copy(this.buffer, buffer);
             hasBuffer = false;
         }
 
