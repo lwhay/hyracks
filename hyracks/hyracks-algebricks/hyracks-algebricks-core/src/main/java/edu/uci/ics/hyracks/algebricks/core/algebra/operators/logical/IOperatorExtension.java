@@ -19,40 +19,29 @@ import java.util.List;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IPhysicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
+import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
+import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
 
 /**
  * @author rico
  * 
  */
-public abstract class AbstractExtensibleLogicalOperator implements IOperatorExtension {
+public interface IOperatorExtension {
 
-    private AbstractLogicalOperator.ExecutionMode mode = AbstractLogicalOperator.ExecutionMode.UNPARTITIONED;
-    protected List<LogicalVariable> schema;
-    protected IPhysicalOperator physicalOperator;
+    void setExecutionMode(ExecutionMode mode);
 
-    @Override
-    public ExecutionMode getExecutionMode() {
-        return mode;
-    }
+    boolean isMap();
 
-    @Override
-    public void setExecutionMode(ExecutionMode mode) {
-        this.mode = mode;
-    }
+    public IOperatorExtension newInstance();
 
-    @Override
-    public void setSchema(List<LogicalVariable> schema) {
-        this.schema = schema;
-    }
+    boolean acceptExpressionTransform(ILogicalExpressionReferenceTransform transform) throws AlgebricksException;
 
-    @Override
-    public IPhysicalOperator getPhysicalOperator() {
-        // TODO Auto-generated method stub
-        return null;
-    }
+    void setSchema(List<LogicalVariable> schema);
 
-    @Override
-    public void setPhysicalOperator(IPhysicalOperator physicalOperator) {
-        this.physicalOperator = physicalOperator;
-    }
+    IPhysicalOperator getPhysicalOperator();
+
+    void setPhysicalOperator(IPhysicalOperator physicalOperator);
+
+    ExecutionMode getExecutionMode();
+
 }

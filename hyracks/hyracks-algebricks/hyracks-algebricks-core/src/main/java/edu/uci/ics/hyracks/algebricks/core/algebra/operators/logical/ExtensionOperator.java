@@ -16,7 +16,6 @@ package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IPhysicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
@@ -34,9 +33,9 @@ import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
  */
 public class ExtensionOperator extends AbstractLogicalOperator {
 
-    private AbstractExtensibleLogicalOperator delegate;
+    private IOperatorExtension delegate;
 
-    public ExtensionOperator(AbstractExtensibleLogicalOperator delegate) {
+    public ExtensionOperator(IOperatorExtension delegate) {
         super();
         if (delegate == null) {
             throw new IllegalArgumentException("delegate cannot be null!");
@@ -81,7 +80,7 @@ public class ExtensionOperator extends AbstractLogicalOperator {
         return LogicalOperatorTag.EXTENSION_OPERATOR;
     }
 
-    public AbstractExtensibleLogicalOperator getNewInstanceOfDelegateOperator() {
+    public IOperatorExtension getNewInstanceOfDelegateOperator() {
         return delegate.newInstance();
     }
 
@@ -96,11 +95,6 @@ public class ExtensionOperator extends AbstractLogicalOperator {
     }
 
     @Override
-    public Map<String, Object> getAnnotations() {
-        return delegate.getAnnotations();
-    }
-
-    @Override
     public void setExecutionMode(ExecutionMode mode) {
         delegate.setExecutionMode(mode);
     }
@@ -108,16 +102,6 @@ public class ExtensionOperator extends AbstractLogicalOperator {
     @Override
     public IPhysicalOperator getPhysicalOperator() {
         return delegate.getPhysicalOperator();
-    }
-
-    @Override
-    public boolean hasNestedPlans() {
-        return delegate.hasNestedPlans();
-    }
-
-    @Override
-    public void removeAnnotation(String annotationName) {
-        delegate.removeAnnotation(annotationName);
     }
 
     @Override
