@@ -20,24 +20,29 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.util.ReferenceEntry;
-import edu.uci.ics.hyracks.dataflow.std.util.ReferencedPriorityQueue;
+import edu.uci.ics.hyracks.dataflow.std.util.SelectionTree;
+import edu.uci.ics.hyracks.dataflow.std.util.SelectionTree.Entry;
 
 public class PredictingFrameReaderCollection {
-    private final IHyracksTaskContext ctx;
-    private final RecordDescriptor recordDesc;
+    private final int[] sortFields;
+    private final IBinaryComparatorFactory[] comparatorFactories;
     private final IFrameReader[] runCursors;
     private final IFrameReader[] fileReaders;
     private Comparator<ReferenceEntry> comparator;
 
     private final FrameTupleAccessor[] tupleAccessors;
 
+    // Each entry corresponding to the last tuple corresponding to the frame of the current run being sorted.
+    private final BackQueueEntry[] backQueueEntries;
+
     // Holds the reference to the last-tuple of each frame being sorted.
-    private ReferencedPriorityQueue backQueue;
+    private SelectionTree backQueue;
 
     /* The two blocking queues which hold the buffer and the runIndex of the corresponding buffer frame which are
      * used for prediction. The empty queue contains all the buffers that are available for prediction and the
@@ -56,10 +61,11 @@ public class PredictingFrameReaderCollection {
     private final Thread predictorThread;
 
     // Constructor for PredictingFrameReaderCollection.
-    public PredictingFrameReaderCollection(IHyracksTaskContext ctx, RecordDescriptor recordDesc, IFrameReader[] runs,
+    public PredictingFrameReaderCollection(IHyracksTaskContext ctx, int[] sortFields,
+            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDesc, IFrameReader[] runs,
             int predictionFramesLimit) {
-        this.ctx = ctx;
-        this.recordDesc = recordDesc;
+        this.sortFields = sortFields;
+        this.comparatorFactories = comparatorFactories;
         this.fileReaders = new IFrameReader[runs.length];
 
         this.runCursors = new IFrameReader[runs.length];
@@ -80,11 +86,13 @@ public class PredictingFrameReaderCollection {
         forecastQueues = new ForecastQueues(runs.length);
 
         tupleAccessors = new FrameTupleAccessor[runs.length];
+        backQueueEntries = new BackQueueEntry[runs.length];
 
         locks = new Object[runs.length];
 
         for (int i = 0; i < runs.length; i++) {
             tupleAccessors[i] = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+            backQueueEntries[i] = new BackQueueEntry(i, tupleAccessors[i], -1);
             locks[i] = new Object();
         }
 
@@ -97,7 +105,7 @@ public class PredictingFrameReaderCollection {
     }
 
     public void setComparator(Comparator<ReferenceEntry> comparator) {
-        this.comparator = comparator;
+        this.comparator = new MergerComparator(sortFields, comparatorFactories);
 
         buildBackQueue();
         predictorThread.start();
@@ -109,6 +117,7 @@ public class PredictingFrameReaderCollection {
             // For the initial fetch we will have to read from the file and then set the tuple accessors etc.
             success = fileReaders[runIndex].nextFrame(buffer);
             tupleAccessors[runIndex].reset(buffer);
+            backQueueEntries[runIndex].setTupleIndex(tupleAccessors[runIndex].getTupleCount() - 1);
         } else {
             try {
                 success = forecastQueues.deque(buffer, runIndex);
@@ -126,11 +135,29 @@ public class PredictingFrameReaderCollection {
          * operation. So heap building dominates the populating stage, so we can afford to run the
          * populating stage as a pre-processing step.
          */
-        int runIndex;
-        backQueue = new ReferencedPriorityQueue(ctx.getFrameSize(), recordDesc, tupleAccessors.length, comparator);
-        for (int i = 0; i < tupleAccessors.length; i++) {
-            runIndex = backQueue.peek().getRunid();
-            backQueue.popAndReplace(tupleAccessors[runIndex], tupleAccessors[runIndex].getTupleCount() - 1);
+        backQueue = new SelectionTree(backQueueEntries);
+    }
+
+    private class BackQueueEntry extends ReferenceEntry implements Entry {
+        private boolean canAdvance;
+
+        public BackQueueEntry(int runIndex, FrameTupleAccessor fta, int tupleIndex) {
+            super(runIndex, fta, tupleIndex);
+            canAdvance = true;
+        }
+
+        @Override
+        public int compareTo(Entry o) {
+            return comparator.compare(this, (BackQueueEntry) o);
+        }
+
+        @Override
+        public boolean advance() {
+            return canAdvance;
+        }
+
+        public void update(PredictionBuffer predBuffer) throws HyracksDataException, InterruptedException {
+            canAdvance = forecastQueues.enqueue(this, predBuffer);
         }
     }
 
@@ -166,33 +193,36 @@ public class PredictingFrameReaderCollection {
                 return false;
             }
 
-            prevTail = tails[runIndex];
-            tails[runIndex] = predBuffer;
-            fta.reset(predBuffer.getBuffer());
-            entry.setTupleIndex(fta.getTupleCount() - 1);
-            if (heads[runIndex] == null) {
-                heads[runIndex] = predBuffer;
-                locks[0].notifyAll();
-            } else {
-                prevTail.setNext(predBuffer);
+            synchronized (locks[runIndex]) {
+                prevTail = tails[runIndex];
+                tails[runIndex] = predBuffer;
+                fta.reset(predBuffer.getBuffer());
+                entry.setTupleIndex(fta.getTupleCount() - 1);
+                if (heads[runIndex] == null) {
+                    heads[runIndex] = predBuffer;
+                    locks[runIndex].notifyAll();
+                } else {
+                    prevTail.setNext(predBuffer);
+                }
             }
-            return hasBuffer;
+
+            return true;
         }
 
         public boolean deque(ByteBuffer buffer, int runIndex) throws InterruptedException {
             FrameTupleAccessor fta = null;
             PredictionBuffer head = null;
 
-            synchronized (locks[0]) {
+            synchronized (locks[runIndex]) {
                 fta = tupleAccessors[runIndex];
 
-                if ((heads[runIndex] == null) && (!backQueue.runIndexExists(runIndex))) {
+                if ((heads[runIndex] == null) && (backQueueEntries[runIndex] == null)) {
                     return false;
                 }
 
                 while (heads[runIndex] == null) {
-                    locks[0].wait();
-                    if (!backQueue.runIndexExists(runIndex)) {
+                    locks[runIndex].wait();
+                    if (backQueueEntries[runIndex] == null) {
                         return false;
                     }
                 }
@@ -209,12 +239,11 @@ public class PredictingFrameReaderCollection {
 
                 emptyPredictionQueue.put(head);
             }
-
             return true;
         }
     }
 
-    private class PredictionBuffer {
+    public class PredictionBuffer {
         private final IFrameReader[] fileReaders;
         private final ByteBuffer buffer;
         private PredictionBuffer next;
@@ -253,20 +282,23 @@ public class PredictingFrameReaderCollection {
 
     private class PredictorThread implements Runnable {
         public void run() {
-            ReferenceEntry entry;
+            int runIndex;
+            BackQueueEntry entry;
             PredictionBuffer predBuffer;
 
-            while (!backQueue.areRunsExhausted()) {
-                entry = backQueue.peek();
+            while (!backQueue.isEmpty()) {
+                entry = (BackQueueEntry) backQueue.peek();
+                runIndex = entry.getRunid();
 
                 try {
                     predBuffer = emptyPredictionQueue.take();
-                    synchronized (locks[0]) {
-                        if (forecastQueues.enqueue(entry, predBuffer)) {
-                            backQueue.popAndReplace(entry.getAccessor(), entry.getAccessor().getTupleCount() - 1);
-                        } else {
-                            backQueue.pop();
-                            locks[0].notifyAll();
+
+                    entry.update(predBuffer);
+                    backQueue.pop();
+
+                    if (backQueueEntries[runIndex] == null) {
+                        synchronized (locks[runIndex]) {
+                            locks[runIndex].notifyAll();
                         }
                     }
                 } catch (HyracksDataException e) {
