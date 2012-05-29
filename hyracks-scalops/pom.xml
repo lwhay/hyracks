@@ -98,5 +98,21 @@
             <artifactId>scala-library</artifactId>
             <version>2.9.1</version>
         </dependency>
+        <dependency>
+        	<groupId>edu.uci.ics.hyracks</groupId>
+        	<artifactId>hyracks-algebricks</artifactId>
+        	<version>0.2.1-SNAPSHOT</version>
+        	<type>pom</type>
+        </dependency>
+        <dependency>
+        	<groupId>edu.uci.ics.hyracks</groupId>
+        	<artifactId>hyracks-algebricks-compiler</artifactId>
+        	<version>0.2.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+        	<groupId>edu.uci.ics.hyracks</groupId>
+        	<artifactId>hyracks-algebricks-core</artifactId>
+        	<version>0.2.1-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 </project>
