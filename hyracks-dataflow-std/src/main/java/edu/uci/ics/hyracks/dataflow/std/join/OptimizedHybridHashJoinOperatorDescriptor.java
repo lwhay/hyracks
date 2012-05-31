@@ -37,8 +37,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFamily;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
@@ -47,7 +47,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.partition.RepartitionComputerGen
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.structures.ISerializableTable;
@@ -116,7 +116,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
     private final boolean isLeftOuter;
     private final INullWriterFactory[] nullWriterFactories1;
 
-    public OptimizedHybridHashJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, double factor,
+    public OptimizedHybridHashJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int memsize, int inputsize0, double factor,
             int[] keys0, int[] keys1, IBinaryHashFunctionFamily[] hashFunctionGeneratorFactories,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor,
             ITuplePairComparatorFactory tupPaircomparatorFactory0,
@@ -139,7 +139,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
 
     }
 
-    public OptimizedHybridHashJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, double factor,
+    public OptimizedHybridHashJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int memsize, int inputsize0, double factor,
             int[] keys0, int[] keys1, IBinaryHashFunctionFamily[] hashFunctionGeneratorFactories,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor,
             ITuplePairComparatorFactory tupPaircomparatorFactory0, ITuplePairComparatorFactory tupPaircomparatorFactory1)
@@ -201,7 +201,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
         return numberOfPartitions;
     }
 
-    public static class BuildAndPartitionTaskState extends AbstractTaskState {
+    public static class BuildAndPartitionTaskState extends AbstractStateObject {
 
         private int memForJoin;
         private int numOfPartitions;
@@ -290,7 +290,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                 @Override
                 public void close() throws HyracksDataException {
                     state.hybridHJ.closeBuild();
-                    ctx.setTaskState(state);
+                    ctx.setStateObject(state);
                 }
 
                 @Override
@@ -353,7 +353,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
 
                 @Override
                 public void open() throws HyracksDataException {
-                    state = (BuildAndPartitionTaskState) ctx.getTaskState(new TaskId(new ActivityId(getOperatorId(),
+                    state = (BuildAndPartitionTaskState) ctx.getStateObject(new TaskId(new ActivityId(getOperatorId(),
                             BUILD_AND_PARTITION_ACTIVITY_ID), partition));
 
                     writer.open();
@@ -571,7 +571,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                     InMemoryHashJoin joiner = new InMemoryHashJoin(ctx, tabSize, new FrameTupleAccessor(
                             ctx.getFrameSize(), probeRDesc), hpcRepLarger, new FrameTupleAccessor(ctx.getFrameSize(),
                             buildRDesc), hpcRepSmaller, new FrameTuplePairComparator(pKeys, bKeys, comparators),
-                            isLeftOuter, false, nullWriters1, null, table);
+                            isLeftOuter, nullWriters1, table);
 
                     bReader.open();
                     rPartbuff.clear();

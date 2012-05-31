@@ -30,13 +30,13 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePairComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePairComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 
@@ -48,7 +48,7 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
     private final ITuplePairComparatorFactory comparatorFactory;
     private final int memSize;
 
-    public NestedLoopJoinOperatorDescriptor(JobSpecification spec, ITuplePairComparatorFactory comparatorFactory,
+    public NestedLoopJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, ITuplePairComparatorFactory comparatorFactory,
             RecordDescriptor recordDescriptor, int memSize) {
         super(spec, 2, 1);
         this.comparatorFactory = comparatorFactory;
@@ -72,7 +72,7 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
         builder.addBlockingEdge(jc, nlj);
     }
 
-    public static class JoinCacheTaskState extends AbstractTaskState {
+    public static class JoinCacheTaskState extends AbstractStateObject {
         private NestedLoopJoin joiner;
 
         public JoinCacheTaskState() {
@@ -129,7 +129,7 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
                 @Override
                 public void close() throws HyracksDataException {
                     state.joiner.closeCache();
-                    ctx.setTaskState(state);
+                    ctx.setStateObject(state);
                 }
 
                 @Override
@@ -156,7 +156,7 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
 
                 @Override
                 public void open() throws HyracksDataException {
-                    state = (JoinCacheTaskState) ctx.getTaskState(new TaskId(new ActivityId(getOperatorId(),
+                    state = (JoinCacheTaskState) ctx.getStateObject(new TaskId(new ActivityId(getOperatorId(),
                             JOIN_CACHE_ACTIVITY_ID), partition));
                     writer.open();
                 }

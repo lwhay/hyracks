@@ -22,9 +22,12 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
+import edu.uci.ics.hyracks.storage.am.common.api.ITupleFilter;
+import edu.uci.ics.hyracks.storage.am.common.api.ITupleFilterFactory;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 
 public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
@@ -33,16 +36,16 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
     private final IRecordDescriptorProvider recordDescProvider;
     private final IndexOp op;
     private final PermutingFrameTupleReference tuple = new PermutingFrameTupleReference();
+    private FrameTupleReference frameTuple;
     private ByteBuffer writeBuffer;
-    private ITreeIndexAccessor indexAccessor;
-
+    private IIndexAccessor indexAccessor;
+    private ITupleFilter tupleFilter;
+    
     public TreeIndexInsertUpdateDeleteOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc,
             IHyracksTaskContext ctx, int partition, int[] fieldPermutation,
             IRecordDescriptorProvider recordDescProvider, IndexOp op) {
-        // Only create the if insert operation is an insert.
-        boolean createIfNotExists = (op == IndexOp.INSERT);
         treeIndexHelper = (TreeIndexDataflowHelper) opDesc.getIndexDataflowHelperFactory().createIndexDataflowHelper(
-                opDesc, ctx, partition, createIfNotExists);
+                opDesc, ctx, partition);
         this.recordDescProvider = recordDescProvider;
         this.op = op;
         tuple.setFieldPermutation(fieldPermutation);
@@ -57,9 +60,14 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
         writeBuffer = treeIndexHelper.getHyracksTaskContext().allocateFrame();
         writer.open();
         try {
-            treeIndexHelper.init();
+            treeIndexHelper.init(false);
             ITreeIndex treeIndex = (ITreeIndex) treeIndexHelper.getIndex();
             indexAccessor = treeIndex.createAccessor();
+            ITupleFilterFactory tupleFilterFactory = opDesc.getTupleFilterFactory();
+            if (tupleFilterFactory != null) {
+            	tupleFilter = tupleFilterFactory.createTupleFilter();
+            	frameTuple = new FrameTupleReference();
+            }
         } catch (Exception e) {
             // cleanup in case of failure
             treeIndexHelper.deinit();
@@ -71,9 +79,15 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         accessor.reset(buffer);
         int tupleCount = accessor.getTupleCount();
-        for (int i = 0; i < tupleCount; i++) {
-            tuple.reset(accessor, i);
+        for (int i = 0; i < tupleCount; i++) {            
             try {
+            	if (tupleFilter != null) {
+                    frameTuple.reset(accessor, i);
+                    if (!tupleFilter.accept(frameTuple)) {
+                        continue;
+                    }
+                }
+            	tuple.reset(accessor, i);
                 switch (op) {
                     case INSERT: {
                         indexAccessor.insert(tuple);
@@ -81,6 +95,10 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
                     }
                     case UPDATE: {
                         indexAccessor.update(tuple);
+                        break;
+                    }
+                    case UPSERT: {
+                        indexAccessor.upsert(tuple);
                         break;
                     }
                     case DELETE: {

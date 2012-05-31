@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.algebricks.core.algebra.visitors;
 
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -22,7 +23,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -43,7 +43,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOp
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
-import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
 
 public interface ILogicalOperatorVisitor<R, T> {
 
@@ -55,8 +54,6 @@ public interface ILogicalOperatorVisitor<R, T> {
 
     public R visitGroupByOperator(GroupByOperator op, T arg) throws AlgebricksException;
 
-    public R visitGroupJoinOperator(GroupJoinOperator op, T arg) throws AlgebricksException;
-    
     public R visitLimitOperator(LimitOperator op, T arg) throws AlgebricksException;
 
     public R visitInnerJoinOperator(InnerJoinOperator op, T arg) throws AlgebricksException;

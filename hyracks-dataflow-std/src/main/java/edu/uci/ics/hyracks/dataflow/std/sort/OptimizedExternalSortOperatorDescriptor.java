@@ -32,11 +32,11 @@ import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
@@ -68,17 +68,17 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
     private final int memSize;
     private final int outputLimit;
 
-    public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int[] sortFields,
+    public OptimizedExternalSortOperatorDescriptor(IOperatorDescriptorRegistry spec, int framesLimit, int[] sortFields,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
         this(spec, framesLimit, NO_LIMIT, sortFields, null, comparatorFactories, recordDescriptor);
     }
 
-    public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int framesLimit, int outputLimit,
+    public OptimizedExternalSortOperatorDescriptor(IOperatorDescriptorRegistry spec, int framesLimit, int outputLimit,
             int[] sortFields, IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
         this(spec, framesLimit, outputLimit, sortFields, null, comparatorFactories, recordDescriptor);
     }
 
-    public OptimizedExternalSortOperatorDescriptor(JobSpecification spec, int memSize, int outputLimit,
+    public OptimizedExternalSortOperatorDescriptor(IOperatorDescriptorRegistry spec, int memSize, int outputLimit,
             int[] sortFields, INormalizedKeyComputerFactory firstKeyNormalizerFactory,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor) {
         super(spec, 1, 1);
@@ -107,7 +107,7 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
         builder.addBlockingEdge(osa, oma);
     }
 
-    public static class OptimizedSortTaskState extends AbstractTaskState {
+    public static class OptimizedSortTaskState extends AbstractStateObject {
         private List<IFrameReader> runs;
 
         public OptimizedSortTaskState() {
@@ -165,7 +165,7 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
                             new TaskId(getActivityId(), partition));
                     runGen.close();
                     state.runs = runGen.getRuns();
-                    ctx.setTaskState(state);
+                    ctx.setStateObject(state);
 
                 }
 
@@ -191,7 +191,7 @@ public class OptimizedExternalSortOperatorDescriptor extends AbstractOperatorDes
             IOperatorNodePushable op = new AbstractUnaryOutputSourceOperatorNodePushable() {
                 @Override
                 public void initialize() throws HyracksDataException {
-                    OptimizedSortTaskState state = (OptimizedSortTaskState) ctx.getTaskState(new TaskId(new ActivityId(
+                    OptimizedSortTaskState state = (OptimizedSortTaskState) ctx.getStateObject(new TaskId(new ActivityId(
                             getOperatorId(), SORT_ACTIVITY_ID), partition));
 
                     List<IFrameReader> runs = state.runs;

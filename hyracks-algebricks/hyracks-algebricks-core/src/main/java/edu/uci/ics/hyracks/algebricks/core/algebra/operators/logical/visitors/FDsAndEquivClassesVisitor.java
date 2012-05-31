@@ -25,6 +25,9 @@ import java.util.Set;
 
 import org.apache.commons.lang3.mutable.Mutable;
 
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.EquivalenceClass;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
@@ -37,7 +40,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionC
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.UnnestingFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractUnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
@@ -48,7 +50,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -69,14 +70,10 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOp
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator.JoinKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.FunctionalDependency;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.LocalGroupingProperty;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
-import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.core.api.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.algebricks.core.config.AlgebricksConfig;
-import edu.uci.ics.hyracks.algebricks.core.utils.Pair;
 
 public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, IOptimizationContext> {
 
@@ -306,41 +303,6 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         return null;
     }
 
-    @Override
-    public Void visitGroupJoinOperator(GroupJoinOperator op, IOptimizationContext ctx)
-            throws AlgebricksException {
-        Map<LogicalVariable, EquivalenceClass> equivalenceClasses = new HashMap<LogicalVariable, EquivalenceClass>();
-        List<FunctionalDependency> functionalDependencies = new ArrayList<FunctionalDependency>();
-        ctx.putEquivalenceClassMap(op, equivalenceClasses);
-        ctx.putFDList(op, functionalDependencies);
-        ILogicalOperator opLeft = op.getInputs().get(0).getValue();
-        ILogicalOperator opRight = op.getInputs().get(1).getValue();
-        functionalDependencies.addAll(getOrComputeFDs(opLeft, ctx));
-        functionalDependencies.addAll(getOrComputeFDs(opRight, ctx));
-        equivalenceClasses.putAll(getOrComputeEqClasses(opLeft, ctx));
-        equivalenceClasses.putAll(getOrComputeEqClasses(opRight, ctx));
-    	if(op.getJoinKind() == JoinKind.LEFT_OUTER) {
-	        Collection<LogicalVariable> leftSideVars;
-	        if (opLeft.getSchema() == null) {
-	            leftSideVars = new LinkedList<LogicalVariable>();
-	            VariableUtilities.getLiveVariables(opLeft, leftSideVars);
-	            // actually, not all produced vars. are visible (due to projection)
-	            // so using cached schema is better and faster
-	        } else {
-	            leftSideVars = opLeft.getSchema();
-	        }
-	        ILogicalExpression expr = op.getCondition().getValue();
-	        expr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
-    	}
-    	else {
-            ILogicalExpression expr = op.getCondition().getValue();
-            expr.getConstraintsAndEquivClasses(functionalDependencies, equivalenceClasses);
-    	}
-    	
-    	visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), ctx);
-        return null;
-    }
-    
     @Override
     public Void visitInnerJoinOperator(InnerJoinOperator op, IOptimizationContext ctx) throws AlgebricksException {
         Map<LogicalVariable, EquivalenceClass> equivalenceClasses = new HashMap<LogicalVariable, EquivalenceClass>();

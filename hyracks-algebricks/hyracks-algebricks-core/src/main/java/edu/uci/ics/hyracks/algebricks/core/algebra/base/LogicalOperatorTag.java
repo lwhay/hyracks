@@ -23,7 +23,6 @@ public enum LogicalOperatorTag {
     GROUP,
     EMPTYTUPLESOURCE,
     EXCHANGE,
-    GROUPJOIN,
     INNERJOIN,
     LEFTOUTERJOIN,
     LIMIT,

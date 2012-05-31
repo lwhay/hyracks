@@ -24,6 +24,9 @@ import java.util.Map.Entry;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
@@ -31,7 +34,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -40,7 +42,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -66,9 +67,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPartitioningProperty;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPhysicalPropertiesVector;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
-import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.core.utils.Pair;
-import edu.uci.ics.hyracks.algebricks.core.utils.Triple;
 
 public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boolean, ILogicalOperator> {
 
@@ -179,17 +177,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             return Boolean.FALSE;
         DieOperator dieOpArg = (DieOperator) copyAndSubstituteVar(op, arg);
         boolean isomorphic = op.getAfterObjects().getValue().equals(dieOpArg.getAfterObjects().getValue());
-        return isomorphic;
-    }
-
-    @Override
-    public Boolean visitGroupJoinOperator(GroupJoinOperator op, ILogicalOperator arg)
-            throws AlgebricksException {
-        AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
-        if (aop.getOperatorTag() != LogicalOperatorTag.GROUPJOIN)
-            return Boolean.FALSE;
-        GroupJoinOperator joinOpArg = (GroupJoinOperator) copyAndSubstituteVar(op, arg);
-        boolean isomorphic = op.getCondition().getValue().equals(joinOpArg.getCondition().getValue());
         return isomorphic;
     }
 
@@ -642,17 +629,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         }
 
         @Override
-        public ILogicalOperator visitGroupJoinOperator(GroupJoinOperator op, Void arg)
-                throws AlgebricksException {
-            ArrayList<ILogicalPlan> newSubplans = new ArrayList<ILogicalPlan>();
-            for (ILogicalPlan plan : op.getNestedPlans()) {
-                newSubplans.add(IsomorphismOperatorVisitor.deepCopy(plan));
-            }
-            return new GroupJoinOperator(op.getJoinKind(), deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
-                    .getInputs().get(1), (AbstractOperatorWithNestedPlans) visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), arg));
-        }
-
-        @Override
         public ILogicalOperator visitInnerJoinOperator(InnerJoinOperator op, Void arg) throws AlgebricksException {
             return new InnerJoinOperator(deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
                     .getInputs().get(1));
@@ -802,8 +778,10 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             deepCopyExpressionRefs(newPrimaryKeyExpressions, op.getPrimaryKeyExpressions());
             List<Mutable<ILogicalExpression>> newSecondaryKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newSecondaryKeyExpressions, op.getSecondaryKeyExpressions());
+            Mutable<ILogicalExpression> newFilterExpression = new MutableObject<ILogicalExpression>(((AbstractLogicalExpression)op.getFilterExpression())
+                    .cloneExpression());
             return new IndexInsertDeleteOperator(op.getDataSourceIndex(), newPrimaryKeyExpressions,
-                    newSecondaryKeyExpressions, op.getOperation());
+                    newSecondaryKeyExpressions, newFilterExpression, op.getOperation());
         }
 
         @Override

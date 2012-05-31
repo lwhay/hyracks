@@ -18,8 +18,6 @@ import java.io.DataOutput;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
-import java.util.Iterator;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -37,7 +35,6 @@ import edu.uci.ics.hyracks.dataflow.std.structures.TuplePointer;
 public class InMemoryHashJoin {
 	
     private final List<ByteBuffer> buffers;
-    private final List<BitSet> leftOuterJoinBitSets;
     private final FrameTupleAccessor accessorBuild;
     private final ITuplePartitionComputer tpcBuild;
     private final FrameTupleAccessor accessorProbe;
@@ -46,55 +43,38 @@ public class InMemoryHashJoin {
     private final FrameTuplePairComparator tpComparator;
     private final ByteBuffer outBuffer;
     private final boolean isLeftOuter;
-    private final boolean isRightOuter;
-    private final ArrayTupleBuilder rightNullTupleBuild;
-    private final ArrayTupleBuilder leftNullTupleBuild;
+    private final ArrayTupleBuilder nullTupleBuild;
     private final ISerializableTable table;
 	private final int tableSize;
     private final TuplePointer storedTuplePointer;
     
     public InMemoryHashJoin(IHyracksTaskContext ctx, int tableSize, FrameTupleAccessor accessor0,
             ITuplePartitionComputer tpc0, FrameTupleAccessor accessor1, ITuplePartitionComputer tpc1,
-            FrameTuplePairComparator comparator, boolean isLeftOuter, boolean isRightOuter,
-            INullWriter[] rightNullWriters, INullWriter[] leftNullWriters, ISerializableTable table)
+            FrameTuplePairComparator comparator, boolean isLeftOuter, INullWriter[] nullWriters1, ISerializableTable table)
             throws HyracksDataException {
     	this.tableSize = tableSize;
        	this.table = table;
        	storedTuplePointer = new TuplePointer();
        	buffers = new ArrayList<ByteBuffer>();
-        this.accessorBuild = accessor0;
-        this.tpcBuild = tpc0;
-        this.accessorProbe = accessor1;
-        this.tpcProbe = tpc1;
+        this.accessorBuild = accessor1;
+        this.tpcBuild = tpc1;
+        this.accessorProbe = accessor0;
+        this.tpcProbe = tpc0;
         appender = new FrameTupleAppender(ctx.getFrameSize());
         tpComparator = comparator;
         outBuffer = ctx.allocateFrame();
         appender.reset(outBuffer, true);
         this.isLeftOuter = isLeftOuter;
-        this.isRightOuter = isRightOuter;
         if (isLeftOuter) {
-        	leftOuterJoinBitSets = new ArrayList<BitSet>();
             int fieldCountOuter = accessor1.getFieldCount();
-            rightNullTupleBuild = new ArrayTupleBuilder(fieldCountOuter);
-            DataOutput out = rightNullTupleBuild.getDataOutput();
+            nullTupleBuild = new ArrayTupleBuilder(fieldCountOuter);
+            DataOutput out = nullTupleBuild.getDataOutput();
             for (int i = 0; i < fieldCountOuter; i++) {
-                rightNullWriters[i].writeNull(out);
-                rightNullTupleBuild.addFieldEndOffset();
+                nullWriters1[i].writeNull(out);
+                nullTupleBuild.addFieldEndOffset();
             }
         } else {
-            rightNullTupleBuild = null;
-            leftOuterJoinBitSets = null;
-        }
-        if (isRightOuter) {
-            int fieldCountOuter = accessor0.getFieldCount();
-            leftNullTupleBuild = new ArrayTupleBuilder(fieldCountOuter);
-            DataOutput out = leftNullTupleBuild.getDataOutput();
-            for (int i = 0; i < fieldCountOuter; i++) {
-                leftNullWriters[i].writeNull(out);
-                leftNullTupleBuild.addFieldEndOffset();
-            }
-        } else {
-            leftNullTupleBuild = null;
+            nullTupleBuild = null;
         }
     }
 
@@ -109,9 +89,6 @@ public class InMemoryHashJoin {
             storedTuplePointer.tupleIndex = i;
             table.insert(entry, storedTuplePointer);
         }
-        if(isLeftOuter)
-        	for (int i=table.getFrameCount()-leftOuterJoinBitSets.size()-1; i>0; i--)
-        		leftOuterJoinBitSets.add(new BitSet());
     }
 
     public void join(ByteBuffer buffer, IFrameWriter writer) throws HyracksDataException {
@@ -128,28 +105,26 @@ public class InMemoryHashJoin {
                 int bIndex = storedTuplePointer.frameIndex;
                 int tIndex = storedTuplePointer.tupleIndex;
                 accessorBuild.reset(buffers.get(bIndex));
-                int c = tpComparator.compare(accessorBuild, tIndex, accessorProbe, i);
+                int c = tpComparator.compare(accessorProbe, i, accessorBuild, tIndex);
                 if (c == 0) {
                     matchFound = true;
-                    if (!appender.appendConcat(accessorBuild, tIndex, accessorProbe, i)) {
+                    if (!appender.appendConcat(accessorProbe, i, accessorBuild, tIndex)) {
                         flushFrame(outBuffer, writer);
                         appender.reset(outBuffer, true);
-                        if (!appender.appendConcat(accessorBuild, tIndex, accessorProbe, i)) {
+                        if (!appender.appendConcat(accessorProbe, i, accessorBuild, tIndex)) {
                             throw new IllegalStateException();
                         }
                     }
-                    if(isLeftOuter)
-                    	leftOuterJoinBitSets.get(bIndex).set(tIndex);
                 }
             } while (true);
 
-            if (!matchFound && isRightOuter) {
-                if (!appender.appendConcat(leftNullTupleBuild.getFieldEndOffsets(),
-                        leftNullTupleBuild.getByteArray(), 0, leftNullTupleBuild.getSize(), accessorProbe, i)) {
+            if (!matchFound && isLeftOuter) {
+                if (!appender.appendConcat(accessorProbe, i, nullTupleBuild.getFieldEndOffsets(),
+                        nullTupleBuild.getByteArray(), 0, nullTupleBuild.getSize())) {
                     flushFrame(outBuffer, writer);
                     appender.reset(outBuffer, true);
-                    if (!appender.appendConcat(leftNullTupleBuild.getFieldEndOffsets(),
-                            leftNullTupleBuild.getByteArray(), 0, leftNullTupleBuild.getSize(), accessorProbe, i)) {
+                    if (!appender.appendConcat(accessorProbe, i, nullTupleBuild.getFieldEndOffsets(),
+                            nullTupleBuild.getByteArray(), 0, nullTupleBuild.getSize())) {
                         throw new IllegalStateException();
                     }
                 }
@@ -158,27 +133,6 @@ public class InMemoryHashJoin {
     }
 
     public void closeJoin(IFrameWriter writer) throws HyracksDataException {
-        if(isLeftOuter) {
-	        int bIndex = -1;
-	        BitSet joinBitSet;
-	        Iterator<BitSet> bitSetsIterator = leftOuterJoinBitSets.iterator();
-	        while(bitSetsIterator.hasNext()) {
-	        	bIndex++;
-	        	joinBitSet = bitSetsIterator.next();
-                accessorBuild.reset(buffers.get(bIndex));
-                for(int tIndex=joinBitSet.nextClearBit(0); tIndex>=0 && tIndex<accessorBuild.getTupleCount(); tIndex=joinBitSet.nextClearBit(tIndex+1)) {
-                    if (!appender.appendConcat(accessorBuild, tIndex, rightNullTupleBuild.getFieldEndOffsets(),
-                            rightNullTupleBuild.getByteArray(), 0, rightNullTupleBuild.getSize())) {
-                        flushFrame(outBuffer, writer);
-                        appender.reset(outBuffer, true);
-	                    if (!appender.appendConcat(accessorBuild, tIndex, rightNullTupleBuild.getFieldEndOffsets(),
-	                            rightNullTupleBuild.getByteArray(), 0, rightNullTupleBuild.getSize())) {
-                            throw new IllegalStateException();
-                        }
-                    }
-                }
-	        }
-        }
         if (appender.getTupleCount() > 0) {
             flushFrame(outBuffer, writer);
         }

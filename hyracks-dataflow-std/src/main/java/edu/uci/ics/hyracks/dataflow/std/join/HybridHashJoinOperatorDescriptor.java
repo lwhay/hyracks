@@ -35,8 +35,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
@@ -47,7 +47,7 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.structures.ISerializableTable;
@@ -67,9 +67,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] comparatorFactories;
     private final boolean isLeftOuter;
-    private final boolean isRightOuter;
-    private final INullWriterFactory[] rightNullWriterFactories;
-    private final INullWriterFactory[] leftNullWriterFactories;
+    private final INullWriterFactory[] nullWriterFactories1;
 
     /**
      * @param spec
@@ -86,7 +84,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
      * @param recordDescriptor
      * @throws HyracksDataException
      */
-    public HybridHashJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
+    public HybridHashJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int memsize, int inputsize0, int recordsPerFrame,
             double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor)
             throws HyracksDataException {
@@ -100,16 +98,14 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
         this.hashFunctionFactories = hashFunctionFactories;
         this.comparatorFactories = comparatorFactories;
         this.isLeftOuter = false;
-        this.isRightOuter = false;
-        this.rightNullWriterFactories = null;
-        this.leftNullWriterFactories = null;
+        this.nullWriterFactories1 = null;
         recordDescriptors[0] = recordDescriptor;
     }
 
-    public HybridHashJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
+    public HybridHashJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int memsize, int inputsize0, int recordsPerFrame,
             double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
             IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor, boolean isLeftOuter,
-            INullWriterFactory[] rightNullWriterFactories) throws HyracksDataException {
+            INullWriterFactory[] nullWriterFactories1) throws HyracksDataException {
         super(spec, 2, 1);
         this.memsize = memsize;
         this.inputsize0 = inputsize0;
@@ -120,30 +116,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
         this.hashFunctionFactories = hashFunctionFactories;
         this.comparatorFactories = comparatorFactories;
         this.isLeftOuter = isLeftOuter;
-        this.isRightOuter = false;
-        this.rightNullWriterFactories = rightNullWriterFactories;
-        this.leftNullWriterFactories = null;
-        recordDescriptors[0] = recordDescriptor;
-    }
-
-    public HybridHashJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
-            double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
-            IBinaryComparatorFactory[] comparatorFactories, RecordDescriptor recordDescriptor, boolean isLeftOuter,
-            boolean isRightOuter, INullWriterFactory[] rightNullWriterFactories, INullWriterFactory[] leftNullWriterFactories)
-            throws HyracksDataException {
-        super(spec, 2, 1);
-        this.memsize = memsize;
-        this.inputsize0 = inputsize0;
-        this.factor = factor;
-        this.recordsPerFrame = recordsPerFrame;
-        this.keys0 = keys0;
-        this.keys1 = keys1;
-        this.hashFunctionFactories = hashFunctionFactories;
-        this.comparatorFactories = comparatorFactories;
-        this.isLeftOuter = isLeftOuter;
-        this.isRightOuter = isRightOuter;
-        this.rightNullWriterFactories = rightNullWriterFactories;
-        this.leftNullWriterFactories = leftNullWriterFactories;
+        this.nullWriterFactories1 = nullWriterFactories1;
         recordDescriptors[0] = recordDescriptor;
     }
 
@@ -165,7 +138,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
         builder.addTargetEdge(0, phase2, 0);
     }
 
-    public static class BuildAndPartitionTaskState extends AbstractTaskState {
+    public static class BuildAndPartitionTaskState extends AbstractStateObject {
         private RunFileWriter[] fWriters;
         private InMemoryHashJoin joiner;
         private int nPartitions;
@@ -206,28 +179,13 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
             for (int i = 0; i < comparatorFactories.length; ++i) {
                 comparators[i] = comparatorFactories[i].createBinaryComparator();
             }
-            final INullWriter[] rightNullWriters;
+            final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
             if (isLeftOuter) {
-                rightNullWriters = new INullWriter[rightNullWriterFactories.length];
-                for (int i = 0; i < rightNullWriterFactories.length; i++) {
-                    rightNullWriters[i] = rightNullWriterFactories[i].createNullWriter();
+                for (int i = 0; i < nullWriterFactories1.length; i++) {
+                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
                 }
-            }
-            else {
-                rightNullWriters = null;
             }
 
-            final INullWriter[] leftNullWriters;
-            if (isRightOuter) {
-                leftNullWriters = new INullWriter[leftNullWriterFactories.length];
-                for (int i = 0; i < leftNullWriterFactories.length; i++) {
-                    leftNullWriters[i] = leftNullWriterFactories[i].createNullWriter();
-                }
-            }
-            else {
-                leftNullWriters = null;
-            }
-            
             IOperatorNodePushable op = new AbstractUnaryInputSinkOperatorNodePushable() {
                 private BuildAndPartitionTaskState state = new BuildAndPartitionTaskState(ctx.getJobletContext()
                         .getJobId(), new TaskId(getActivityId(), partition));
@@ -253,7 +211,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
                         closeWriter(i);
                     }
 
-                    ctx.setTaskState(state);
+                    ctx.setStateObject(state);
                 }
 
                 @Override
@@ -353,7 +311,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
                     state.joiner = new InMemoryHashJoin(ctx, tableSize,
                             new FrameTupleAccessor(ctx.getFrameSize(), rd0), hpc0, new FrameTupleAccessor(
                                     ctx.getFrameSize(), rd1), hpc1, new FrameTuplePairComparator(keys0, keys1,
-                                    comparators), isLeftOuter, false, rightNullWriters, leftNullWriters, table);
+                                    comparators), isLeftOuter, nullWriters1, table);
                     bufferForPartitions = new ByteBuffer[state.nPartitions];
                     state.fWriters = new RunFileWriter[state.nPartitions];
                     for (int i = 0; i < state.nPartitions; i++) {
@@ -406,26 +364,11 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
             for (int i = 0; i < comparatorFactories.length; ++i) {
                 comparators[i] = comparatorFactories[i].createBinaryComparator();
             }
-            final INullWriter[] rightNullWriters;
+            final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
             if (isLeftOuter) {
-                rightNullWriters = new INullWriter[rightNullWriterFactories.length];
-                for (int i = 0; i < rightNullWriterFactories.length; i++) {
-                    rightNullWriters[i] = rightNullWriterFactories[i].createNullWriter();
+                for (int i = 0; i < nullWriterFactories1.length; i++) {
+                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
                 }
-            }
-            else {
-                rightNullWriters = null;
-            }
-
-            final INullWriter[] leftNullWriters;
-            if (isRightOuter) {
-                leftNullWriters = new INullWriter[leftNullWriterFactories.length];
-                for (int i = 0; i < leftNullWriterFactories.length; i++) {
-                    leftNullWriters[i] = leftNullWriterFactories[i].createNullWriter();
-                }
-            }
-            else {
-                leftNullWriters = null;
             }
 
             IOperatorNodePushable op = new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
@@ -447,7 +390,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
 
                 @Override
                 public void open() throws HyracksDataException {
-                    state = (BuildAndPartitionTaskState) ctx.getTaskState(new TaskId(new ActivityId(getOperatorId(),
+                    state = (BuildAndPartitionTaskState) ctx.getStateObject(new TaskId(new ActivityId(getOperatorId(),
                             BUILD_AND_PARTITION_ACTIVITY_ID), partition));
                     writer.open();
                     buildWriters = state.fWriters;
@@ -550,7 +493,7 @@ public class HybridHashJoinOperatorDescriptor extends AbstractOperatorDescriptor
                             InMemoryHashJoin joiner = new InMemoryHashJoin(ctx, tableSize, new FrameTupleAccessor(
                                     ctx.getFrameSize(), rd0), hpcRep0, new FrameTupleAccessor(ctx.getFrameSize(), rd1),
                                     hpcRep1, new FrameTuplePairComparator(keys0, keys1, comparators), isLeftOuter,
-                                    isRightOuter, rightNullWriters, leftNullWriters, table);
+                                    nullWriters1, table);
 
                             if (buildWriter != null) {
                                 RunFileReader buildReader = buildWriter.createReader();

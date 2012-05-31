@@ -18,6 +18,8 @@ import java.util.Collection;
 
 import org.apache.commons.lang3.mutable.Mutable;
 
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
@@ -32,7 +34,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -54,8 +55,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestOpera
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
-import edu.uci.ics.hyracks.algebricks.core.api.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.core.utils.Pair;
 
 public class SchemaVariableVisitor implements ILogicalOperatorVisitor<Void, Void> {
 
@@ -123,17 +122,6 @@ public class SchemaVariableVisitor implements ILogicalOperatorVisitor<Void, Void
                 }
             }
         }
-        return null;
-    }
-
-    @Override
-    public Void visitGroupJoinOperator(GroupJoinOperator op, Void arg) throws AlgebricksException {
-        for (ILogicalPlan p : op.getNestedPlans()) {
-            for (Mutable<ILogicalOperator> r : p.getRoots()) {
-                VariableUtilities.getLiveVariables(r.getValue(), schemaVariables);
-            }
-        }
-        standardLayout(op);
         return null;
     }
 

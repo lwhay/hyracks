@@ -61,7 +61,7 @@ public class ChannelSet {
     ChannelControlBlock allocateChannel() throws NetException {
         synchronized (mConn) {
             int idx = allocationBitmap.nextClearBit(0);
-            if (idx < 0 || idx == ccbArray.length) {
+            if (idx < 0 || idx >= ccbArray.length) {
                 cleanupClosedChannels();
                 idx = allocationBitmap.nextClearBit(0);
                 if (idx < 0 || idx == ccbArray.length) {
@@ -183,21 +183,35 @@ public class ChannelSet {
 
     void markEOSAck(int channelId) {
         synchronized (mConn) {
-            assert !pendingEOSAckBitmap.get(channelId);
-            pendingEOSAckBitmap.set(channelId);
-            pendingWriteEventsCounter.increment();
+            if (!pendingEOSAckBitmap.get(channelId)) {
+                pendingEOSAckBitmap.set(channelId);
+                pendingWriteEventsCounter.increment();
+            }
+        }
+    }
+
+    void notifyIOError() {
+        synchronized (mConn) {
+            for (int i = 0; i < ccbArray.length; ++i) {
+                ChannelControlBlock ccb = ccbArray[i];
+                if (ccb != null && !ccb.getRemoteEOS()) {
+                    ccb.reportRemoteError(-1);
+                    markEOSAck(i);
+                    unmarkPendingCredits(i);
+                }
+            }
         }
     }
 
     private ChannelControlBlock createChannel(int idx) throws NetException {
+        if (idx >= MAX_OPEN_CHANNELS) {
+            throw new NetException("More than " + MAX_OPEN_CHANNELS + " opened concurrently");
+        }
         if (idx >= ccbArray.length) {
             expand(idx);
         }
-        if (idx > MAX_OPEN_CHANNELS) {
-            throw new NetException("More than " + MAX_OPEN_CHANNELS + " opened concurrently");
-        }
         if (ccbArray[idx] != null) {
-            assert ccbArray[idx].completelyClosed();
+            assert ccbArray[idx].completelyClosed() : ccbArray[idx].toString();
             if (ccbArray[idx].completelyClosed()) {
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.fine("Cleaning free channel: " + ccbArray[idx]);

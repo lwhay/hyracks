@@ -414,7 +414,7 @@ public class OptimizedHybridHashJoin {
         this.inMemJoiner = new InMemoryHashJoin(ctx, inMemTupCount,
                 new FrameTupleAccessor(ctx.getFrameSize(), probeRd), probeHpc, new FrameTupleAccessor(
                         ctx.getFrameSize(), buildRd), buildHpc, new FrameTuplePairComparator(probeKeys, buildKeys,
-                        comparators), isLeftOuter, false, nullWriters1, null, table);
+                        comparators), isLeftOuter, nullWriters1, table);
     }
 
     private void cacheInMemJoin() throws HyracksDataException {

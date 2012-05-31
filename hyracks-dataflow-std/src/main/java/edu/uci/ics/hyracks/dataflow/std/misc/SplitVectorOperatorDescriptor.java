@@ -28,11 +28,11 @@ import edu.uci.ics.hyracks.api.dataflow.TaskId;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 import edu.uci.ics.hyracks.dataflow.std.base.IOpenableDataWriterOperator;
 import edu.uci.ics.hyracks.dataflow.std.util.DeserializedOperatorNodePushable;
 
@@ -40,7 +40,7 @@ public class SplitVectorOperatorDescriptor extends AbstractOperatorDescriptor {
     private static final int COLLECT_ACTIVITY_ID = 0;
     private static final int SPLIT_ACTIVITY_ID = 1;
 
-    public static class CollectTaskState extends AbstractTaskState {
+    public static class CollectTaskState extends AbstractStateObject {
         private ArrayList<Object[]> buffer;
 
         public CollectTaskState() {
@@ -91,7 +91,7 @@ public class SplitVectorOperatorDescriptor extends AbstractOperatorDescriptor {
 
                 @Override
                 public void close() throws HyracksDataException {
-                    ctx.setTaskState(state);
+                    ctx.setStateObject(state);
                 }
 
                 @Override
@@ -134,7 +134,7 @@ public class SplitVectorOperatorDescriptor extends AbstractOperatorDescriptor {
 
                 @Override
                 public void open() throws HyracksDataException {
-                    state = (CollectTaskState) ctx.getTaskState(new TaskId(new ActivityId(getOperatorId(),
+                    state = (CollectTaskState) ctx.getStateObject(new TaskId(new ActivityId(getOperatorId(),
                             COLLECT_ACTIVITY_ID), partition));
                 }
 
@@ -167,7 +167,7 @@ public class SplitVectorOperatorDescriptor extends AbstractOperatorDescriptor {
 
     private final int splits;
 
-    public SplitVectorOperatorDescriptor(JobSpecification spec, int splits, RecordDescriptor recordDescriptor) {
+    public SplitVectorOperatorDescriptor(IOperatorDescriptorRegistry spec, int splits, RecordDescriptor recordDescriptor) {
         super(spec, 1, 1);
         this.splits = splits;
         recordDescriptors[0] = recordDescriptor;
