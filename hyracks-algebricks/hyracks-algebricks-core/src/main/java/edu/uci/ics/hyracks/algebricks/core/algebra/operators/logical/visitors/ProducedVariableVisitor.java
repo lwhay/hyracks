@@ -103,6 +103,7 @@ public class ProducedVariableVisitor implements ILogicalOperatorVisitor<Void, Vo
     public Void visitGroupByOperator(GroupByOperator op, Void arg) throws AlgebricksException {
         for (ILogicalPlan p : op.getNestedPlans()) {
             for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                // should this be getProducedVariables?
                 VariableUtilities.getLiveVariables(r.getValue(), producedVariables);
             }
         }
@@ -121,6 +122,11 @@ public class ProducedVariableVisitor implements ILogicalOperatorVisitor<Void, Vo
 
     @Override
     public Void visitGroupJoinOperator(GroupJoinOperator op, Void arg) throws AlgebricksException {
+        for (ILogicalPlan p : op.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                VariableUtilities.getProducedVariables(r.getValue(), producedVariables);
+            }
+        }
         return null;
     }
 

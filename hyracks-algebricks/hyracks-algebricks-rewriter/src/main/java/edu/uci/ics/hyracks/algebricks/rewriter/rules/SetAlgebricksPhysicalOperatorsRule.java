@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOp
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -63,6 +64,7 @@ import edu.uci.ics.hyracks.algebricks.core.api.exceptions.NotImplementedExceptio
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import edu.uci.ics.hyracks.algebricks.core.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.rewriter.util.GroupJoinUtils;
 import edu.uci.ics.hyracks.algebricks.rewriter.util.JoinUtils;
 
 public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule {
@@ -161,6 +163,10 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     } else {
                         op.setPhysicalOperator(new MicroPreclusteredGroupByPOperator(columnList));
                     }
+                    break;
+                }
+                case GROUPJOIN: {
+                    GroupJoinUtils.setJoinAlgorithmAndExchangeAlgo((GroupJoinOperator) op, context);
                     break;
                 }
                 case INNERJOIN: {

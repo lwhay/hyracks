@@ -31,6 +31,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -643,8 +644,12 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         @Override
         public ILogicalOperator visitGroupJoinOperator(GroupJoinOperator op, Void arg)
                 throws AlgebricksException {
-            return new GroupJoinOperator(deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
-                    .getInputs().get(1));
+            ArrayList<ILogicalPlan> newSubplans = new ArrayList<ILogicalPlan>();
+            for (ILogicalPlan plan : op.getNestedPlans()) {
+                newSubplans.add(IsomorphismOperatorVisitor.deepCopy(plan));
+            }
+            return new GroupJoinOperator(op.getJoinKind(), deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
+                    .getInputs().get(1), (AbstractOperatorWithNestedPlans) visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), arg));
         }
 
         @Override

@@ -37,6 +37,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionC
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.UnnestingFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractUnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
@@ -68,6 +69,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOp
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator.JoinKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.FunctionalDependency;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.LocalGroupingProperty;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
@@ -317,18 +319,25 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         functionalDependencies.addAll(getOrComputeFDs(opRight, ctx));
         equivalenceClasses.putAll(getOrComputeEqClasses(opLeft, ctx));
         equivalenceClasses.putAll(getOrComputeEqClasses(opRight, ctx));
-
-        Collection<LogicalVariable> leftSideVars;
-        if (opLeft.getSchema() == null) {
-            leftSideVars = new LinkedList<LogicalVariable>();
-            VariableUtilities.getLiveVariables(opLeft, leftSideVars);
-            // actually, not all produced vars. are visible (due to projection)
-            // so using cached schema is better and faster
-        } else {
-            leftSideVars = opLeft.getSchema();
-        }
-        ILogicalExpression expr = op.getCondition().getValue();
-        expr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
+    	if(op.getJoinKind() == JoinKind.LEFT_OUTER) {
+	        Collection<LogicalVariable> leftSideVars;
+	        if (opLeft.getSchema() == null) {
+	            leftSideVars = new LinkedList<LogicalVariable>();
+	            VariableUtilities.getLiveVariables(opLeft, leftSideVars);
+	            // actually, not all produced vars. are visible (due to projection)
+	            // so using cached schema is better and faster
+	        } else {
+	            leftSideVars = opLeft.getSchema();
+	        }
+	        ILogicalExpression expr = op.getCondition().getValue();
+	        expr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
+    	}
+    	else {
+            ILogicalExpression expr = op.getCondition().getValue();
+            expr.getConstraintsAndEquivClasses(functionalDependencies, equivalenceClasses);
+    	}
+    	
+    	visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), ctx);
         return null;
     }
     
