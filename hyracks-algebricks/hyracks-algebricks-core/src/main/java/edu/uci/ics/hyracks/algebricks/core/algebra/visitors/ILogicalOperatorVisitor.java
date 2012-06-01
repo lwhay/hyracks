@@ -23,6 +23,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -56,6 +57,8 @@ public interface ILogicalOperatorVisitor<R, T> {
 
     public R visitLimitOperator(LimitOperator op, T arg) throws AlgebricksException;
 
+    public R visitGroupJoinOperator(GroupJoinOperator op, T arg) throws AlgebricksException;
+    
     public R visitInnerJoinOperator(InnerJoinOperator op, T arg) throws AlgebricksException;
 
     public R visitLeftOuterJoinOperator(LeftOuterJoinOperator op, T arg) throws AlgebricksException;

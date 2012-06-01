@@ -34,6 +34,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -42,6 +43,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -49,6 +51,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LeftOuterJo
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LimitOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.NestedTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator.JoinKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.PartitioningSplitOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
@@ -180,6 +183,17 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         return isomorphic;
     }
 
+    @Override
+    public Boolean visitGroupJoinOperator(GroupJoinOperator op, ILogicalOperator arg)
+            throws AlgebricksException {
+        AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
+        if (aop.getOperatorTag() != LogicalOperatorTag.GROUPJOIN)
+            return Boolean.FALSE;
+        GroupJoinOperator joinOpArg = (GroupJoinOperator) copyAndSubstituteVar(op, arg);
+        boolean isomorphic = op.getCondition().getValue().equals(joinOpArg.getCondition().getValue());
+        return isomorphic;
+    }
+    
     @Override
     public Boolean visitInnerJoinOperator(InnerJoinOperator op, ILogicalOperator arg) throws AlgebricksException {
         AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
@@ -628,6 +642,17 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             return new DieOperator(deepCopyExpressionRef(op.getAfterObjects()).getValue());
         }
 
+        @Override
+        public ILogicalOperator visitGroupJoinOperator(GroupJoinOperator op, Void arg)
+                throws AlgebricksException {
+            ArrayList<ILogicalPlan> newSubplans = new ArrayList<ILogicalPlan>();
+            for (ILogicalPlan plan : op.getNestedPlans()) {
+                newSubplans.add(IsomorphismOperatorVisitor.deepCopy(plan));
+            }
+            return new GroupJoinOperator(op.getJoinKind(), deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
+                    .getInputs().get(1), (AbstractOperatorWithNestedPlans) visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), arg));
+        }
+        
         @Override
         public ILogicalOperator visitInnerJoinOperator(InnerJoinOperator op, Void arg) throws AlgebricksException {
             return new InnerJoinOperator(deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op

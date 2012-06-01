@@ -34,6 +34,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -125,6 +126,17 @@ public class SchemaVariableVisitor implements ILogicalOperatorVisitor<Void, Void
         return null;
     }
 
+    @Override
+    public Void visitGroupJoinOperator(GroupJoinOperator op, Void arg) throws AlgebricksException {
+        for (ILogicalPlan p : op.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                VariableUtilities.getLiveVariables(r.getValue(), schemaVariables);
+            }
+        }
+        standardLayout(op);
+        return null;
+    }
+    
     @Override
     public Void visitInnerJoinOperator(InnerJoinOperator op, Void arg) throws AlgebricksException {
         standardLayout(op);
