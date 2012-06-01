@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeTestContext;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeTestDriver;
 import edu.uci.ics.hyracks.storage.am.rtree.RTreeTestUtils;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 
 @SuppressWarnings("rawtypes")
 public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
@@ -36,9 +37,10 @@ public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
 
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, ITupleReference key) throws Exception {
+            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, ITupleReference key,
+            RTreePolicyType rtreePolicyType) throws Exception {
 
-        AbstractRTreeTestContext ctx = createTestContext(fieldSerdes, valueProviderFactories, numKeys);
+        AbstractRTreeTestContext ctx = createTestContext(fieldSerdes, valueProviderFactories, numKeys, rtreePolicyType);
 
         // Start off with one tree bulk loaded.
         // We assume all fieldSerdes are of the same type. Check the first one
@@ -51,11 +53,11 @@ public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
 
         int maxTreesToMerge = 3;
         for (int i = 0; i < maxTreesToMerge; i++) {
-        	for (int j = 0; j < i; j++) {
-        		if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-        			rTreeTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
+            for (int j = 0; j < i; j++) {
+                if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
+                    rTreeTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
                 } else if (fieldSerdes[0] instanceof DoubleSerializerDeserializer) {
-                	rTreeTestUtils.bulkLoadDoubleTuples(ctx, numTuplesToInsert, getRandom());
+                    rTreeTestUtils.bulkLoadDoubleTuples(ctx, numTuplesToInsert, getRandom());
                 }
             }
 

@@ -29,21 +29,24 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDese
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 
 @SuppressWarnings("rawtypes")
 public abstract class AbstractRTreeTestDriver {
     protected final Logger LOGGER = Logger.getLogger(AbstractRTreeTestDriver.class.getName());
 
-    protected static final int numTuplesToInsert = 5000;
+    protected static final int numTuplesToInsert = 10000;
 
     protected abstract AbstractRTreeTestContext createTestContext(ISerializerDeserializer[] fieldSerdes,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys) throws Exception;
+            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, RTreePolicyType rtreePolicyType)
+            throws Exception;
 
     protected abstract Random getRandom();
 
     protected abstract void runTest(ISerializerDeserializer[] fieldSerdes,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, ITupleReference key) throws Exception;
+            IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, ITupleReference key,
+            RTreePolicyType rtreePolicyType) throws Exception;
 
     protected abstract String getTestOpName();
 
@@ -64,7 +67,7 @@ public abstract class AbstractRTreeTestDriver {
         // and the top right coordinates are 1000, 1000
         ITupleReference key = TupleUtils.createIntegerTuple(-1000, -1000, 1000, 1000);
 
-        runTest(fieldSerdes, valueProviderFactories, numKeys, key);
+        runTest(fieldSerdes, valueProviderFactories, numKeys, key, RTreePolicyType.RTREE);
 
     }
 
@@ -85,7 +88,7 @@ public abstract class AbstractRTreeTestDriver {
         // -1000.0 and the top right coordinates are 1000.0, 1000.0
         ITupleReference key = TupleUtils.createDoubleTuple(-1000.0, -1000.0, 1000.0, 1000.0);
 
-        runTest(fieldSerdes, valueProviderFactories, numKeys, key);
+        runTest(fieldSerdes, valueProviderFactories, numKeys, key, RTreePolicyType.RTREE);
 
     }
 
@@ -110,7 +113,7 @@ public abstract class AbstractRTreeTestDriver {
         ITupleReference key = TupleUtils.createDoubleTuple(-1000.0, -1000.0, -1000.0, -1000.0, 1000.0, 1000.0, 1000.0,
                 1000.0);
 
-        runTest(fieldSerdes, valueProviderFactories, numKeys, key);
+        runTest(fieldSerdes, valueProviderFactories, numKeys, key, RTreePolicyType.RTREE);
 
     }
 }

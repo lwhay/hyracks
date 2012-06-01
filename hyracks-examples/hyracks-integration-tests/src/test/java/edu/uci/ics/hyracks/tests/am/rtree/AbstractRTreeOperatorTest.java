@@ -57,6 +57,7 @@ import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorD
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexInsertUpdateDeleteOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 import edu.uci.ics.hyracks.storage.common.IStorageManagerInterface;
 import edu.uci.ics.hyracks.test.support.TestIndexRegistryProvider;
@@ -163,12 +164,12 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
                 .createPrimitiveValueProviderFactories(secondaryComparatorFactories.length, DoublePointable.FACTORY);
 
         rtreeDataflowHelperFactory = createDataFlowHelperFactory(secondaryValueProviderFactories,
-                btreeComparatorFactories);
+                RTreePolicyType.RSTARTREE, btreeComparatorFactories);
 
     }
 
     protected abstract IIndexDataflowHelperFactory createDataFlowHelperFactory(
-            IPrimitiveValueProviderFactory[] secondaryValueProviderFactories,
+            IPrimitiveValueProviderFactory[] secondaryValueProviderFactories, RTreePolicyType rtreePolicyType,
             IBinaryComparatorFactory[] btreeComparatorFactories);
 
     protected void loadPrimaryIndex() throws Exception {

@@ -22,6 +22,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IndexDataflowHelper;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 
 public class LSMRTreeDataflowHelperFactory implements IIndexDataflowHelperFactory {
 
@@ -29,17 +30,19 @@ public class LSMRTreeDataflowHelperFactory implements IIndexDataflowHelperFactor
 
     private final IBinaryComparatorFactory[] btreeComparatorFactories;
     private final IPrimitiveValueProviderFactory[] valueProviderFactories;
+    private final RTreePolicyType rtreePolicyType;
 
     public LSMRTreeDataflowHelperFactory(IPrimitiveValueProviderFactory[] valueProviderFactories,
-            IBinaryComparatorFactory[] btreeComparatorFactories) {
+            RTreePolicyType rtreePolicyType, IBinaryComparatorFactory[] btreeComparatorFactories) {
         this.btreeComparatorFactories = btreeComparatorFactories;
         this.valueProviderFactories = valueProviderFactories;
+        this.rtreePolicyType = rtreePolicyType;
     }
 
     @Override
     public IndexDataflowHelper createIndexDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             IOperationCallbackProvider opCallbackProvider, int partition, boolean createIfNotExists) {
         return new LSMRTreeDataflowHelper(opDesc, ctx, opCallbackProvider, partition, createIfNotExists,
-                btreeComparatorFactories, valueProviderFactories);
+                btreeComparatorFactories, valueProviderFactories, rtreePolicyType);
     }
 }

@@ -27,150 +27,153 @@ import edu.uci.ics.hyracks.storage.am.rtree.impls.DoublePrimitiveValueProviderFa
  */
 
 public class HilbertDoubleComparator implements ILinearizeComparator {
-	private final int dim; // dimension
-	private final HilbertState[] states;
-	
-	private double[] bounds;
-	private double stepsize;
-	private int state;
-	private IntArrayList stateStack = new IntArrayList(1000, 200);
-	private DoubleArrayList boundsStack = new DoubleArrayList(2000, 400);
-	
-	private IPrimitiveValueProvider valueProvider = DoublePrimitiveValueProviderFactory.INSTANCE.createPrimitiveValueProvider();
-	
-	private double[] a;
-	private double[] b;
-	
-	
-	private int DEBUG_comps = 0;
-	
-	private class HilbertState {
-		public final int[] nextState;
-		public final int[] position;
-		
-		public HilbertState(int[] nextState, int[] order) {
-			this.nextState = nextState;
-			this.position = order;
-		}
-	}
-	
-	public HilbertDoubleComparator(int dimension) {
-		if(dimension != 2) throw new IllegalArgumentException();
-		dim = dimension;
-		a = new double[dim];
-		b = new double[dim];
-		
-		states = new HilbertState[] {
-				new HilbertState(new int[] {3,0,1,0}, new int[]{0,1,3,2}),
-				new HilbertState(new int[] {1,1,0,2}, new int[]{2,1,3,0}),
-				new HilbertState(new int[] {2,3,2,1}, new int[]{2,3,1,0}),
-				new HilbertState(new int[] {0,2,3,3}, new int[]{0,3,1,2})
-		};
-		
-		resetStateMachine();
-	}
-	
-	private void resetStateMachine() {
-		state = 0;
-		stateStack.clear();
-		stepsize = Double.MAX_VALUE / 2;
-		bounds = new double[dim];
-		boundsStack.clear();
-	}
-	
-	public int compare() {
-		boolean equal = true;
-		for(int i = 0; i < dim; i++) {
-			if(a[i] != b[i]) equal = false;
-		}
-		if(equal) return 0;
-		
-		// We keep the state of the state machine after a comparison. In most cases,
-		// the needed zoom factor is close to the old one. In this step, we check if we have
-		// to zoom out
-		while(true) {
-			if(stateStack.size() <= 1) {
-				resetStateMachine();
-				break;
-			}
-			boolean zoomOut = false;
-			for(int i = 0; i < dim; i++) {
-				if(Math.min(a[i], b[i]) <= bounds[i] - 2 * stepsize || Math.max(a[i], b[i]) >= bounds[i] +  2 * stepsize) {
-					zoomOut = true;
-					break;
-				}
-			}
-			state = stateStack.getLast();
-			stateStack.removeLast();
-			for(int j = dim - 1; j >= 0; j--) {
-				bounds[j] = boundsStack.getLast();
-				boundsStack.removeLast();
-			}
-			stepsize *= 2;
-			if(!zoomOut) {
-				state = stateStack.getLast();
-				stateStack.removeLast();
-				for(int j = dim - 1; j >= 0; j--) {
-					bounds[j] = boundsStack.getLast();
-					boundsStack.removeLast();
-				}
-				stepsize *= 2;
-				break;
-			}
-		}		
-		
-		while(true) {
-			stateStack.add(state);
-			for(int j = 0; j < dim; j++) {
-				boundsStack.add(bounds[j]);
-			}
-			
-			// Find the quadrant in which A and B are
-			int quadrantA = 0, quadrantB = 0;
-			for(int i = dim-1; i >= 0; i--) {
-				if(a[i] >= bounds[i]) quadrantA ^= (1 << (dim - i - 1));
-				if(b[i] >= bounds[i]) quadrantB ^= (1 << (dim - i - 1));
-				
-				if(a[i] >= bounds[i]) {
-					bounds[i] += stepsize;
-				} else {
-					bounds[i] -= stepsize;
-				}
-			}
+    private final int dim; // dimension
+    private final HilbertState[] states;
 
-			stepsize /= 2;
-			if(stepsize <= 2 * DoublePointable.getEpsilon())
-				return 0;
-				// avoid infinite loop due to machine epsilon problems
-						
-			if(quadrantA != quadrantB) {
-				// find the position of A and B's quadrants
-				int posA = states[state].position[quadrantA];
-				int posB = states[state].position[quadrantB];
-				
-				if(posA < posB) return -1; else return 1;
-			}
-						
-			state = states[state].nextState[quadrantA];
-		}
-	}
-	
-	
-	@Override
-	public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
-		for(int i = 0; i < dim; i++) {
-			a[i] = valueProvider.getValue(b1, s1 + (i * 8));
-			b[i] = valueProvider.getValue(b2, s2 + (i * 8));
-		}
-		
-		DEBUG_comps++;
-		if(DEBUG_comps % 1000000 == 0) System.out.println(DEBUG_comps + " comparisons");
-		
-		return compare();
-	}
+    private double[] bounds;
+    private double stepsize;
+    private int state;
+    private IntArrayList stateStack = new IntArrayList(1000, 200);
+    private DoubleArrayList boundsStack = new DoubleArrayList(2000, 400);
 
-	@Override
-	public int getDimensions() {
-		return dim;
-	}
+    private IPrimitiveValueProvider valueProvider = DoublePrimitiveValueProviderFactory.INSTANCE
+            .createPrimitiveValueProvider();
+
+    private double[] a;
+    private double[] b;
+
+    private class HilbertState {
+        public final int[] nextState;
+        public final int[] position;
+
+        public HilbertState(int[] nextState, int[] order) {
+            this.nextState = nextState;
+            this.position = order;
+        }
+    }
+
+    public HilbertDoubleComparator(int dimension) {
+        if (dimension != 2)
+            throw new IllegalArgumentException();
+        dim = dimension;
+        a = new double[dim];
+        b = new double[dim];
+
+        states = new HilbertState[] { new HilbertState(new int[] { 3, 0, 1, 0 }, new int[] { 0, 1, 3, 2 }),
+                new HilbertState(new int[] { 1, 1, 0, 2 }, new int[] { 2, 1, 3, 0 }),
+                new HilbertState(new int[] { 2, 3, 2, 1 }, new int[] { 2, 3, 1, 0 }),
+                new HilbertState(new int[] { 0, 2, 3, 3 }, new int[] { 0, 3, 1, 2 }) };
+
+        resetStateMachine();
+    }
+
+    private void resetStateMachine() {
+        state = 0;
+        stateStack.clear();
+        stepsize = Double.MAX_VALUE / 2;
+        bounds = new double[dim];
+        boundsStack.clear();
+    }
+
+    public int compare() {
+        boolean equal = true;
+        for (int i = 0; i < dim; i++) {
+            if (a[i] != b[i])
+                equal = false;
+        }
+        if (equal)
+            return 0;
+
+        // We keep the state of the state machine after a comparison. In most
+        // cases,
+        // the needed zoom factor is close to the old one. In this step, we
+        // check if we have
+        // to zoom out
+        while (true) {
+            if (stateStack.size() <= 1) {
+                resetStateMachine();
+                break;
+            }
+            boolean zoomOut = false;
+            for (int i = 0; i < dim; i++) {
+                if (Math.min(a[i], b[i]) <= bounds[i] - 2 * stepsize
+                        || Math.max(a[i], b[i]) >= bounds[i] + 2 * stepsize) {
+                    zoomOut = true;
+                    break;
+                }
+            }
+            state = stateStack.getLast();
+            stateStack.removeLast();
+            for (int j = dim - 1; j >= 0; j--) {
+                bounds[j] = boundsStack.getLast();
+                boundsStack.removeLast();
+            }
+            stepsize *= 2;
+            if (!zoomOut) {
+                state = stateStack.getLast();
+                stateStack.removeLast();
+                for (int j = dim - 1; j >= 0; j--) {
+                    bounds[j] = boundsStack.getLast();
+                    boundsStack.removeLast();
+                }
+                stepsize *= 2;
+                break;
+            }
+        }
+
+        while (true) {
+            stateStack.add(state);
+            for (int j = 0; j < dim; j++) {
+                boundsStack.add(bounds[j]);
+            }
+
+            // Find the quadrant in which A and B are
+            int quadrantA = 0, quadrantB = 0;
+            for (int i = dim - 1; i >= 0; i--) {
+                if (a[i] >= bounds[i])
+                    quadrantA ^= (1 << (dim - i - 1));
+                if (b[i] >= bounds[i])
+                    quadrantB ^= (1 << (dim - i - 1));
+
+                if (a[i] >= bounds[i]) {
+                    bounds[i] += stepsize;
+                } else {
+                    bounds[i] -= stepsize;
+                }
+            }
+
+            stepsize /= 2;
+            if (stepsize <= 2 * DoublePointable.getEpsilon())
+                return 0;
+            // avoid infinite loop due to machine epsilon problems
+
+            if (quadrantA != quadrantB) {
+                // find the position of A and B's quadrants
+                int posA = states[state].position[quadrantA];
+                int posB = states[state].position[quadrantB];
+
+                if (posA < posB)
+                    return -1;
+                else
+                    return 1;
+            }
+
+            state = states[state].nextState[quadrantA];
+        }
+    }
+
+    @Override
+    public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
+        for (int i = 0; i < dim; i++) {
+            a[i] = valueProvider.getValue(b1, s1 + (i * 8));
+            b[i] = valueProvider.getValue(b2, s2 + (i * 8));
+        }
+
+        return compare();
+    }
+
+    @Override
+    public int getDimensions() {
+        return dim;
+    }
 }

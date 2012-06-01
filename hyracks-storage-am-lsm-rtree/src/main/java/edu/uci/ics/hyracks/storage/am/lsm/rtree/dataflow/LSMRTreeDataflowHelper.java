@@ -32,6 +32,7 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManage
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTreeInMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTreeInMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.utils.LSMRTreeUtils;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.common.buffercache.HeapBufferAllocator;
 
 public class LSMRTreeDataflowHelper extends TreeIndexDataflowHelper {
@@ -43,26 +44,30 @@ public class LSMRTreeDataflowHelper extends TreeIndexDataflowHelper {
 
     private final IBinaryComparatorFactory[] btreeComparatorFactories;
     private final IPrimitiveValueProviderFactory[] valueProviderFactories;
+    private final RTreePolicyType rtreePolicyType;
 
     public LSMRTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             IOperationCallbackProvider opCallbackProvider, int partition, boolean createIfNotExists,
-            IBinaryComparatorFactory[] btreeComparatorFactories, IPrimitiveValueProviderFactory[] valueProviderFactories) {
+            IBinaryComparatorFactory[] btreeComparatorFactories,
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType) {
         super(opDesc, ctx, opCallbackProvider, partition, createIfNotExists);
         memPageSize = DEFAULT_MEM_PAGE_SIZE;
         memNumPages = DEFAULT_MEM_NUM_PAGES;
         this.btreeComparatorFactories = btreeComparatorFactories;
         this.valueProviderFactories = valueProviderFactories;
+        this.rtreePolicyType = rtreePolicyType;
     }
 
     public LSMRTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             IOperationCallbackProvider opCallbackProvider, int partition, boolean createIfNotExists, int memPageSize,
             int memNumPages, IBinaryComparatorFactory[] btreeComparatorFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories) {
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType) {
         super(opDesc, ctx, opCallbackProvider, partition, createIfNotExists);
         this.memPageSize = memPageSize;
         this.memNumPages = memNumPages;
         this.btreeComparatorFactories = btreeComparatorFactories;
         this.valueProviderFactories = valueProviderFactories;
+        this.rtreePolicyType = rtreePolicyType;
     }
 
     @Override
@@ -77,9 +82,9 @@ public class LSMRTreeDataflowHelper extends TreeIndexDataflowHelper {
         }
         InMemoryFreePageManager memFreePageManager = new LSMRTreeInMemoryFreePageManager(memNumPages,
                 metaDataFrameFactory);
-        return LSMRTreeUtils.createLSMTree(memBufferCache, memFreePageManager, ctx.getIOManager(), file
-                .getFile().getPath(), opDesc.getStorageManager().getBufferCache(ctx), opDesc.getStorageManager()
+        return LSMRTreeUtils.createLSMTree(memBufferCache, memFreePageManager, ctx.getIOManager(), file.getFile()
+                .getPath(), opDesc.getStorageManager().getBufferCache(ctx), opDesc.getStorageManager()
                 .getFileMapProvider(ctx), treeOpDesc.getTreeIndexTypeTraits(), treeOpDesc
-                .getTreeIndexComparatorFactories(), btreeComparatorFactories, valueProviderFactories);
+                .getTreeIndexComparatorFactories(), btreeComparatorFactories, valueProviderFactories, rtreePolicyType);
     }
 }

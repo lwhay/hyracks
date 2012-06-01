@@ -39,6 +39,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.rtree.dataflow.RTreeSearchOperatorDescriptor;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 
 public class RTreeSecondaryIndexSearchOperatorTest extends AbstractRTreeOperatorTest {
 
@@ -111,9 +112,9 @@ public class RTreeSecondaryIndexSearchOperatorTest extends AbstractRTreeOperator
 
     @Override
     protected IIndexDataflowHelperFactory createDataFlowHelperFactory(
-            IPrimitiveValueProviderFactory[] secondaryValueProviderFactories,
+            IPrimitiveValueProviderFactory[] secondaryValueProviderFactories, RTreePolicyType rtreePolicyType,
             IBinaryComparatorFactory[] btreeComparatorFactories) {
-        return ((RTreeOperatorTestHelper) testHelper)
-                .createDataFlowHelperFactory(secondaryValueProviderFactories, null);
+        return ((RTreeOperatorTestHelper) testHelper).createDataFlowHelperFactory(secondaryValueProviderFactories,
+                rtreePolicyType, null);
     }
 }

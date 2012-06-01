@@ -30,7 +30,6 @@ import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.freepage.LinkedListFreePageManagerFactory;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
-import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.BTreeFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTree;
@@ -39,23 +38,24 @@ import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.RTreeFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.tuples.LSMTypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreeNSMLeafFrameFactory;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.am.rtree.linearize.HilbertDoubleComparatorFactory;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 public class LSMRTreeUtils {
-    public static LSMRTree createLSMTree(InMemoryBufferCache memBufferCache,
-            InMemoryFreePageManager memFreePageManager, IIOManager ioManager, String onDiskDir,
-            IBufferCache diskBufferCache, IFileMapProvider diskFileMapProvider, ITypeTraits[] typeTraits,
-            IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories) {
+    public static LSMRTree createLSMTree(IBufferCache memBufferCache, InMemoryFreePageManager memFreePageManager,
+            IIOManager ioManager, String onDiskDir, IBufferCache diskBufferCache, IFileMapProvider diskFileMapProvider,
+            ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
+            IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
+            RTreePolicyType rtreePolicyType) {
         LSMTypeAwareTupleWriterFactory rtreeTupleWriterFactory = new LSMTypeAwareTupleWriterFactory(typeTraits, false);
         LSMTypeAwareTupleWriterFactory btreeTupleWriterFactory = new LSMTypeAwareTupleWriterFactory(typeTraits, true);
 
         ITreeIndexFrameFactory rtreeInteriorFrameFactory = new RTreeNSMInteriorFrameFactory(rtreeTupleWriterFactory,
-                valueProviderFactories);
+                valueProviderFactories, rtreePolicyType);
         ITreeIndexFrameFactory rtreeLeafFrameFactory = new RTreeNSMLeafFrameFactory(rtreeTupleWriterFactory,
-                valueProviderFactories);
+                valueProviderFactories, rtreePolicyType);
 
         ITreeIndexFrameFactory btreeInteriorFrameFactory = new BTreeNSMInteriorFrameFactory(btreeTupleWriterFactory);
         ITreeIndexFrameFactory btreeLeafFrameFactory = new BTreeNSMLeafFrameFactory(btreeTupleWriterFactory);
@@ -70,18 +70,19 @@ public class LSMRTreeUtils {
         BTreeFactory diskBTreeFactory = new BTreeFactory(diskBufferCache, NoOpOperationCallback.INSTANCE,
                 freePageManagerFactory, btreeCmpFactories, typeTraits.length, btreeInteriorFrameFactory,
                 btreeLeafFrameFactory);
-        
+
         ILinearizeComparatorFactory linearizer = NullLinearizeComparatorFactory.get(typeTraits.length / 2);
-        
-        if(typeTraits.length / 2 == 2) {
-        	boolean hilbertComparable = true;
-        	for(int i = 0; i < typeTraits.length; i++) {
-        		if(typeTraits[0] != DoublePointable.TYPE_TRAITS) {
-        			hilbertComparable = false;
-        			break;
-        		}
-        	}	
-        	if(hilbertComparable) linearizer = new HilbertDoubleComparatorFactory(2);
+
+        if (typeTraits.length / 2 == 2) {
+            boolean hilbertComparable = true;
+            for (int i = 0; i < typeTraits.length; i++) {
+                if (typeTraits[0] != DoublePointable.TYPE_TRAITS) {
+                    hilbertComparable = false;
+                    break;
+                }
+            }
+            if (hilbertComparable)
+                linearizer = new HilbertDoubleComparatorFactory(2);
         }
 
         ILSMFileManager fileNameManager = new LSMRTreeFileManager(ioManager, diskFileMapProvider, onDiskDir);
