@@ -91,6 +91,7 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor implements ITre
 	        	depletedRtreeCursors[foundIn] = true;
 	        }
 	        
+	        boolean killed = false;
 	        for (int i = 0; i <= foundIn; i++) {
                 try {
                     btreeCursors[i].reset();
@@ -102,16 +103,19 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor implements ITre
                 }
                 try {
                     if (btreeCursors[i].hasNext()) {
+                    	killed = true;
                         break;
                     }
                 } finally {
                     btreeCursors[i].close();
                 }
             }
-	        foundNext = true;
-	        break;
+	        if(!killed) {
+		        break;
+	        }
         }
-        
+
+        foundNext = true;
         return true;
     }
 
