@@ -15,25 +15,17 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.rtree.impls;
 
-
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
-import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
-import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
-import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
-import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
-import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
-import edu.uci.ics.hyracks.storage.am.rtree.impls.RTreeSearchCursor;
-import edu.uci.ics.hyracks.storage.am.rtree.impls.SearchPredicate;
-import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor implements ITreeIndexCursor {
 
     private int currentCursror;
+
     public LSMRTreeSearchCursor() {
         currentCursror = 0;
     }

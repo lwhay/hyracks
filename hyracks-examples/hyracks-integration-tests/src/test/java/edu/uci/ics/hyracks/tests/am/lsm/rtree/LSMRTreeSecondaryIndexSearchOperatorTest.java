@@ -34,6 +34,6 @@ public class LSMRTreeSecondaryIndexSearchOperatorTest extends RTreeSecondaryInde
             IPrimitiveValueProviderFactory[] secondaryValueProviderFactories, RTreePolicyType rtreePolicyType,
             IBinaryComparatorFactory[] btreeComparatorFactories) {
         return ((LSMRTreeOperatorTestHelper) testHelper).createDataFlowHelperFactory(secondaryValueProviderFactories,
-                rtreePolicyType, btreeComparatorFactories);
+                rtreePolicyType, btreeComparatorFactories, null);
     }
 }

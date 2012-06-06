@@ -28,11 +28,9 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
 import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.SerdeUtils;
-import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.ITreeIndexTestWorkerFactory;
 import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector.TestOperation;
 import edu.uci.ics.hyracks.storage.am.common.TestWorkloadConf;
@@ -62,7 +60,7 @@ public abstract class AbstractRTreeMultiThreadTest {
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType)
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType, int numKeys)
             throws TreeIndexException;
 
     protected abstract int getFileId();
@@ -99,7 +97,7 @@ public abstract class AbstractRTreeMultiThreadTest {
                 fieldSerdes.length);
 
         ITreeIndex index = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
-                rtreePolicyType);
+                rtreePolicyType, numKeys);
         ITreeIndexTestWorkerFactory workerFactory = getWorkerFactory();
 
         // 4 batches per thread.
@@ -137,7 +135,7 @@ public abstract class AbstractRTreeMultiThreadTest {
                     dataMsg);
         }
     }
-    
+
     @Test
     public void twoDimensionsDouble() throws Exception {
         ISerializerDeserializer[] fieldSerdes = { DoubleSerializerDeserializer.INSTANCE,
@@ -147,14 +145,14 @@ public abstract class AbstractRTreeMultiThreadTest {
         int numKeys = 4;
         IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
                 numKeys, DoublePointable.FACTORY);
-        
+
         String dataMsg = "Two Dimensions Of Double Values";
-        
+
         for (TestWorkloadConf conf : workloadConfs) {
             runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, REGULAR_NUM_THREADS, conf,
                     dataMsg);
-            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, EXCESSIVE_NUM_THREADS,
-                    conf, dataMsg);
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, EXCESSIVE_NUM_THREADS, conf,
+                    dataMsg);
         }
 
     }
@@ -176,8 +174,8 @@ public abstract class AbstractRTreeMultiThreadTest {
         for (TestWorkloadConf conf : workloadConfs) {
             runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, REGULAR_NUM_THREADS, conf,
                     dataMsg);
-            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, EXCESSIVE_NUM_THREADS,
-                    conf, dataMsg);
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RTREE, EXCESSIVE_NUM_THREADS, conf,
+                    dataMsg);
         }
     }
 }

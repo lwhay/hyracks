@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
@@ -45,29 +46,34 @@ public class LSMRTreeDataflowHelper extends TreeIndexDataflowHelper {
     private final IBinaryComparatorFactory[] btreeComparatorFactories;
     private final IPrimitiveValueProviderFactory[] valueProviderFactories;
     private final RTreePolicyType rtreePolicyType;
+    private final ILinearizeComparatorFactory linearizer;
 
     public LSMRTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             IOperationCallbackProvider opCallbackProvider, int partition, boolean createIfNotExists,
             IBinaryComparatorFactory[] btreeComparatorFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType) {
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType,
+            ILinearizeComparatorFactory linearizer) {
         super(opDesc, ctx, opCallbackProvider, partition, createIfNotExists);
         memPageSize = DEFAULT_MEM_PAGE_SIZE;
         memNumPages = DEFAULT_MEM_NUM_PAGES;
         this.btreeComparatorFactories = btreeComparatorFactories;
         this.valueProviderFactories = valueProviderFactories;
         this.rtreePolicyType = rtreePolicyType;
+        this.linearizer = linearizer;
     }
 
     public LSMRTreeDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             IOperationCallbackProvider opCallbackProvider, int partition, boolean createIfNotExists, int memPageSize,
             int memNumPages, IBinaryComparatorFactory[] btreeComparatorFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType) {
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType,
+            ILinearizeComparatorFactory linearizer) {
         super(opDesc, ctx, opCallbackProvider, partition, createIfNotExists);
         this.memPageSize = memPageSize;
         this.memNumPages = memNumPages;
         this.btreeComparatorFactories = btreeComparatorFactories;
         this.valueProviderFactories = valueProviderFactories;
         this.rtreePolicyType = rtreePolicyType;
+        this.linearizer = linearizer;
     }
 
     @Override
@@ -85,6 +91,7 @@ public class LSMRTreeDataflowHelper extends TreeIndexDataflowHelper {
         return LSMRTreeUtils.createLSMTree(memBufferCache, memFreePageManager, ctx.getIOManager(), file.getFile()
                 .getPath(), opDesc.getStorageManager().getBufferCache(ctx), opDesc.getStorageManager()
                 .getFileMapProvider(ctx), treeOpDesc.getTreeIndexTypeTraits(), treeOpDesc
-                .getTreeIndexComparatorFactories(), btreeComparatorFactories, valueProviderFactories, rtreePolicyType);
+                .getTreeIndexComparatorFactories(), btreeComparatorFactories, valueProviderFactories, rtreePolicyType,
+                linearizer);
     }
 }

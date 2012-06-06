@@ -16,9 +16,12 @@
 package edu.uci.ics.hyracks.tests.am.lsm.rtree;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.utils.LSMRTreeUtils;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.test.support.TestStorageManagerComponentHolder;
 import edu.uci.ics.hyracks.tests.am.common.ITreeIndexOperatorTestHelper;
@@ -32,8 +35,10 @@ public class LSMRTreeSecondaryIndexInsertOperatorTest extends RTreeSecondaryInde
     @Override
     protected IIndexDataflowHelperFactory createDataFlowHelperFactory(
             IPrimitiveValueProviderFactory[] secondaryValueProviderFactories, RTreePolicyType rtreePolicyType,
-            IBinaryComparatorFactory[] btreeComparatorFactories) {
+            IBinaryComparatorFactory[] btreeComparatorFactories) throws TreeIndexException {
+        ILinearizeComparatorFactory linearizer = LSMRTreeUtils.proposeBestLinearizer(secondaryTypeTraits,
+                secondaryKeyFieldCount);
         return ((LSMRTreeOperatorTestHelper) testHelper).createDataFlowHelperFactory(secondaryValueProviderFactories,
-                rtreePolicyType, btreeComparatorFactories);
+                rtreePolicyType, btreeComparatorFactories, linearizer);
     }
 }

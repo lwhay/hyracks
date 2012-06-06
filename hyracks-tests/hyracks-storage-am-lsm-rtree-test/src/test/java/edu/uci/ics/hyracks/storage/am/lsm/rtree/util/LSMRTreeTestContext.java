@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.storage.am.lsm.rtree.util;
 import java.util.Collection;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
@@ -72,9 +73,10 @@ public final class LSMRTreeTestContext extends AbstractRTreeTestContext {
                 .serdesToComparatorFactories(fieldSerdes, numKeyFields);
         IBinaryComparatorFactory[] btreeCmpFactories = SerdeUtils.serdesToComparatorFactories(fieldSerdes,
                 fieldSerdes.length);
+        ILinearizeComparatorFactory linearizer = LSMRTreeUtils.proposeBestLinearizer(typeTraits, numKeyFields);
         LSMRTree lsmTree = LSMRTreeUtils.createLSMTree(memBufferCache, memFreePageManager, ioManager, onDiskDir,
                 diskBufferCache, diskFileMapProvider, typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, rtreePolicyType);
+                valueProviderFactories, rtreePolicyType, linearizer);
         lsmTree.create(fileId);
         lsmTree.open(fileId);
         LSMRTreeTestContext testCtx = new LSMRTreeTestContext(fieldSerdes, lsmTree);

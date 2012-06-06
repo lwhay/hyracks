@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.NullLinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -398,40 +397,35 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         ITreeIndexBulkLoader rTreeBulkloader;
         ITreeIndexCursor cursor;
 
-        if (!(linearizer instanceof NullLinearizeComparatorFactory)) {
-            IBinaryComparatorFactory[] linearizerArray = { linearizer };
+        IBinaryComparatorFactory[] linearizerArray = { linearizer };
 
-            if (rTreeTupleSorter == null) {
-                rTreeTupleSorter = new RTreeTupleSorter(memRTreeTuples, MEM_RTREE_FILE_ID, linearizerArray,
-                        rtreeLeafFrameFactory.createFrame(), rtreeLeafFrameFactory.createFrame(), memComponent
-                                .getRTree().getBufferCache());
-            } else {
-                rTreeTupleSorter.reset();
-            }
-            // BulkLoad the tuples from the in-memory tree into the new disk
-            // RTree.
-
-            boolean isEmpty = true;
-            if (rtreeScanCursor.hasNext()) {
-                isEmpty = true;
-            }
-            try {
-                while (rtreeScanCursor.hasNext()) {
-                    rtreeScanCursor.next();
-                    rTreeTupleSorter.insertTupleEntry(rtreeScanCursor.getPageId(), rtreeScanCursor.getTupleOffset());
-                }
-            } finally {
-                rtreeScanCursor.close();
-            }
-            if (!isEmpty) {
-                rTreeTupleSorter.sort();
-            }
-            rTreeBulkloader = diskRTree.createBulkLoader(1.0f);
-            cursor = rTreeTupleSorter;
+        if (rTreeTupleSorter == null) {
+            rTreeTupleSorter = new RTreeTupleSorter(memRTreeTuples, MEM_RTREE_FILE_ID, linearizerArray,
+                    rtreeLeafFrameFactory.createFrame(), rtreeLeafFrameFactory.createFrame(), memComponent.getRTree()
+                            .getBufferCache());
         } else {
-            rTreeBulkloader = diskRTree.createInsertBulkLoader();
-            cursor = rtreeScanCursor;
+            rTreeTupleSorter.reset();
         }
+        // BulkLoad the tuples from the in-memory tree into the new disk
+        // RTree.
+
+        boolean isEmpty = true;
+        if (rtreeScanCursor.hasNext()) {
+            isEmpty = true;
+        }
+        try {
+            while (rtreeScanCursor.hasNext()) {
+                rtreeScanCursor.next();
+                rTreeTupleSorter.insertTupleEntry(rtreeScanCursor.getPageId(), rtreeScanCursor.getTupleOffset());
+            }
+        } finally {
+            rtreeScanCursor.close();
+        }
+        if (!isEmpty) {
+            rTreeTupleSorter.sort();
+        }
+        rTreeBulkloader = diskRTree.createBulkLoader(1.0f);
+        cursor = rTreeTupleSorter;
 
         try {
             while (cursor.hasNext()) {
@@ -494,8 +488,7 @@ public class LSMRTree implements ILSMIndex, ITreeIndex {
         RTree mergedRTree = (RTree) createDiskTree(diskRTreeFactory, rtreeFile, true);
         BTree mergedBTree = (BTree) createDiskTree(diskBTreeFactory, btreeFile, true);
 
-        ITreeIndexBulkLoader bulkloader = (!(linearizer instanceof NullLinearizeComparatorFactory) ? mergedRTree
-                .createBulkLoader(1.0f) : mergedRTree.createInsertBulkLoader());
+        ITreeIndexBulkLoader bulkloader = mergedRTree.createBulkLoader(1.0f);
         try {
             while (cursor.hasNext()) {
                 cursor.next();

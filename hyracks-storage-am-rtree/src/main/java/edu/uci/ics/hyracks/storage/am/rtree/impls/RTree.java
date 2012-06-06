@@ -24,7 +24,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
@@ -913,11 +912,11 @@ public class RTree extends AbstractTreeIndex {
 
             leafFrame.setPage(leafFrontier.page);
             leafFrame.insert(tuple, -1);
-
         }
 
         public void end() throws HyracksDataException {
             propagateBulk(1, true);
+
             super.end();
         }
 
@@ -978,12 +977,5 @@ public class RTree extends AbstractTreeIndex {
 
             leafFrame.setPage(nodeFrontiers.get(0).page);
         }
-    }
-
-    @Deprecated
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws HyracksDataException, TreeIndexException {
-        if (this.bulkloader == null)
-            this.bulkloader = this.createBulkLoader(fillFactor);
-        return null;
     }
 }

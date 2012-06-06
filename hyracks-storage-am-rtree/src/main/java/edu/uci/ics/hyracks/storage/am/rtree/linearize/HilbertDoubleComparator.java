@@ -2,6 +2,7 @@ package edu.uci.ics.hyracks.storage.am.rtree.linearize;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparator;
 import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.DoubleArrayList;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IntArrayList;
@@ -90,7 +91,7 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
         // check if we have
         // to zoom out
         while (true) {
-            if (stateStack.size() <= 1) {
+            if (stateStack.size() <= dim) {
                 resetStateMachine();
                 break;
             }
@@ -165,8 +166,8 @@ public class HilbertDoubleComparator implements ILinearizeComparator {
     @Override
     public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
         for (int i = 0; i < dim; i++) {
-            a[i] = valueProvider.getValue(b1, s1 + (i * 8));
-            b[i] = valueProvider.getValue(b2, s2 + (i * 8));
+            a[i] = DoubleSerializerDeserializer.getDouble(b1, s1 + (i * 8));
+            b[i] = DoubleSerializerDeserializer.getDouble(b2, s2 + (i * 8));
         }
 
         return compare();
