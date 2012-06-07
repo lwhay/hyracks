@@ -55,6 +55,10 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
     private ITupleReference lowKey;
     private ITupleReference highKey;
 
+    // This is only used by the LSM-RTree
+    private int pageId = -1;
+    private int currentTupleIndex = 0;
+
     public BTreeRangeSearchCursor(IBTreeLeafFrame frame, boolean exclusiveLatchNodes) {
         this.frame = frame;
         this.frameTuple = frame.createTupleReference();
@@ -85,6 +89,14 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
         return page;
     }
 
+    public int getTupleOffset() {
+        return frame.getTupleOffset(currentTupleIndex);
+    }
+
+    public int getPageId() {
+        return pageId;
+    }
+
     private void fetchNextLeafPage(int nextLeafPage) throws HyracksDataException {
         do {
             ICachedPage nextLeaf = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, nextLeafPage), false);
@@ -98,6 +110,10 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
             bufferCache.unpin(page);
             page = nextLeaf;
             frame.setPage(page);
+
+            // This is only needed for the LSMRTree flush operation
+            pageId = nextLeafPage;
+
             nextLeafPage = frame.getNextLeaf();
         } while (frame.getTupleCount() == 0 && nextLeafPage > 0);
     }
@@ -119,13 +135,17 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
         }
 
         frameTuple.resetByTupleIndex(frame, tupleIndex);
+
+        // This is only needed for the LSMRTree flush operation
+        currentTupleIndex = tupleIndex;
+
         if (highKey == null || tupleIndex <= stopTupleIndex) {
             return true;
         } else {
             return false;
         }
     }
-    
+
     @Override
     public void next() throws HyracksDataException {
         tupleIndex += tupleIndexInc;
@@ -154,8 +174,7 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
         if (pred.highKeyInclusive) {
             if (index < 0) {
                 index = frame.getTupleCount() - 1;
-            }
-            else {
+            } else {
                 index--;
             }
         }
@@ -176,6 +195,8 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
 
         page = ((BTreeCursorInitialState) initialState).getPage();
         frame.setPage(page);
+
+        pageId = ((BTreeCursorInitialState) initialState).getPageId();
 
         pred = (RangePredicate) searchPred;
         lowKeyCmp = pred.getLowKeyComparator();
@@ -198,7 +219,7 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
         } else {
             highKeyFtp = FindTupleNoExactMatchPolicy.LOWER_KEY;
         }
-        
+
         tupleIndex = getLowKeyIndex();
         stopTupleIndex = getHighKeyIndex();
         tupleIndexInc = 1;

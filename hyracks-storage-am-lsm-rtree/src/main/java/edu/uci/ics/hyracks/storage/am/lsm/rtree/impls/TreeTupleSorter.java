@@ -15,7 +15,6 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.rtree.impls;
 
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -24,12 +23,12 @@ import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
-public class RTreeTupleSorter implements ITreeIndexCursor {
-    private final IBinaryComparator[] comparators;
+public class TreeTupleSorter implements ITreeIndexCursor {
     private int numTuples;
     private int currentTupleIndex;
     private int[] tPointers;
@@ -40,21 +39,21 @@ public class RTreeTupleSorter implements ITreeIndexCursor {
     private ITreeIndexTupleReference frameTuple2;
     private final int fileId;
     private final static int ARRAY_GROWTH = 1000; // Must be at least of size 2
+    private final int[] comparatorFields;
+    private final MultiComparator cmp;
 
-    public RTreeTupleSorter(int initialSize, int fileId, IBinaryComparatorFactory[] comparatorFactories,
-            ITreeIndexFrame leafFrame1, ITreeIndexFrame leafFrame2, IBufferCache bufferCache) {
+    public TreeTupleSorter(int initialSize, int fileId, IBinaryComparatorFactory[] comparatorFactories,
+            ITreeIndexFrame leafFrame1, ITreeIndexFrame leafFrame2, IBufferCache bufferCache, int[] comparatorFields) {
         this.fileId = fileId;
-        comparators = new IBinaryComparator[comparatorFactories.length];
-        for (int i = 0; i < comparatorFactories.length; ++i) {
-            comparators[i] = comparatorFactories[i].createBinaryComparator();
-        }
         this.leafFrame1 = leafFrame1;
         this.leafFrame2 = leafFrame2;
         this.bufferCache = bufferCache;
+        this.comparatorFields = comparatorFields;
         tPointers = new int[initialSize * 2];
         frameTuple1 = leafFrame1.createTupleReference();
         frameTuple2 = leafFrame2.createTupleReference();
         currentTupleIndex = 0;
+        cmp = MultiComparator.create(comparatorFactories);
     }
 
     public void reset() {
@@ -184,19 +183,12 @@ public class RTreeTupleSorter implements ITreeIndexCursor {
             frameTuple1.resetByTupleOffset(leafFrame1.getBuffer(), j1);
             frameTuple2.resetByTupleOffset(leafFrame2.getBuffer(), j2);
 
-            for (int f = 0; f < comparators.length; ++f) {
-                int c = comparators[f].compare(frameTuple1.getFieldData(f), frameTuple1.getFieldStart(f),
-                        frameTuple1.getFieldLength(f), frameTuple2.getFieldData(f), frameTuple2.getFieldStart(f),
-                        frameTuple2.getFieldLength(f));
-                if (c != 0) {
-                    return c;
-                }
-            }
+            return cmp.selectiveFieldCompare(frameTuple1, frameTuple2, comparatorFields);
+
         } finally {
             bufferCache.unpin(node1);
             bufferCache.unpin(node2);
         }
-        return 0;
     }
 
     @Override

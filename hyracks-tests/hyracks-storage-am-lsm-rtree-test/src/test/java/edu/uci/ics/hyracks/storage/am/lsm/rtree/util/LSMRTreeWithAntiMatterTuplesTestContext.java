@@ -26,7 +26,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
-import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTree;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTreeWithAntiMatterTuples;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.utils.LSMRTreeUtils;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeTestContext;
 import edu.uci.ics.hyracks.storage.am.rtree.RTreeCheckTuple;
@@ -35,15 +35,15 @@ import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 @SuppressWarnings("rawtypes")
-public final class LSMRTreeTestContext extends AbstractRTreeTestContext {
+public final class LSMRTreeWithAntiMatterTuplesTestContext extends AbstractRTreeTestContext {
 
-    public LSMRTreeTestContext(ISerializerDeserializer[] fieldSerdes, ITreeIndex treeIndex) {
+    public LSMRTreeWithAntiMatterTuplesTestContext(ISerializerDeserializer[] fieldSerdes, ITreeIndex treeIndex) {
         super(fieldSerdes, treeIndex);
     }
 
     @Override
     public int getKeyFieldCount() {
-        LSMRTree lsmTree = (LSMRTree) treeIndex;
+        LSMRTreeWithAntiMatterTuples lsmTree = (LSMRTreeWithAntiMatterTuples) treeIndex;
         return lsmTree.getComparatorFactories().length;
     }
 
@@ -58,11 +58,11 @@ public final class LSMRTreeTestContext extends AbstractRTreeTestContext {
 
     @Override
     public IBinaryComparatorFactory[] getComparatorFactories() {
-        LSMRTree lsmTree = (LSMRTree) treeIndex;
+        LSMRTreeWithAntiMatterTuples lsmTree = (LSMRTreeWithAntiMatterTuples) treeIndex;
         return lsmTree.getComparatorFactories();
     }
 
-    public static LSMRTreeTestContext create(InMemoryBufferCache memBufferCache,
+    public static LSMRTreeWithAntiMatterTuplesTestContext create(InMemoryBufferCache memBufferCache,
             InMemoryFreePageManager memFreePageManager, IOManager ioManager, String onDiskDir,
             IBufferCache diskBufferCache, IFileMapProvider diskFileMapProvider, ISerializerDeserializer[] fieldSerdes,
             IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeyFields, RTreePolicyType rtreePolicyType,
@@ -72,12 +72,13 @@ public final class LSMRTreeTestContext extends AbstractRTreeTestContext {
                 .serdesToComparatorFactories(fieldSerdes, numKeyFields);
         IBinaryComparatorFactory[] btreeCmpFactories = SerdeUtils.serdesToComparatorFactories(fieldSerdes,
                 fieldSerdes.length);
-        LSMRTree lsmTree = LSMRTreeUtils.createLSMTree(memBufferCache, memFreePageManager, ioManager, onDiskDir,
-                diskBufferCache, diskFileMapProvider, typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, rtreePolicyType);
+        LSMRTreeWithAntiMatterTuples lsmTree = LSMRTreeUtils.createLSMTreeWithAntiMatterTuples(memBufferCache,
+                memFreePageManager, ioManager, onDiskDir, diskBufferCache, diskFileMapProvider, typeTraits,
+                rtreeCmpFactories, btreeCmpFactories, valueProviderFactories, rtreePolicyType);
         lsmTree.create(fileId);
         lsmTree.open(fileId);
-        LSMRTreeTestContext testCtx = new LSMRTreeTestContext(fieldSerdes, lsmTree);
+        LSMRTreeWithAntiMatterTuplesTestContext testCtx = new LSMRTreeWithAntiMatterTuplesTestContext(fieldSerdes,
+                lsmTree);
         return testCtx;
     }
 }

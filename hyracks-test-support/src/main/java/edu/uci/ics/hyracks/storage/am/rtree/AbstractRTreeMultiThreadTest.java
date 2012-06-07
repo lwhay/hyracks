@@ -50,7 +50,7 @@ public abstract class AbstractRTreeMultiThreadTest {
     protected final int REGULAR_NUM_THREADS = Runtime.getRuntime().availableProcessors();
     // Excessive number of threads for testing.
     protected final int EXCESSIVE_NUM_THREADS = Runtime.getRuntime().availableProcessors() * 4;
-    protected final int NUM_OPERATIONS = 5000;
+    protected final int NUM_OPERATIONS = 10000;
 
     protected ArrayList<TestWorkloadConf> workloadConfs = getTestWorkloadConf();
 
@@ -60,7 +60,7 @@ public abstract class AbstractRTreeMultiThreadTest {
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType, int numKeys)
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType)
             throws TreeIndexException;
 
     protected abstract int getFileId();
@@ -97,7 +97,7 @@ public abstract class AbstractRTreeMultiThreadTest {
                 fieldSerdes.length);
 
         ITreeIndex index = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
-                rtreePolicyType, numKeys);
+                rtreePolicyType);
         ITreeIndexTestWorkerFactory workerFactory = getWorkerFactory();
 
         // 4 batches per thread.
@@ -117,7 +117,7 @@ public abstract class AbstractRTreeMultiThreadTest {
     }
 
     @Test
-    public void twoDimensionsInt() throws InterruptedException, HyracksException, TreeIndexException {
+    public void rtreeTwoDimensionsInt() throws InterruptedException, HyracksException, TreeIndexException {
         ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
@@ -137,7 +137,7 @@ public abstract class AbstractRTreeMultiThreadTest {
     }
 
     @Test
-    public void twoDimensionsDouble() throws Exception {
+    public void rtreeTwoDimensionsDouble() throws Exception {
         ISerializerDeserializer[] fieldSerdes = { DoubleSerializerDeserializer.INSTANCE,
                 DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
                 DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE };
@@ -158,7 +158,7 @@ public abstract class AbstractRTreeMultiThreadTest {
     }
 
     @Test
-    public void fourDimensionsDouble() throws InterruptedException, HyracksException, TreeIndexException {
+    public void rtreeFourDimensionsDouble() throws InterruptedException, HyracksException, TreeIndexException {
         ISerializerDeserializer[] fieldSerdes = { DoubleSerializerDeserializer.INSTANCE,
                 DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
                 DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
@@ -178,4 +178,68 @@ public abstract class AbstractRTreeMultiThreadTest {
                     dataMsg);
         }
     }
+
+    @Test
+    public void rstartreeTwoDimensionsInt() throws InterruptedException, HyracksException, TreeIndexException {
+        ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
+
+        int numKeys = 4;
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
+                numKeys, IntegerPointable.FACTORY);
+
+        String dataMsg = "Two Dimensions Of Integer Values";
+
+        for (TestWorkloadConf conf : workloadConfs) {
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, REGULAR_NUM_THREADS, conf,
+                    dataMsg);
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, EXCESSIVE_NUM_THREADS,
+                    conf, dataMsg);
+        }
+    }
+
+    @Test
+    public void rstartreeTwoDimensionsDouble() throws Exception {
+        ISerializerDeserializer[] fieldSerdes = { DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE };
+
+        int numKeys = 4;
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
+                numKeys, DoublePointable.FACTORY);
+
+        String dataMsg = "Two Dimensions Of Double Values";
+
+        for (TestWorkloadConf conf : workloadConfs) {
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, REGULAR_NUM_THREADS, conf,
+                    dataMsg);
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, EXCESSIVE_NUM_THREADS,
+                    conf, dataMsg);
+        }
+
+    }
+
+    @Test
+    public void rstartreeFourDimensionsDouble() throws InterruptedException, HyracksException, TreeIndexException {
+        ISerializerDeserializer[] fieldSerdes = { DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE,
+                DoubleSerializerDeserializer.INSTANCE, DoubleSerializerDeserializer.INSTANCE };
+
+        int numKeys = 8;
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
+                numKeys, DoublePointable.FACTORY);
+
+        String dataMsg = "Four Dimensions Of Double Values";
+
+        for (TestWorkloadConf conf : workloadConfs) {
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, REGULAR_NUM_THREADS, conf,
+                    dataMsg);
+            runTest(fieldSerdes, valueProviderFactories, numKeys, RTreePolicyType.RSTARTREE, EXCESSIVE_NUM_THREADS,
+                    conf, dataMsg);
+        }
+    }
+
 }

@@ -13,32 +13,33 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.storage.am.rtree.multithread;
+package edu.uci.ics.hyracks.storage.am.lsm.rtree.multithread;
 
 import java.util.ArrayList;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.storage.am.common.ITreeIndexTestWorkerFactory;
 import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector.TestOperation;
 import edu.uci.ics.hyracks.storage.am.common.TestWorkloadConf;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeTestHarness;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.utils.LSMRTreeUtils;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeMultiThreadTest;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
-import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
-import edu.uci.ics.hyracks.storage.am.rtree.utils.RTreeTestHarness;
 
-public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
+public class LSMRTreeWithAntiMatterTuplesMultiThreadTest extends AbstractRTreeMultiThreadTest {
 
-    private RTreeTestHarness harness = new RTreeTestHarness();
+    private LSMRTreeTestHarness harness = new LSMRTreeTestHarness();
 
-    private RTreeTestWorkerFactory workerFactory = new RTreeTestWorkerFactory();
+    private LSMRTreeWithAntiMatterTuplesTestWorkerFactory workerFactory = new LSMRTreeWithAntiMatterTuplesTestWorkerFactory();
 
     @Override
-    protected void setUp() throws HyracksDataException {
+    protected void setUp() throws HyracksException {
         harness.setUp();
     }
 
@@ -51,8 +52,10 @@ public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
     protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
             IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
             RTreePolicyType rtreePolicyType) throws TreeIndexException {
-        return RTreeUtils.createRTree(harness.getBufferCache(), typeTraits, valueProviderFactories, rtreeCmpFactories,
-                rtreePolicyType);
+        return LSMRTreeUtils.createLSMTreeWithAntiMatterTuples(harness.getMemBufferCache(),
+                harness.getMemFreePageManager(), harness.getIOManager(), harness.getOnDiskDir(),
+                harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), typeTraits, rtreeCmpFactories,
+                btreeCmpFactories, valueProviderFactories, rtreePolicyType);
 
     }
 
@@ -69,18 +72,31 @@ public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
         TestOperation[] insertOnlyOps = new TestOperation[] { TestOperation.INSERT };
         workloadConfs.add(new TestWorkloadConf(insertOnlyOps, getUniformOpProbs(insertOnlyOps)));
 
+        // Insert and merge workload.
+        TestOperation[] insertMergeOps = new TestOperation[] { TestOperation.INSERT, TestOperation.MERGE };
+        workloadConfs.add(new TestWorkloadConf(insertMergeOps, getUniformOpProbs(insertMergeOps)));
+
         // Inserts mixed with scans.
-        TestOperation[] insertSearchOnlyOps = new TestOperation[] { TestOperation.INSERT, TestOperation.SCAN,
-                TestOperation.DISKORDER_SCAN };
+        TestOperation[] insertSearchOnlyOps = new TestOperation[] { TestOperation.INSERT, TestOperation.SCAN };
         workloadConfs.add(new TestWorkloadConf(insertSearchOnlyOps, getUniformOpProbs(insertSearchOnlyOps)));
 
         // Inserts and deletes.
         TestOperation[] insertDeleteOps = new TestOperation[] { TestOperation.INSERT, TestOperation.DELETE };
         workloadConfs.add(new TestWorkloadConf(insertDeleteOps, getUniformOpProbs(insertDeleteOps)));
 
-        // All operations mixed.
+        // Inserts, deletes and merges.
+        TestOperation[] insertDeleteMergeOps = new TestOperation[] { TestOperation.INSERT, TestOperation.DELETE,
+                TestOperation.MERGE };
+        workloadConfs.add(new TestWorkloadConf(insertDeleteMergeOps, getUniformOpProbs(insertDeleteMergeOps)));
+
+        // All operations except merge.
+        TestOperation[] allNoMergeOps = new TestOperation[] { TestOperation.INSERT, TestOperation.DELETE,
+                TestOperation.SCAN };
+        workloadConfs.add(new TestWorkloadConf(allNoMergeOps, getUniformOpProbs(allNoMergeOps)));
+
+        // All operations.
         TestOperation[] allOps = new TestOperation[] { TestOperation.INSERT, TestOperation.DELETE, TestOperation.SCAN,
-                TestOperation.DISKORDER_SCAN };
+                TestOperation.MERGE };
         workloadConfs.add(new TestWorkloadConf(allOps, getUniformOpProbs(allOps)));
 
         return workloadConfs;
@@ -88,11 +104,12 @@ public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
 
     @Override
     protected int getFileId() {
-        return harness.getTreeFileId();
+        return harness.getFileId();
     }
 
     @Override
     protected String getIndexTypeName() {
-        return "RTree";
+        return "LSMRTree";
     }
+
 }

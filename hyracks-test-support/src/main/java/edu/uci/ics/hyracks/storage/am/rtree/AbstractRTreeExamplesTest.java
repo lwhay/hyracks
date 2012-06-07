@@ -53,8 +53,7 @@ public abstract class AbstractRTreeExamplesTest {
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType,
-            int numKeys)
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType)
             throws TreeIndexException;
 
     protected abstract int getIndexFileId();
@@ -111,7 +110,7 @@ public abstract class AbstractRTreeExamplesTest {
 
         int indexFileId = getIndexFileId();
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, RTreePolicyType.RTREE, rtreeKeyFieldCount);
+                valueProviderFactories, RTreePolicyType.RTREE);
         treeIndex.create(indexFileId);
         treeIndex.open(indexFileId);
 
@@ -219,7 +218,7 @@ public abstract class AbstractRTreeExamplesTest {
 
         int indexFileId = getIndexFileId();
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, RTreePolicyType.RTREE, rtreeKeyFieldCount);
+                valueProviderFactories, RTreePolicyType.RTREE);
         treeIndex.create(indexFileId);
         treeIndex.open(indexFileId);
 
@@ -319,7 +318,7 @@ public abstract class AbstractRTreeExamplesTest {
 
         int indexFileId = getIndexFileId();
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, RTreePolicyType.RTREE, rtreeKeyFieldCount);
+                valueProviderFactories, RTreePolicyType.RTREE);
         treeIndex.create(indexFileId);
         treeIndex.open(indexFileId);
 
@@ -452,7 +451,7 @@ public abstract class AbstractRTreeExamplesTest {
 
         int indexFileId = getIndexFileId();
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
-                valueProviderFactories, RTreePolicyType.RTREE, rtreeKeyFieldCount);
+                valueProviderFactories, RTreePolicyType.RTREE);
         treeIndex.create(indexFileId);
         treeIndex.open(indexFileId);
 
@@ -546,12 +545,12 @@ public abstract class AbstractRTreeExamplesTest {
                 LOGGER.info("Ignoring disk-order scan since it's not supported.");
             }
         } catch (ClassCastException e) {
-			// Ignore exception because IIndexAccessor sometimes isn't
-			// an ITreeIndexAccessor, e.g., for the LSMRTree.
-			if (LOGGER.isLoggable(Level.INFO)) {
-				LOGGER.info("Ignoring disk-order scan since it's not supported.");
-			}
-		}
+            // Ignore exception because IIndexAccessor sometimes isn't
+            // an ITreeIndexAccessor, e.g., for the LSMRTree.
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Ignoring disk-order scan since it's not supported.");
+            }
+        }
     }
 
     private void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,

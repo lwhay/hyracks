@@ -620,6 +620,7 @@ public class BTree extends AbstractTreeIndex {
                     }
                     case SEARCH: {
                         ctx.cursorInitialState.setPage(node);
+                        ctx.cursorInitialState.setPageId(pageId);
                         ctx.cursor.open(ctx.cursorInitialState, ctx.pred);
                         break;
                     }
