@@ -29,7 +29,7 @@ import edu.uci.ics.hyracks.algebricks.core.utils.Pair;
 
 public class TranslateHelper {
 
-    private static ILogicalOperator createAssignment(ILogicalOperator inputOp, IClosureEvaluator func,
+    private static ILogicalOperator createAssignment(ILogicalOperator inputOp, ClosureEvaluator func,
             TranslationContext context) {
         ILogicalExpression funcExpr = new ScalarFunctionCallExpression(func);
         LogicalVariable var = context.newVar();
@@ -38,8 +38,8 @@ public class TranslateHelper {
         return assignOp;
     }
 
-    public static ILogicalOperator createGroupBy(ILogicalOperator inputOp, IClosureEvaluator func,
-            List<IClosureEvaluator> aggs, TranslationContext context) throws AlgebricksException {
+    public static ILogicalOperator createGroupBy(ILogicalOperator inputOp, ClosureEvaluator func,
+            List<ClosureEvaluator> aggs, TranslationContext context) throws AlgebricksException {
         // assign operator
         AssignOperator assign = (AssignOperator) createAssignment(inputOp, func, context);
         ILogicalExpression assignExpr = assign.getExpressions().get(0).getValue();
@@ -64,7 +64,7 @@ public class TranslateHelper {
 
         // aggregate expressions
         List<Mutable<ILogicalExpression>> aggExprs = new ArrayList<Mutable<ILogicalExpression>>();
-        for (IClosureEvaluator agg : aggs) {
+        for (ClosureEvaluator agg : aggs) {
             ILogicalExpression aggExpr = new ScalarFunctionCallExpression(agg);
             aggExprs.add(new MutableObject<ILogicalExpression>(aggExpr));
         }
@@ -90,7 +90,7 @@ public class TranslateHelper {
     }
 
     public static ILogicalOperator createJoin(ILogicalOperator leftOp, ILogicalOperator rightOp,
-            IClosureEvaluator leftExtractor, IClosureEvaluator rightExtractor, TranslationContext context)
+            ClosureEvaluator leftExtractor, ClosureEvaluator rightExtractor, TranslationContext context)
             throws AlgebricksException {
         ILogicalOperator leftAssign = createAssignment(leftOp, leftExtractor, context);
         ILogicalOperator rightAssign = createAssignment(rightOp, rightExtractor, context);
@@ -119,7 +119,7 @@ public class TranslateHelper {
         return joinOp;
     }
 
-    public static ILogicalOperator createSelect(ILogicalOperator inputOp, IClosureEvaluator cond) {
+    public static ILogicalOperator createSelect(ILogicalOperator inputOp, ClosureEvaluator cond) {
         ILogicalExpression funcExpr = new ScalarFunctionCallExpression(cond);
         ILogicalOperator selectOp = new SelectOperator(new MutableObject<ILogicalExpression>(funcExpr));
         selectOp.getInputs().get(0).setValue(inputOp);

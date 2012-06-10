@@ -12,9 +12,9 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 public class ClosureEvaluatorFactory implements IEvaluatorFactory {
     private static final long serialVersionUID = 1L;
-    private IClosureEvaluator code;
+    private ClosureEvaluator code;
 
-    public ClosureEvaluatorFactory(IClosureEvaluator code) {
+    public ClosureEvaluatorFactory(ClosureEvaluator code) {
         this.code = code;
     }
     
