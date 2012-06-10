@@ -12,7 +12,7 @@
 package com.yahoo.scalops.dsl.transformations
 
 import com.yahoo.scalops.dsl.Queryable
-import com.yahoo.scalops.algebricks.IClojureEvaluator
+import com.yahoo.scalops.algebricks.ClosureEvaluator
 import java.io.DataOutput
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference
 import com.yahoo.scalops.util.Utils
@@ -23,7 +23,7 @@ import com.yahoo.scalops.util.Utils
 case class MapTransformation[T1, T2](val input: Queryable[T1], val f: T1 => T2) extends Transformation[T2] {
   override def toString = input.toString + ".map(" + f.toString + ")"
   
-  class ClosureEvaluator(val f: T1 => T2) extends IClosureEvaluator {
+  class ScalaClosureEvaluator(val f: T1 => T2) extends ClosureEvaluator {
     override def getName : String = "map" + f.hashCode()
     
 	override def evaluator(tuple : IFrameTupleReference, output : DataOutput) : Unit = {
