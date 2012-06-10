@@ -12,7 +12,6 @@
 package com.yahoo
 
 import com.yahoo.scalops.dsl.types.NumericTypeImplicits
-import com.yahoo.scalops.dsl.transformations.MapTransformationImplicits
 import com.yahoo.scalops.dsl.transformations.FilterTransformationImplicits
 import com.yahoo.scalops.dsl.transformations.LoadTransformationImplicits
 import com.yahoo.scalops.dsl.transformations.JoinTransformationImplicits
@@ -36,7 +35,6 @@ with StringTypeImplicits
 with ActionImplicits
 with EmptyTableTransformationImplicits
 with LoadTransformationImplicits
-with MapTransformationImplicits
 with FilterTransformationImplicits
 with OrderTransformationImplicits
 with ScaloopImplicits
