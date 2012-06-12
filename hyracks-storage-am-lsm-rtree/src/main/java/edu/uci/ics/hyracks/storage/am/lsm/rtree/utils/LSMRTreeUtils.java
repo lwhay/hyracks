@@ -145,11 +145,11 @@ public class LSMRTreeUtils {
             }
         }
 
-        if (numKeyFields / 2 == 2 && (typeTraits[0] == DoublePointable.TYPE_TRAITS)) {
+        if (numKeyFields / 2 == 2 && (typeTraits[0].getClass() == DoublePointable.TYPE_TRAITS.getClass())) {
             return new HilbertDoubleComparatorFactory(2);
-        } else if (typeTraits[0] == DoublePointable.TYPE_TRAITS) {
+        } else if (typeTraits[0].getClass() == DoublePointable.TYPE_TRAITS.getClass()) {
             return new ZCurveDoubleComparatorFactory(numKeyFields / 2);
-        } else if (typeTraits[0] == IntegerPointable.TYPE_TRAITS) {
+        } else if (typeTraits[0].getClass() == IntegerPointable.TYPE_TRAITS.getClass()) {
             return new ZCurveIntComparatorFactory(numKeyFields / 2);
         }
 
