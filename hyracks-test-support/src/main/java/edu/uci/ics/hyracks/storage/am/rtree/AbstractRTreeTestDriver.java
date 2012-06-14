@@ -36,7 +36,7 @@ import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 public abstract class AbstractRTreeTestDriver {
     protected final Logger LOGGER = Logger.getLogger(AbstractRTreeTestDriver.class.getName());
 
-    protected static final int numTuplesToInsert = 5000;
+    protected static final int numTuplesToInsert = 10000;
 
     protected abstract AbstractRTreeTestContext createTestContext(ISerializerDeserializer[] fieldSerdes,
             IPrimitiveValueProviderFactory[] valueProviderFactories, int numKeys, RTreePolicyType rtreePolicyType)
