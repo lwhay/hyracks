@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
+import edu.uci.ics.hyracks.storage.am.config.AccessMethodTestsConfig;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeTestContext;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeTestHarness;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeBulkLoadTest;
@@ -33,8 +34,7 @@ import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 @SuppressWarnings("rawtypes")
 public class LSMRTreeMultiBulkLoadTest extends AbstractRTreeBulkLoadTest {
     public LSMRTreeMultiBulkLoadTest() {
-        // Using 5 bulk load rounds.
-        super(5);
+        super(AccessMethodTestsConfig.LSM_RTREE_BULKLOAD_ROUNDS);
     }
 
     private final LSMRTreeTestHarness harness = new LSMRTreeTestHarness();

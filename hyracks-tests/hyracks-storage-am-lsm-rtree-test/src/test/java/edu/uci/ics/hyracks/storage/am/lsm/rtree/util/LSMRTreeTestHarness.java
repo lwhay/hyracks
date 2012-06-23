@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
+import edu.uci.ics.hyracks.storage.am.config.AccessMethodTestsConfig;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.impls.LSMRTreeInMemoryBufferCache;
@@ -42,12 +43,6 @@ public class LSMRTreeTestHarness {
     protected static final Logger LOGGER = Logger.getLogger(LSMRTreeTestHarness.class.getName());
 
     private static final long RANDOM_SEED = 50;
-    private static final int DEFAULT_DISK_PAGE_SIZE = 256;
-    private static final int DEFAULT_DISK_NUM_PAGES = 1000;
-    private static final int DEFAULT_DISK_MAX_OPEN_FILES = 2000;
-    private static final int DEFAULT_MEM_PAGE_SIZE = 256;
-    private static final int DEFAULT_MEM_NUM_PAGES = 1000;
-    private static final int DEFAULT_HYRACKS_FRAME_SIZE = 128;
     private static final int DUMMY_FILE_ID = -1;
 
     protected final int diskPageSize;
@@ -70,12 +65,12 @@ public class LSMRTreeTestHarness {
     protected String onDiskDir;
 
     public LSMRTreeTestHarness() {
-        this.diskPageSize = DEFAULT_DISK_PAGE_SIZE;
-        this.diskNumPages = DEFAULT_DISK_NUM_PAGES;
-        this.diskMaxOpenFiles = DEFAULT_DISK_MAX_OPEN_FILES;
-        this.memPageSize = DEFAULT_MEM_PAGE_SIZE;
-        this.memNumPages = DEFAULT_MEM_NUM_PAGES;
-        this.hyracksFrameSize = DEFAULT_HYRACKS_FRAME_SIZE;
+        this.diskPageSize = AccessMethodTestsConfig.LSM_RTREE_DISK_PAGE_SIZE;
+        this.diskNumPages = AccessMethodTestsConfig.LSM_RTREE_DISK_NUM_PAGES;
+        this.diskMaxOpenFiles = AccessMethodTestsConfig.LSM_RTREE_DISK_MAX_OPEN_FILES;
+        this.memPageSize = AccessMethodTestsConfig.LSM_RTREE_MEM_PAGE_SIZE;
+        this.memNumPages = AccessMethodTestsConfig.LSM_RTREE_MEM_NUM_PAGES;
+        this.hyracksFrameSize = AccessMethodTestsConfig.LSM_RTREE_HYRACKS_FRAME_SIZE;
     }
 
     public LSMRTreeTestHarness(int diskPageSize, int diskNumPages, int diskMaxOpenFiles, int memPageSize,
