@@ -18,16 +18,23 @@ package edu.uci.ics.hyracks.tests.am.lsm.btree;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.ConstantMergePolicyProvider;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.ImmediateFlushPolicyProvider;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.SequentialSchedulerProvider;
 import edu.uci.ics.hyracks.tests.am.common.LSMTreeOperatorTestHelper;
 
 public class LSMBTreeOperatorTestHelper extends LSMTreeOperatorTestHelper {
+
+    private static final int MERGE_THRESHOLD = 3;
 
     public LSMBTreeOperatorTestHelper(IOManager ioManager) {
         super(ioManager);
     }
 
     public IIndexDataflowHelperFactory createDataFlowHelperFactory() {
-        return new LSMBTreeDataflowHelperFactory();
+        return new LSMBTreeDataflowHelperFactory(
+                new ImmediateFlushPolicyProvider(SequentialSchedulerProvider.INSTANCE),
+                new ConstantMergePolicyProvider(SequentialSchedulerProvider.INSTANCE, MERGE_THRESHOLD));
     }
 
 }

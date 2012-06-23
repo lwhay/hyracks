@@ -40,7 +40,9 @@ import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFinalizer;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFlushPolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndex;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.TreeFactory;
@@ -115,11 +117,11 @@ public abstract class AbstractLSMRTree implements ILSMIndex, ITreeIndex {
             ILSMFileManager fileManager, RTreeFactory diskRTreeFactory, IFileMapProvider diskFileMapProvider,
             ILSMComponentFinalizer componentFinalizer, int fieldCount, IBinaryComparatorFactory[] rtreeCmpFactories,
             IBinaryComparatorFactory[] btreeCmpFactories, ILinearizeComparatorFactory linearizer,
-            int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray) {
+            int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray, ILSMFlushPolicy flushPolicy, ILSMMergePolicy mergePolicy) {
         RTree memRTree = new RTree(memBufferCache, fieldCount, rtreeCmpFactories, memFreePageManager,
                 rtreeInteriorFrameFactory, rtreeLeafFrameFactory);
         // TODO: Do we need another operation callback here?
-        BTree memBTree = new BTree(memBufferCache, NoOpOperationCallback.INSTANCE, fieldCount, btreeCmpFactories,
+        BTree memBTree = new BTree(memBufferCache, fieldCount, btreeCmpFactories,
                 memFreePageManager, btreeInteriorFrameFactory, btreeLeafFrameFactory);
         memComponent = new LSMRTreeComponent(memRTree, memBTree);
         this.memFreePageManager = memFreePageManager;
@@ -133,7 +135,7 @@ public abstract class AbstractLSMRTree implements ILSMIndex, ITreeIndex {
         this.diskRTreeFactory = diskRTreeFactory;
         this.btreeCmpFactories = btreeCmpFactories;
         this.rtreeCmpFactories = rtreeCmpFactories;
-        this.lsmHarness = new LSMHarness(this);
+        this.lsmHarness = new LSMHarness(this, flushPolicy, mergePolicy);
         this.componentFinalizer = componentFinalizer;
         this.linearizer = linearizer;
         this.comparatorFields = comparatorFields;
@@ -315,12 +317,14 @@ public abstract class AbstractLSMRTree implements ILSMIndex, ITreeIndex {
     }
 
     protected LSMRTreeOpContext createOpContext() {
-        return new LSMRTreeOpContext((RTree.RTreeAccessor) memComponent.getRTree().createAccessor(),
+        return new LSMRTreeOpContext((RTree.RTreeAccessor) memComponent.getRTree().createAccessor(
+                NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE),
                 (IRTreeLeafFrame) rtreeLeafFrameFactory.createFrame(),
                 (IRTreeInteriorFrame) rtreeInteriorFrameFactory.createFrame(), memFreePageManager
                         .getMetaDataFrameFactory().createFrame(), 8, (BTree.BTreeAccessor) memComponent.getBTree()
-                        .createAccessor(), btreeLeafFrameFactory, btreeInteriorFrameFactory, memFreePageManager
-                        .getMetaDataFrameFactory().createFrame(), rtreeCmpFactories, btreeCmpFactories);
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE),
+                btreeLeafFrameFactory, btreeInteriorFrameFactory, memFreePageManager.getMetaDataFrameFactory()
+                        .createFrame(), rtreeCmpFactories, btreeCmpFactories, null, null);
     }
 
     @Override

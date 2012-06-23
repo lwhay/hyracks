@@ -25,16 +25,16 @@ import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 
 public interface ITreeIndexFrame {
 
-	public void initBuffer(byte level);
-	
+    public void initBuffer(byte level);
+
     public FrameOpSpaceStatus hasSpaceInsert(ITupleReference tuple);
-	
-	public void insert(ITupleReference tuple, int tupleIndex);    
-    
-	public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference newTuple, int oldTupleIndex);
-	
-	public void update(ITupleReference newTuple, int oldTupleIndex, boolean inPlace);    
-    
+
+    public void insert(ITupleReference tuple, int tupleIndex);
+
+    public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference newTuple, int oldTupleIndex);
+
+    public void update(ITupleReference newTuple, int oldTupleIndex, boolean inPlace);
+
     public void delete(ITupleReference tuple, int tupleIndex);
 
     // returns true if slots were modified, false otherwise
@@ -58,11 +58,11 @@ public interface ITreeIndexFrame {
     public ICachedPage getPage();
 
     public ByteBuffer getBuffer();
-    
+
     // for debugging
     public String printHeader();
 
-    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey) throws TreeIndexException;
+    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey);
 
     public ISlotManager getSlotManager();
 
@@ -88,7 +88,7 @@ public interface ITreeIndexFrame {
     public ITreeIndexTupleWriter getTupleWriter();
 
     public int getPageHeaderSize();
-    
+
     public ITreeIndexTupleReference createTupleReference();
     
     public void setMultiComparator(MultiComparator cmp);

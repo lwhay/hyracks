@@ -12,14 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.algebricks.runtime.base;
 
-import java.io.Serializable;
+package edu.uci.ics.hyracks.storage.am.common.api;
 
-import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.IDataOutputProvider;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
-public interface IRunningAggregateFunctionFactory extends Serializable {
-    public IRunningAggregateFunction createRunningAggregateFunction(IDataOutputProvider provider)
-            throws AlgebricksException;
+public interface ITupleFilter {
+	public boolean accept(IFrameTupleReference tuple) throws Exception;
 }

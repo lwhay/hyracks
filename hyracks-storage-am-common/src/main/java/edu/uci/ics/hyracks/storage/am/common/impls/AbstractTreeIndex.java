@@ -119,8 +119,6 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         return fieldCount;
     }
     
-    public abstract ITreeIndexAccessor createAccessor();
-    
     public abstract AbstractTreeIndexBulkLoader createBulkLoader(float fillFactor) throws TreeIndexException;
     
     public TreeIndexInsertBulkLoader createInsertBulkLoader() throws TreeIndexException {
@@ -225,7 +223,9 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
 	}
 	
 	public class TreeIndexInsertBulkLoader implements ITreeIndexBulkLoader {
-		ITreeIndexAccessor accessor = createAccessor();
+		// TODO: What callback to pass here?
+		ITreeIndexAccessor accessor = (ITreeIndexAccessor) createAccessor(
+				NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
 
 		@Override
 		public void add(ITupleReference tuple) throws HyracksDataException {

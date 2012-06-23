@@ -22,9 +22,14 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
+import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.api.ITupleFilter;
+import edu.uci.ics.hyracks.storage.am.common.api.ITupleFilterFactory;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 
 public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
@@ -33,8 +38,11 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
     private final IRecordDescriptorProvider recordDescProvider;
     private final IndexOp op;
     private final PermutingFrameTupleReference tuple = new PermutingFrameTupleReference();
+    private FrameTupleReference frameTuple;
     private ByteBuffer writeBuffer;
     private IIndexAccessor indexAccessor;
+    private ITupleFilter tupleFilter;
+    private final IOperationCallbackProvider callbackProvider;
 
     public TreeIndexInsertUpdateDeleteOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc,
             IHyracksTaskContext ctx, int partition, int[] fieldPermutation,
@@ -43,6 +51,7 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
                 opDesc, ctx, partition);
         this.recordDescProvider = recordDescProvider;
         this.op = op;
+        this.callbackProvider = opDesc.getOpCallbackProvider();
         tuple.setFieldPermutation(fieldPermutation);
     }
 
@@ -57,7 +66,13 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
         try {
             treeIndexHelper.init(false);
             ITreeIndex treeIndex = (ITreeIndex) treeIndexHelper.getIndex();
-            indexAccessor = treeIndex.createAccessor();
+            indexAccessor = treeIndex.createAccessor(callbackProvider.getModificationOperationCallback(),
+                    callbackProvider.getSearchOperationCallback());
+            ITupleFilterFactory tupleFilterFactory = opDesc.getTupleFilterFactory();
+            if (tupleFilterFactory != null) {
+                tupleFilter = tupleFilterFactory.createTupleFilter();
+                frameTuple = new FrameTupleReference();
+            }
         } catch (Exception e) {
             // cleanup in case of failure
             treeIndexHelper.deinit();
@@ -70,8 +85,17 @@ public class TreeIndexInsertUpdateDeleteOperatorNodePushable extends AbstractUna
         accessor.reset(buffer);
         int tupleCount = accessor.getTupleCount();
         for (int i = 0; i < tupleCount; i++) {
-            tuple.reset(accessor, i);
             try {
+                if (tupleFilter != null) {
+                    frameTuple.reset(accessor, i);
+                    if (!tupleFilter.accept(frameTuple)) {
+                        continue;
+                    }
+                }
+                tuple.reset(accessor, i);
+                IModificationOperationCallback modificationCallback = callbackProvider
+                        .getModificationOperationCallback();
+                modificationCallback.before(tuple);
                 switch (op) {
                     case INSERT: {
                         indexAccessor.insert(tuple);

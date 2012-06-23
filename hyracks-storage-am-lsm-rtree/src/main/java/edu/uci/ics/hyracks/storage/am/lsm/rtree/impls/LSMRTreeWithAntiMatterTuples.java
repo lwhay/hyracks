@@ -30,6 +30,8 @@ import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
@@ -38,8 +40,11 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFileManager;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMFlushPolicy;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
@@ -66,11 +71,11 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
             ILSMFileManager fileManager, RTreeFactory diskRTreeFactory, RTreeFactory bulkLoadRTreeFactory,
             IFileMapProvider diskFileMapProvider, int fieldCount, IBinaryComparatorFactory[] rtreeCmpFactories,
             IBinaryComparatorFactory[] btreeCmpFactories, ILinearizeComparatorFactory linearizer,
-            int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray) {
+            int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray, ILSMFlushPolicy flushPolicy, ILSMMergePolicy mergePolicy) {
         super(memBufferCache, memFreePageManager, rtreeInteriorFrameFactory, rtreeLeafFrameFactory,
                 btreeInteriorFrameFactory, btreeLeafFrameFactory, fileManager, diskRTreeFactory, diskFileMapProvider,
                 new TreeIndexComponentFinalizer(diskFileMapProvider), fieldCount, rtreeCmpFactories, btreeCmpFactories,
-                linearizer, comparatorFields, linearizerArray);
+                linearizer, comparatorFields, linearizerArray, flushPolicy, mergePolicy);
         this.bulkLoadRTreeFactory = bulkLoadRTreeFactory;
 
     }
@@ -141,7 +146,7 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
 
         initialState = new LSMRTreeCursorInitialState(numDiskRTrees, rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
                 btreeLeafFrameFactory, ctx.getBTreeMultiComparator(), null, bTreeAccessors, searcherRefCount,
-                includeMemComponent, lsmHarness, comparatorFields, linearizerArray);
+                includeMemComponent, lsmHarness, comparatorFields, linearizerArray, ctx.searchCallback);
 
         lsmTreeCursor.open(initialState, pred);
 
@@ -156,7 +161,8 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
         ListIterator<Object> diskRTreesIter = diskComponents.listIterator();
         while (diskRTreesIter.hasNext()) {
             RTree diskRTree = (RTree) diskRTreesIter.next();
-            diskRTreeAccessors[diskRTreeIx] = diskRTree.createAccessor();
+            diskRTreeAccessors[diskRTreeIx] = diskRTree.createAccessor(NoOpOperationCallback.INSTANCE,
+                    NoOpOperationCallback.INSTANCE);
             diskRTreeAccessors[diskRTreeIx].search(lsmTreeCursor.getCursor(diskRTreeIx), pred);
             diskRTreeIx++;
         }
@@ -170,14 +176,16 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
         // The RTree should be renamed before the BTree.
 
         // scan the memory RTree
-        ITreeIndexAccessor memRTreeAccessor = memComponent.getRTree().createAccessor();
+        ITreeIndexAccessor memRTreeAccessor = memComponent.getRTree().createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         RTreeSearchCursor rtreeScanCursor = (RTreeSearchCursor) memRTreeAccessor.createSearchCursor();
         SearchPredicate rtreeNullPredicate = new SearchPredicate(null, null);
         memRTreeAccessor.search(rtreeScanCursor, rtreeNullPredicate);
         RTree diskRTree = createFlushTarget();
 
         // scan the memory BTree
-        ITreeIndexAccessor memBTreeAccessor = memComponent.getBTree().createAccessor();
+        ITreeIndexAccessor memBTreeAccessor = memComponent.getBTree().createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         BTreeRangeSearchCursor btreeScanCursor = (BTreeRangeSearchCursor) memBTreeAccessor.createSearchCursor();
         RangePredicate btreeNullPredicate = new RangePredicate(null, null, true, true, null, null);
         memBTreeAccessor.search(btreeScanCursor, btreeNullPredicate);
@@ -298,7 +306,8 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
     }
 
     @Override
-    public IIndexAccessor createAccessor() {
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) {
         return new LSMRTreeWithAntiMatterTuplesAccessor(lsmHarness, createOpContext());
     }
 

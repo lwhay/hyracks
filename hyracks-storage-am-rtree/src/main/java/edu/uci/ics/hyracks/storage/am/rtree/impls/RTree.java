@@ -26,6 +26,8 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOpContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
@@ -159,10 +161,11 @@ public class RTree extends AbstractTreeIndex {
         }
     }
 
-    private RTreeOpContext createOpContext() {
+    private RTreeOpContext createOpContext(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) {
         return new RTreeOpContext((IRTreeLeafFrame) leafFrameFactory.createFrame(),
                 (IRTreeInteriorFrame) interiorFrameFactory.createFrame(), freePageManager.getMetaDataFrameFactory()
-                        .createFrame(), cmpFactories, 8);
+                        .createFrame(), cmpFactories, 8, modificationCallback, searchCallback);
     }
 
     private void insert(ITupleReference tuple, IIndexOpContext ictx) throws HyracksDataException, TreeIndexException {
@@ -172,6 +175,7 @@ public class RTree extends AbstractTreeIndex {
         ctx.splitKey.reset();
         ctx.splitKey.getLeftTuple().setFieldCount(cmpFactories.length);
         ctx.splitKey.getRightTuple().setFieldCount(cmpFactories.length);
+        ctx.modificationCallback.commence(tuple);
 
         int maxFieldPos = cmpFactories.length / 2;
         for (int i = 0; i < maxFieldPos; i++) {
@@ -354,6 +358,7 @@ public class RTree extends AbstractTreeIndex {
                     if (!isLeaf) {
                         ctx.interiorFrame.insert(tuple, -1);
                     } else {
+                        ctx.modificationCallback.found(null);
                         ctx.leafFrame.insert(tuple, -1);
                     }
                     succeeded = true;
@@ -378,6 +383,7 @@ public class RTree extends AbstractTreeIndex {
                         ctx.interiorFrame.insert(tuple, -1);
                     } else {
                         ctx.leafFrame.compact();
+                        ctx.modificationCallback.found(null);
                         ctx.leafFrame.insert(tuple, -1);
                     }
                     succeeded = true;
@@ -414,6 +420,7 @@ public class RTree extends AbstractTreeIndex {
                         rightFrame.setPage(rightNode);
                         rightFrame.initBuffer((byte) 0);
                         rightFrame.setRightPage(ctx.interiorFrame.getRightPage());
+                        ctx.modificationCallback.found(null);
                         ctx.leafFrame.split(rightFrame, tuple, ctx.splitKey);
                         ctx.leafFrame.setRightPage(rightPageId);
                     }
@@ -745,6 +752,8 @@ public class RTree extends AbstractTreeIndex {
     }
 
     private void deleteTuple(int tupleIndex, RTreeOpContext ctx) throws HyracksDataException {
+        ITupleReference beforeTuple = ctx.leafFrame.getBeforeTuple(ctx.getTuple(), tupleIndex, ctx.cmp);
+        ctx.modificationCallback.found(beforeTuple);
         ctx.leafFrame.delete(tupleIndex, ctx.cmp);
         ctx.leafFrame.setPageLsn(incrementGlobalNsn());
     }
@@ -781,6 +790,7 @@ public class RTree extends AbstractTreeIndex {
             cursor.setFileId(fileId);
             cursor.setCurrentPageId(currentPageId);
             cursor.setMaxPageId(maxPageId);
+            ctx.cursorInitialState.setSearchOperationCallback(ctx.searchCallback);
             ctx.cursorInitialState.setPage(page);
             cursor.open(ctx.cursorInitialState, searchPred);
         } catch (Exception e) {
@@ -796,17 +806,19 @@ public class RTree extends AbstractTreeIndex {
     }
 
     @Override
-    public ITreeIndexAccessor createAccessor() {
-        return new RTreeAccessor(this);
+    public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) {
+        return new RTreeAccessor(this, modificationCallback, searchCallback);
     }
 
     public class RTreeAccessor implements ITreeIndexAccessor {
         private RTree rtree;
         private RTreeOpContext ctx;
 
-        public RTreeAccessor(RTree rtree) {
+        public RTreeAccessor(RTree rtree, IModificationOperationCallback modificationCallback,
+                ISearchOperationCallback searchCallback) {
             this.rtree = rtree;
-            this.ctx = rtree.createOpContext();
+            this.ctx = rtree.createOpContext(modificationCallback, searchCallback);
         }
 
         @Override
@@ -858,7 +870,7 @@ public class RTree extends AbstractTreeIndex {
         @Override
         public void upsert(ITupleReference tuple) throws HyracksDataException, TreeIndexException {
             throw new UnsupportedOperationException(
-                    "The RTree does not suypport the notion of keys, therefore upsert does not make sense.");
+                    "The RTree does not support the notion of keys, therefore upsert does not make sense.");
         }
     }
 

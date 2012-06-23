@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -40,11 +41,13 @@ public class LSMRTreeCursorInitialState implements ICursorInitialState {
     private final LSMHarness lsmHarness;
     private final int[] comparatorFields;
 
+    private ISearchOperationCallback searchCallback;
+
     public LSMRTreeCursorInitialState(int numberOfTrees, ITreeIndexFrameFactory rtreeLeafFrameFactory,
             ITreeIndexFrameFactory rtreeInteriorFrameFactory, ITreeIndexFrameFactory btreeLeafFrameFactory,
             MultiComparator btreeCmp, ITreeIndexAccessor[] rTreeAccessors, ITreeIndexAccessor[] bTreeAccessors,
             AtomicInteger searcherRefCount, boolean includeMemRTree, LSMHarness lsmHarness, int[] comparatorFields,
-            IBinaryComparatorFactory[] linearizerArray) {
+            IBinaryComparatorFactory[] linearizerArray, ISearchOperationCallback searchCallback) {
         this.numberOfTrees = numberOfTrees;
         this.rtreeLeafFrameFactory = rtreeLeafFrameFactory;
         this.rtreeInteriorFrameFactory = rtreeInteriorFrameFactory;
@@ -57,7 +60,7 @@ public class LSMRTreeCursorInitialState implements ICursorInitialState {
         this.lsmHarness = lsmHarness;
         this.comparatorFields = comparatorFields;
         this.hilbertCmp = MultiComparator.create(linearizerArray);
-
+        this.searchCallback = searchCallback;
     }
 
     public MultiComparator getHilbertCmp() {
@@ -115,6 +118,16 @@ public class LSMRTreeCursorInitialState implements ICursorInitialState {
 
     public LSMHarness getLSMHarness() {
         return lsmHarness;
+    }
+
+    @Override
+    public ISearchOperationCallback getSearchOperationCallback() {
+        return searchCallback;
+    }
+
+    @Override
+    public void setSearchOperationCallback(ISearchOperationCallback searchCallback) {
+        this.searchCallback = searchCallback;
     }
 
 }

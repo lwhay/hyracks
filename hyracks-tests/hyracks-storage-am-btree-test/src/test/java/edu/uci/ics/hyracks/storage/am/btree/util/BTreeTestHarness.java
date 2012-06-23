@@ -24,49 +24,47 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeLeafFrameType;
-import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallback;
-import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.config.AccessMethodTestsConfig;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 import edu.uci.ics.hyracks.test.support.TestStorageManagerComponentHolder;
 import edu.uci.ics.hyracks.test.support.TestUtils;
 
-public class BTreeTestHarness {    
+public class BTreeTestHarness {
     public static final BTreeLeafFrameType[] LEAF_FRAMES_TO_TEST = new BTreeLeafFrameType[] {
-        BTreeLeafFrameType.REGULAR_NSM, BTreeLeafFrameType.FIELD_PREFIX_COMPRESSED_NSM };
-    
+            BTreeLeafFrameType.REGULAR_NSM, BTreeLeafFrameType.FIELD_PREFIX_COMPRESSED_NSM };
+
     private static final long RANDOM_SEED = 50;
-    
+
     protected final int pageSize;
     protected final int numPages;
     protected final int maxOpenFiles;
     protected final int hyracksFrameSize;
-        
-    protected IHyracksTaskContext ctx; 
+
+    protected IHyracksTaskContext ctx;
     protected IBufferCache bufferCache;
     protected int btreeFileId;
-    
+
     protected final Random rnd = new Random();
     protected final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
     protected final String tmpDir = System.getProperty("java.io.tmpdir");
     protected final String sep = System.getProperty("file.separator");
     protected String fileName;
-    
+
     public BTreeTestHarness() {
     	this.pageSize = AccessMethodTestsConfig.BTREE_PAGE_SIZE;
     	this.numPages = AccessMethodTestsConfig.BTREE_NUM_PAGES;
     	this.maxOpenFiles = AccessMethodTestsConfig.BTREE_MAX_OPEN_FILES;
     	this.hyracksFrameSize = AccessMethodTestsConfig.BTREE_HYRACKS_FRAME_SIZE;
     }
-    
+
     public BTreeTestHarness(int pageSize, int numPages, int maxOpenFiles, int hyracksFrameSize) {
-    	this.pageSize = pageSize;
-    	this.numPages = numPages;
-    	this.maxOpenFiles = maxOpenFiles;
-    	this.hyracksFrameSize = hyracksFrameSize;
+        this.pageSize = pageSize;
+        this.numPages = numPages;
+        this.maxOpenFiles = maxOpenFiles;
+        this.hyracksFrameSize = hyracksFrameSize;
     }
-    
+
     public void setUp() throws HyracksDataException {
         fileName = tmpDir + sep + simpleDateFormat.format(new Date());
         ctx = TestUtils.create(getHyracksFrameSize());
@@ -79,51 +77,47 @@ public class BTreeTestHarness {
         bufferCache.openFile(btreeFileId);
         rnd.setSeed(RANDOM_SEED);
     }
-    
+
     public void tearDown() throws HyracksDataException {
         bufferCache.closeFile(btreeFileId);
         bufferCache.close();
         File f = new File(fileName);
         f.deleteOnExit();
     }
-    
+
     public IHyracksTaskContext getHyracksTaskContext() {
-    	return ctx;
+        return ctx;
     }
-    
+
     public IBufferCache getBufferCache() {
-    	return bufferCache;
+        return bufferCache;
     }
-    
+
     public int getBTreeFileId() {
-    	return btreeFileId;
+        return btreeFileId;
     }
-    
+
     public String getFileName() {
         return fileName;
     }
-    
+
     public Random getRandom() {
-    	return rnd;
+        return rnd;
     }
-    
+
     public int getPageSize() {
         return pageSize;
     }
-    
+
     public int getNumPages() {
         return numPages;
     }
-    
+
     public int getHyracksFrameSize() {
         return hyracksFrameSize;
     }
-    
+
     public int getMaxOpenFiles() {
         return maxOpenFiles;
-    }
-    
-    public IOperationCallback getOpCallback() {
-        return NoOpOperationCallback.INSTANCE;
     }
 }

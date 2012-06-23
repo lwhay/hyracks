@@ -12,14 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.algebricks.runtime.base;
 
-import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
+package edu.uci.ics.hyracks.storage.am.common.api;
 
-public interface IUnnestingFunction {
-    public void init(IFrameTupleReference tuple) throws AlgebricksException;
+import java.io.Serializable;
 
-    public boolean step() throws AlgebricksException;
-
+public interface ITupleFilterFactory extends Serializable {
+	public ITupleFilter createTupleFilter() throws Exception;
 }

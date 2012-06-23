@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.NoMergePolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeTestHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeWithAntiMatterTuplesTestContext;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeBulkLoadTest;
@@ -56,7 +57,7 @@ public class LSMRTreeWithAntiMatterTuplesBulkLoadTest extends AbstractRTreeBulkL
         return LSMRTreeWithAntiMatterTuplesTestContext.create(harness.getMemBufferCache(),
                 harness.getMemFreePageManager(), harness.getIOManager(), harness.getOnDiskDir(),
                 harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), fieldSerdes, valueProviderFactories,
-                numKeys, rtreePolicyType, harness.getFileId());
+                numKeys, rtreePolicyType, harness.getFileId(), NoMergePolicy.INSTANCE);
 
     }
 

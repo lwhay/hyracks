@@ -28,12 +28,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeLeafFrameType;
-import edu.uci.ics.hyracks.storage.am.common.api.IOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
-import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.config.AccessMethodTestsConfig;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOScheduler;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryFreePageManager;
+import edu.uci.ics.hyracks.storage.am.lsm.common.impls.SequentialScheduler;
 import edu.uci.ics.hyracks.storage.common.buffercache.HeapBufferAllocator;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
@@ -42,31 +42,32 @@ import edu.uci.ics.hyracks.test.support.TestUtils;
 
 public class LSMBTreeTestHarness {
     protected static final Logger LOGGER = Logger.getLogger(LSMBTreeTestHarness.class.getName());
-    
+
     public static final BTreeLeafFrameType[] LEAF_FRAMES_TO_TEST = new BTreeLeafFrameType[] { BTreeLeafFrameType.REGULAR_NSM };
-    
+
     private static final long RANDOM_SEED = 50;
-    private static final int DUMMY_FILE_ID = -1;           
-    
+    private static final int DUMMY_FILE_ID = -1;
+
     protected final int diskPageSize;
     protected final int diskNumPages;
     protected final int diskMaxOpenFiles;
     protected final int memPageSize;
     protected final int memNumPages;
     protected final int hyracksFrameSize;
-    
+
     protected IOManager ioManager;
     protected IBufferCache diskBufferCache;
     protected IFileMapProvider diskFileMapProvider;
     protected InMemoryBufferCache memBufferCache;
     protected InMemoryFreePageManager memFreePageManager;
     protected IHyracksTaskContext ctx;
-    
+    protected ILSMIOScheduler ioScheduler;
+
     protected final Random rnd = new Random();
     protected final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("ddMMyy-hhmmssSS");
-    protected final static String sep = System.getProperty("file.separator");    
+    protected final static String sep = System.getProperty("file.separator");
     protected String onDiskDir;
-    
+
     public LSMBTreeTestHarness() {
     	this.diskPageSize = AccessMethodTestsConfig.LSM_BTREE_DISK_PAGE_SIZE;
     	this.diskNumPages = AccessMethodTestsConfig.LSM_BTREE_DISK_NUM_PAGES;
@@ -74,20 +75,21 @@ public class LSMBTreeTestHarness {
     	this.memPageSize = AccessMethodTestsConfig.LSM_BTREE_MEM_PAGE_SIZE;
     	this.memNumPages = AccessMethodTestsConfig.LSM_BTREE_MEM_NUM_PAGES;
     	this.hyracksFrameSize = AccessMethodTestsConfig.LSM_BTREE_HYRACKS_FRAME_SIZE;
+    	this.ioScheduler = SequentialScheduler.INSTANCE;
     }
-    
-	public LSMBTreeTestHarness(int diskPageSize, int diskNumPages,
-			int diskMaxOpenFiles, int memPageSize, int memNumPages,
-			int hyracksFrameSize) {
-		this.diskPageSize = diskPageSize;
-		this.diskNumPages = diskNumPages;
-		this.diskMaxOpenFiles = diskMaxOpenFiles;
-		this.memPageSize = memPageSize;
-		this.memNumPages = memNumPages;
-		this.hyracksFrameSize = hyracksFrameSize;
-	}
-    
-    public void setUp() throws HyracksException {        
+
+    public LSMBTreeTestHarness(int diskPageSize, int diskNumPages, int diskMaxOpenFiles, int memPageSize,
+            int memNumPages, int hyracksFrameSize) {
+        this.diskPageSize = diskPageSize;
+        this.diskNumPages = diskNumPages;
+        this.diskMaxOpenFiles = diskMaxOpenFiles;
+        this.memPageSize = memPageSize;
+        this.memNumPages = memNumPages;
+        this.hyracksFrameSize = hyracksFrameSize;
+        this.ioScheduler = SequentialScheduler.INSTANCE;
+    }
+
+    public void setUp() throws HyracksException {
         onDiskDir = "lsm_btree_" + simpleDateFormat.format(new Date()) + sep;
         ctx = TestUtils.create(getHyracksFrameSize());
         TestStorageManagerComponentHolder.init(diskPageSize, diskNumPages, diskMaxOpenFiles);
@@ -98,10 +100,10 @@ public class LSMBTreeTestHarness {
         ioManager = TestStorageManagerComponentHolder.getIOManager();
         rnd.setSeed(RANDOM_SEED);
     }
-    
+
     public void tearDown() throws HyracksDataException {
         diskBufferCache.close();
-        for(IODeviceHandle dev : ioManager.getIODevices()) {            
+        for (IODeviceHandle dev : ioManager.getIODevices()) {
             File dir = new File(dev.getPath(), onDiskDir);
             FilenameFilter filter = new FilenameFilter() {
                 public boolean accept(File dir, String name) {
@@ -118,68 +120,68 @@ public class LSMBTreeTestHarness {
             dir.delete();
         }
     }
-    
+
     public int getDiskPageSize() {
         return diskPageSize;
     }
-    
+
     public int getDiskNumPages() {
         return diskNumPages;
     }
-    
+
     public int getDiskMaxOpenFiles() {
         return diskMaxOpenFiles;
     }
-    
+
     public int getMemPageSize() {
         return memPageSize;
     }
-    
+
     public int getMemNumPages() {
         return memNumPages;
     }
-    
+
     public int getHyracksFrameSize() {
         return hyracksFrameSize;
     }
-    
+
     public int getFileId() {
-    	return DUMMY_FILE_ID;
+        return DUMMY_FILE_ID;
     }
-    
+
     public IOManager getIOManager() {
         return ioManager;
     }
-    
+
     public IBufferCache getDiskBufferCache() {
-    	return diskBufferCache;
+        return diskBufferCache;
     }
-    
+
     public IFileMapProvider getDiskFileMapProvider() {
-    	return diskFileMapProvider;
+        return diskFileMapProvider;
     }
-    
+
     public InMemoryBufferCache getMemBufferCache() {
-    	return memBufferCache;
+        return memBufferCache;
     }
-    
+
     public InMemoryFreePageManager getMemFreePageManager() {
-    	return memFreePageManager;
+        return memFreePageManager;
     }
-    
+
     public IHyracksTaskContext getHyracksTastContext() {
-    	return ctx;
+        return ctx;
     }
-    
+
     public String getOnDiskDir() {
-    	return onDiskDir;
+        return onDiskDir;
     }
-    
+
     public Random getRandom() {
         return rnd;
     }
-    
-    public IOperationCallback getMemOpCallback() {
-        return NoOpOperationCallback.INSTANCE;
+
+    public ILSMIOScheduler getIOScheduler() {
+        return ioScheduler;
     }
 }

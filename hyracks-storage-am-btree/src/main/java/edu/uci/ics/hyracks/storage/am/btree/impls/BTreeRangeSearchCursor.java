@@ -19,6 +19,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
@@ -57,7 +58,10 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
 
     // This is only used by the LSM-RTree
     private int pageId = -1;
+    // TODO(ALEX): How this is different tupleIndex? Why do we need it?
     private int currentTupleIndex = 0;
+
+    private ISearchOperationCallback searchCallback;
 
     public BTreeRangeSearchCursor(IBTreeLeafFrame frame, boolean exclusiveLatchNodes) {
         this.frame = frame;
@@ -192,8 +196,8 @@ public class BTreeRangeSearchCursor implements ITreeIndexCursor {
             }
             bufferCache.unpin(page);
         }
-
-        page = ((BTreeCursorInitialState) initialState).getPage();
+        searchCallback = initialState.getSearchOperationCallback();
+        page = initialState.getPage();
         frame.setPage(page);
 
         pageId = ((BTreeCursorInitialState) initialState).getPageId();

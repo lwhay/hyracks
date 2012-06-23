@@ -19,6 +19,7 @@ import java.io.Serializable;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IDataOutputProvider;
 
-public interface IEvaluatorFactory extends Serializable {
-    public IEvaluator createEvaluator(IDataOutputProvider output) throws AlgebricksException;
+public interface ICopyRunningAggregateFunctionFactory extends Serializable {
+    public ICopyRunningAggregateFunction createRunningAggregateFunction(IDataOutputProvider provider)
+            throws AlgebricksException;
 }

@@ -23,12 +23,14 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMTreeSearchCursor;
 
 public class LSMBTreeRangeSearchCursor extends LSMTreeSearchCursor {
     private PriorityQueueComparator pqCmp;
+    private ISearchOperationCallback searchCallback;
 
     public LSMBTreeRangeSearchCursor() {
         outputElement = null;
@@ -52,6 +54,7 @@ public class LSMBTreeRangeSearchCursor extends LSMTreeSearchCursor {
     @Override
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
+        searchCallback = lsmInitialState.getSearchOperationCallback();
         cmp = lsmInitialState.getCmp();
         int numBTrees = lsmInitialState.getNumBTrees();
         rangeCursors = new BTreeRangeSearchCursor[numBTrees];

@@ -125,7 +125,6 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor implements ITre
     @Override
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         super.open(initialState, searchPred);
-
         reset();
     }
 }
