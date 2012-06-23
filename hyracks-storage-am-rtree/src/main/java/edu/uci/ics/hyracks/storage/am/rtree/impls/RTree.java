@@ -771,7 +771,7 @@ public class RTree extends AbstractTreeIndex {
         MultiComparator cmp = MultiComparator.create(cmpFactories);
         SearchPredicate searchPred = new SearchPredicate(null, cmp);
 
-        int currentPageId = rootPage + 1;
+        int currentPageId = rootPage;
         int maxPageId = freePageManager.getMaxPage(ctx.metaFrame);
 
         ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, currentPageId), false);
