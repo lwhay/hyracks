@@ -5,8 +5,6 @@
   <version>0.2.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  Hello World, foo bar!
-
   <build>
     <plugins>
       <plugin>
@@ -17,6 +15,9 @@
             <goals>package source:jar javadoc:jar deploy:deploy</goals>
         </configuration>
       </plugin>
+
+      Adding some junk, here.
+
       <plugin>
       	<groupId>org.codehaus.mojo</groupId>
       	<artifactId>versions-maven-plugin</artifactId>
