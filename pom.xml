@@ -5,6 +5,8 @@
   <version>0.2.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
+  Hello World, foo bar!
+
   <build>
     <plugins>
       <plugin>
