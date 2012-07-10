@@ -41,14 +41,14 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
     private int[] keyFieldIdx;
     private int[] decorFieldIdx;
     // Used for building a "null" group, if there is no input to group.
-    private INullWriter nullWriter;
+    private INullWriterFactory nullWriterFactory;
 
     public NestedPlansAccumulatingAggregatorFactory(AlgebricksPipeline[] subplans, int[] keyFieldIdx,
             int[] decorFieldIdx, INullWriterFactory nullWriterFactory) {
         this.subplans = subplans;
         this.keyFieldIdx = keyFieldIdx;
         this.decorFieldIdx = decorFieldIdx;
-        this.nullWriter = nullWriterFactory.createNullWriter();
+        this.nullWriterFactory = nullWriterFactory;
     }
 
     @Override
@@ -58,6 +58,7 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
         final AggregatorOutput outputWriter = new AggregatorOutput(ctx.getFrameSize(), subplans, keyFieldIdx.length,
                 decorFieldIdx.length);
         final NestedTupleSourceRuntime[] pipelines = new NestedTupleSourceRuntime[subplans.length];
+        final INullWriter nullWriter = nullWriterFactory.createNullWriter();
         for (int i = 0; i < subplans.length; i++) {
             try {
                 pipelines[i] = (NestedTupleSourceRuntime) assemblePipeline(subplans[i], outputWriter, ctx);
