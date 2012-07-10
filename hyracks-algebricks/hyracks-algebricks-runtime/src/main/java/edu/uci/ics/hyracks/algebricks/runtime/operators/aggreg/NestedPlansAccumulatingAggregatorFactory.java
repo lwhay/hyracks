@@ -80,6 +80,9 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
                 		nullWriter.writeNull(tb.getDataOutput());
                 		tb.addFieldEndOffset();
                 	}
+                	for (int i = 0; i < pipelines.length; ++i) {
+                        pipelines[i].open();
+                    }
                 	// Don't aggregate anything.
                 	return;
                 }
