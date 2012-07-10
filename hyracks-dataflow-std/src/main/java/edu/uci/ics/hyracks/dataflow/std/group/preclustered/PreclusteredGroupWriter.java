@@ -27,6 +27,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public class PreclusteredGroupWriter implements IFrameWriter {
     private final int[] groupFields;
@@ -115,10 +116,12 @@ public class PreclusteredGroupWriter implements IFrameWriter {
     private void writeOutput(final FrameTupleAccessor lastTupleAccessor, int lastTupleIndex)
             throws HyracksDataException {
 
-        tupleBuilder.reset();
-        for (int j = 0; j < groupFields.length; j++) {
-            tupleBuilder.addField(lastTupleAccessor, lastTupleIndex, groupFields[j]);
-        }
+    	tupleBuilder.reset();
+    	if (lastTupleIndex != IAggregatorDescriptorFactory.INVALID_TIDX) {
+    		for (int j = 0; j < groupFields.length; j++) {
+    			tupleBuilder.addField(lastTupleAccessor, lastTupleIndex, groupFields[j]);
+    		}
+    	}
         aggregator.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
 
         if (!appender.appendSkipEmptyField(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
@@ -154,8 +157,14 @@ public class PreclusteredGroupWriter implements IFrameWriter {
 
     @Override
     public void close() throws HyracksDataException {
-        if (!first) {
+    	if (!first) {
             writeOutput(copyFrameAccessor, copyFrameAccessor.getTupleCount() - 1);
+            if (appender.getTupleCount() > 0) {
+                FrameUtils.flushFrame(outFrame, writer);
+            }
+        } else {
+            aggregator.init(tupleBuilder, copyFrameAccessor, IAggregatorDescriptorFactory.INVALID_TIDX, aggregateState);
+            writeOutput(copyFrameAccessor, IAggregatorDescriptorFactory.INVALID_TIDX);
             if (appender.getTupleCount() > 0) {
                 FrameUtils.flushFrame(outFrame, writer);
             }

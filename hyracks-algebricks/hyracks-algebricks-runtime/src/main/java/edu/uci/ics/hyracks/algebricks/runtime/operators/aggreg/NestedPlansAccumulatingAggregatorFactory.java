@@ -24,6 +24,8 @@ import edu.uci.ics.hyracks.algebricks.runtime.operators.std.NestedTupleSourceRun
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -38,12 +40,15 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
     private AlgebricksPipeline[] subplans;
     private int[] keyFieldIdx;
     private int[] decorFieldIdx;
+    // Used for building a "null" group, if there is no input to group.
+    private INullWriter nullWriter;
 
     public NestedPlansAccumulatingAggregatorFactory(AlgebricksPipeline[] subplans, int[] keyFieldIdx,
-            int[] decorFieldIdx) {
+            int[] decorFieldIdx, INullWriterFactory nullWriterFactory) {
         this.subplans = subplans;
         this.keyFieldIdx = keyFieldIdx;
         this.decorFieldIdx = decorFieldIdx;
+        this.nullWriter = nullWriterFactory.createNullWriter();
     }
 
     @Override
@@ -68,19 +73,34 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
                     AggregateState state) throws HyracksDataException {
                 ArrayTupleBuilder tb = outputWriter.getTupleBuilder();
                 tb.reset();
-                for (int i = 0; i < keyFieldIdx.length; ++i) {
-                    tb.addField(accessor, tIndex, keyFieldIdx[i]);
+                if (tIndex != INVALID_TIDX) {
+                	for (int i = 0; i < keyFieldIdx.length; ++i) {
+                		tb.addField(accessor, tIndex, keyFieldIdx[i]);
+                	}
+                	for (int i = 0; i < decorFieldIdx.length; ++i) {
+                        tb.addField(accessor, tIndex, decorFieldIdx[i]);
+                    }
+                } else {
+                	// Write null keys and decors.
+                	for (int i = 0; i < keyFieldIdx.length; ++i) {
+                		nullWriter.writeNull(tb.getDataOutput());
+                		tb.addFieldEndOffset();
+                	}
+                	for (int i = 0; i < decorFieldIdx.length; ++i) {
+                		nullWriter.writeNull(tb.getDataOutput());
+                		tb.addFieldEndOffset();
+                    }
                 }
-                for (int i = 0; i < decorFieldIdx.length; ++i) {
-                    tb.addField(accessor, tIndex, decorFieldIdx[i]);
-                }
+                
                 for (int i = 0; i < pipelines.length; ++i) {
                     pipelines[i].open();
                 }
 
                 // aggregate the first tuple
-                for (int i = 0; i < pipelines.length; i++) {
-                    pipelines[i].writeTuple(accessor.getBuffer(), tIndex);
+                if (tIndex != INVALID_TIDX) {
+                	for (int i = 0; i < pipelines.length; i++) {
+                		pipelines[i].writeTuple(accessor.getBuffer(), tIndex);
+                	}
                 }
             }
 

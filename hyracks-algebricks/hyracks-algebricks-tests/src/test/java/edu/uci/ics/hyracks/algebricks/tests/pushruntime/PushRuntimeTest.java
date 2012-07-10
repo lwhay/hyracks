@@ -421,7 +421,7 @@ public class PushRuntimeTest {
         AlgebricksPipeline pipeline = new AlgebricksPipeline(new IPushRuntimeFactory[] { nts, agg },
                 new RecordDescriptor[] { ntsDesc, aggDesc });
         NestedPlansAccumulatingAggregatorFactory npaaf = new NestedPlansAccumulatingAggregatorFactory(
-                new AlgebricksPipeline[] { pipeline }, new int[] { 3 }, new int[] {});
+                new AlgebricksPipeline[] { pipeline }, new int[] { 3 }, new int[] {}, NoopNullWriterFactory.INSTANCE);
         RecordDescriptor gbyDesc = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
         PreclusteredGroupOperatorDescriptor gby = new PreclusteredGroupOperatorDescriptor(spec, new int[] { 3 },
@@ -827,7 +827,7 @@ public class PushRuntimeTest {
         AlgebricksPipeline pipeline = new AlgebricksPipeline(new IPushRuntimeFactory[] { nts, agg },
                 new RecordDescriptor[] { ntsDesc, aggDesc });
         NestedPlansAccumulatingAggregatorFactory npaaf = new NestedPlansAccumulatingAggregatorFactory(
-                new AlgebricksPipeline[] { pipeline }, new int[] { 3 }, new int[] {});
+                new AlgebricksPipeline[] { pipeline }, new int[] { 3 }, new int[] {}, NoopNullWriterFactory.INSTANCE);
         RecordDescriptor gbyDesc = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
         MicroPreClusteredGroupRuntimeFactory gby = new MicroPreClusteredGroupRuntimeFactory(new int[] { 3 },

@@ -25,6 +25,8 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
  */
 public interface IAggregatorDescriptorFactory extends Serializable {
 
+	public static int INVALID_TIDX = -1;
+	
     IAggregatorDescriptor createAggregator(IHyracksTaskContext ctx, RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor, int[] keyFields, final int[] keyFieldsInPartialResults)
             throws HyracksDataException;
