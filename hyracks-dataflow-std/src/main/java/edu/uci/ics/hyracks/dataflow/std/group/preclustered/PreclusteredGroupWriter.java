@@ -163,6 +163,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
                 FrameUtils.flushFrame(outFrame, writer);
             }
         } else {
+        	// Write null group with initial agg values.
             aggregator.init(tupleBuilder, copyFrameAccessor, IAggregatorDescriptorFactory.INVALID_TIDX, aggregateState);
             writeOutput(copyFrameAccessor, IAggregatorDescriptorFactory.INVALID_TIDX);
             if (appender.getTupleCount() > 0) {

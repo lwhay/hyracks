@@ -74,23 +74,21 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
                     AggregateState state) throws HyracksDataException {
                 ArrayTupleBuilder tb = outputWriter.getTupleBuilder();
                 tb.reset();
-                if (tIndex != INVALID_TIDX) {
-                	for (int i = 0; i < keyFieldIdx.length; ++i) {
-                		tb.addField(accessor, tIndex, keyFieldIdx[i]);
-                	}
-                	for (int i = 0; i < decorFieldIdx.length; ++i) {
-                        tb.addField(accessor, tIndex, decorFieldIdx[i]);
-                    }
-                } else {
+                if (tIndex == INVALID_TIDX) {
                 	// Write null keys and decors.
-                	for (int i = 0; i < keyFieldIdx.length; ++i) {
+                	for (int i = 0; i < keyFieldIdx.length + decorFieldIdx.length; ++i) {
                 		nullWriter.writeNull(tb.getDataOutput());
                 		tb.addFieldEndOffset();
                 	}
-                	for (int i = 0; i < decorFieldIdx.length; ++i) {
-                		nullWriter.writeNull(tb.getDataOutput());
-                		tb.addFieldEndOffset();
-                    }
+                	// Don't aggregate anything.
+                	return;
+                }
+                
+                for (int i = 0; i < keyFieldIdx.length; ++i) {
+                	tb.addField(accessor, tIndex, keyFieldIdx[i]);
+                }
+                for (int i = 0; i < decorFieldIdx.length; ++i) {
+                	tb.addField(accessor, tIndex, decorFieldIdx[i]);
                 }
                 
                 for (int i = 0; i < pipelines.length; ++i) {
@@ -98,10 +96,8 @@ public class NestedPlansAccumulatingAggregatorFactory implements IAggregatorDesc
                 }
 
                 // aggregate the first tuple
-                if (tIndex != INVALID_TIDX) {
-                	for (int i = 0; i < pipelines.length; i++) {
-                		pipelines[i].writeTuple(accessor.getBuffer(), tIndex);
-                	}
+                for (int i = 0; i < pipelines.length; i++) {
+                	pipelines[i].writeTuple(accessor.getBuffer(), tIndex);
                 }
             }
 
