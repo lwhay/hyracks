@@ -63,13 +63,16 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     private Collection<LogicalVariable> usedVariables;
 
     public UsedVariableVisitor(Collection<LogicalVariable> usedVariables) {
-        this.usedVariables = usedVariables;
+        this.usedVariables = usedVariables;                                   
     }
 
     @Override
     public Void visitAggregateOperator(AggregateOperator op, Void arg) {
         for (Mutable<ILogicalExpression> exprRef : op.getExpressions()) {
             exprRef.getValue().getUsedVariables(usedVariables);
+        }
+        if (op.getPartitioningVariable() != null) {
+        	usedVariables.add(op.getPartitioningVariable());
         }
         return null;
     }
