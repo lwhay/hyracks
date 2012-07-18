@@ -29,7 +29,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.Va
 import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
 import edu.uci.ics.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 
-public class IntroduceCombinerRule extends AbstractIntroduceCombinerRule {
+public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule {
 
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
