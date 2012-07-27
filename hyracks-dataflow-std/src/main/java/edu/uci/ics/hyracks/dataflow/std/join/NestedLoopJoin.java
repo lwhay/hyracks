@@ -14,15 +14,18 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.join;
 
+import java.io.DataOutput;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePairComparator;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
@@ -42,6 +45,8 @@ public class NestedLoopJoin {
     private RunFileReader runFileReader;
     private int currentMemSize = 0;
     private final RunFileWriter runFileWriter;
+    private final boolean isLeftOuter;
+    private final ArrayTupleBuilder nullTupleBuild;
 
     public NestedLoopJoin(IHyracksTaskContext ctx, FrameTupleAccessor accessor0, FrameTupleAccessor accessor1,
             ITuplePairComparator comparators, int memSize) throws HyracksDataException {
@@ -55,6 +60,41 @@ public class NestedLoopJoin {
         this.outBuffers = new ArrayList<ByteBuffer>();
         this.memSize = memSize;
         this.ctx = ctx;
+
+        FileReference file = ctx.getJobletContext().createManagedWorkspaceFile(
+                this.getClass().getSimpleName() + this.toString());
+        runFileWriter = new RunFileWriter(file, ctx.getIOManager());
+        runFileWriter.open();
+        
+        this.isLeftOuter = false;
+        this.nullTupleBuild = null;
+    }
+    
+    public NestedLoopJoin(IHyracksTaskContext ctx, FrameTupleAccessor accessor0, FrameTupleAccessor accessor1,
+            ITuplePairComparator comparators, int memSize, boolean isLeftOuter, INullWriter[] nullWriters1) throws HyracksDataException {
+        this.accessorInner = accessor1;
+        this.accessorOuter = accessor0;
+        this.appender = new FrameTupleAppender(ctx.getFrameSize());
+        this.tpComparator = comparators;
+        this.outBuffer = ctx.allocateFrame();
+        this.innerBuffer = ctx.allocateFrame();
+        this.appender.reset(outBuffer, true);
+        this.outBuffers = new ArrayList<ByteBuffer>();
+        this.memSize = memSize;
+        this.ctx = ctx;
+        
+        this.isLeftOuter = isLeftOuter;
+        if (isLeftOuter) {
+            int fieldCountOuter = accessorInner.getFieldCount();
+            nullTupleBuild = new ArrayTupleBuilder(fieldCountOuter);
+            DataOutput out = nullTupleBuild.getDataOutput();
+            for (int i = 0; i < fieldCountOuter; i++) {
+                nullWriters1[i].writeNull(out);
+                nullTupleBuild.addFieldEndOffset();
+            }
+        } else {
+            nullTupleBuild = null;
+        }
 
         FileReference file = ctx.getJobletContext().createManagedWorkspaceFile(
                 this.getClass().getSimpleName() + this.toString());
@@ -108,6 +148,7 @@ public class NestedLoopJoin {
         int tupleCount1 = accessorInner.getTupleCount();
 
         for (int i = 0; i < tupleCount0; ++i) {
+        	boolean matchFound = false;
             for (int j = 0; j < tupleCount1; ++j) {
                 int c = compare(accessorOuter, i, accessorInner, j);
                 if (c == 0) {
@@ -117,6 +158,18 @@ public class NestedLoopJoin {
                         if (!appender.appendConcat(accessorOuter, i, accessorInner, j)) {
                             throw new IllegalStateException();
                         }
+                    }
+                }
+            }
+            
+            if (!matchFound && isLeftOuter) {
+                if (!appender.appendConcat(accessorOuter, i, nullTupleBuild.getFieldEndOffsets(),
+                        nullTupleBuild.getByteArray(), 0, nullTupleBuild.getSize())) {
+                    flushFrame(outBuffer, writer);
+                    appender.reset(outBuffer, true);
+                    if (!appender.appendConcat(accessorOuter, i, nullTupleBuild.getFieldEndOffsets(),
+                            nullTupleBuild.getByteArray(), 0, nullTupleBuild.getSize())) {
+                        throw new IllegalStateException();
                     }
                 }
             }

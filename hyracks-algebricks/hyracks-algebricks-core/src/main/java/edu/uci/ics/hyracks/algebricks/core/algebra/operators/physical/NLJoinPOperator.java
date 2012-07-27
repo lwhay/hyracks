@@ -44,6 +44,7 @@ import edu.uci.ics.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePairComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePairComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -138,7 +139,14 @@ public class NLJoinPOperator extends AbstractJoinPOperator {
                 opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize);
                 break;
             }
-            case LEFT_OUTER:
+            case LEFT_OUTER:{
+            	INullWriterFactory[] nullWriterFactories = new INullWriterFactory[inputSchemas[1].getSize()];
+                for (int j = 0; j < nullWriterFactories.length; j++) {
+                    nullWriterFactories[j] = context.getNullWriterFactory();
+                }
+            	opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize, true, nullWriterFactories);
+            	break;
+            }
             default: {
                 throw new NotImplementedException();
             }
