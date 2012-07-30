@@ -90,7 +90,7 @@ public class MuxDemux {
                     mConn = connectionMap.get(remoteAddress);
                     assert mConn != null;
                     int nConnectionAttempts = mConn.getConnectionAttempts();
-                    if (nConnectionAttempts > MuxDemux.this.maxConnectionAttempts) {
+		    if (nConnectionAttempts > MuxDemux.this.maxConnectionAttempts) {
                         connectionMap.remove(remoteAddress);
                         mConn.setConnectionFailure();
                     } else {

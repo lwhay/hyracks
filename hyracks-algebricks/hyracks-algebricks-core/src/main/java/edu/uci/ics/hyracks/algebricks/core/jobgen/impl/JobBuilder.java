@@ -15,12 +15,20 @@
 package edu.uci.ics.hyracks.algebricks.core.jobgen.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+import java.util.Set;
 
+import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
+import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint.PartitionConstraintType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
@@ -34,11 +42,20 @@ import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.api.topology.ClusterTopology;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.misc.IdentityOperatorDescriptor;
 
 public class JobBuilder implements IHyracksJobBuilder {
 
+    private static final int NUM_RACK_REPRESENTATIVES = 8;
+
+    private Random rand = new Random(System.currentTimeMillis());
     private JobSpecification jobSpec;
     private AlgebricksPartitionConstraint clusterLocations;
+    private ClusterTopology clusterTopology;
+    private Map<List<Integer>, List<String>> pathToMachineList = new HashMap<List<Integer>, List<String>>();
 
     private Map<ILogicalOperator, ArrayList<ILogicalOperator>> outEdges = new HashMap<ILogicalOperator, ArrayList<ILogicalOperator>>();
     private Map<ILogicalOperator, ArrayList<ILogicalOperator>> inEdges = new HashMap<ILogicalOperator, ArrayList<ILogicalOperator>>();
@@ -55,9 +72,38 @@ public class JobBuilder implements IHyracksJobBuilder {
     private Map<Integer, AlgebricksMetaOperatorDescriptor> metaAsterixOps = new HashMap<Integer, AlgebricksMetaOperatorDescriptor>();
     private final Map<IOperatorDescriptor, AlgebricksPartitionConstraint> partitionConstraintMap = new HashMap<IOperatorDescriptor, AlgebricksPartitionConstraint>();
 
-    public JobBuilder(JobSpecification jobSpec, AlgebricksPartitionConstraint clusterLocations) {
+    public JobBuilder(JobSpecification jobSpec, AlgebricksPartitionConstraint clusterLocations,
+            ClusterTopology clusterTopology) {
         this.jobSpec = jobSpec;
         this.clusterLocations = clusterLocations;
+        this.clusterTopology = clusterTopology;
+        initializeRackMapping();
+    }
+
+    private void initializeRackMapping() {
+        if (clusterTopology == null) {
+            System.out.println("topology is null!");
+            return;
+        }
+        AlgebricksAbsolutePartitionConstraint constraint = (AlgebricksAbsolutePartitionConstraint) clusterLocations;
+        for (String loc : constraint.getLocations())
+            System.out.println("cluster loc " + loc);
+        for (String loc : constraint.getLocations()) {
+            List<Integer> path = new ArrayList<Integer>();
+            clusterTopology.lookupNetworkTerminal(loc, path);
+            path.remove(path.size() - 1);
+            if (!pathToMachineList.containsKey(path)) {
+                List<String> machines = new ArrayList<String>();
+                pathToMachineList.put(path, machines);
+            }
+            List<String> machines = pathToMachineList.get(path);
+            if (!machines.contains(loc))
+                machines.add(loc);
+        }
+
+        for (List<Integer> key : pathToMachineList.keySet()) {
+            System.out.println("switch " + key);
+        }
     }
 
     @Override
@@ -175,6 +221,14 @@ public class JobBuilder implements IHyracksJobBuilder {
                             opConstraint = partitionConstraintMap.get(src);
                             break;
                         }
+                        case RACK_AGG_SENDER: {
+                            opConstraint = getRepartitioningMediatorConstraint(partitionConstraintMap.get(src));
+                            break;
+                        }
+                        case RACK_AGG_RECEIVER: {
+                            opConstraint = getRepartitioningMediatorConstraint(clusterLocations);
+                            break;
+                        }
                     }
                 }
             }
@@ -209,9 +263,44 @@ public class JobBuilder implements IHyracksJobBuilder {
             IConnectorDescriptor conn = connPair.first;
             int producerPort = outEdges.get(inOp).indexOf(exchg);
             int consumerPort = inEdges.get(outOp).indexOf(exchg);
-            jobSpec.connect(conn, inOpDesc, producerPort, outOpDesc, consumerPort);
-            if (connPair.second != null) {
-                tgtConstraints.put(conn, connPair.second);
+
+            boolean introduceInterMediateOp = false;
+            if (((conn instanceof MToNPartitioningConnectorDescriptor) || (conn instanceof MToNPartitioningConnectorDescriptor))) {
+                AlgebricksAbsolutePartitionConstraint allNodes = (AlgebricksAbsolutePartitionConstraint) clusterLocations;
+                // eliminate duplicates
+                Set<String> allMachines = new HashSet<String>();
+                allMachines.addAll(Arrays.asList(allNodes.getLocations()));
+                introduceInterMediateOp = pathToMachineList.keySet().size() <= 1 ? false : true;
+            }
+
+            if (introduceInterMediateOp) {
+                System.out.println("introducing rackware operator");
+                // inject a sender side intermediate non-op operator
+                IOperatorDescriptor senderSideIntermediateOpDesc = new IdentityOperatorDescriptor(jobSpec,
+                        inOpDesc.getOutputRecordDescriptors()[producerPort]);
+                IConnectorDescriptor producerSideConn = new OneToOneConnectorDescriptor(jobSpec);
+                jobSpec.connect(producerSideConn, inOpDesc, producerPort, senderSideIntermediateOpDesc, 0);
+                tgtConstraints.put(producerSideConn, TargetConstraint.RACK_AGG_SENDER);
+
+                // inject a receiver side intermediate non-op operator
+                IOperatorDescriptor receiverSideIntermediateOpDesc = new IdentityOperatorDescriptor(jobSpec,
+                        senderSideIntermediateOpDesc.getOutputRecordDescriptors()[0]);
+                jobSpec.connect(conn, senderSideIntermediateOpDesc, 0, receiverSideIntermediateOpDesc, 0);
+                tgtConstraints.put(conn, TargetConstraint.RACK_AGG_RECEIVER);
+
+                // connect the receiver side intermediate non-op operator and
+                // the consumer
+                IConnectorDescriptor receiverSideConn = new OneToOneConnectorDescriptor(jobSpec);
+                jobSpec.connect(receiverSideConn, receiverSideIntermediateOpDesc, 0, outOpDesc, consumerPort);
+                if (connPair.second != null) {
+                    tgtConstraints.put(receiverSideConn, connPair.second);
+                }
+            } else {
+                System.out.println("not introducing rackware operator");
+                jobSpec.connect(conn, inOpDesc, producerPort, outOpDesc, consumerPort);
+                if (connPair.second != null) {
+                    tgtConstraints.put(conn, connPair.second);
+                }
             }
         }
         return tgtConstraints;
@@ -320,4 +409,50 @@ public class JobBuilder implements IHyracksJobBuilder {
         }
     }
 
+    private AlgebricksPartitionConstraint getRepartitioningMediatorConstraint(
+            AlgebricksPartitionConstraint inducedConstraints) {
+        // get rack centers (by random selecting a machine from the rack)
+        Map<List<Integer>, List<String>> pathToRackCenters = new HashMap<List<Integer>, List<String>>();
+        Map<List<Integer>, Integer> pathToRackCentersRotation = new HashMap<List<Integer>, Integer>();
+
+        for (Entry<List<Integer>, List<String>> entry : pathToMachineList.entrySet()) {
+            List<Integer> key = entry.getKey();
+            List<String> machines = entry.getValue();
+            List<String> machinesClone = new ArrayList<String>();
+            machinesClone.addAll(machines);
+            Collections.shuffle(machinesClone, rand);
+            int toIndex = NUM_RACK_REPRESENTATIVES < machinesClone.size() ? NUM_RACK_REPRESENTATIVES : machinesClone
+                    .size();
+            List<String> centers = machinesClone.subList(0, toIndex);
+            pathToRackCenters.put(key, centers);
+            pathToRackCentersRotation.put(key, 0);
+        }
+        for (Entry<List<Integer>, List<String>> entry : pathToRackCenters.entrySet()) {
+            System.out.println("rack center " + entry.getValue());
+        }
+
+        // let the constraint having the same cardinality as original output
+        int constraintCardinality = 0;
+        String[] originalLocs;
+        if (inducedConstraints.getPartitionConstraintType() == PartitionConstraintType.ABSOLUTE) {
+            AlgebricksAbsolutePartitionConstraint abCons = (AlgebricksAbsolutePartitionConstraint) inducedConstraints;
+            constraintCardinality = abCons.getLocations().length;
+            originalLocs = abCons.getLocations();
+        } else {
+            throw new IllegalStateException("count constraint is not allowed");
+        }
+
+        String[] locs = new String[constraintCardinality];
+        for (int i = 0; i < locs.length; i++) {
+            List<Integer> path = new ArrayList<Integer>();
+            clusterTopology.lookupNetworkTerminal(originalLocs[i], path);
+            path.remove(path.size() - 1);
+            List<String> centers = pathToRackCenters.get(path);
+            int rotation = pathToRackCentersRotation.get(path);
+            locs[i] = centers.get(rotation);
+            rotation = (rotation + 1) % centers.size();
+            pathToRackCentersRotation.put(path, rotation);
+        }
+        return new AlgebricksAbsolutePartitionConstraint(locs);
+    }
 }

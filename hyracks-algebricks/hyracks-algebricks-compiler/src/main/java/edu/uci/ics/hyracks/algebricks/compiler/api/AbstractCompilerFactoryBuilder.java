@@ -36,6 +36,7 @@ import edu.uci.ics.hyracks.algebricks.data.IPrinterFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
+import edu.uci.ics.hyracks.api.topology.ClusterTopology;
 
 public abstract class AbstractCompilerFactoryBuilder {
 
@@ -58,6 +59,7 @@ public abstract class AbstractCompilerFactoryBuilder {
     protected IMergeAggregationExpressionFactory mergeAggregationExpressionFactory;
     protected PhysicalOptimizationConfig physicalOptimizationConfig = new PhysicalOptimizationConfig();
     protected AlgebricksPartitionConstraint clusterLocations;
+    protected ClusterTopology clusterTopology;
     protected int frameSize = -1;
 
     public abstract ICompilerFactory create();
@@ -216,4 +218,11 @@ public abstract class AbstractCompilerFactoryBuilder {
         return nullableTypeComputer;
     }
 
+    public void setClusterTopology(ClusterTopology clusterTopology) {
+        this.clusterTopology = clusterTopology;
+    }
+
+    public ClusterTopology getClusterTopology() {
+        return this.clusterTopology;
+    }
 }

@@ -159,6 +159,7 @@ public class TCPEndpoint {
                                 try {
                                     connection.getEventListener().notifyIOReady(connection, readable, writable);
                                 } catch (Exception e) {
+                                    e.printStackTrace();
                                     connection.getEventListener().notifyIOError(e);
                                     connection.close();
                                     continue;

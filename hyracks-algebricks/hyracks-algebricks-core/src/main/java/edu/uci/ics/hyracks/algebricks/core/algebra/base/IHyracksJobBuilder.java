@@ -26,8 +26,7 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 
 public interface IHyracksJobBuilder {
     public enum TargetConstraint {
-        ONE,
-        SAME_COUNT
+        ONE, SAME_COUNT, RACK_AGG_SENDER, RACK_AGG_RECEIVER
     }
 
     public void contributeHyracksOperator(ILogicalOperator op, IOperatorDescriptor opDesc);

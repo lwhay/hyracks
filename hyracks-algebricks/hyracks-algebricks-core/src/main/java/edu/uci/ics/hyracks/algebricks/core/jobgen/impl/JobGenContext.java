@@ -40,6 +40,7 @@ import edu.uci.ics.hyracks.algebricks.data.IPrinterFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
+import edu.uci.ics.hyracks.api.topology.ClusterTopology;
 
 public class JobGenContext {
     private final IOperatorSchema outerFlowSchema;
@@ -61,6 +62,7 @@ public class JobGenContext {
     private final IPartialAggregationTypeComputer partialAggregationTypeComputer;
     private final int frameSize;
     private AlgebricksPartitionConstraint clusterLocations;
+    private ClusterTopology clusterTopology;
     private int varCounter;
     private final ITypingContext typingContext;
 
@@ -75,7 +77,7 @@ public class JobGenContext {
             INullableTypeComputer nullableTypeComputer, ITypingContext typingContext,
             IExpressionEvalSizeComputer expressionEvalSizeComputer,
             IPartialAggregationTypeComputer partialAggregationTypeComputer, int frameSize,
-            AlgebricksPartitionConstraint clusterLocations) {
+            AlgebricksPartitionConstraint clusterLocations, ClusterTopology clusterTopology) {
         this.outerFlowSchema = outerFlowSchema;
         this.metadataProvider = metadataProvider;
         this.appContext = appContext;
@@ -87,6 +89,7 @@ public class JobGenContext {
         this.integerInspector = integerInspector;
         this.printerFactoryProvider = printerFactoryProvider;
         this.clusterLocations = clusterLocations;
+        this.clusterTopology = clusterTopology;
         this.normalizedKeyComputerFactoryProvider = normalizedKeyComputerFactoryProvider;
         this.nullWriterFactory = nullWriterFactory;
         this.exprJobGen = exprJobGen;
@@ -186,6 +189,10 @@ public class JobGenContext {
 
     public IVariableTypeEnvironment getTypeEnvironment(ILogicalOperator op) {
         return typingContext.getOutputTypeEnvironment(op);
+    }
+
+    public ClusterTopology getClusterTopology() {
+        return clusterTopology;
     }
 
 }

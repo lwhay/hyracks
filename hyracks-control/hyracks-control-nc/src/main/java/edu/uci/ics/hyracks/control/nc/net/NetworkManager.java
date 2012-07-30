@@ -40,7 +40,7 @@ import edu.uci.ics.hyracks.net.protocols.muxdemux.MuxDemuxPerformanceCounters;
 public class NetworkManager {
     private static final Logger LOGGER = Logger.getLogger(NetworkManager.class.getName());
 
-    private static final int MAX_CONNECTION_ATTEMPTS = 5;
+    private static final int MAX_CONNECTION_ATTEMPTS = 50;
 
     static final int INITIAL_MESSAGE_SIZE = 20;
 
@@ -102,7 +102,7 @@ public class NetworkManager {
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("Received initial partition request: " + pid + " on channel: " + ccb);
             }
-            noc = new NetworkOutputChannel(ctx, ccb, 5);
+            noc = new NetworkOutputChannel(ctx, ccb, 1);
             try {
                 partitionRequestListener.registerPartitionRequest(pid, noc);
             } catch (HyracksException e) {

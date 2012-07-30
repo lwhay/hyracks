@@ -80,7 +80,6 @@ public class PartitionMatchMaker {
 
     public Pair<PartitionDescriptor, PartitionRequest> matchPartitionRequest(PartitionRequest partitionRequest) {
         Pair<PartitionDescriptor, PartitionRequest> match = null;
-
         PartitionId pid = partitionRequest.getPartitionId();
 
         List<PartitionDescriptor> descriptors = partitionDescriptors.get(pid);

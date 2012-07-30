@@ -52,7 +52,7 @@ public class JoinUtils {
     private final static int MAX_RECORDS_PER_FRAME = 512;
     private final static int DEFAULT_FRAME_SIZE = 32768;
     private final static int MAX_LEFT_INPUT_SIZE_HYBRID_HASH = (int) (140L * 1024 * MB / DEFAULT_FRAME_SIZE);
-    private final static int DEFAULT_MEMORY_SIZE_HYBRID_HASH = (int) (256L * MB / DEFAULT_FRAME_SIZE);
+    private final static int DEFAULT_MEMORY_SIZE_HYBRID_HASH = (int) (32L * MB / DEFAULT_FRAME_SIZE);
 
     public static void setJoinAlgorithmAndExchangeAlgo(AbstractBinaryJoinOperator op, IOptimizationContext context)
             throws AlgebricksException {
