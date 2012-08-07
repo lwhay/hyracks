@@ -63,7 +63,7 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     private Collection<LogicalVariable> usedVariables;
 
     public UsedVariableVisitor(Collection<LogicalVariable> usedVariables) {
-        this.usedVariables = usedVariables;                                   
+        this.usedVariables = usedVariables;
     }
 
     @Override
@@ -72,7 +72,7 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
             exprRef.getValue().getUsedVariables(usedVariables);
         }
         if (op.getPartitioningVariable() != null) {
-        	usedVariables.add(op.getPartitioningVariable());
+            usedVariables.add(op.getPartitioningVariable());
         }
         return null;
     }

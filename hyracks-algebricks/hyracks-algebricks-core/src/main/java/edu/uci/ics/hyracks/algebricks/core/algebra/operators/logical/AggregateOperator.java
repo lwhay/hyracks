@@ -21,7 +21,7 @@ public class AggregateOperator extends AbstractAssignOperator {
     // TODO type safe list of expressions
     private List<Mutable<ILogicalExpression>> mergeExpressions;
     private LogicalVariable partitioningVariable;
-    
+
     public AggregateOperator(List<LogicalVariable> variables, List<Mutable<ILogicalExpression>> expressions) {
         super(variables, expressions);
     }
@@ -70,13 +70,13 @@ public class AggregateOperator extends AbstractAssignOperator {
     }
 
     public void setPartitioningVariable(LogicalVariable partitioningVariable) {
-    	this.partitioningVariable = partitioningVariable;
+        this.partitioningVariable = partitioningVariable;
     }
-    
+
     public LogicalVariable getPartitioningVariable() {
-    	return partitioningVariable;
+        return partitioningVariable;
     }
-    
+
     @Override
     public IVariableTypeEnvironment computeOutputTypeEnvironment(ITypingContext ctx) throws AlgebricksException {
         IVariableTypeEnvironment env = new NonPropagatingTypeEnvironment(ctx.getExpressionTypeComputer(),

@@ -123,7 +123,7 @@ public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule 
         ArrayList<LogicalVariable> newOpGbyList = new ArrayList<LogicalVariable>();
         ArrayList<LogicalVariable> replGbyList = new ArrayList<LogicalVariable>();
         // Find maximal sequence of variable.
-        for (Map.Entry<GroupByOperator, List<LogicalVariable>> e : bi.modifGbyMap.entrySet()) {
+        for (Map.Entry<GroupByOperator, List<LogicalVariable>> e : bi.modifyGbyMap.entrySet()) {
             List<LogicalVariable> varList = e.getValue();
             boolean see1 = true;
             int sz1 = newOpGbyList.size();
@@ -158,7 +158,8 @@ public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule 
     }
 
     private Pair<Boolean, ILogicalPlan> tryToPushSubplan(ILogicalPlan nestedPlan, GroupByOperator oldGbyOp,
-            GroupByOperator newGbyOp, BookkeepingInfo bi, List<LogicalVariable> gbyVars, IOptimizationContext context) throws AlgebricksException {
+            GroupByOperator newGbyOp, BookkeepingInfo bi, List<LogicalVariable> gbyVars, IOptimizationContext context)
+            throws AlgebricksException {
         List<Mutable<ILogicalOperator>> pushedRoots = new ArrayList<Mutable<ILogicalOperator>>();
         for (Mutable<ILogicalOperator> r : nestedPlan.getRoots()) {
             if (!tryToPushRoot(r, oldGbyOp, newGbyOp, bi, gbyVars, context, pushedRoots)) {
@@ -191,7 +192,7 @@ public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule 
             if (opRef != null) {
                 toPushAccumulate.add(opRef);
             }
-            bi.modifGbyMap.put(oldGbyOp, gbyVars);
+            bi.modifyGbyMap.put(oldGbyOp, gbyVars);
             return true;
         } else {
             while (op2.getOperatorTag() != LogicalOperatorTag.GROUP && op2.getInputs().size() == 1) {

@@ -67,9 +67,9 @@ public class AggregatePOperator extends AbstractPhysicalOperator {
     @Override
     public PhysicalRequirements getRequiredPropertiesForChildren(ILogicalOperator op,
             IPhysicalPropertiesVector reqdByParent) {
-    	AggregateOperator aggOp = (AggregateOperator) op;
+        AggregateOperator aggOp = (AggregateOperator) op;
         if (aggOp.getExecutionMode() == ExecutionMode.PARTITIONED && aggOp.getPartitioningVariable() != null) {
-        	StructuralPropertiesVector[] pv = new StructuralPropertiesVector[1];
+            StructuralPropertiesVector[] pv = new StructuralPropertiesVector[1];
             Set<LogicalVariable> partitioningVariables = new ListSet<LogicalVariable>();
             partitioningVariables.add(aggOp.getPartitioningVariable());
             pv[0] = new StructuralPropertiesVector(new UnorderedPartitionedProperty(partitioningVariables, null), null);

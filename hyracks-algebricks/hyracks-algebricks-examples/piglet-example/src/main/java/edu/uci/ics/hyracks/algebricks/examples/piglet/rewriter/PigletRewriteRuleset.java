@@ -39,10 +39,10 @@ public class PigletRewriteRuleset {
     public final static List<IAlgebraicRewriteRule> buildNormalizationRuleCollection() {
         List<IAlgebraicRewriteRule> normalization = new LinkedList<IAlgebraicRewriteRule>();
         normalization.add(new EliminateSubplanRule());
-		// TODO: This rule is incorrect and has been removed. Its replacement in
-		// Asterix (PushAggFuncIntoStandaloneAggregateRule)
-		// is language-specific.
-		// normalization.add(new IntroduceGroupByForStandaloneAggregRule());
+        // TODO: This rule is incorrect and has been removed. Its replacement in
+        // Asterix (PushAggFuncIntoStandaloneAggregateRule)
+        // is language-specific.
+        // normalization.add(new IntroduceGroupByForStandaloneAggregRule());
         normalization.add(new BreakSelectIntoConjunctsRule());
         normalization.add(new PushSelectIntoJoinRule());
         normalization.add(new ExtractGbyExpressionsRule());
@@ -102,7 +102,6 @@ public class PigletRewriteRuleset {
         return physicalPlanRewrites;
     }
 
-    
     public final static List<IAlgebraicRewriteRule> prepareForJobGenRuleCollection() {
         List<IAlgebraicRewriteRule> prepareForJobGenRewrites = new LinkedList<IAlgebraicRewriteRule>();
         prepareForJobGenRewrites.add(new IsolateHyracksOperatorsRule(

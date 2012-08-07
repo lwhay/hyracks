@@ -27,17 +27,17 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.NestedTuple
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
 public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewriteRule {
-	
-	@Override
+
+    @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
         return false;
     }
-	
-	/**
-	 * Replace the original aggregate functions with their corresponding global aggregate function. 
-	 */
-	public void replaceOriginalAggFuncs(Map<AggregateFunctionCallExpression, SimilarAggregatesInfo> toReplaceMap) {
-		for (Map.Entry<AggregateFunctionCallExpression, SimilarAggregatesInfo> entry : toReplaceMap.entrySet()) {
+
+    /**
+     * Replace the original aggregate functions with their corresponding global aggregate function.
+     */
+    public void replaceOriginalAggFuncs(Map<AggregateFunctionCallExpression, SimilarAggregatesInfo> toReplaceMap) {
+        for (Map.Entry<AggregateFunctionCallExpression, SimilarAggregatesInfo> entry : toReplaceMap.entrySet()) {
             SimilarAggregatesInfo sai = entry.getValue();
             for (AggregateExprInfo aei : sai.simAggs) {
                 AbstractFunctionCallExpression afce = (AbstractFunctionCallExpression) aei.aggExprRef.getValue();
@@ -46,10 +46,11 @@ public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewrite
                 afce.getArguments().add(new MutableObject<ILogicalExpression>(sai.stepOneResult));
             }
         }
-	}
-	
-	protected Pair<Boolean, Mutable<ILogicalOperator>> tryToPushAgg(AggregateOperator initAgg, GroupByOperator newGbyOp,
-            Map<AggregateFunctionCallExpression, SimilarAggregatesInfo> toReplaceMap, IOptimizationContext context) throws AlgebricksException {
+    }
+
+    protected Pair<Boolean, Mutable<ILogicalOperator>> tryToPushAgg(AggregateOperator initAgg,
+            GroupByOperator newGbyOp, Map<AggregateFunctionCallExpression, SimilarAggregatesInfo> toReplaceMap,
+            IOptimizationContext context) throws AlgebricksException {
 
         ArrayList<LogicalVariable> pushedVars = new ArrayList<LogicalVariable>();
         ArrayList<Mutable<ILogicalExpression>> pushedExprs = new ArrayList<Mutable<ILogicalExpression>>();
@@ -57,7 +58,7 @@ public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewrite
         List<LogicalVariable> initVars = initAgg.getVariables();
         List<Mutable<ILogicalExpression>> initExprs = initAgg.getExpressions();
         int numExprs = initVars.size();
-        
+
         // First make sure that all agg funcs are two step, otherwise we cannot use local aggs.
         for (int i = 0; i < numExprs; i++) {
             AggregateFunctionCallExpression aggFun = (AggregateFunctionCallExpression) initExprs.get(i).getValue();
@@ -102,7 +103,8 @@ public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewrite
             // If newGbyOp is null, then we optimizing an aggregate without group by.
             if (newGbyOp != null) {
                 // Hook up the nested aggregate op with the outer group by.
-                NestedTupleSourceOperator nts = new NestedTupleSourceOperator(new MutableObject<ILogicalOperator>(newGbyOp));
+                NestedTupleSourceOperator nts = new NestedTupleSourceOperator(new MutableObject<ILogicalOperator>(
+                        newGbyOp));
                 nts.setExecutionMode(ExecutionMode.LOCAL);
                 pushedAgg.getInputs().add(new MutableObject<ILogicalOperator>(nts));
             } else {
@@ -112,7 +114,8 @@ public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewrite
                 context.computeAndSetTypeEnvironmentForOperator(pushedAgg);
                 LogicalVariable trueVar = context.newVar();
                 // Reintroduce assign op for the global agg partitioning var.
-                AssignOperator trueAssignOp = new AssignOperator(trueVar, new MutableObject<ILogicalExpression>(ConstantExpression.TRUE));
+                AssignOperator trueAssignOp = new AssignOperator(trueVar, new MutableObject<ILogicalExpression>(
+                        ConstantExpression.TRUE));
                 trueAssignOp.getInputs().add(new MutableObject<ILogicalOperator>(pushedAgg));
                 context.computeAndSetTypeEnvironmentForOperator(trueAssignOp);
                 initAgg.setPartitioningVariable(trueVar);
@@ -123,19 +126,19 @@ public abstract class AbstractIntroduceCombinerRule implements IAlgebraicRewrite
             return new Pair<Boolean, Mutable<ILogicalOperator>>(haveAggToReplace, null);
         }
     }
-	
-	protected class SimilarAggregatesInfo {
+
+    protected class SimilarAggregatesInfo {
         ILogicalExpression stepOneResult;
         List<AggregateExprInfo> simAggs;
     }
 
-	protected class AggregateExprInfo {
+    protected class AggregateExprInfo {
         Mutable<ILogicalExpression> aggExprRef;
         IFunctionInfo newFunInfo;
     }
 
-	protected class BookkeepingInfo {
+    protected class BookkeepingInfo {
         Map<AggregateFunctionCallExpression, SimilarAggregatesInfo> toReplaceMap = new HashMap<AggregateFunctionCallExpression, SimilarAggregatesInfo>();
-        Map<GroupByOperator, List<LogicalVariable>> modifGbyMap = new HashMap<GroupByOperator, List<LogicalVariable>>();
+        Map<GroupByOperator, List<LogicalVariable>> modifyGbyMap = new HashMap<GroupByOperator, List<LogicalVariable>>();
     }
 }
