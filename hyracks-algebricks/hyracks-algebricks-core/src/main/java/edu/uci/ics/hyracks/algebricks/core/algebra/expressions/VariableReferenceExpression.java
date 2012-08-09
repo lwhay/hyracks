@@ -26,24 +26,10 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionVisitor;
 
 public class VariableReferenceExpression extends AbstractLogicalExpression {
-    private int tupleRef;
     private LogicalVariable variable;
 
-    public VariableReferenceExpression(int tupleRef, LogicalVariable variable) {
-        this.tupleRef = tupleRef;
-        this.variable = variable;
-    }
-
     public VariableReferenceExpression(LogicalVariable variable) {
-        this(0, variable);
-    }
-
-    public int getTupleRef() {
-        return tupleRef;
-    }
-
-    public void setTupleRef(int tupleRef) {
-        this.tupleRef = tupleRef;
+        this.variable = variable;
     }
 
     public LogicalVariable getVariableReference() {
@@ -61,7 +47,7 @@ public class VariableReferenceExpression extends AbstractLogicalExpression {
 
     @Override
     public String toString() {
-        return "%" + tupleRef + "->" + variable.toString();
+        return variable.toString();
     }
 
     @Override
@@ -83,14 +69,13 @@ public class VariableReferenceExpression extends AbstractLogicalExpression {
         if (!(obj instanceof VariableReferenceExpression)) {
             return false;
         } else {
-            return tupleRef == ((VariableReferenceExpression) obj).tupleRef
-                    && variable.equals(((VariableReferenceExpression) obj).getVariableReference());
+            return variable.equals(((VariableReferenceExpression) obj).getVariableReference());
         }
     }
 
     @Override
     public int hashCode() {
-        return tupleRef + variable.getId();
+        return variable.getId();
     }
 
     @Override

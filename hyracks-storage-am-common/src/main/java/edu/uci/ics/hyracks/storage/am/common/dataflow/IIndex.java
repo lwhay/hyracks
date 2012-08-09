@@ -16,97 +16,125 @@
 package edu.uci.ics.hyracks.storage.am.common.dataflow;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexLifecycleManager;
+import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexType;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 /**
- * Interface describing the operations common to all index structures. Indexes
+ * This interface describes the operations common to all indexes. Indexes
  * implementing this interface can easily reuse existing index operators for
- * dataflow. Users must perform operations on an IIndex via an IIndexAccessor.
+ * dataflow. Users must perform operations on an via an {@link IIndexAccessor}.
+ * 
+ * During dataflow, the lifecycle of IIndexes are handled through an 
+ * {@link IIndexLifecycleManager}.
  */
 public interface IIndex {
+
     /**
-     * Initializes the persistent state of an index, e.g., the root page, and
-     * metadata pages.
+     * Initializes the persistent state of an index. 
      * 
-     * @param indexFileId
-     *            The file id to use for this index.
+     * An index cannot be created if it is in the activated state.
+     * Calling create on an index that is deactivated has the effect of clearing the index.
+     * 
+     * @throws HyracksDataException 
+     *          if there is an error in the BufferCache while (un)pinning pages, (un)latching pages, 
+     *          creating files, or deleting files
+     *          
+     *          if the index is in the activated state
+     */
+    public void create() throws HyracksDataException;
+
+    /**
+     * Initializes the index's operational state. An index in the activated state may perform 
+     * operations via an {@link IIndexAccessor}.
+     * 
      * @throws HyracksDataException
-     *             If the BufferCache throws while un/pinning or un/latching.
+     *          if there is a problem in the BufferCache while (un)pinning pages, (un)latching pages, 
+     *          creating files, or deleting files
      */
-    public void create(int indexFileId) throws HyracksDataException;
+    public void activate() throws HyracksDataException;
 
     /**
-     * Opens the index backed by the given file id.
+     * Resets the operational state of the index. Calling clear has the same logical effect 
+     * as calling deactivate(), destroy(), create(), then activate(), but not necessarily the 
+     * same physical effect.
      * 
-     * @param indexFileId
-     *            The file id backing this index.
-     */
-    public void open(int indexFileId) throws HyracksDataException;
-
-    /**
-     * Closes the index.
-     */
-    public void close() throws HyracksDataException;
-
-    /**
-     * Creates an index accessor for performing operations on this index.
-     * (insert/delete/update/search/diskorderscan). An IIndexAccessor is not
-     * thread safe, but different IIndexAccessors can concurrently operate
-     * on the same IIndex
-     * 
-     * @returns IIndexAccessor An accessor for this tree.
-     */
-    public IIndexAccessor createAccessor();
-
-    /**
-     * Prepares the index for bulk loading, returning a bulk load context. The
-     * index may require to be empty for bulk loading.
-     * 
-     * @param fillFactor
-     *            Desired fill factor in [0, 1.0].
      * @throws HyracksDataException
-     *             If the BufferCache throws while un/pinning or un/latching.
-     * @throws IndexException
-     *             For example, if the index was already loaded and only
-     *             supports a single load.
-     * @returns A new context for bulk loading, required for appending tuples.
+     *          if there is a problem in the BufferCache while (un)pinning pages, (un)latching pages, 
+     *          creating files, or deleting files
+     *          
+     *          if the index is not in the activated state
      */
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws IndexException, HyracksDataException;
+    public void clear() throws HyracksDataException;
 
     /**
-     * Append a tuple to the index in the context of a bulk load.
+     * Deinitializes the index's operational state. An index in the deactivated state may not 
+     * perform operations.
      * 
-     * @param tuple
-     *            Tuple to be inserted.
-     * @param ictx
-     *            Existing bulk load context.
      * @throws HyracksDataException
-     *             If the BufferCache throws while un/pinning or un/latching.
+     *          if there is a problem in the BufferCache while (un)pinning pages, (un)latching pages, 
+     *          creating files, or deleting files
      */
-    public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException;
+    public void deactivate() throws HyracksDataException;
 
     /**
-     * Finalize the bulk loading operation in the given context.
+     * Removes the persistent state of an index. 
      * 
-     * @param ictx
-     *            Existing bulk load context to be finalized.
-     * @throws HyracksDataException
-     *             If the BufferCache throws while un/pinning or un/latching.
+     * An index cannot be destroyed if it is in the activated state.
+     * 
+     * @throws HyracksDataException 
+     *          if there is an error in the BufferCache while (un)pinning pages, (un)latching pages, 
+     *          creating files, or deleting files
+     *          
+     *          if the index is already activated
      */
-    public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException;
+    public void destroy() throws HyracksDataException;
 
     /**
-     * @return BufferCache underlying this index.
+     * Creates an {@link IIndexAccessor} for performing operations on this index.
+     * An IIndexAccessor is not thread safe, but different IIndexAccessors can concurrently operate
+     * on the same {@link IIndex}.
+     * 
+     * @returns IIndexAccessor an accessor for this {@link IIndex}
+     * @param modificationCallback the callback to be used for modification operations
+     * @param searchCallback the callback to be used for search operations
+     */
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback);
+
+    /**
+     * Ensures that all pages (and tuples) of the index are logically consistent.
+     * An assertion error is thrown if validation fails.
+     * 
+     * @throws HyracksDataException
+     *          if there is an error performing validation
+     */
+    public void validate() throws HyracksDataException;
+
+    /**
+     * @return the {@link IBufferCache} underlying this index.
      */
     public IBufferCache getBufferCache();
 
     /**
-     * @return An enum of the concrete type of this index.
+     * @return the {@link IndexType} of this index.
      */
     public IndexType getIndexType();
+    
+    /**
+     * @return the size, in bytes, of pre-allocated memory space that this index was allotted.
+     */
+    public long getInMemorySize();
+    
+    /**
+     * @param fillFactor
+     * @param verifyInput
+     * @throws IndexException
+     */
+    public IIndexBulkLoader createBulkLoader(float fillFactor, boolean verifyInput) throws IndexException;
 }

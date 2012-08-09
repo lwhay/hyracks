@@ -34,14 +34,16 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDese
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
+import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeDiskOrderScanCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.SearchPredicate;
 import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 
@@ -52,13 +54,11 @@ public abstract class AbstractRTreeExamplesTest {
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories) throws TreeIndexException;
-
-    protected abstract int getIndexFileId();
+            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType)
+            throws TreeIndexException;
 
     /**
      * Two Dimensions Example.
-     * 
      * Create an RTree index of two dimensions, where they keys are of type
      * integer, and the payload is two integer values. Fill index with random
      * values using insertions (not bulk load). Perform scans and range search.
@@ -106,10 +106,10 @@ public abstract class AbstractRTreeExamplesTest {
         IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
                 rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
-        int indexFileId = getIndexFileId();
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories);
-        treeIndex.create(indexFileId);
-        treeIndex.open(indexFileId);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
+                valueProviderFactories, RTreePolicyType.RTREE);
+        treeIndex.create();
+        treeIndex.activate();
 
         long start = System.currentTimeMillis();
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -117,7 +117,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor();
+        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             int p1x = rnd.nextInt();
@@ -156,12 +157,12 @@ public abstract class AbstractRTreeExamplesTest {
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
 
-        treeIndex.close();
+        treeIndex.deactivate();
+        treeIndex.destroy();
     }
 
     /**
      * Two Dimensions Example.
-     * 
      * Create an RTree index of three dimensions, where they keys are of type
      * double, and the payload is one double value. Fill index with random
      * values using insertions (not bulk load). Perform scans and range search.
@@ -213,10 +214,10 @@ public abstract class AbstractRTreeExamplesTest {
         IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
                 rtreeCmpFactories.length, DoublePointable.FACTORY);
 
-        int indexFileId = getIndexFileId();
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories);
-        treeIndex.create(indexFileId);
-        treeIndex.open(indexFileId);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
+                valueProviderFactories, RTreePolicyType.RTREE);
+        treeIndex.create();
+        treeIndex.activate();
 
         long start = System.currentTimeMillis();
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -224,7 +225,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor();
+        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             double p1x = rnd.nextDouble();
@@ -265,12 +267,12 @@ public abstract class AbstractRTreeExamplesTest {
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
 
-        treeIndex.close();
+        treeIndex.deactivate();
+        treeIndex.destroy();
     }
 
     /**
      * Deletion Example.
-     * 
      * Create an RTree index of two dimensions, where they keys are of type
      * integer, and the payload is one integer value. Fill index with random
      * values using insertions, then delete entries one-by-one. Repeat procedure
@@ -312,14 +314,15 @@ public abstract class AbstractRTreeExamplesTest {
         IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
                 rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
-        int indexFileId = getIndexFileId();
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories);
-        treeIndex.create(indexFileId);
-        treeIndex.open(indexFileId);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
+                valueProviderFactories, RTreePolicyType.RTREE);
+        treeIndex.create();
+        treeIndex.activate();
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor();
+        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
 
         int runs = 3;
         for (int run = 0; run < runs; run++) {
@@ -395,14 +398,13 @@ public abstract class AbstractRTreeExamplesTest {
                 break;
             }
         }
-        treeIndex.close();
+        treeIndex.deactivate();
+        treeIndex.destroy();
     }
 
     /**
      * Bulk load example.
-     * 
      * Load a tree with 10,000 tuples.
-     * 
      */
     @Test
     public void bulkLoadExample() throws Exception {
@@ -444,10 +446,10 @@ public abstract class AbstractRTreeExamplesTest {
         IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils.createPrimitiveValueProviderFactories(
                 rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
-        int indexFileId = getIndexFileId();
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories);
-        treeIndex.create(indexFileId);
-        treeIndex.open(indexFileId);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories,
+                valueProviderFactories, RTreePolicyType.RTREE);
+        treeIndex.create();
+        treeIndex.activate();
 
         // Load records.
         int numInserts = 10000;
@@ -455,7 +457,7 @@ public abstract class AbstractRTreeExamplesTest {
             LOGGER.info("Bulk loading " + numInserts + " tuples");
         }
         long start = System.currentTimeMillis();
-        IIndexBulkLoadContext bulkLoadCtx = treeIndex.beginBulkLoad(0.7f);
+        IIndexBulkLoader bulkLoader = treeIndex.createBulkLoader(0.7f, false);
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
 
@@ -469,16 +471,17 @@ public abstract class AbstractRTreeExamplesTest {
 
             TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
                     Math.max(p1y, p2y), pk);
-            treeIndex.bulkLoadAddTuple(tuple, bulkLoadCtx);
+            bulkLoader.add(tuple);
         }
 
-        treeIndex.endBulkLoad(bulkLoadCtx);
+        bulkLoader.end();
         long end = System.currentTimeMillis();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info(numInserts + " tuples loaded in " + (end - start) + "ms");
         }
 
-        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor();
+        IIndexAccessor indexAccessor = (IIndexAccessor) treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
 
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(rtreeKeyFieldCount);
@@ -487,7 +490,8 @@ public abstract class AbstractRTreeExamplesTest {
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
 
-        treeIndex.close();
+        treeIndex.deactivate();
+        treeIndex.destroy();
     }
 
     private void scan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
@@ -511,8 +515,7 @@ public abstract class AbstractRTreeExamplesTest {
         }
     }
 
-    private void diskOrderScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes)
-            throws Exception {
+    private void diskOrderScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
         try {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Disk-Order Scan:");
@@ -540,12 +543,12 @@ public abstract class AbstractRTreeExamplesTest {
                 LOGGER.info("Ignoring disk-order scan since it's not supported.");
             }
         } catch (ClassCastException e) {
-			// Ignore exception because IIndexAccessor sometimes isn't
-			// an ITreeIndexAccessor, e.g., for the LSMRTree.
-			if (LOGGER.isLoggable(Level.INFO)) {
-				LOGGER.info("Ignoring disk-order scan since it's not supported.");
-			}
-		}
+            // Ignore exception because IIndexAccessor sometimes isn't
+            // an ITreeIndexAccessor, e.g., for the LSMRTree.
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Ignoring disk-order scan since it's not supported.");
+            }
+        }
     }
 
     private void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,

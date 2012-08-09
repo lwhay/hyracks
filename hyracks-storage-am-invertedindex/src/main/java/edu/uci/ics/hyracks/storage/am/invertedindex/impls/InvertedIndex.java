@@ -15,22 +15,29 @@
 
 package edu.uci.ics.hyracks.storage.am.invertedindex.impls;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.context.IHyracksCommonContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeException;
+import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeLeafFrameType;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
+import edu.uci.ics.hyracks.storage.am.btree.util.BTreeUtils;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
+import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
@@ -42,9 +49,11 @@ import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedIndexSearcher;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListBuilder;
 import edu.uci.ics.hyracks.storage.am.invertedindex.api.IInvertedListCursor;
+import edu.uci.ics.hyracks.storage.am.invertedindex.util.InvertedIndexUtils;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
+import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 /**
  * An inverted index consists of two files: 1. a file storing (paginated)
@@ -59,36 +68,152 @@ public class InvertedIndex implements IIndex {
     private BTree btree;
     private int rootPageId = 0;
     private IBufferCache bufferCache;
-    private int fileId;
+    private IFileMapProvider fileMapProvider;
+    private int fileId = -1;
+    private FileReference file;
     private final ITypeTraits[] invListTypeTraits;
     private final IBinaryComparatorFactory[] invListCmpFactories;
     private final IInvertedListBuilder invListBuilder;
     private final int numTokenFields;
     private final int numInvListKeys;
 
-    public InvertedIndex(IBufferCache bufferCache, BTree btree, ITypeTraits[] invListTypeTraits,
-            IBinaryComparatorFactory[] invListCmpFactories, IInvertedListBuilder invListBuilder) {
+    private boolean isOpen = false;
+
+    public InvertedIndex(IBufferCache bufferCache, IFileMapProvider fileMapProvider,
+            IInvertedListBuilder invListBuilder, ITypeTraits[] invListTypeTraits,
+            IBinaryComparatorFactory[] invListCmpFactories, ITypeTraits[] tokenTypeTraits,
+            IBinaryComparatorFactory[] tokenCmpFactories, FileReference file) throws HyracksDataException {
         this.bufferCache = bufferCache;
-        this.btree = btree;
+        this.fileMapProvider = fileMapProvider;
+        this.invListBuilder = invListBuilder;
+
         this.invListTypeTraits = invListTypeTraits;
         this.invListCmpFactories = invListCmpFactories;
-        this.invListBuilder = invListBuilder;
+        try {
+            this.btree = BTreeUtils.createBTree(bufferCache, fileMapProvider,
+                    InvertedIndexUtils.getBTreeTypeTraits(tokenTypeTraits), tokenCmpFactories,
+                    BTreeLeafFrameType.REGULAR_NSM, new FileReference(new File(file.getFile().getPath() + "_btree")));
+        } catch (BTreeException e) {
+            throw new HyracksDataException(e);
+        }
         this.numTokenFields = btree.getComparatorFactories().length;
         this.numInvListKeys = invListCmpFactories.length;
+        this.file = file;
     }
 
     @Override
-    public void open(int fileId) {
-        this.fileId = fileId;
+    public synchronized void create() throws HyracksDataException {
+        if (isOpen) {
+            throw new HyracksDataException("Failed to create since index is already open.");
+        }
+        btree.create();
+
+        boolean fileIsMapped = false;
+        synchronized (fileMapProvider) {
+            fileIsMapped = fileMapProvider.isMapped(file);
+            if (!fileIsMapped) {
+                bufferCache.createFile(file);
+            }
+            fileId = fileMapProvider.lookupFileId(file);
+            try {
+                // Also creates the file if it doesn't exist yet.
+                bufferCache.openFile(fileId);
+            } catch (HyracksDataException e) {
+                // Revert state of buffer cache since file failed to open.
+                if (!fileIsMapped) {
+                    bufferCache.deleteFile(fileId, false);
+                }
+                throw e;
+            }
+        }
+        bufferCache.closeFile(fileId);
     }
 
     @Override
-    public void create(int indexFileId) throws HyracksDataException {
+    public synchronized void activate() throws HyracksDataException {
+        if (isOpen) {
+            return;
+        }
+
+        btree.activate();
+        boolean fileIsMapped = false;
+        synchronized (fileMapProvider) {
+            fileIsMapped = fileMapProvider.isMapped(file);
+            if (!fileIsMapped) {
+                bufferCache.createFile(file);
+            }
+            fileId = fileMapProvider.lookupFileId(file);
+            try {
+                // Also creates the file if it doesn't exist yet.
+                bufferCache.openFile(fileId);
+            } catch (HyracksDataException e) {
+                // Revert state of buffer cache since file failed to open.
+                if (!fileIsMapped) {
+                    bufferCache.deleteFile(fileId, false);
+                }
+                throw e;
+            }
+        }
+
+        isOpen = true;
     }
 
     @Override
-    public void close() {
-        this.fileId = -1;
+    public synchronized void deactivate() throws HyracksDataException {
+        if (!isOpen) {
+            return;
+        }
+
+        btree.deactivate();
+        bufferCache.closeFile(fileId);
+
+        isOpen = false;
+    }
+
+    @Override
+    public synchronized void destroy() throws HyracksDataException {
+        if (isOpen) {
+            throw new HyracksDataException("Failed to destroy since index is already open.");
+        }
+
+        btree.destroy();
+        file.getFile().delete();
+        if (fileId == -1) {
+            return;
+        }
+
+        bufferCache.deleteFile(fileId, false);
+        fileId = -1;
+    }
+
+    @Override
+    public synchronized void clear() throws HyracksDataException {
+        if (!isOpen) {
+            throw new HyracksDataException("Failed to clear since index is not open.");
+        }
+        btree.clear();
+        bufferCache.closeFile(fileId);
+        bufferCache.deleteFile(fileId, false);
+        file.getFile().delete();
+
+        boolean fileIsMapped = false;
+        synchronized (fileMapProvider) {
+            fileIsMapped = fileMapProvider.isMapped(file);
+            if (!fileIsMapped) {
+                bufferCache.createFile(file);
+            }
+            fileId = fileMapProvider.lookupFileId(file);
+            try {
+                // Also creates the file if it doesn't exist yet.
+                bufferCache.openFile(fileId);
+            } catch (HyracksDataException e) {
+                // Revert state of buffer cache since file failed to open.
+                if (!fileIsMapped) {
+                    bufferCache.deleteFile(fileId, false);
+                }
+                throw e;
+            }
+        }
     }
 
     public boolean openCursor(ITreeIndexCursor btreeCursor, RangePredicate btreePred, ITreeIndexAccessor btreeAccessor,
@@ -120,98 +245,10 @@ public class InvertedIndex implements IIndex {
         return ret;
     }
 
-    @Override
-    public IIndexBulkLoadContext beginBulkLoad(float fillFactor) throws TreeIndexException, HyracksDataException {
-        InvertedIndexBulkLoadContext ctx = new InvertedIndexBulkLoadContext(fillFactor);
-        ctx.init(rootPageId, fileId);
-        return ctx;
-    }
-
-    /**
-     * Assumptions:
-     * The first btree.getMultiComparator().getKeyFieldCount() fields in tuple
-     * are btree keys (e.g., a string token).
-     * The next invListCmp.getKeyFieldCount() fields in tuple are keys of the
-     * inverted list (e.g., primary key).
-     * Key fields of inverted list are fixed size.
-     */
-    @Override
-    public void bulkLoadAddTuple(ITupleReference tuple, IIndexBulkLoadContext ictx) throws HyracksDataException {
-        InvertedIndexBulkLoadContext ctx = (InvertedIndexBulkLoadContext) ictx;
-        boolean firstElement = ctx.lastTupleBuilder.getSize() == 0;
-        boolean startNewList = firstElement;
-        if (!firstElement) {
-            // If the current and the last token don't match, we start a new list.
-            ctx.lastTuple.reset(ctx.lastTupleBuilder.getFieldEndOffsets(), ctx.lastTupleBuilder.getByteArray());
-            startNewList = ctx.tokenCmp.compare(tuple, ctx.lastTuple) != 0;
-        }
-        if (startNewList) {
-            if (!firstElement) {
-                // Create entry in btree for last inverted list.
-                createAndInsertBTreeTuple(ctx);
-            }
-            if (!invListBuilder.startNewList(tuple, numTokenFields)) {
-                ctx.pinNextPage();
-                invListBuilder.setTargetBuffer(ctx.currentPage.getBuffer().array(), 0);
-                if (!invListBuilder.startNewList(tuple, numTokenFields)) {
-                    throw new IllegalStateException("Failed to create first inverted list.");
-                }
-            }
-            ctx.currentInvListStartPageId = ctx.currentPageId;
-            ctx.currentInvListStartOffset = invListBuilder.getPos();
-        } else {
-            if (ctx.invListCmp.compare(tuple, ctx.lastTuple, numTokenFields) == 0) {
-                // Duplicate inverted-list element.
-                return;
-            }
-        }
-
-        // Append to current inverted list.
-        if (!invListBuilder.appendElement(tuple, numTokenFields, numInvListKeys)) {
-            ctx.pinNextPage();
-            invListBuilder.setTargetBuffer(ctx.currentPage.getBuffer().array(), 0);
-            if (!invListBuilder.appendElement(tuple, numTokenFields, numInvListKeys)) {
-                throw new IllegalStateException(
-                        "Failed to append element to inverted list after switching to a new page.");
-            }
-        }
-
-        // Remember last tuple by creating a copy.
-        // TODO: This portion can be optimized by only copying the token when it changes, and using the last appended inverted-list element as a reference.
-        ctx.lastTupleBuilder.reset();
-        for (int i = 0; i < tuple.getFieldCount(); i++) {
-            ctx.lastTupleBuilder.addField(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
-        }
-    }
-
-    private void createAndInsertBTreeTuple(InvertedIndexBulkLoadContext ctx) throws HyracksDataException {
-        // Build tuple.        
-        ctx.btreeTupleBuilder.reset();
-        ctx.btreeTupleBuilder.addField(ctx.lastTuple.getFieldData(0), ctx.lastTuple.getFieldStart(0),
-                ctx.lastTuple.getFieldLength(0));
-        ctx.btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, ctx.currentInvListStartPageId);
-        ctx.btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, ctx.currentPageId);
-        ctx.btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, ctx.currentInvListStartOffset);
-        ctx.btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, invListBuilder.getListSize());
-        // Reset tuple reference and add it.
-        ctx.btreeTupleReference.reset(ctx.btreeTupleBuilder.getFieldEndOffsets(), ctx.btreeTupleBuilder.getByteArray());
-        btree.bulkLoadAddTuple(ctx.btreeTupleReference, ctx.btreeBulkLoadCtx);
-    }
-
-    @Override
-    public void endBulkLoad(IIndexBulkLoadContext ictx) throws HyracksDataException {
-        // Create entry in btree for last inverted list.
-        InvertedIndexBulkLoadContext ctx = (InvertedIndexBulkLoadContext) ictx;
-        createAndInsertBTreeTuple(ctx);
-        btree.endBulkLoad(ctx.btreeBulkLoadCtx);
-        ctx.deinit();
-    }
-
-    public final class InvertedIndexBulkLoadContext implements IIndexBulkLoadContext {
+    public final class InvertedIndexBulkLoader implements IIndexBulkLoader {
         private final ArrayTupleBuilder btreeTupleBuilder;
         private final ArrayTupleReference btreeTupleReference;
-        private final float btreeFillFactor;
-        private IIndexBulkLoadContext btreeBulkLoadCtx;
+        private final IIndexBulkLoader btreeBulkloader;
 
         private int currentInvListStartPageId;
         private int currentInvListStartOffset;
@@ -223,29 +260,19 @@ public class InvertedIndex implements IIndex {
         private final MultiComparator tokenCmp;
         private final MultiComparator invListCmp;
 
-        public InvertedIndexBulkLoadContext(float btreeFillFactor) {
+        public InvertedIndexBulkLoader(float btreeFillFactor, boolean verifyInput, int startPageId, int fileId)
+                throws IndexException, HyracksDataException {
             this.tokenCmp = MultiComparator.create(btree.getComparatorFactories());
             this.invListCmp = MultiComparator.create(invListCmpFactories);
             this.btreeTupleBuilder = new ArrayTupleBuilder(btree.getFieldCount());
             this.btreeTupleReference = new ArrayTupleReference();
-            this.btreeFillFactor = btreeFillFactor;
             this.lastTupleBuilder = new ArrayTupleBuilder(numTokenFields + numInvListKeys);
             this.lastTuple = new ArrayTupleReference();
-        }
-
-        public void init(int startPageId, int fileId) throws HyracksDataException, TreeIndexException {
-            btreeBulkLoadCtx = btree.beginBulkLoad(btreeFillFactor);
+            this.btreeBulkloader = btree.createBulkLoader(btreeFillFactor, verifyInput);
             currentPageId = startPageId;
             currentPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, currentPageId), true);
             currentPage.acquireWriteLatch();
             invListBuilder.setTargetBuffer(currentPage.getBuffer().array(), 0);
-        }
-
-        public void deinit() throws HyracksDataException {
-            if (currentPage != null) {
-                currentPage.releaseWriteLatch();
-                bufferCache.unpin(currentPage);
-            }
         }
 
         public void pinNextPage() throws HyracksDataException {
@@ -254,6 +281,87 @@ public class InvertedIndex implements IIndex {
             currentPageId++;
             currentPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, currentPageId), true);
             currentPage.acquireWriteLatch();
+        }
+
+        private void createAndInsertBTreeTuple() throws IndexException, HyracksDataException {
+            // Build tuple.        
+            btreeTupleBuilder.reset();
+            btreeTupleBuilder.addField(lastTuple.getFieldData(0), lastTuple.getFieldStart(0),
+                    lastTuple.getFieldLength(0));
+            btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, currentInvListStartPageId);
+            btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, currentPageId);
+            btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, currentInvListStartOffset);
+            btreeTupleBuilder.addField(IntegerSerializerDeserializer.INSTANCE, invListBuilder.getListSize());
+            // Reset tuple reference and add it.
+            btreeTupleReference.reset(btreeTupleBuilder.getFieldEndOffsets(), btreeTupleBuilder.getByteArray());
+            btreeBulkloader.add(btreeTupleReference);
+        }
+
+        /**
+         * Assumptions:
+         * The first btree.getMultiComparator().getKeyFieldCount() fields in tuple
+         * are btree keys (e.g., a string token).
+         * The next invListCmp.getKeyFieldCount() fields in tuple are keys of the
+         * inverted list (e.g., primary key).
+         * Key fields of inverted list are fixed size.
+         */
+        @Override
+        public void add(ITupleReference tuple) throws IndexException, HyracksDataException {
+            boolean firstElement = lastTupleBuilder.getSize() == 0;
+            boolean startNewList = firstElement;
+            if (!firstElement) {
+                // If the current and the last token don't match, we start a new list.
+                lastTuple.reset(lastTupleBuilder.getFieldEndOffsets(), lastTupleBuilder.getByteArray());
+                startNewList = tokenCmp.compare(tuple, lastTuple) != 0;
+            }
+            if (startNewList) {
+                if (!firstElement) {
+                    // Create entry in btree for last inverted list.
+                    createAndInsertBTreeTuple();
+                }
+                if (!invListBuilder.startNewList(tuple, numTokenFields)) {
+                    pinNextPage();
+                    invListBuilder.setTargetBuffer(currentPage.getBuffer().array(), 0);
+                    if (!invListBuilder.startNewList(tuple, numTokenFields)) {
+                        throw new IllegalStateException("Failed to create first inverted list.");
+                    }
+                }
+                currentInvListStartPageId = currentPageId;
+                currentInvListStartOffset = invListBuilder.getPos();
+            } else {
+                if (invListCmp.compare(tuple, lastTuple, numTokenFields) == 0) {
+                    // Duplicate inverted-list element.
+                    return;
+                }
+            }
+
+            // Append to current inverted list.
+            if (!invListBuilder.appendElement(tuple, numTokenFields, numInvListKeys)) {
+                pinNextPage();
+                invListBuilder.setTargetBuffer(currentPage.getBuffer().array(), 0);
+                if (!invListBuilder.appendElement(tuple, numTokenFields, numInvListKeys)) {
+                    throw new IllegalStateException(
+                            "Failed to append element to inverted list after switching to a new page.");
+                }
+            }
+
+            // Remember last tuple by creating a copy.
+            // TODO: This portion can be optimized by only copying the token when it changes, and using the last appended inverted-list element as a reference.
+            lastTupleBuilder.reset();
+            for (int i = 0; i < tuple.getFieldCount(); i++) {
+                lastTupleBuilder.addField(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
+            }
+        }
+
+        @Override
+        public void end() throws IndexException, HyracksDataException {
+            createAndInsertBTreeTuple();
+            btreeBulkloader.end();
+
+            if (currentPage != null) {
+                currentPage.releaseWriteLatch();
+                bufferCache.unpin(currentPage);
+            }
         }
     }
 
@@ -322,7 +430,8 @@ public class InvertedIndex implements IIndex {
     }
 
     @Override
-    public IIndexAccessor createAccessor() {
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) {
         return new InvertedIndexAccessor(this);
     }
 
@@ -352,5 +461,24 @@ public class InvertedIndex implements IIndex {
         public ByteBuffer allocateFrame() {
             return ByteBuffer.allocate(FRAME_SIZE);
         }
+    }
+
+    @Override
+    public IIndexBulkLoader createBulkLoader(float fillFactor, boolean verifyInput) throws IndexException {
+        try {
+            return new InvertedIndexBulkLoader(fillFactor, verifyInput, rootPageId, fileId);
+        } catch (HyracksDataException e) {
+            throw new IndexException(e);
+        }
+    }
+
+    @Override
+    public void validate() throws HyracksDataException {
+        throw new UnsupportedOperationException("Validation not implemented for Inverted Indexes.");
+    }
+
+    @Override
+    public long getInMemorySize() {
+        return 0;
     }
 }

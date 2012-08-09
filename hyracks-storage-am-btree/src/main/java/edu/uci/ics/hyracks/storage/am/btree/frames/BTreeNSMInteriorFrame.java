@@ -19,9 +19,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeInteriorFrame;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeOpContext.PageValidationInfo;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ISplitKey;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
@@ -41,11 +43,14 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
     private static final int childPtrSize = 4;
 
     private final ITreeIndexTupleReference cmpFrameTuple;
+    private final ITreeIndexTupleReference previousFt;
+
     private MultiComparator cmp;
 
     public BTreeNSMInteriorFrame(ITreeIndexTupleWriter tupleWriter) {
         super(tupleWriter, new OrderedSlotManager());
         cmpFrameTuple = tupleWriter.createTupleReference();
+        previousFt = tupleWriter.createTupleReference();
     }
 
     @Override
@@ -59,7 +64,7 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         return slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.INCLUSIVE,
                 FindTupleNoExactMatchPolicy.HIGHER_KEY);
     }
-    
+
     @Override
     public FrameOpSpaceStatus hasSpaceInsert(ITupleReference tuple) {
         // Tuple bytes + child pointer + slot.
@@ -89,12 +94,9 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
             System.arraycopy(tuple.getFieldData(tuple.getFieldCount() - 1), getLeftChildPageOff(tuple) + childPtrSize,
                     buf.array(), rightLeafOff, childPtrSize);
         } else {
-            // If slotOff has a right (slot-)neighbor then update its child
-            // pointer.
-            // The only time when this is NOT the case, is when this is the
-            // very first tuple (or when the splitkey goes into the rightmost
-            // slot but that
-            // case is handled in the if above).
+            // If slotOff has a right (slot-)neighbor then update its child pointer.
+            // The only time when this is NOT the case, is when this is the very first tuple 
+            // (or when the splitkey goes into the rightmost slot but that case is handled in the if above).
             if (buf.getInt(tupleCountOff) > 1) {
                 int rightNeighborOff = slotOff - slotManager.getSlotSize();
                 frameTuple.resetByTupleOffset(buf, slotManager.getTupleOff(rightNeighborOff));
@@ -103,7 +105,7 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
             }
         }
     }
-    
+
     @Override
     public int findDeleteTupleIndex(ITupleReference tuple) throws TreeIndexException {
         return slotManager.findTupleIndex(tuple, frameTuple, cmp, FindTupleMode.INCLUSIVE,
@@ -135,7 +137,7 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         buf.putInt(totalFreeSpaceOff,
                 buf.getInt(totalFreeSpaceOff) + keySize + childPtrSize + slotManager.getSlotSize());
     }
-    
+
     @Override
     public void deleteGreatest() {
         int slotOff = slotManager.getSlotEndOff();
@@ -152,14 +154,9 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
             buf.putInt(freeSpace, freeSpace - (keySize + childPtrSize));
         }
     }
-    
+
     @Override
     public FrameOpSpaceStatus hasSpaceUpdate(ITupleReference tuple, int oldTupleIndex) {
-        throw new UnsupportedOperationException("Cannot update tuples in interior node.");
-    }
-    
-    @Override
-    public int findUpdateTupleIndex(ITupleReference tuple) throws TreeIndexException {
         throw new UnsupportedOperationException("Cannot update tuples in interior node.");
     }
 
@@ -179,10 +176,10 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
     }
 
     @Override
-    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey) throws TreeIndexException {
+    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey) {
         ByteBuffer right = rightFrame.getBuffer();
         int tupleCount = getTupleCount();
-        
+
         // Find split point, and determine into which frame the new tuple should be inserted into.
         int tuplesToLeft = (tupleCount / 2) + (tupleCount % 2);
         ITreeIndexFrame targetFrame = null;
@@ -232,8 +229,13 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         compact();
 
         // Insert the saved split key.
-        int targetTupleIndex = ((BTreeNSMInteriorFrame) targetFrame)
-                .findInsertTupleIndex(savedSplitKey.getTuple());
+        int targetTupleIndex;
+        // it's safe to catch this exception since it will have been caught before reaching here
+        try {
+            targetTupleIndex = ((BTreeNSMInteriorFrame) targetFrame).findInsertTupleIndex(savedSplitKey.getTuple());
+        } catch (TreeIndexException e) {
+            throw new IllegalStateException(e);
+        }
         targetFrame.insert(savedSplitKey.getTuple(), targetTupleIndex);
     }
 
@@ -251,8 +253,7 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
             sortedTupleOffs.add(new SlotOffTupleOff(i, slotOff, tupleOff));
         }
         Collections.sort(sortedTupleOffs);
-        // Iterate over the sorted slots, and move their corresponding tuples to
-        // the left, reclaiming free space.
+        // Iterate over the sorted slots, and move their corresponding tuples to the left, reclaiming free space.
         for (int i = 0; i < sortedTupleOffs.size(); i++) {
             int tupleOff = sortedTupleOffs.get(i).tupleOff;
             frameTuple.resetByTupleOffset(buf, tupleOff);
@@ -270,13 +271,12 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
     }
 
     @Override
-    public int getChildPageId(RangePredicate pred) {
+    public int getChildPageId(RangePredicate pred) throws HyracksDataException {
         // Trivial case where there is only a child pointer (and no key).
         if (buf.getInt(tupleCountOff) == 0) {
             return buf.getInt(rightLeafOff);
         }
-        // Trivial cases where no low key or high key was given (e.g.
-        // during an index scan).
+        // Trivial cases where no low key or high key was given (e.g. during an index scan).
         ITupleReference tuple = null;
         FindTupleMode fsm = null;
         // The target comparator may be on a prefix of the BTree key fields.
@@ -322,6 +322,7 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         slotOff -= slotManager.getSlotSize();
         frameTuple.resetByTupleOffset(buf, slotManager.getTupleOff(slotOff));
         int childPageOff = getLeftChildPageOff(frameTuple);
+
         return buf.getInt(childPageOff);
     }
 
@@ -377,15 +378,16 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
         this.cmp = cmp;
         cmpFrameTuple.setFieldCount(cmp.getKeyFieldCount());
         frameTuple.setFieldCount(cmp.getKeyFieldCount());
+        previousFt.setFieldCount(cmp.getKeyFieldCount());
     }
-    
+
     @Override
     public ITreeIndexTupleReference createTupleReference() {
         ITreeIndexTupleReference tuple = tupleWriter.createTupleReference();
         tuple.setFieldCount(cmp.getKeyFieldCount());
         return tuple;
     }
-    
+
     // For debugging.
     public ArrayList<Integer> getChildren(MultiComparator cmp) {
         ArrayList<Integer> ret = new ArrayList<Integer>();
@@ -406,5 +408,24 @@ public class BTreeNSMInteriorFrame extends TreeIndexNSMFrame implements IBTreeIn
                 ret.add(buf.getInt(rightLeafOff));
         }
         return ret;
+    }
+
+    public void validate(PageValidationInfo pvi) throws HyracksDataException {
+        int tupleCount = getTupleCount();
+        for (int i = 0; i < tupleCount; i++) {
+            frameTuple.resetByTupleIndex(this, i);
+            if (!pvi.isLowRangeNull) {
+                assert cmp.compare(pvi.lowRangeTuple, frameTuple) < 0;
+            }
+
+            if (!pvi.isHighRangeNull) {
+                assert cmp.compare(pvi.highRangeTuple, frameTuple) >= 0;
+            }
+
+            if (i > 0) {
+                previousFt.resetByTupleIndex(this, i - 1);
+                assert cmp.compare(previousFt, frameTuple) < 0;
+            }
+        }
     }
 }

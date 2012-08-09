@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.storage.am.common;
 
 import static org.junit.Assert.fail;
@@ -18,7 +33,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
-import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoadContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
@@ -57,7 +72,7 @@ public abstract class TreeIndexTestUtils {
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
         for (int i = 0; i < fieldCount; i++) {
-            fieldSerdes[i].serialize(checkTuple.get(i), dos);
+            fieldSerdes[i].serialize(checkTuple.getField(i), dos);
             tupleBuilder.addFieldEndOffset();
         }
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
@@ -73,7 +88,7 @@ public abstract class TreeIndexTestUtils {
                     tuple.getFieldLength(i));
             DataInput dataIn = new DataInputStream(inStream);
             Comparable fieldObj = (Comparable) fieldSerdes[i].deserialize(dataIn);
-            checkTuple.add(fieldObj);
+            checkTuple.appendField(fieldObj);
         }
         return checkTuple;
     }
@@ -91,7 +106,7 @@ public abstract class TreeIndexTestUtils {
     }
 
     public void checkDiskOrderScan(ITreeIndexTestContext ctx) throws Exception {
-        try {
+    	try {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Testing Disk-Order Scan.");
             }
@@ -128,12 +143,12 @@ public abstract class TreeIndexTestUtils {
                 LOGGER.info("Ignoring disk-order scan since it's not supported.");
             }
         } catch (ClassCastException e) {
-			// Ignore exception because IIndexAccessor sometimes isn't
-			// an ITreeIndexAccessor, e.g., for the LSMBTree.
-			if (LOGGER.isLoggable(Level.INFO)) {
-				LOGGER.info("Ignoring disk-order scan since it's not supported.");
-			}
-		}
+            // Ignore exception because IIndexAccessor sometimes isn't
+            // an ITreeIndexAccessor, e.g., for the LSMBTree.
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Ignoring disk-order scan since it's not supported.");
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -165,7 +180,7 @@ public abstract class TreeIndexTestUtils {
             }
         }
     }
-    
+
     @SuppressWarnings("unchecked")
     public void upsertIntTuples(ITreeIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
@@ -228,7 +243,7 @@ public abstract class TreeIndexTestUtils {
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         // Perform bulk load.
-        IIndexBulkLoadContext bulkLoadCtx = ctx.getIndex().beginBulkLoad(0.7f);
+        IIndexBulkLoader bulkLoader = ctx.getIndex().createBulkLoader(0.7f, false);
         int c = 1;
         for (CheckTuple checkTuple : checkTuples) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -237,10 +252,10 @@ public abstract class TreeIndexTestUtils {
                 }
             }
             createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes());
-            ctx.getIndex().bulkLoadAddTuple(tuple, bulkLoadCtx);
+            bulkLoader.add(tuple);
             c++;
         }
-        ctx.getIndex().endBulkLoad(bulkLoadCtx);
+        bulkLoader.end();
     }
 
     @SuppressWarnings("unchecked")

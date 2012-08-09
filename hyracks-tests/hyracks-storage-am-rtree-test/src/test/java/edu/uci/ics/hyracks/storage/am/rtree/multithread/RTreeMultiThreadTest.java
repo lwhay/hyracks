@@ -20,19 +20,25 @@ import java.util.ArrayList;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.storage.am.common.ITreeIndexTestWorkerFactory;
-import edu.uci.ics.hyracks.storage.am.common.TestWorkloadConf;
 import edu.uci.ics.hyracks.storage.am.common.TestOperationSelector.TestOperation;
+import edu.uci.ics.hyracks.storage.am.common.TestWorkloadConf;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeMultiThreadTest;
+import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.am.rtree.util.RTreeUtils;
 import edu.uci.ics.hyracks.storage.am.rtree.utils.RTreeTestHarness;
 
 public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
 
-    private RTreeTestHarness harness = new RTreeTestHarness();
+    public RTreeMultiThreadTest() {
+		super(true);
+	}
+
+	private RTreeTestHarness harness = new RTreeTestHarness();
 
     private RTreeTestWorkerFactory workerFactory = new RTreeTestWorkerFactory();
 
@@ -48,10 +54,10 @@ public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
 
     @Override
     protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
-            IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories)
-            throws TreeIndexException {
-        return RTreeUtils.createRTree(harness.getBufferCache(), typeTraits,
-                valueProviderFactories, rtreeCmpFactories);
+            IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
+            RTreePolicyType rtreePolicyType) throws TreeIndexException {
+        return RTreeUtils.createRTree(harness.getBufferCache(), harness.getFileMapProvider(), typeTraits,
+                valueProviderFactories, rtreeCmpFactories, rtreePolicyType, harness.getFileReference());
 
     }
 
@@ -86,12 +92,12 @@ public class RTreeMultiThreadTest extends AbstractRTreeMultiThreadTest {
     }
 
     @Override
-    protected int getFileId() {
-        return harness.getTreeFileId();
+    protected String getIndexTypeName() {
+        return "RTree";
     }
 
     @Override
-    protected String getIndexTypeName() {
-        return "RTree";
+    protected FileReference getFileReference() {
+        return harness.getFileReference();
     }
 }

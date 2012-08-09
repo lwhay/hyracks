@@ -19,17 +19,16 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorNodePushable;
-import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexDataflowHelper;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexLifecycleManager;
 
 public class InvertedIndexCreateOperatorNodePushable extends AbstractOperatorNodePushable {
-    private final TreeIndexDataflowHelper btreeDataflowHelper;
+    private final IIndexLifecycleManager lcManager;
     private final InvertedIndexDataflowHelper invIndexDataflowHelper;
 
     public InvertedIndexCreateOperatorNodePushable(AbstractInvertedIndexOperatorDescriptor opDesc,
             IHyracksTaskContext ctx, int partition) {
-        btreeDataflowHelper = (TreeIndexDataflowHelper) opDesc.getIndexDataflowHelperFactory()
-                .createIndexDataflowHelper(opDesc, ctx, partition);
-        invIndexDataflowHelper = new InvertedIndexDataflowHelper(btreeDataflowHelper, opDesc, ctx, partition);
+        this.lcManager = opDesc.getLifecycleManagerProvider().getLifecycleManager(ctx);
+        this.invIndexDataflowHelper = new InvertedIndexDataflowHelper(opDesc, ctx, partition);
     }
 
     @Override
@@ -48,18 +47,7 @@ public class InvertedIndexCreateOperatorNodePushable extends AbstractOperatorNod
 
     @Override
     public void initialize() throws HyracksDataException {
-    	// BTree.
-    	try {
-    		btreeDataflowHelper.init(true);
-    	} finally {
-    		btreeDataflowHelper.deinit();
-    	}
-    	// Inverted Index.
-    	try {
-    		invIndexDataflowHelper.init(true);
-    	} finally {
-    		invIndexDataflowHelper.deinit();
-    	}
+        lcManager.create(invIndexDataflowHelper);
     }
 
     @Override

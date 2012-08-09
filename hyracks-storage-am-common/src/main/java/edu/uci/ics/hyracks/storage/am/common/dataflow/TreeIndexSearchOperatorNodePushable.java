@@ -30,11 +30,17 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexLifecycleManager;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
+import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 
 public abstract class TreeIndexSearchOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
+    protected final AbstractTreeIndexOperatorDescriptor opDesc;
+    protected final IHyracksTaskContext ctx;
+    protected final IIndexLifecycleManager lcManager;
     protected final TreeIndexDataflowHelper treeIndexHelper;
     protected FrameTupleAccessor accessor;
 
@@ -55,10 +61,13 @@ public abstract class TreeIndexSearchOperatorNodePushable extends AbstractUnaryI
 
     public TreeIndexSearchOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, IRecordDescriptorProvider recordDescProvider) {
-        treeIndexHelper = (TreeIndexDataflowHelper) opDesc.getIndexDataflowHelperFactory().createIndexDataflowHelper(
-                opDesc, ctx, partition);
-        this.retainInput = treeIndexHelper.getOperatorDescriptor().getRetainInput();
-        inputRecDesc = recordDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
+        this.opDesc = opDesc;
+        this.ctx = ctx;
+        this.lcManager = opDesc.getLifecycleManagerProvider().getLifecycleManager(ctx);
+        this.treeIndexHelper = (TreeIndexDataflowHelper) opDesc.getIndexDataflowHelperFactory()
+                .createIndexDataflowHelper(opDesc, ctx, partition);
+        this.retainInput = opDesc.getRetainInput();
+        this.inputRecDesc = recordDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
     }
 
     protected abstract ISearchPredicate createSearchPredicate();
@@ -71,25 +80,26 @@ public abstract class TreeIndexSearchOperatorNodePushable extends AbstractUnaryI
 
     @Override
     public void open() throws HyracksDataException {
-        accessor = new FrameTupleAccessor(treeIndexHelper.getHyracksTaskContext().getFrameSize(), inputRecDesc);
+        accessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecDesc);
         writer.open();
-        try {        	
-            treeIndexHelper.init(false);
-            treeIndex = (ITreeIndex) treeIndexHelper.getIndex();
+        treeIndex = (ITreeIndex) lcManager.open(treeIndexHelper);
+        try {
             cursorFrame = treeIndex.getLeafFrameFactory().createFrame();
             searchPred = createSearchPredicate();
-            writeBuffer = treeIndexHelper.getHyracksTaskContext().allocateFrame();
+            writeBuffer = ctx.allocateFrame();
             tb = new ArrayTupleBuilder(recordDesc.getFieldCount());
             dos = tb.getDataOutput();
-            appender = new FrameTupleAppender(treeIndexHelper.getHyracksTaskContext().getFrameSize());
+            appender = new FrameTupleAppender(ctx.getFrameSize());
             appender.reset(writeBuffer, true);
-            indexAccessor = treeIndex.createAccessor();
+            ISearchOperationCallback searchCallback = opDesc.getOpCallbackProvider().getSearchOperationCallback(
+                    treeIndexHelper.getResourceID());
+            indexAccessor = treeIndex.createAccessor(NoOpOperationCallback.INSTANCE, searchCallback);
             cursor = createCursor();
             if (retainInput) {
-            	frameTuple = new FrameTupleReference();
+                frameTuple = new FrameTupleReference();
             }
         } catch (Exception e) {
-            treeIndexHelper.deinit();
+            lcManager.close(treeIndexHelper);
             throw new HyracksDataException(e);
         }
     }
@@ -99,9 +109,9 @@ public abstract class TreeIndexSearchOperatorNodePushable extends AbstractUnaryI
             tb.reset();
             cursor.next();
             if (retainInput) {
-            	frameTuple.reset(accessor, tupleIndex);
+                frameTuple.reset(accessor, tupleIndex);
                 for (int i = 0; i < frameTuple.getFieldCount(); i++) {
-                	dos.write(frameTuple.getFieldData(i), frameTuple.getFieldStart(i), frameTuple.getFieldLength(i));
+                    dos.write(frameTuple.getFieldData(i), frameTuple.getFieldStart(i), frameTuple.getFieldLength(i));
                     tb.addFieldEndOffset();
                 }
             }
@@ -149,7 +159,7 @@ public abstract class TreeIndexSearchOperatorNodePushable extends AbstractUnaryI
                 throw new HyracksDataException(e);
             }
         } finally {
-            treeIndexHelper.deinit();
+            lcManager.close(treeIndexHelper);
         }
     }
 
