@@ -159,7 +159,7 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
 
                     state.joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
                             new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0 /*gByTpc0*/, hpcf1 /*gByTpc1*/, rd0,
-                            recordDescriptors[0], aggregatorFactory, keys0, keys1, projectFields, isLeftOuter, nullWriters1);
+                            recordDescriptors[0], aggregatorFactory, keys1, keys0, projectFields, isLeftOuter, nullWriters1);
                 }
 
                 @Override
