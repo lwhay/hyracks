@@ -125,7 +125,18 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     }
 
     @Override
-    public Void visitGroupJoinOperator(GroupJoinOperator op, Void arg) {
+    public Void visitGroupJoinOperator(GroupJoinOperator op, Void arg) throws AlgebricksException {
+        for (ILogicalPlan p : op.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                VariableUtilities.getUsedVariablesInDescendantsAndSelf(r.getValue(), usedVariables);
+            }
+        }
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> g : op.getGroupByList()) {
+            g.second.getValue().getUsedVariables(usedVariables);
+        }
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> g : op.getDecorList()) {
+            g.second.getValue().getUsedVariables(usedVariables);
+        }
         op.getCondition().getValue().getUsedVariables(usedVariables);
         return null;
     }

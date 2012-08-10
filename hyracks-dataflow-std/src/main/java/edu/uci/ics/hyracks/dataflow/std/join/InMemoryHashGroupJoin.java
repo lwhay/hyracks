@@ -43,7 +43,7 @@ public class InMemoryHashGroupJoin {
             FrameTupleAccessor accessor1, IBinaryComparatorFactory[] groupComparator, ITuplePartitionComputerFactory gByTpc0,
             ITuplePartitionComputerFactory gByTpc1, RecordDescriptor gByInRecordDescriptor, RecordDescriptor gByOutRecordDescriptor,
             IAggregatorDescriptorFactory aggregatorFactory, int[] joinAttributes, int[] groupAttributes, 
-            INullWriter[] nullWriters1) throws HyracksDataException {
+            int[] decorAttributes, boolean isLeftOuter, INullWriter[] nullWriters1) throws HyracksDataException {
         buffers = new ArrayList<ByteBuffer>();
         this.accessorBuild = accessor0;
         this.accessorProbe = accessor1;
@@ -53,8 +53,8 @@ public class InMemoryHashGroupJoin {
         outBuffer = ctx.allocateFrame();
         appender.reset(outBuffer, true);
 
-        gByTable = new GroupJoinHelper(ctx, groupAttributes, joinAttributes, comparator, gByTpc0, gByTpc1, 
-        		aggregatorFactory, gByInRecordDescriptor, gByOutRecordDescriptor, nullWriters1, tableSize);
+        gByTable = new GroupJoinHelper(ctx, groupAttributes, joinAttributes, decorAttributes, comparator, gByTpc0, 
+        		gByTpc1, aggregatorFactory, gByInRecordDescriptor, gByOutRecordDescriptor, isLeftOuter, nullWriters1, tableSize);
     }
 
     public void build(ByteBuffer buffer) throws HyracksDataException, IOException {

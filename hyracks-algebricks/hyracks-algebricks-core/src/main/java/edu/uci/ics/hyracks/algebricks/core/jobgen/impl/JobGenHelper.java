@@ -40,7 +40,7 @@ public final class JobGenHelper {
 
     private static final Logger LOGGER = Logger.getLogger(JobGenHelper.class.getName());
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public static RecordDescriptor mkRecordDescriptor(ILogicalOperator op, IOperatorSchema opSchema,
             JobGenContext context) throws AlgebricksException {
         ISerializerDeserializer[] fields = new ISerializerDeserializer[opSchema.getSize()];

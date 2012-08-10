@@ -26,6 +26,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -73,7 +74,7 @@ public class RemoveUnusedAssignAndAggregateRule implements IAlgebraicRewriteRule
             removeUnusedAssigns(cRef, toRemove, context);
         }
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans opWithNest = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan opWithNest = (INestedPlan) op;
             Iterator<ILogicalPlan> planIter = opWithNest.getNestedPlans().iterator();
             while (planIter.hasNext()) {
                 ILogicalPlan p = planIter.next();
@@ -128,7 +129,7 @@ public class RemoveUnusedAssignAndAggregateRule implements IAlgebraicRewriteRule
             collectUnusedAssignedVars((AbstractLogicalOperator) c.getValue(), toRemove, false, context);
         }
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans opWithNested = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan opWithNested = (INestedPlan) op;
             for (ILogicalPlan plan : opWithNested.getNestedPlans()) {
                 for (Mutable<ILogicalOperator> r : plan.getRoots()) {
                     collectUnusedAssignedVars((AbstractLogicalOperator) r.getValue(), toRemove, false, context);

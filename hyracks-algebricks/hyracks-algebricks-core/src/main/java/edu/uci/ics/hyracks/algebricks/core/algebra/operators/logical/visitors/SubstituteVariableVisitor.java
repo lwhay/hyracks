@@ -158,6 +158,14 @@ public class SubstituteVariableVisitor implements ILogicalOperatorVisitor<Void, 
     @Override
     public Void visitGroupJoinOperator(GroupJoinOperator op, Pair<LogicalVariable, LogicalVariable> pair)
             throws AlgebricksException {
+        subst(pair.first, pair.second, op.getGroupByList());
+        subst(pair.first, pair.second, op.getDecorList());
+        for (ILogicalPlan p : op.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                OperatorManipulationUtil.substituteVarRec((AbstractLogicalOperator) r.getValue(), pair.first,
+                        pair.second, goThroughNts, ctx);
+            }
+        }
         op.getCondition().getValue().substituteVar(pair.first, pair.second);
         substVarTypes(op, pair);
         return null;

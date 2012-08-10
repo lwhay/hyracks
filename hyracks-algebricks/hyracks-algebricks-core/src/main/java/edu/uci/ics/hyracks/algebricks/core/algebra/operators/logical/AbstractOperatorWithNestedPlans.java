@@ -23,9 +23,10 @@ import org.apache.commons.lang3.mutable.Mutable;
 
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 
-public abstract class AbstractOperatorWithNestedPlans extends AbstractLogicalOperator {
+public abstract class AbstractOperatorWithNestedPlans extends AbstractLogicalOperator implements INestedPlan{
     protected final List<ILogicalPlan> nestedPlans;
 
     public AbstractOperatorWithNestedPlans() {

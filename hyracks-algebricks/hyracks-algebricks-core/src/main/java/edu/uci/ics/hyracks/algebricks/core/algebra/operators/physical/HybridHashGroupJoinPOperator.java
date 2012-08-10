@@ -60,7 +60,7 @@ public class HybridHashGroupJoinPOperator extends AbstractHashJoinPOperator {
 
     @Override
     public PhysicalOperatorTag getOperatorTag() {
-        return PhysicalOperatorTag.HYBRID_HASH_JOIN;
+        return PhysicalOperatorTag.HYBRID_HASH_GROUP_JOIN;
     }
 
     @Override

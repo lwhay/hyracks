@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -145,7 +146,7 @@ public class PushProjectDownRule implements IAlgebraicRewriteRule {
             }
         }
         if (op2.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans n = (AbstractOperatorWithNestedPlans) op2;
+            INestedPlan n = (INestedPlan) op2;
             for (ILogicalPlan p : n.getNestedPlans()) {
                 for (Mutable<ILogicalOperator> r : p.getRoots()) {
                     if (pushNeededProjections(toPush, r, context, initialOp)) {

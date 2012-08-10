@@ -12,6 +12,7 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -27,6 +28,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOp
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
@@ -63,6 +65,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.UnnestPOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.WriteResultPOperator;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
+import edu.uci.ics.hyracks.algebricks.rewriter.util.GroupJoinUtils;
 import edu.uci.ics.hyracks.algebricks.rewriter.util.JoinUtils;
 
 public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule {
@@ -162,6 +165,11 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                         op.setPhysicalOperator(new MicroPreclusteredGroupByPOperator(columnList));
                     }
                     break;
+                }
+                case GROUPJOIN: {
+                    GroupJoinUtils.setJoinAlgorithmAndExchangeAlgo((GroupJoinOperator) op, context);
+//                	System.exit(0);
+                	break;
                 }
                 case INNERJOIN: {
                     JoinUtils.setJoinAlgorithmAndExchangeAlgo((InnerJoinOperator) op, context);
@@ -282,7 +290,7 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
             }
         }
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans nested = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan nested = (INestedPlan) op;
             for (ILogicalPlan p : nested.getNestedPlans()) {
                 setPhysicalOperators(p, false, context);
             }

@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
@@ -83,7 +84,7 @@ public class OperatorPropertiesUtil {
         }
 
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans s = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan s = (INestedPlan) op;
             for (ILogicalPlan p : s.getNestedPlans()) {
                 for (Mutable<ILogicalOperator> r : p.getRoots()) {
                     getFreeVariablesInSelfOrDesc((AbstractLogicalOperator) r.getValue(), freeVars);
@@ -99,7 +100,7 @@ public class OperatorPropertiesUtil {
         }
     }
 
-    public static void getFreeVariablesInSubplans(AbstractOperatorWithNestedPlans op, Set<LogicalVariable> freeVars)
+    public static void getFreeVariablesInSubplans(INestedPlan op, Set<LogicalVariable> freeVars)
             throws AlgebricksException {
         for (ILogicalPlan p : op.getNestedPlans()) {
             for (Mutable<ILogicalOperator> r : p.getRoots()) {
@@ -127,7 +128,7 @@ public class OperatorPropertiesUtil {
                 computeSchemaAndPropertiesRecIfNull((AbstractLogicalOperator) i.getValue(), context);
             }
             if (op.hasNestedPlans()) {
-                AbstractOperatorWithNestedPlans a = (AbstractOperatorWithNestedPlans) op;
+                INestedPlan a = (INestedPlan) op;
                 for (ILogicalPlan p : a.getNestedPlans()) {
                     for (Mutable<ILogicalOperator> r : p.getRoots()) {
                         computeSchemaAndPropertiesRecIfNull((AbstractLogicalOperator) r.getValue(), context);
@@ -145,7 +146,7 @@ public class OperatorPropertiesUtil {
                 computeSchemaRecIfNull((AbstractLogicalOperator) i.getValue());
             }
             if (op.hasNestedPlans()) {
-                AbstractOperatorWithNestedPlans a = (AbstractOperatorWithNestedPlans) op;
+                INestedPlan a = (INestedPlan) op;
                 for (ILogicalPlan p : a.getNestedPlans()) {
                     for (Mutable<ILogicalOperator> r : p.getRoots()) {
                         computeSchemaRecIfNull((AbstractLogicalOperator) r.getValue());
@@ -195,7 +196,7 @@ public class OperatorPropertiesUtil {
             typeOpRec(i, context);
         }
         if (op.hasNestedPlans()) {
-            for (ILogicalPlan p : ((AbstractOperatorWithNestedPlans) op).getNestedPlans()) {
+            for (ILogicalPlan p : ((INestedPlan) op).getNestedPlans()) {
                 typePlan(p, context);
             }
         }

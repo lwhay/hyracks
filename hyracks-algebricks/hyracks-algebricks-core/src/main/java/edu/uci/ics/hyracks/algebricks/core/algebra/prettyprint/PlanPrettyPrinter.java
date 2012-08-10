@@ -19,6 +19,7 @@ import org.apache.commons.lang3.mutable.Mutable;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IPhysicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
@@ -61,7 +62,7 @@ public class PlanPrettyPrinter {
         pad(out, indent);
         appendln(out, "-- " + pOp.toString() + "  |" + op.getExecutionMode() + "|");
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans opNest = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan opNest = (INestedPlan) op;
             for (ILogicalPlan p : opNest.getNestedPlans()) {
                 pad(out, indent + 8);
                 appendln(out, "{");

@@ -27,6 +27,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.EquivalenceClass;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
@@ -113,7 +114,7 @@ public class InlineVariablesRule implements IAlgebraicRewriteRule {
             ++cnt;
         }
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans n = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan n = (INestedPlan) op;
             List<EquivalenceClass> eqc = equivClasses;
             if (n.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
                 eqc = new LinkedList<EquivalenceClass>();

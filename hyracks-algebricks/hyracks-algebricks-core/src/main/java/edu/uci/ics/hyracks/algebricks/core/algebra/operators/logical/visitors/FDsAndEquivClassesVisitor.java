@@ -40,7 +40,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionC
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.UnnestingFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator.JoinKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractUnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
@@ -312,32 +311,138 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         List<FunctionalDependency> functionalDependencies = new ArrayList<FunctionalDependency>();
         ctx.putEquivalenceClassMap(op, equivalenceClasses);
         ctx.putFDList(op, functionalDependencies);
+
+        List<FunctionalDependency> inheritedFDs = new ArrayList<FunctionalDependency>();
+        for (ILogicalPlan p : op.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> r : p.getRoots()) {
+                ILogicalOperator op2 = r.getValue();
+                equivalenceClasses.putAll(getOrComputeEqClasses(op2, ctx));
+                inheritedFDs.addAll(getOrComputeFDs(op2, ctx));
+            }
+        }
+        
         ILogicalOperator opLeft = op.getInputs().get(0).getValue();
+        inheritedFDs.addAll(getOrComputeFDs(opLeft, ctx));
         ILogicalOperator opRight = op.getInputs().get(1).getValue();
-        functionalDependencies.addAll(getOrComputeFDs(opLeft, ctx));
-        functionalDependencies.addAll(getOrComputeFDs(opRight, ctx));
-        equivalenceClasses.putAll(getOrComputeEqClasses(opLeft, ctx));
-        equivalenceClasses.putAll(getOrComputeEqClasses(opRight, ctx));
-    	if(op.getJoinKind() == JoinKind.LEFT_OUTER) {
-	        Collection<LogicalVariable> leftSideVars;
-	        if (opLeft.getSchema() == null) {
-	            leftSideVars = new LinkedList<LogicalVariable>();
-	            VariableUtilities.getLiveVariables(opLeft, leftSideVars);
-	            // actually, not all produced vars. are visible (due to projection)
-	            // so using cached schema is better and faster
-	        } else {
-	            leftSideVars = opLeft.getSchema();
-	        }
-	        ILogicalExpression expr = op.getCondition().getValue();
-	        expr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
-    	}
-    	else {
-            ILogicalExpression expr = op.getCondition().getValue();
-            expr.getConstraintsAndEquivClasses(functionalDependencies, equivalenceClasses);
-    	}
-    	
-    	visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), ctx);
-        return null;
+        inheritedFDs.addAll(getOrComputeFDs(opRight, ctx));
+
+        Map<LogicalVariable, EquivalenceClass> inheritedEcs = new HashMap<LogicalVariable, EquivalenceClass>();
+        inheritedEcs.putAll(getOrComputeEqClasses(opLeft, ctx));
+        inheritedEcs.putAll(getOrComputeEqClasses(opRight, ctx));
+        
+        ILogicalExpression joinExpr = op.getCondition().getValue();
+        
+        // Join part of GroupJoin
+        switch(op.getJoinKind()){
+        	case INNER:
+        		joinExpr.getConstraintsAndEquivClasses(functionalDependencies, equivalenceClasses);
+        		break;
+        	case LEFT_OUTER:
+        		Collection<LogicalVariable> leftSideVars;
+        		if (opLeft.getSchema() == null) {
+        			leftSideVars = new LinkedList<LogicalVariable>();
+        			VariableUtilities.getLiveVariables(opLeft, leftSideVars);
+        			// actually, not all produced vars. are visible (due to projection)
+        			// so using cached schema is better and faster
+        		} else {
+        			leftSideVars = opLeft.getSchema();
+        		}
+        		joinExpr.getConstraintsForOuterJoin(functionalDependencies, leftSideVars);
+        		break;
+        	default:
+        		throw new NotImplementedException();
+        }
+
+        // Group part of GroupJoin
+        for (FunctionalDependency inherited : inheritedFDs) {
+            boolean isCoveredByGbyOrDecorVars = true;
+            List<LogicalVariable> newHead = new ArrayList<LogicalVariable>(inherited.getHead().size());
+            for (LogicalVariable v : inherited.getHead()) {
+                LogicalVariable vnew = getNewGbyVar(op, v);
+                if (vnew == null) {
+                    vnew = getNewDecorVar(op, v);
+                    if (vnew == null) {
+                        isCoveredByGbyOrDecorVars = false;
+                    }
+                    break;
+                }
+                newHead.add(vnew);
+            }
+
+            if (isCoveredByGbyOrDecorVars) {
+                List<LogicalVariable> newTail = new ArrayList<LogicalVariable>();
+                for (LogicalVariable v2 : inherited.getTail()) {
+                    LogicalVariable v3 = getNewGbyVar(op, v2);
+                    if (v3 != null) {
+                        newTail.add(v3);
+                    }
+                }
+                if (!newTail.isEmpty()) {
+                    FunctionalDependency newFd = new FunctionalDependency(newHead, newTail);
+                    functionalDependencies.add(newFd);
+                }
+            }
+        }
+
+        List<LogicalVariable> premiseGby = new LinkedList<LogicalVariable>();
+        List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> gByList = op.getGroupByList();
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gByList) {
+            premiseGby.add(p.first);
+        }
+
+        List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> decorList = op.getDecorList();
+
+        LinkedList<LogicalVariable> conclDecor = new LinkedList<LogicalVariable>();
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : decorList) {
+            conclDecor.add(GroupJoinOperator.getDecorVariable(p));
+        }
+        if (!conclDecor.isEmpty()) {
+            functionalDependencies.add(new FunctionalDependency(premiseGby, conclDecor));
+        }
+
+        Set<LogicalVariable> gbySet = new HashSet<LogicalVariable>();
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gByList) {
+            ILogicalExpression expr = p.second.getValue();
+            if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+                VariableReferenceExpression v = (VariableReferenceExpression) expr;
+                gbySet.add(v.getVariableReference());
+            }
+        }
+        LocalGroupingProperty lgp = new LocalGroupingProperty(gbySet);
+        lgp.normalizeGroupingColumns(inheritedEcs, inheritedFDs);
+        Set<LogicalVariable> normSet = lgp.getColumnSet();
+        List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> newGbyList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
+        boolean changed = false;
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gByList) {
+            ILogicalExpression expr = p.second.getValue();
+            if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+                VariableReferenceExpression varRef = (VariableReferenceExpression) expr;
+                LogicalVariable v2 = varRef.getVariableReference();
+                EquivalenceClass ec2 = inheritedEcs.get(v2);
+                LogicalVariable v3;
+                if (ec2 != null && !ec2.representativeIsConst()) {
+                    v3 = ec2.getVariableRepresentative();
+                } else {
+                    v3 = v2;
+                }
+                if (normSet.contains(v3)) {
+                    newGbyList.add(p);
+                } else {
+                    changed = true;
+                    decorList.add(p);
+                }
+            } else {
+                newGbyList.add(p);
+            }
+        }
+        if (changed) {
+            AlgebricksConfig.ALGEBRICKS_LOGGER.fine(">>>> Group-by list changed from "
+                    + GroupJoinOperator.veListToString(gByList) + " to " + GroupJoinOperator.veListToString(newGbyList)
+                    + ".\n");
+        }
+        gByList.clear();
+        gByList.addAll(newGbyList);
+       return null;
     }
     
     @Override
@@ -648,8 +753,16 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         ctx.putFDList(op, fds);
     }
 
-    private LogicalVariable getNewGbyVar(GroupByOperator g, LogicalVariable v) {
-        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : g.getGroupByList()) {
+    private LogicalVariable getNewGbyVar(AbstractLogicalOperator op, LogicalVariable v) {
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> groupByList;
+    	if(op.getOperatorTag() == LogicalOperatorTag.GROUP)
+    		groupByList = ((GroupByOperator)op).getGroupByList();
+    	else if(op.getOperatorTag() == LogicalOperatorTag.GROUPJOIN)
+    		groupByList = ((GroupJoinOperator)op).getGroupByList();
+    	else
+    		return null;
+
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : groupByList) {
             ILogicalExpression e = p.second.getValue();
             if (e.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
                 LogicalVariable v2 = ((VariableReferenceExpression) e).getVariableReference();
@@ -661,8 +774,16 @@ public class FDsAndEquivClassesVisitor implements ILogicalOperatorVisitor<Void, 
         return null;
     }
 
-    private LogicalVariable getNewDecorVar(GroupByOperator g, LogicalVariable v) {
-        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : g.getDecorList()) {
+    private LogicalVariable getNewDecorVar(AbstractLogicalOperator op, LogicalVariable v) {
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> decorList;
+    	if(op.getOperatorTag() == LogicalOperatorTag.GROUP)
+    		decorList = ((GroupByOperator)op).getDecorList();
+    	else if(op.getOperatorTag() == LogicalOperatorTag.GROUPJOIN)
+    		decorList = ((GroupJoinOperator)op).getDecorList();
+    	else
+    		return null;
+
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : decorList) {
             ILogicalExpression e = p.second.getValue();
             if (e.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
                 LogicalVariable v2 = ((VariableReferenceExpression) e).getVariableReference();

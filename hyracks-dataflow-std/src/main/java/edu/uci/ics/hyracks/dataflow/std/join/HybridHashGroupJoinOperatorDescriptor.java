@@ -294,7 +294,7 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
                     int tableSize = (int) (state.memoryForHashtable * recordsPerFrame * factor);
                     state.joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
                             new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0, hpcf1, rd0, recordDescriptors[0],
-                            aggregatorFactory, keys1, keys0, nullWriters1);
+                            aggregatorFactory, keys1, keys0, null, true, nullWriters1);
                     bufferForPartitions = new ByteBuffer[state.nPartitions];
                     state.fWriters = new RunFileWriter[state.nPartitions];
                     for (int i = 0; i < state.nPartitions; i++) {
@@ -470,7 +470,7 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
                             }
                             InMemoryHashGroupJoin joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
                                     new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0, hpcf1, rd0, recordDescriptors[0],
-                                    aggregatorFactory, keys1, keys0, nullWriters1);
+                                    aggregatorFactory, keys1, keys0, null, true, nullWriters1);
 
                             RunFileReader buildReader = buildWriter.createReader();
                             buildReader.open();

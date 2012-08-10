@@ -21,6 +21,7 @@ import org.apache.commons.lang3.mutable.Mutable;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
@@ -89,7 +90,7 @@ public abstract class AbstractRuleController {
         }
 
         if (op.hasNestedPlans() && enterNestedPlans) {
-            AbstractOperatorWithNestedPlans o2 = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan o2 = (INestedPlan) op;
             for (ILogicalPlan p : o2.getNestedPlans()) {
                 for (Mutable<ILogicalOperator> r : p.getRoots()) {
                     if (rewriteOperatorRef(r, rule, enterNestedPlans, fullDFS)) {

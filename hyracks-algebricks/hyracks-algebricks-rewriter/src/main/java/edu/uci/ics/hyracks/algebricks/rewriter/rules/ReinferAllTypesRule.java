@@ -5,6 +5,7 @@ import org.apache.commons.lang3.mutable.Mutable;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
@@ -39,7 +40,7 @@ public class ReinferAllTypesRule implements IAlgebraicRewriteRule {
             typeOpRec(i, context);
         }
         if (op.hasNestedPlans()) {
-            for (ILogicalPlan p : ((AbstractOperatorWithNestedPlans) op).getNestedPlans()) {
+            for (ILogicalPlan p : ((INestedPlan) op).getNestedPlans()) {
                 typePlan(p, context);
             }
         }

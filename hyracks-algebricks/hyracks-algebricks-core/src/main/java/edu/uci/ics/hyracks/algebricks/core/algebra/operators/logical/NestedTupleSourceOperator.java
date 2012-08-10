@@ -42,6 +42,10 @@ public class NestedTupleSourceOperator extends AbstractLogicalOperator {
         return dataSourceReference.getValue().getInputs().get(0).getValue();
     }
 
+    public ILogicalOperator getSourceOperator(int inputIdx) {
+        return dataSourceReference.getValue().getInputs().get(inputIdx).getValue();
+    }
+    
     @Override
     public LogicalOperatorTag getOperatorTag() {
         return LogicalOperatorTag.NESTEDTUPLESOURCE;
@@ -88,8 +92,11 @@ public class NestedTupleSourceOperator extends AbstractLogicalOperator {
 
             @Override
             public IVariableTypeEnvironment getTypeEnv() {
-                ILogicalOperator op = dataSourceReference.getValue().getInputs().get(0).getValue();
-                return ctx.getOutputTypeEnvironment(op);
+                AbstractLogicalOperator dsr = (AbstractLogicalOperator)dataSourceReference.getValue();
+            	if(dsr.getOperatorTag() == LogicalOperatorTag.GROUPJOIN)
+            		return ctx.getOutputTypeEnvironment(dsr.getInputs().get(1).getValue());
+            	else
+            		return ctx.getOutputTypeEnvironment(dsr.getInputs().get(0).getValue());
             }
         };
         return new PropagatingTypeEnvironment(ctx.getExpressionTypeComputer(), ctx.getNullableTypeComputer(),

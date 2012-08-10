@@ -126,13 +126,12 @@ public class ProducedVariableVisitor implements ILogicalOperatorVisitor<Void, Vo
                 VariableUtilities.getProducedVariables(r.getValue(), producedVariables);
             }
         }
-        GroupByOperator gByOp = (GroupByOperator) op.getGroupByOperator();
-        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gByOp.getGroupByList()) {
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : op.getGroupByList()) {
             if (p.first != null) {
                 producedVariables.add(p.first);
             }
         }
-        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gByOp.getDecorList()) {
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : op.getDecorList()) {
             if (p.first != null) {
                 producedVariables.add(p.first);
             }

@@ -15,10 +15,12 @@
 
 package edu.uci.ics.hyracks.dataflow.std.join;
 
+import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
+import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
@@ -30,6 +32,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameConstants;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTuplePairComparator;
@@ -55,23 +58,27 @@ public class GroupJoinHelper{
     private int lastStateBIndex;
     private final int[] storedKeys;
     private final int[] keys;
+    private final int[] decor;
+    private final int[] keysAndDecors;
     private final IBinaryComparator[] comparators;
     private final ITuplePartitionComputer tpc;
     private final IAggregatorDescriptor aggregator;
     private final FrameTupleAppender appender, stateAppender;
     private final FrameTupleAccessor stateAccessor, storedKeysAccessor;
-    private final ArrayTupleBuilder stateTupleBuilder, outputTupleBuilder;
+    private final ArrayTupleBuilder stateTupleBuilder, outputTupleBuilder, nullTupleBuilder;
     private final ITuplePartitionComputer tpc1;
     protected final FrameTuplePairComparator ftpc1;
     private final int tableSize;
     private final ISerializableTable hashTable;
+    private final boolean isLeftOuter;
     private final INullWriter[] nullWriters;
     private AggregateState state;
     
-    public GroupJoinHelper(IHyracksTaskContext ctx, int[] gFields, int[] jFields,
-    		IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory gByTpc0, ITuplePartitionComputerFactory gByTpc1,
-    		IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor, 
-            INullWriter[] nullWriters1, int tableSize) throws HyracksDataException {
+    public GroupJoinHelper(IHyracksTaskContext ctx, int[] gFields, int[] jFields, int[] dFields,
+    		IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory gByTpc0,
+    		ITuplePartitionComputerFactory gByTpc1, IAggregatorDescriptorFactory aggregatorFactory,
+    		RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor, boolean isLeftOuter,
+    		INullWriter[] nullWriters1, int tableSize) throws HyracksDataException {
     	
     	this.ctx = ctx;
     	
@@ -79,17 +86,32 @@ public class GroupJoinHelper{
         stateBuffers = new ArrayList<ByteBuffer>();
 
         this.keys = gFields;
-        this.storedKeys = new int[gFields.length];
+        this.storedKeys = new int[keys.length];
+        this.decor = dFields;
+        this.keysAndDecors = new int[keys.length + decor.length];
         
         @SuppressWarnings("rawtypes")
-        ISerializerDeserializer[] storedKeySerDeser = new ISerializerDeserializer[gFields.length + 2];
-        for (int i = 0; i < gFields.length; ++i) {
+        ISerializerDeserializer[] storedKeySerDeser = new ISerializerDeserializer[keys.length + decor.length + 2];
+        System.out.println("gFields: " + keys.length);
+        System.out.println("dFields: " + decor.length);
+        for (int i = 0; i < keys.length; ++i) {
             storedKeys[i] = i;
-            storedKeySerDeser[i] = inRecordDescriptor.getFields()[gFields[i]];
+            storedKeySerDeser[i] = inRecordDescriptor.getFields()[keys[i]];
+            keysAndDecors[i] = i;
         }
-        storedKeySerDeser[gFields.length] = IntegerSerializerDeserializer.INSTANCE;
-        storedKeySerDeser[gFields.length+1] = IntegerSerializerDeserializer.INSTANCE;
+        for (int i = 0; i < decor.length; ++i) {
+            System.out.println("i = " + i);
+            keysAndDecors[keys.length + i] = keys.length + i;
+            storedKeySerDeser[keys.length + i] = inRecordDescriptor.getFields()[decor[i]];
+        }
+        storedKeySerDeser[keys.length + decor.length] = IntegerSerializerDeserializer.INSTANCE;
+        storedKeySerDeser[keys.length + decor.length + 1] = IntegerSerializerDeserializer.INSTANCE;
+//        keysAndDecors[gFields.length] = storedKeySerDeser.length - 2;
+//        keysAndDecors[gFields.length + 1] = storedKeySerDeser.length - 1;
 
+        for(int x = 0; x < keysAndDecors.length; x++)
+        	System.out.println("keysAndDecors : " + keysAndDecors[x]);
+        
         RecordDescriptor storedKeysRecordDescriptor = new RecordDescriptor(storedKeySerDeser);
         storedKeysAccessor = new FrameTupleAccessor(ctx.getFrameSize(), storedKeysRecordDescriptor);
         
@@ -99,7 +121,7 @@ public class GroupJoinHelper{
         }
         tpc = gByTpc0.createPartitioner();
 
-        this.aggregator = aggregatorFactory.createAggregator(ctx, inRecordDescriptor, outRecordDescriptor, gFields, storedKeys);
+        this.aggregator = aggregatorFactory.createAggregator(ctx, inRecordDescriptor, outRecordDescriptor, keys, storedKeys);
         
         stateAccessor = new FrameTupleAccessor(ctx.getFrameSize(), outRecordDescriptor);
 
@@ -112,14 +134,27 @@ public class GroupJoinHelper{
         addNewBuffer(false);
         addNewBuffer(true);
 
-        stateTupleBuilder = new ArrayTupleBuilder(gFields.length + 2);
+        stateTupleBuilder = new ArrayTupleBuilder(keysAndDecors.length + 2);
         outputTupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
 
         tpc1 = gByTpc1.createPartitioner();
         ftpc1 = new FrameTuplePairComparator(storedKeys, jFields, comparators);
         this.tableSize = tableSize;
         
+        this.isLeftOuter = isLeftOuter;
         this.nullWriters = nullWriters1;
+        System.out.println("nullWriters size:" + nullWriters.length);
+        if (isLeftOuter) {
+            nullTupleBuilder = new ArrayTupleBuilder(nullWriters1.length);
+            DataOutput out = nullTupleBuilder.getDataOutput();
+            for (int i = 0; i < nullWriters1.length; i++) {
+                nullWriters1[i].writeNull(out);
+                nullTupleBuilder.addFieldEndOffset();
+            }
+        } else {
+            nullTupleBuilder = null;
+        }
+
         
         hashTable = new SerializableHashTable(tableSize, ctx);
     }
@@ -166,6 +201,16 @@ public class GroupJoinHelper{
     	tp.tupleIndex = accessor0.getBuffer().getInt(fStart + fStartOffset);
         return tp;
     }
+    
+    public void getField(FrameTupleAccessor accessor, int tIndex, int fIndex) {
+        int startOffset = accessor.getTupleStartOffset(tIndex);
+        int fStartOffset = accessor.getFieldStartOffset(tIndex, fIndex);
+        int fLen = accessor.getFieldEndOffset(tIndex, fIndex) - fStartOffset;
+        System.out.print(" |");
+        for (int i=startOffset + accessor.getFieldSlotsLength() + fStartOffset; i < startOffset + accessor.getFieldSlotsLength() + fStartOffset + fLen; i++)
+        	System.out.print(" " + accessor.getBuffer().get(i));
+    }
+
 
     public void build(FrameTupleAccessor accessor, ByteBuffer buffer) throws HyracksDataException, IOException {
         accessor.reset(buffer);
@@ -177,8 +222,14 @@ public class GroupJoinHelper{
         	entry = tpc.partition(accessor, tIndex, tableSize);
         	
             stateTupleBuilder.reset();
+            System.out.print("\nBTuple : " + entry);
             for (int k = 0; k < keys.length; k++) {
+                getField(accessor, tIndex, keys[k]);
                 stateTupleBuilder.addField(accessor, tIndex, keys[k]);
+            }
+            for (int d = 0; d < decor.length; d++) {
+                getField(accessor, tIndex, decor[d]);
+                stateTupleBuilder.addField(accessor, tIndex, decor[d]);
             }
             stateTupleBuilder.getDataOutput().writeInt(-1);
             stateTupleBuilder.addFieldEndOffset();
@@ -228,6 +279,8 @@ public class GroupJoinHelper{
             } while (true);
 
             if (foundGroup) {
+                System.out.print("\nITuple : " + entry);
+                getField(accessor, tIndex, storedKeys[0]);
             	stateTuplePointer = getAggregateIndex(storedKeysAccessor, storedTuplePointer.tupleIndex);
             	
             	if(stateTuplePointer.frameIndex < 0) {
@@ -266,44 +319,51 @@ public class GroupJoinHelper{
 		appender.reset(buffer, true);
 		TuplePointer stateTuplePointer = new TuplePointer();
 		int currentStateBuffer = -1;
+		boolean emitTuple;
 		
 		
 		for (int i = 0; i < buffers.size(); ++i) {
 			storedKeysAccessor.reset(buffers.get(i));
 
 			for (int tIndex = 0; tIndex < storedKeysAccessor.getTupleCount(); ++tIndex) {
-				outputTupleBuilder.reset();
-				for (int j = 0; j < storedKeys.length; j++) {
-					outputTupleBuilder.addField(storedKeysAccessor, tIndex, storedKeys[j]);
-				}
 				stateTuplePointer = getAggregateIndex(storedKeysAccessor, tIndex);
-				
-				if(stateTuplePointer.frameIndex < 0) {
-					for (int k = 0; k < nullWriters.length; k++) {
-			            nullWriters[k].writeNull(outputTupleBuilder.getDataOutput());
-			            outputTupleBuilder.addFieldEndOffset();
+				outputTupleBuilder.reset();
+				emitTuple = false;
+
+				if(stateTuplePointer.frameIndex > -1) {
+					emitTuple = true;
+					for (int j = 0; j < keysAndDecors.length; j++) {
+						outputTupleBuilder.addField(storedKeysAccessor, tIndex, keysAndDecors[j]);
 					}
-				}
-				else {
 					if (currentStateBuffer != stateTuplePointer.frameIndex) {
 						stateAccessor.reset(stateBuffers.get(stateTuplePointer.frameIndex));
 						currentStateBuffer = stateTuplePointer.frameIndex;
 					}
 					aggregator.outputFinalResult(outputTupleBuilder, stateAccessor, stateTuplePointer.tupleIndex, state);
 				}
-				
-				if (!appender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
-						outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
-					writer.nextFrame(buffer);
-					appender.reset(buffer, true);
-					if (!appender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
-							outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
-						throw new HyracksDataException("Cannot write the aggregation output into a frame.");
+				else if(isLeftOuter) {
+					emitTuple=true;
+					for (int j = 0; j < keysAndDecors.length; j++) {
+						outputTupleBuilder.addField(storedKeysAccessor, tIndex, keysAndDecors[j]);
+					}
+					for (int k = 0; k < nullWriters.length; k++) {
+			            nullWriters[k].writeNull(outputTupleBuilder.getDataOutput());
+			            outputTupleBuilder.addFieldEndOffset();
 					}
 				}
-
+				
+				if (emitTuple) {
+					if (!appender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
+							outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
+						writer.nextFrame(buffer);
+						appender.reset(buffer, true);
+						if (!appender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
+								outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
+							throw new HyracksDataException("Cannot write groupjoin output into a frame.");
+						}
+					}
+				}
 			}
-
 		}
 
 		if (appender.getTupleCount() != 0) {

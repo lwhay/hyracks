@@ -8,6 +8,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.PhysicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
@@ -22,6 +23,7 @@ public class HeuristicOptimizer {
             PhysicalOperatorTag.DATASOURCE_SCAN, PhysicalOperatorTag.BTREE_SEARCH,
             PhysicalOperatorTag.EXTERNAL_GROUP_BY, PhysicalOperatorTag.HASH_GROUP_BY, PhysicalOperatorTag.HDFS_READER,
             PhysicalOperatorTag.HYBRID_HASH_JOIN, PhysicalOperatorTag.IN_MEMORY_HASH_JOIN,
+            PhysicalOperatorTag.HYBRID_HASH_GROUP_JOIN, PhysicalOperatorTag.IN_MEMORY_HASH_GROUP_JOIN,
             PhysicalOperatorTag.NESTED_LOOP, PhysicalOperatorTag.PRE_SORTED_DISTINCT_BY,
             PhysicalOperatorTag.PRE_CLUSTERED_GROUP_BY, PhysicalOperatorTag.SPLIT, PhysicalOperatorTag.STABLE_SORT,
             PhysicalOperatorTag.UNION_ALL };
@@ -92,7 +94,7 @@ public class HeuristicOptimizer {
             computeSchemaBottomUpForOp((AbstractLogicalOperator) i.getValue());
         }
         if (op.hasNestedPlans()) {
-            AbstractOperatorWithNestedPlans a = (AbstractOperatorWithNestedPlans) op;
+            INestedPlan a = (INestedPlan) op;
             for (ILogicalPlan p : a.getNestedPlans()) {
                 computeSchemaBottomUpForPlan(p);
             }

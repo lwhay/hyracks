@@ -22,6 +22,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionVisitor;
+import edu.uci.ics.hyracks.algebricks.core.config.AlgebricksConfig;
 
 /**
  * 
@@ -96,6 +97,7 @@ public class AggregateFunctionCallExpression extends AbstractFunctionCallExpress
 
     @Override
     public <R, T> R accept(ILogicalExpressionVisitor<R, T> visitor, T arg) throws AlgebricksException {
+        AlgebricksConfig.ALGEBRICKS_LOGGER.finest(" *** AggregateFunctionCallExpression: isTwoStep = " + isTwoStep());
         return visitor.visitAggregateFunctionCallExpression(this, arg);
     }
 

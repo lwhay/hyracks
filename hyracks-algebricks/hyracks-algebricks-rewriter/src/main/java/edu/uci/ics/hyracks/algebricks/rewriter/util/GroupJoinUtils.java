@@ -68,11 +68,11 @@ public class GroupJoinUtils {
         if (isHashJoinCondition(op.getCondition().getValue(), varsLeft, varsRight, sideLeft, sideRight)) {
             BroadcastSide side = getBroadcastJoinSide(op.getCondition().getValue(), varsLeft, varsRight);
             if (side == null) {
-                setHashJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
+                setHashGroupJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
             } else {
                 switch (side) {
                     case RIGHT:
-                        setHashJoinOp(op, JoinPartitioningType.BROADCAST, sideLeft, sideRight, context);
+                        setHashGroupJoinOp(op, JoinPartitioningType.BROADCAST, sideLeft, sideRight, context);
                         break;
                     case LEFT:
                         //Mutable<ILogicalOperator> opRef0 = op.getInputs().get(0);
@@ -80,10 +80,10 @@ public class GroupJoinUtils {
                         //ILogicalOperator tmp = opRef0.getValue();
                         //opRef0.setValue(opRef1.getValue());
                         //opRef1.setValue(tmp);
-                        setHashJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
+                        setHashGroupJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
                         break;
                     default:
-                        setHashJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
+                        setHashGroupJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
                 }
             }
         } else {
@@ -91,12 +91,16 @@ public class GroupJoinUtils {
         }
     }
 
-    private static void setHashJoinOp(AbstractBinaryJoinOperator op, JoinPartitioningType partitioningType,
+    private static void setHashGroupJoinOp(AbstractBinaryJoinOperator op, JoinPartitioningType partitioningType,
             List<LogicalVariable> sideLeft, List<LogicalVariable> sideRight, IOptimizationContext context)
             throws AlgebricksException {
-    	op.setPhysicalOperator(new HybridHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight,
+/*    	op.setPhysicalOperator(new HybridHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight,
                 DEFAULT_MEMORY_SIZE_HYBRID_HASH, MAX_LEFT_INPUT_SIZE_HYBRID_HASH, MAX_RECORDS_PER_FRAME,
                 DEFAULT_FUDGE_FACTOR));
+*/        ILogicalPropertiesVector v = context.getLogicalPropertiesVector(op.getInputs().get(0).getValue());
+        op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight
+        		, 1024));
+//        		, v.getNumberOfTuples() * 2));
         if (partitioningType == JoinPartitioningType.BROADCAST) {
             hybridToInMemHashGroupJoin(op, context);
         }
@@ -111,19 +115,22 @@ public class GroupJoinUtils {
         ILogicalOperator opBuild = op.getInputs().get(0).getValue();
         LogicalPropertiesVisitor.computeLogicalPropertiesDFS(opBuild, context);
         ILogicalPropertiesVector v = context.getLogicalPropertiesVector(opBuild);
-        AlgebricksConfig.ALGEBRICKS_LOGGER.fine("// HybridHashJoin inner branch -- Logical properties for " + opBuild
+        AlgebricksConfig.ALGEBRICKS_LOGGER.fine("// HybridHashGroupJoin inner branch -- Logical properties for " + opBuild
                 + ": " + v + "\n");
         if (v != null) {
             int size2 = v.getMaxOutputFrames();
-            // Yingyi - Need a way to calculate memory taken by aggregators
+            // Yingyi - Need a way to calculate memory taken by aggregators. For now, it is set as a factor = 1
+            int aggregatorSize = 1;
             HybridHashGroupJoinPOperator hhgj = (HybridHashGroupJoinPOperator) op.getPhysicalOperator();
-            if (size2 > 0 && size2 * hhgj.getFudgeFactor() <= hhgj.getMemSizeInFrames()) {
+            if (size2 > 0 && size2 * hhgj.getFudgeFactor() * aggregatorSize <= hhgj.getMemSizeInFrames()) {
                 AlgebricksConfig.ALGEBRICKS_LOGGER.fine("// HybridHashGroupJoin inner branch " + opBuild
                         + " fits in memory\n");
                 // maintains the local properties on the probe side
                 op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(hhgj.getKind(), hhgj.getPartitioningType(), hhgj
                         .getKeysLeftBranch(), hhgj.getKeysRightBranch(), v.getNumberOfTuples() * 2));
             }
+            op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(hhgj.getKind(), hhgj.getPartitioningType(), hhgj
+                    .getKeysLeftBranch(), hhgj.getKeysRightBranch(), v.getNumberOfTuples() * 2));
         }
 
     }

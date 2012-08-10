@@ -33,8 +33,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
@@ -54,25 +54,30 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private static final long serialVersionUID = 1L;
     private final int[] keys0;
     private final int[] keys1;
+    private final int[] projectFields;
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
     private final IAggregatorDescriptorFactory aggregatorFactory;
+    private final boolean isLeftOuter;
     private final INullWriterFactory[] nullWriterFactories1;
     private final int tableSize;
 
-    public InMemoryHashGroupJoinOperatorDescriptor(JobSpecification spec, int[] keys0, int[] keys1,
-    		IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
-    		IBinaryComparatorFactory[] groupComparatorFactories, IAggregatorDescriptorFactory aggregatorFactory,
-    		RecordDescriptor recordDescriptor, INullWriterFactory[] nullWriterFactories1, int tableSize) {
+    public InMemoryHashGroupJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keys0, int[] keys1,
+    		int[] projectFields, IBinaryHashFunctionFactory[] hashFunctionFactories,
+    		IBinaryComparatorFactory[] joinComparatorFactories, IBinaryComparatorFactory[] groupComparatorFactories,
+    		IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor, boolean isLeftOuter,
+    		INullWriterFactory[] nullWriterFactories1, int tableSize) {
         super(spec, 2, 1);
         this.keys0 = keys0;
         this.keys1 = keys1;
+        this.projectFields = projectFields;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
         this.groupComparatorFactories = groupComparatorFactories;
         this.aggregatorFactory = aggregatorFactory;
         recordDescriptors[0] = recordDescriptor;
+        this.isLeftOuter = isLeftOuter;
         this.nullWriterFactories1 = nullWriterFactories1;
         this.tableSize = tableSize;
     }
@@ -135,11 +140,13 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
             for (int i = 0; i < joinComparatorFactories.length; ++i) {
                 comparators[i] = joinComparatorFactories[i].createBinaryComparator();
             }
-            final INullWriter[] nullWriters1 = new INullWriter[nullWriterFactories1.length];
-                for (int i = 0; i < nullWriterFactories1.length; i++) {
-                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
+            
+            final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
+            if(isLeftOuter){
+	                for (int i = 0; i < nullWriterFactories1.length; i++) {
+	                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
+	            }
             }
-
             IOperatorNodePushable op = new AbstractUnaryInputSinkOperatorNodePushable() {
                 private HashBuildTaskState state;
 
@@ -151,8 +158,8 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
                             partition));
 
                     state.joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
-                            new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0 /*gByTpc0*/, hpcf1 /*gByTpc1*/, rd0, recordDescriptors[0], 
-                                    aggregatorFactory, keys1, keys0, nullWriters1);
+                            new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0 /*gByTpc0*/, hpcf1 /*gByTpc1*/, rd0,
+                            recordDescriptors[0], aggregatorFactory, keys0, keys1, projectFields, isLeftOuter, nullWriters1);
                 }
 
                 @Override

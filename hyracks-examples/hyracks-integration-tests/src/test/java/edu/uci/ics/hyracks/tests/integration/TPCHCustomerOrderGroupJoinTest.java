@@ -157,11 +157,13 @@ public class TPCHCustomerOrderGroupJoinTest extends AbstractIntegrationTest {
                 spec,
                 new int[] { 0 },
                 new int[] { 1 },
+                new int[] { },
                 new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new MultiFieldsAggregatorFactory( new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false) }),
                 custOrderGroupJoinDesc,
+                true,
                 nullWriterFactories,
                 128);
         

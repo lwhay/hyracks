@@ -28,10 +28,11 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.INestedPlan;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractAssignOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -96,7 +97,7 @@ public class IsomorphismVariableMappingVisitor implements ILogicalOperatorVisito
     @Override
     public Void visitGroupByOperator(GroupByOperator op, ILogicalOperator arg) throws AlgebricksException {
         mapChildren(op, arg);
-        mapVariablesForGroupBy(op, arg);
+        mapVariablesForGroupBy(op, arg, LogicalOperatorTag.GROUP);
         mapVariablesInNestedPlans(op, arg);
         return null;
     }
@@ -116,6 +117,8 @@ public class IsomorphismVariableMappingVisitor implements ILogicalOperatorVisito
     @Override
     public Void visitGroupJoinOperator(GroupJoinOperator op, ILogicalOperator arg) throws AlgebricksException {
         mapVariablesStandard(op, arg);
+        mapVariablesForGroupBy(op, arg, LogicalOperatorTag.GROUPJOIN);
+        mapVariablesInNestedPlans(op, arg);
         return null;
     }
     
@@ -303,15 +306,27 @@ public class IsomorphismVariableMappingVisitor implements ILogicalOperatorVisito
                 rightOp.getExpressions());
     }
 
-    private void mapVariablesForGroupBy(ILogicalOperator left, ILogicalOperator right) throws AlgebricksException {
-        GroupByOperator leftOp = (GroupByOperator) left;
-        GroupByOperator rightOp = (GroupByOperator) right;
-        List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> leftPairs = leftOp.getGroupByList();
-        List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> rightPairs = rightOp.getGroupByList();
-        mapVarExprPairList(leftPairs, rightPairs);
-        leftPairs = leftOp.getDecorList();
-        rightPairs = rightOp.getDecorList();
-        mapVarExprPairList(leftPairs, rightPairs);
+    private void mapVariablesForGroupBy(ILogicalOperator left, ILogicalOperator right, LogicalOperatorTag opTag) throws AlgebricksException {
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> lGByList;
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> rGByList;
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> lDecorList;
+    	List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> rDecorList;
+    	if(opTag == LogicalOperatorTag.GROUP){
+    		lGByList = ((GroupByOperator) left).getGroupByList();
+    		rGByList = ((GroupByOperator) right).getGroupByList();
+    		lDecorList = ((GroupByOperator) left).getDecorList();
+    		rDecorList = ((GroupByOperator) right).getDecorList();
+    	}
+        else if(opTag == LogicalOperatorTag.GROUPJOIN){
+    		lGByList = ((GroupJoinOperator) left).getGroupByList();
+    		rGByList = ((GroupJoinOperator) right).getGroupByList();
+    		lDecorList = ((GroupJoinOperator) left).getDecorList();
+    		rDecorList = ((GroupJoinOperator) right).getDecorList();
+    	}
+        else
+        	return;
+        mapVarExprPairList(lGByList, rGByList);
+        mapVarExprPairList(lDecorList, rDecorList);
     }
 
     private void mapVarExprPairList(List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> leftPairs,
@@ -355,8 +370,8 @@ public class IsomorphismVariableMappingVisitor implements ILogicalOperatorVisito
     }
 
     private void mapVariablesInNestedPlans(ILogicalOperator opOrigin, ILogicalOperator arg) throws AlgebricksException {
-        AbstractOperatorWithNestedPlans op = (AbstractOperatorWithNestedPlans) opOrigin;
-        AbstractOperatorWithNestedPlans argOp = (AbstractOperatorWithNestedPlans) arg;
+        INestedPlan op = (INestedPlan) opOrigin;
+        INestedPlan argOp = (INestedPlan) arg;
         List<ILogicalPlan> plans = op.getNestedPlans();
         List<ILogicalPlan> plansArg = argOp.getNestedPlans();
         if (plans.size() != plansArg.size())

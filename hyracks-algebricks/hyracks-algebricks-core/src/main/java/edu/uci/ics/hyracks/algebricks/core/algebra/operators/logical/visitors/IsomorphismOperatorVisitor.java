@@ -645,12 +645,22 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         @Override
         public ILogicalOperator visitGroupJoinOperator(GroupJoinOperator op, Void arg)
                 throws AlgebricksException {
+        	
+            List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> groupByList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
+            List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> decorList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
             ArrayList<ILogicalPlan> newSubplans = new ArrayList<ILogicalPlan>();
+            for (Pair<LogicalVariable, Mutable<ILogicalExpression>> pair : op.getGroupByList())
+                groupByList.add(new Pair<LogicalVariable, Mutable<ILogicalExpression>>(pair.first,
+                        deepCopyExpressionRef(pair.second)));
+            for (Pair<LogicalVariable, Mutable<ILogicalExpression>> pair : op.getDecorList())
+                decorList.add(new Pair<LogicalVariable, Mutable<ILogicalExpression>>(pair.first,
+                        deepCopyExpressionRef(pair.second)));
             for (ILogicalPlan plan : op.getNestedPlans()) {
                 newSubplans.add(IsomorphismOperatorVisitor.deepCopy(plan));
             }
+            
             return new GroupJoinOperator(op.getJoinKind(), deepCopyExpressionRef(op.getCondition()), op.getInputs().get(0), op
-                    .getInputs().get(1), (AbstractOperatorWithNestedPlans) visitGroupByOperator((GroupByOperator) op.getGroupByOperator(), arg));
+                    .getInputs().get(1), groupByList, decorList, newSubplans);
         }
         
         @Override
