@@ -94,13 +94,9 @@ public class GroupJoinUtils {
     private static void setHashGroupJoinOp(AbstractBinaryJoinOperator op, JoinPartitioningType partitioningType,
             List<LogicalVariable> sideLeft, List<LogicalVariable> sideRight, IOptimizationContext context)
             throws AlgebricksException {
-/*    	op.setPhysicalOperator(new HybridHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight,
+    	op.setPhysicalOperator(new HybridHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight,
                 DEFAULT_MEMORY_SIZE_HYBRID_HASH, MAX_LEFT_INPUT_SIZE_HYBRID_HASH, MAX_RECORDS_PER_FRAME,
                 DEFAULT_FUDGE_FACTOR));
-*/        ILogicalPropertiesVector v = context.getLogicalPropertiesVector(op.getInputs().get(0).getValue());
-        op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(op.getJoinKind(), partitioningType, sideLeft, sideRight
-        		, 1024));
-//        		, v.getNumberOfTuples() * 2));
         if (partitioningType == JoinPartitioningType.BROADCAST) {
             hybridToInMemHashGroupJoin(op, context);
         }
@@ -129,8 +125,6 @@ public class GroupJoinUtils {
                 op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(hhgj.getKind(), hhgj.getPartitioningType(), hhgj
                         .getKeysLeftBranch(), hhgj.getKeysRightBranch(), v.getNumberOfTuples() * 2));
             }
-            op.setPhysicalOperator(new InMemoryHashGroupJoinPOperator(hhgj.getKind(), hhgj.getPartitioningType(), hhgj
-                    .getKeysLeftBranch(), hhgj.getKeysRightBranch(), v.getNumberOfTuples() * 2));
         }
 
     }

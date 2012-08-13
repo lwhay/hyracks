@@ -15,7 +15,6 @@
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +41,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DieOperator
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExtensionOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
@@ -108,6 +108,14 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             throws AlgebricksException {
         AbstractLogicalOperator aop = (AbstractLogicalOperator) copyAndSubstituteVar(op, arg);
         if (aop.getOperatorTag() != LogicalOperatorTag.EMPTYTUPLESOURCE)
+            return Boolean.FALSE;
+        return Boolean.TRUE;
+    }
+
+    @Override
+    public Boolean visitExtensionOperator(ExtensionOperator op, ILogicalOperator arg) throws AlgebricksException {
+        ExtensionOperator aop = (ExtensionOperator) copyAndSubstituteVar(op, arg);
+        if (aop.getOperatorTag() != LogicalOperatorTag.EXTENSION_OPERATOR)
             return Boolean.FALSE;
         return Boolean.TRUE;
     }
@@ -273,8 +281,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         if (aop.getOperatorTag() != LogicalOperatorTag.PARTITIONINGSPLIT)
             return Boolean.FALSE;
         PartitioningSplitOperator partitionOpArg = (PartitioningSplitOperator) copyAndSubstituteVar(op, arg);
-        boolean isomorphic = compareExpressions(Arrays.asList(op.getExpressions()),
-                Arrays.asList(partitionOpArg.getExpressions()));
+        boolean isomorphic = compareExpressions(op.getExpressions(), partitionOpArg.getExpressions());
         return isomorphic;
     }
 
@@ -712,9 +719,8 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         public ILogicalOperator visitPartitioningSplitOperator(PartitioningSplitOperator op, Void arg)
                 throws AlgebricksException {
             ArrayList<Mutable<ILogicalExpression>> newExpressions = new ArrayList<Mutable<ILogicalExpression>>();
-            deepCopyExpressionRefs(newExpressions, Arrays.asList(op.getExpressions()));
-            return new PartitioningSplitOperator(newExpressions.toArray(new Mutable[0]),
-                    op.hasDefault());
+            deepCopyExpressionRefs(newExpressions, op.getExpressions());
+            return new PartitioningSplitOperator(newExpressions, op.getDefaultBranchIndex());
         }
 
         @Override
@@ -761,7 +767,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             ArrayList<LogicalVariable> newInputList = new ArrayList<LogicalVariable>();
             newInputList.addAll(op.getVariables());
             return new UnnestMapOperator(newInputList, deepCopyExpressionRef(op.getExpressionRef()),
-                    new ArrayList<Object>(op.getVariableTypes()));
+                    new ArrayList<Object>(op.getVariableTypes()), op.propagatesInput());
         }
 
         @Override
@@ -843,6 +849,11 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
                 newOrdersAndExprs.add(new Pair<IOrder, Mutable<ILogicalExpression>>(pair.first,
                         deepCopyExpressionRef(pair.second)));
             return newOrdersAndExprs;
+        }
+
+        @Override
+        public ILogicalOperator visitExtensionOperator(ExtensionOperator op, Void arg) throws AlgebricksException {
+            return new ExtensionOperator(op.getNewInstanceOfDelegateOperator());
         }
     }
 

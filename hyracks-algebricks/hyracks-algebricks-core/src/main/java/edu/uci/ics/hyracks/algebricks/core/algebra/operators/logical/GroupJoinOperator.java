@@ -52,6 +52,14 @@ public class GroupJoinOperator extends AbstractBinaryJoinOperator implements INe
     private final List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> decorList;
     private Mutable<List<ILogicalPlan>> nestedPlans;
     
+    public GroupJoinOperator(JoinKind joinKind, Mutable<ILogicalExpression> condition,
+            Mutable<ILogicalOperator> input1, Mutable<ILogicalOperator> input2) {
+        super(JoinKind.LEFT_OUTER, condition);
+        gByList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
+        decorList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
+        this.nestedPlans = new MutableObject<List<ILogicalPlan>>();
+    }
+
     public GroupJoinOperator(Mutable<ILogicalExpression> condition) {
         super(JoinKind.LEFT_OUTER, condition);
         gByList = new ArrayList<Pair<LogicalVariable, Mutable<ILogicalExpression>>>();
@@ -218,7 +226,6 @@ public class GroupJoinOperator extends AbstractBinaryJoinOperator implements INe
         IVariableTypeEnvironment env;
         
         if(getJoinKind() == JoinKind.LEFT_OUTER){
-        	AlgebricksConfig.ALGEBRICKS_LOGGER.finest("GroupJoinKind = Left Outer");
         	env = new PropagatingTypeEnvironment(ctx.getExpressionTypeComputer(),
                 ctx.getNullableTypeComputer(), ctx.getMetadataProvider(), TypePropagationPolicy.LEFT_OUTER, envPointers);
         }

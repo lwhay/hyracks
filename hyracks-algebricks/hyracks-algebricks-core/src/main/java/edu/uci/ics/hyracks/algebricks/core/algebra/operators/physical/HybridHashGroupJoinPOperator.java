@@ -14,24 +14,42 @@
  */
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.lang3.mutable.Mutable;
+
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.PhysicalOperatorTag;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AggregateFunctionCallExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator.JoinKind;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.ILocalStructuralProperty;
+import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPhysicalPropertiesVector;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenHelper;
 import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopySerializableAggregateFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.aggreg.SerializableAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
@@ -39,7 +57,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
-import edu.uci.ics.hyracks.dataflow.std.join.HybridHashJoinOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.join.HybridHashGroupJoinOperatorDescriptor;
 
 public class HybridHashGroupJoinPOperator extends AbstractHashJoinPOperator {
 
@@ -85,9 +104,33 @@ public class HybridHashGroupJoinPOperator extends AbstractHashJoinPOperator {
     public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
             IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
+        GroupJoinOperator opLogical = (GroupJoinOperator) op;
         int[] keysLeft = JobGenHelper.variablesToFieldIndexes(keysLeftBranch, inputSchemas[0]);
         int[] keysRight = JobGenHelper.variablesToFieldIndexes(keysRightBranch, inputSchemas[1]);
         IVariableTypeEnvironment env = context.getTypeEnvironment(op);
+        
+        INullWriterFactory[] nullWriterFactories;
+        switch (kind) {
+        case INNER: {
+        	nullWriterFactories = null;
+            break;
+        	}
+        case LEFT_OUTER: {
+            Collection<LogicalVariable> nestedProdVars = new HashSet<LogicalVariable>();
+            for(ILogicalPlan p : opLogical.getNestedPlans()){
+            	VariableUtilities.getProducedVariables(p.getRoots().get(0).getValue(), nestedProdVars);
+            }
+            nullWriterFactories = new INullWriterFactory[nestedProdVars.size()];
+            for (int j = 0; j < nullWriterFactories.length; j++) {
+                nullWriterFactories[j] = context.getNullWriterFactory();
+            }
+            break;
+        	}
+        default: {
+            throw new NotImplementedException();
+        	}
+        }
+
         IBinaryHashFunctionFactory[] hashFunFactories = JobGenHelper.variablesToBinaryHashFunctionFactories(
                 keysLeftBranch, env, context);
         IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[keysLeft.length];
@@ -97,34 +140,65 @@ public class HybridHashGroupJoinPOperator extends AbstractHashJoinPOperator {
             Object t = env.getVarType(v);
             comparatorFactories[i++] = bcfp.getBinaryComparatorFactory(t, true);
         }
-        RecordDescriptor recDescriptor = JobGenHelper.mkRecordDescriptor(op, propagatedSchema, context);
+        RecordDescriptor recDescriptor = JobGenHelper.mkRecordDescriptor(context.getTypeEnvironment(op), propagatedSchema, context);
         IOperatorDescriptorRegistry spec = builder.getJobSpec();
         IOperatorDescriptor opDesc = null;
-        try {
-            switch (kind) {
-                case INNER: {
-                    opDesc = new HybridHashJoinOperatorDescriptor(spec, getMemSizeInFrames(),
-                            maxInputBuildSizeInFrames, aveRecordsPerFrame, getFudgeFactor(), keysLeft, keysRight,
-                            hashFunFactories, comparatorFactories, recDescriptor);
-                    break;
-                }
-                case LEFT_OUTER: {
-                    INullWriterFactory[] nullWriterFactories = new INullWriterFactory[inputSchemas[1].getSize()];
-                    for (int j = 0; j < nullWriterFactories.length; j++) {
-                        nullWriterFactories[j] = context.getNullWriterFactory();
-                    }
-                    opDesc = new HybridHashJoinOperatorDescriptor(spec, getMemSizeInFrames(),
-                            maxInputBuildSizeInFrames, aveRecordsPerFrame, getFudgeFactor(), keysLeft, keysRight,
-                            hashFunFactories, comparatorFactories, recDescriptor, true, nullWriterFactories);
-                    break;
-                }
-                default: {
-                    throw new NotImplementedException();
-                }
+        
+        int numDecors = opLogical.getDecorList().size();
+        int[] decorKeys = new int[numDecors];
+        int j = 0;
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : opLogical.getDecorList()) {
+            ILogicalExpression expr = p.second.getValue();
+            if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE) {
+                throw new AlgebricksException("groupjoin expects variable references.");
             }
-        } catch (HyracksDataException e) {
-            throw new AlgebricksException(e);
+            VariableReferenceExpression v = (VariableReferenceExpression) expr;
+            LogicalVariable decor = v.getVariableReference();
+            decorKeys[j++] = inputSchemas[0].findVariable(decor);
         }
+        
+        int n = 0;
+        AggregateOperator aggOp;
+        List<AggregateOperator> aggOpList = new LinkedList<AggregateOperator>();
+        AbstractLogicalOperator nestedOp;
+
+        for(Mutable<ILogicalOperator> nOp : opLogical.getNestedPlans().get(0).getRoots()) {
+        	nestedOp = (AbstractLogicalOperator) nOp.getValue();
+        	if(nestedOp.getOperatorTag() == LogicalOperatorTag.AGGREGATE) {
+                aggOp = (AggregateOperator) nestedOp;
+                n += aggOp.getExpressions().size();
+                aggOpList.add(aggOp);
+        	}
+        }
+        
+        ICopySerializableAggregateFunctionFactory[] aff = new ICopySerializableAggregateFunctionFactory[n];
+        IExpressionRuntimeProvider expressionRuntimeProvider = context.getExpressionRuntimeProvider();
+//        ILogicalExpressionJobGen exprJobGen = context.getExpressionJobGen();
+        IVariableTypeEnvironment aggOpInputEnv;
+//        IVariableTypeEnvironment outputEnv = context.getTypeEnvironment(op);
+        compileSubplans(inputSchemas[1], opLogical, propagatedSchema, context);
+        i=0;
+        for(AggregateOperator a : aggOpList) {
+        	aggOpInputEnv = context.getTypeEnvironment(a.getInputs().get(0).getValue());
+            for (Mutable<ILogicalExpression> exprRef : a.getExpressions()) {
+                AggregateFunctionCallExpression aggFun = (AggregateFunctionCallExpression) exprRef.getValue();
+                aff[i++] = expressionRuntimeProvider.createSerializableAggregateFunctionFactory(aggFun, aggOpInputEnv, inputSchemas,
+                        context);
+//                intermediateTypes.add(partialAggregationTypeComputer.getType(aggFun, aggOpInputEnv,
+//                        context.getMetadataProvider()));
+            }
+        }
+        IAggregatorDescriptorFactory aggregatorFactory = new SerializableAggregatorDescriptorFactory(aff);
+        
+        try{
+        opDesc = new HybridHashGroupJoinOperatorDescriptor(spec, memSizeInFrames, maxInputBuildSizeInFrames, aveRecordsPerFrame,
+                fudgeFactor, keysLeft, keysRight, decorKeys, hashFunFactories, comparatorFactories, comparatorFactories,
+                /* aggregatorFactory */ aggregatorFactory, recDescriptor, opLogical.getJoinKind() == JoinKind.LEFT_OUTER,
+                nullWriterFactories);
+        } catch(HyracksDataException e){
+        	throw new AlgebricksException(e.getMessage());
+        }
+
         contributeOpDesc(builder, (AbstractLogicalOperator) op, opDesc);
 
         ILogicalOperator src1 = op.getInputs().get(0).getValue();
@@ -134,9 +208,14 @@ public class HybridHashGroupJoinPOperator extends AbstractHashJoinPOperator {
     }
 
     @Override
-    protected List<ILocalStructuralProperty> deliveredLocalProperties(ILogicalOperator op, IOptimizationContext context)
-            throws AlgebricksException {
+    protected List<ILocalStructuralProperty> deliveredLocalProperties(ILogicalOperator op, IOptimizationContext context) {
+        AbstractLogicalOperator op0 = (AbstractLogicalOperator) op.getInputs().get(0).getValue();
+        IPhysicalPropertiesVector pv0 = op0.getPhysicalOperator().getDeliveredProperties();
+        List<ILocalStructuralProperty> lp0 = pv0.getLocalProperties();
+        if (lp0 != null) {
+            // maintains the local properties on the probe side
+            return new LinkedList<ILocalStructuralProperty>(lp0);
+        }
         return new LinkedList<ILocalStructuralProperty>();
     }
-
 }

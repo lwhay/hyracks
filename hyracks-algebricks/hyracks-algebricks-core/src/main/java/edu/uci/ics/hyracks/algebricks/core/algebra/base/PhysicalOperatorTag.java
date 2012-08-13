@@ -5,6 +5,7 @@ public enum PhysicalOperatorTag {
     ASSIGN,
     BROADCAST_EXCHANGE,
     BTREE_SEARCH,
+    STATS,
     DATASOURCE_SCAN,
     EMPTY_TUPLE_SOURCE,
     EXTERNAL_GROUP_BY,
@@ -43,5 +44,7 @@ public enum PhysicalOperatorTag {
     WRITE_RESULT,
     INSERT_DELETE,
     INDEX_INSERT_DELETE,
-    UPDATE
+	UPDATE,
+    INVERTED_INDEX_SEARCH,
+    PARTITIONINGSPLIT
 }

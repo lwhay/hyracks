@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -34,6 +35,7 @@ import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
 import edu.uci.ics.hyracks.api.dataflow.TaskId;
 import edu.uci.ics.hyracks.api.dataflow.connectors.IConnectorPolicy;
+import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.partitions.PartitionId;
@@ -74,8 +76,45 @@ public class CCNCFunctions {
         CREATE_APPLICATION,
         DESTROY_APPLICATION,
         REPORT_PARTITION_AVAILABILITY,
+        SEND_APPLICATION_MESSAGE,
 
         OTHER
+    }
+
+    public static class SendApplicationMessageFunction extends Function {
+        private static final long serialVersionUID = 1L;
+        private byte[] serializedMessage;
+        private String nodeId;
+        private String appName;
+
+        public String getNodeId() {
+            return nodeId;
+        }
+
+        public void setNodeId(String nodeId) {
+            this.nodeId = nodeId;
+        }
+
+        public byte[] getMessage() {
+            return serializedMessage;
+        }
+
+        public SendApplicationMessageFunction(byte[] data, String appName, String nodeId) {
+            super();
+            this.serializedMessage = data;
+            this.nodeId = nodeId;
+            this.appName = appName;
+        }
+
+        @Override
+        public FunctionId getFunctionId() {
+            return FunctionId.SEND_APPLICATION_MESSAGE;
+        }
+
+        public String getAppName() {
+            return appName;
+        }
+
     }
 
     public static abstract class Function implements Serializable {
@@ -461,15 +500,17 @@ public class CCNCFunctions {
         private final byte[] planBytes;
         private final List<TaskAttemptDescriptor> taskDescriptors;
         private final Map<ConnectorDescriptorId, IConnectorPolicy> connectorPolicies;
+        private final EnumSet<JobFlag> flags;
 
         public StartTasksFunction(String appName, JobId jobId, byte[] planBytes,
                 List<TaskAttemptDescriptor> taskDescriptors,
-                Map<ConnectorDescriptorId, IConnectorPolicy> connectorPolicies) {
+                Map<ConnectorDescriptorId, IConnectorPolicy> connectorPolicies, EnumSet<JobFlag> flags) {
             this.appName = appName;
             this.jobId = jobId;
             this.planBytes = planBytes;
             this.taskDescriptors = taskDescriptors;
             this.connectorPolicies = connectorPolicies;
+            this.flags = flags;
         }
 
         @Override
@@ -495,6 +536,10 @@ public class CCNCFunctions {
 
         public Map<ConnectorDescriptorId, IConnectorPolicy> getConnectorPolicies() {
             return connectorPolicies;
+        }
+
+        public EnumSet<JobFlag> getFlags() {
+            return flags;
         }
     }
 

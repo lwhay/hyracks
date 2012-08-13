@@ -35,8 +35,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
@@ -61,10 +61,12 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
     private final int recordsPerFrame;
     private final int[] keys0;
     private final int[] keys1;
+    private final int[] projectFields;
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IBinaryComparatorFactory[] joinComparatorFactories;
     private final IBinaryComparatorFactory[] groupComparatorFactories;
     private final IAggregatorDescriptorFactory aggregatorFactory;
+    private boolean isLeftOuter;
     private final INullWriterFactory[] nullWriterFactories1;
 
     /**
@@ -77,19 +79,21 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
      * @param factor
      * @param keys0
      * @param keys1
+     * @param projectFields TODO
      * @param hashFunctionFactories
      * @param joinComparatorFactories
      * @param groupComparatorFactories
      * @param aggregatorFactory
      * @param recordDescriptor
+     * @param isLeftOuter TODO
      * @throws HyracksDataException
      */
 
-    public HybridHashGroupJoinOperatorDescriptor(JobSpecification spec, int memsize, int inputsize0, int recordsPerFrame,
-            double factor, int[] keys0, int[] keys1, IBinaryHashFunctionFactory[] hashFunctionFactories,
-            IBinaryComparatorFactory[] joinComparatorFactories, IBinaryComparatorFactory[] groupComparatorFactories,
-            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor recordDescriptor,
-            INullWriterFactory[] nullWriterFactories1) throws HyracksDataException {
+    public HybridHashGroupJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, int memsize, int inputsize0, int recordsPerFrame,
+            double factor, int[] keys0, int[] keys1, int[] projectFields,
+            IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryComparatorFactory[] joinComparatorFactories,
+            IBinaryComparatorFactory[] groupComparatorFactories, IAggregatorDescriptorFactory aggregatorFactory,
+            RecordDescriptor recordDescriptor, boolean isLeftOuter, INullWriterFactory[] nullWriterFactories1) throws HyracksDataException {
         super(spec, 2, 1);
         this.memsize = memsize;
         this.inputsize0 = inputsize0;
@@ -97,25 +101,27 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
         this.recordsPerFrame = recordsPerFrame;
         this.keys0 = keys0;
         this.keys1 = keys1;
+        this.projectFields = projectFields;
         this.hashFunctionFactories = hashFunctionFactories;
         this.joinComparatorFactories = joinComparatorFactories;
         this.groupComparatorFactories = groupComparatorFactories;
         this.aggregatorFactory = aggregatorFactory;
+        this.isLeftOuter = isLeftOuter;
         this.nullWriterFactories1 = nullWriterFactories1;
         recordDescriptors[0] = recordDescriptor;
     }
 
     @Override
     public void contributeActivities(IActivityGraphBuilder builder) {
-        BuildAndPartitionActivityNode phase1 = new BuildAndPartitionActivityNode(new ActivityId(odId,
-                BUILD_AND_PARTITION_ACTIVITY_ID));
-        PartitionAndJoinActivityNode phase2 = new PartitionAndJoinActivityNode(new ActivityId(odId,
-                PARTITION_AND_JOIN_ACTIVITY_ID));
+        ActivityId p1Aid = new ActivityId(odId, BUILD_AND_PARTITION_ACTIVITY_ID);
+        ActivityId p2Aid = new ActivityId(odId, PARTITION_AND_JOIN_ACTIVITY_ID);
+        BuildAndPartitionActivityNode phase1 = new BuildAndPartitionActivityNode(p1Aid, p2Aid);
+        PartitionAndJoinActivityNode phase2 = new PartitionAndJoinActivityNode(p1Aid, p2Aid);
 
-        builder.addActivity(phase1);
+        builder.addActivity(this, phase1);
         builder.addSourceEdge(0, phase1, 0);
 
-        builder.addActivity(phase2);
+        builder.addActivity(this, phase2);
         builder.addSourceEdge(1, phase2, 0);
 
         builder.addBlockingEdge(phase1, phase2);
@@ -151,23 +157,28 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
     private class BuildAndPartitionActivityNode extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
-        public BuildAndPartitionActivityNode(ActivityId id) {
-            super(id);
+        private final ActivityId p2Aid;
+        
+        public BuildAndPartitionActivityNode(ActivityId p1Aid, ActivityId p2Aid) {
+            super(p1Aid);
+            this.p2Aid = p2Aid;
         }
 
         @Override
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, final int partition, final int nPartitions) {
-            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0);
-            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 1);
+            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getActivityId(), 0);
+            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(p2Aid, 0);
             final IBinaryComparator[] comparators = new IBinaryComparator[groupComparatorFactories.length];
             for (int i = 0; i < groupComparatorFactories.length; ++i) {
                 comparators[i] = groupComparatorFactories[i].createBinaryComparator();
             }
-            final INullWriter[] nullWriters1 = new INullWriter[nullWriterFactories1.length];
-                for (int i = 0; i < nullWriterFactories1.length; i++) {
-                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
-                }
+            final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
+            if(isLeftOuter){
+	                for (int i = 0; i < nullWriterFactories1.length; i++) {
+	                    nullWriters1[i] = nullWriterFactories1[i].createNullWriter();
+	            }
+            }
 
             IOperatorNodePushable op = new AbstractUnaryInputSinkOperatorNodePushable() {
                 private BuildAndPartitionTaskState state = new BuildAndPartitionTaskState(ctx.getJobletContext()
@@ -294,7 +305,7 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
                     int tableSize = (int) (state.memoryForHashtable * recordsPerFrame * factor);
                     state.joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
                             new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0, hpcf1, rd0, recordDescriptors[0],
-                            aggregatorFactory, keys1, keys0, null, true, nullWriters1);
+                            aggregatorFactory, keys1, keys0, projectFields, isLeftOuter, nullWriters1);
                     bufferForPartitions = new ByteBuffer[state.nPartitions];
                     state.fWriters = new RunFileWriter[state.nPartitions];
                     for (int i = 0; i < state.nPartitions; i++) {
@@ -334,15 +345,18 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
     private class PartitionAndJoinActivityNode extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
-        public PartitionAndJoinActivityNode(ActivityId id) {
-            super(id);
+        private final ActivityId p1Aid;
+        
+        public PartitionAndJoinActivityNode(ActivityId p1Aid, ActivityId p2Aid) {
+            super(p2Aid);
+            this.p1Aid = p1Aid;
         }
 
         @Override
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, final int partition, final int nPartitions) {
-            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0);
-            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 1);
+            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(p1Aid, 0);
+            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getActivityId(), 0);
             final IBinaryComparator[] comparators = new IBinaryComparator[groupComparatorFactories.length];
             for (int i = 0; i < groupComparatorFactories.length; ++i) {
                 comparators[i] = groupComparatorFactories[i].createBinaryComparator();
@@ -442,6 +456,7 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
                 @Override
                 public void close() throws HyracksDataException {
                     state.joiner.join(inBuffer, writer);
+                    state.joiner.write(writer);
                     state.joiner.closeJoin(writer);
                     
                     try{
@@ -470,7 +485,7 @@ public class HybridHashGroupJoinOperatorDescriptor extends AbstractOperatorDescr
                             }
                             InMemoryHashGroupJoin joiner = new InMemoryHashGroupJoin(ctx, tableSize, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
                                     new FrameTupleAccessor(ctx.getFrameSize(), rd1), groupComparatorFactories, hpcf0, hpcf1, rd0, recordDescriptors[0],
-                                    aggregatorFactory, keys1, keys0, null, true, nullWriters1);
+                                    aggregatorFactory, keys1, keys0, projectFields, isLeftOuter, nullWriters1);
 
                             RunFileReader buildReader = buildWriter.createReader();
                             buildReader.open();

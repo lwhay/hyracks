@@ -57,7 +57,7 @@ public class PrimaryIndexBulkLoadExample {
         @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
         public String host;
 
-        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1099)")
+        @Option(name = "-port", usage = "Hyracks Cluster Controller Port (default: 1098)")
         public int port = 1098;
 
         @Option(name = "-app", usage = "Hyracks Application name", required = true)
@@ -86,8 +86,7 @@ public class PrimaryIndexBulkLoadExample {
         JobSpecification job = createJob(options);
 
         long start = System.currentTimeMillis();
-        JobId jobId = hcc.createJob(options.app, job);
-        hcc.start(jobId);
+        JobId jobId = hcc.startJob(options.app, job);
         hcc.waitForCompletion(jobId);
         long end = System.currentTimeMillis();
         System.err.println(start + " " + end + " " + (end - start));

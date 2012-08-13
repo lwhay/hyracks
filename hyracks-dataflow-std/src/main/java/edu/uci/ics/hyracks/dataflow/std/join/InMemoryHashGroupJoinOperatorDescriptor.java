@@ -84,17 +84,20 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
 
     @Override
     public void contributeActivities(IActivityGraphBuilder builder) {
-        HashBuildActivityNode hba = new HashBuildActivityNode(new ActivityId(odId, BUILD_ACTIVITY_ID));
-        HashProbeActivityNode hpa = new HashProbeActivityNode(new ActivityId(odId, PROBE_ACTIVITY_ID));
-        OutputActivity oa = new OutputActivity(new ActivityId(odId, OUTPUT_ACTIVITY_ID));
+        ActivityId hbaId = new ActivityId(odId, BUILD_ACTIVITY_ID);
+        ActivityId hpaId = new ActivityId(odId, PROBE_ACTIVITY_ID);
+        ActivityId oaId = new ActivityId(odId, OUTPUT_ACTIVITY_ID);
+        HashBuildActivityNode hba = new HashBuildActivityNode(hbaId, hpaId);
+        HashProbeActivityNode hpa = new HashProbeActivityNode(hbaId, hpaId);
+        OutputActivity oa = new OutputActivity(oaId);
 
-        builder.addActivity(hba);
+        builder.addActivity(this, hba);
         builder.addSourceEdge(0, hba, 0);
 
-        builder.addActivity(hpa);
+        builder.addActivity(this, hpa);
         builder.addSourceEdge(1, hpa, 0);
 
-        builder.addActivity(oa);
+        builder.addActivity(this, oa);
         builder.addTargetEdge(0, oa, 0);
 
         builder.addBlockingEdge(hba, hpa);
@@ -126,15 +129,18 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private class HashBuildActivityNode extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
-        public HashBuildActivityNode(ActivityId id) {
-            super(id);
+        private final ActivityId hpaId;
+        
+        public HashBuildActivityNode(ActivityId hbaId, ActivityId hpaId) {
+            super(hbaId);
+            this.hpaId = hpaId;
         }
         
         @Override
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions) {
-            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0);
-            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 1);
+            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getActivityId(), 0);
+            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(hpaId, 0);
 
             final IBinaryComparator[] comparators = new IBinaryComparator[joinComparatorFactories.length];
             for (int i = 0; i < joinComparatorFactories.length; ++i) {
@@ -190,8 +196,11 @@ public class InMemoryHashGroupJoinOperatorDescriptor extends AbstractOperatorDes
     private class HashProbeActivityNode extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
-        public HashProbeActivityNode(ActivityId id) {
-            super(id);
+        private final ActivityId hbaId;
+        
+        public HashProbeActivityNode(ActivityId hbaId, ActivityId hpaId) {
+            super(hpaId);
+            this.hbaId = hbaId;
         }
         
         @Override

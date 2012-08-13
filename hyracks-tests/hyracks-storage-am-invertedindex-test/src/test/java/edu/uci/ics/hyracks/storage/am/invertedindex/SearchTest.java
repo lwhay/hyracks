@@ -26,7 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.ByteArrayAccessibleOutputStream;
+import edu.uci.ics.hyracks.data.std.util.ByteArrayAccessibleOutputStream;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
@@ -183,7 +183,7 @@ public class SearchTest extends AbstractInvIndexSearchTest {
 		rnd.setSeed(50);
 
 		InvertedIndexAccessor accessor = (InvertedIndexAccessor) invIndex.createAccessor();
-		InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(searchModifier);
+		InvertedIndexSearchPredicate searchPred = new InvertedIndexSearchPredicate(tokenizer, searchModifier);
 		
 		for (int i = 0; i < numQueries; i++) {
 

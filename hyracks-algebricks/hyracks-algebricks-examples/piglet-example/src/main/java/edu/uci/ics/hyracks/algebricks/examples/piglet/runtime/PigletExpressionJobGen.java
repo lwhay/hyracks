@@ -23,20 +23,20 @@ import edu.uci.ics.hyracks.algebricks.examples.piglet.compiler.ConstantValue;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.exceptions.PigletException;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.runtime.functions.PigletFunctionRegistry;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IAggregateFunctionFactory;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IEvaluatorFactory;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IRunningAggregateFunctionFactory;
-import edu.uci.ics.hyracks.algebricks.runtime.base.ISerializableAggregateFunctionFactory;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IUnnestingFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyAggregateFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyRunningAggregateFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopySerializableAggregateFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyUnnestingFunctionFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.evaluators.ColumnAccessEvalFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.evaluators.ConstantEvalFactory;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 
 public class PigletExpressionJobGen implements ILogicalExpressionJobGen {
     @Override
-    public IEvaluatorFactory createEvaluatorFactory(ILogicalExpression expr, IVariableTypeEnvironment env,
+    public ICopyEvaluatorFactory createEvaluatorFactory(ILogicalExpression expr, IVariableTypeEnvironment env,
             IOperatorSchema[] inputSchemas, JobGenContext context) throws AlgebricksException {
         switch (expr.getExpressionTag()) {
             case CONSTANT: {
@@ -65,19 +65,19 @@ public class PigletExpressionJobGen implements ILogicalExpressionJobGen {
                     default:
                         throw new UnsupportedOperationException("Unsupported constant type: " + type.getTag());
                 }
-                return new ConstantEvalFactory(Arrays.copyOf(abvs.getBytes(), abvs.getLength()));
+                return new ConstantEvalFactory(Arrays.copyOf(abvs.getByteArray(), abvs.getLength()));
             }
 
             case FUNCTION_CALL: {
                 ScalarFunctionCallExpression sfce = (ScalarFunctionCallExpression) expr;
 
                 List<Mutable<ILogicalExpression>> argExprs = sfce.getArguments();
-                IEvaluatorFactory argEvalFactories[] = new IEvaluatorFactory[argExprs.size()];
+                ICopyEvaluatorFactory argEvalFactories[] = new ICopyEvaluatorFactory[argExprs.size()];
                 for (int i = 0; i < argEvalFactories.length; ++i) {
                     Mutable<ILogicalExpression> er = argExprs.get(i);
                     argEvalFactories[i] = createEvaluatorFactory(er.getValue(), env, inputSchemas, context);
                 }
-                IEvaluatorFactory funcEvalFactory;
+                ICopyEvaluatorFactory funcEvalFactory;
                 try {
                     funcEvalFactory = PigletFunctionRegistry.createFunctionEvaluatorFactory(
                             sfce.getFunctionIdentifier(), argEvalFactories);
@@ -97,28 +97,28 @@ public class PigletExpressionJobGen implements ILogicalExpressionJobGen {
     }
 
     @Override
-    public IAggregateFunctionFactory createAggregateFunctionFactory(AggregateFunctionCallExpression expr,
+    public ICopyAggregateFunctionFactory createAggregateFunctionFactory(AggregateFunctionCallExpression expr,
             IVariableTypeEnvironment env, IOperatorSchema[] inputSchemas, JobGenContext context)
             throws AlgebricksException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ISerializableAggregateFunctionFactory createSerializableAggregateFunctionFactory(
+    public ICopySerializableAggregateFunctionFactory createSerializableAggregateFunctionFactory(
             AggregateFunctionCallExpression expr, IVariableTypeEnvironment env, IOperatorSchema[] inputSchemas,
             JobGenContext context) throws AlgebricksException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public IRunningAggregateFunctionFactory createRunningAggregateFunctionFactory(StatefulFunctionCallExpression expr,
+    public ICopyRunningAggregateFunctionFactory createRunningAggregateFunctionFactory(StatefulFunctionCallExpression expr,
             IVariableTypeEnvironment env, IOperatorSchema[] inputSchemas, JobGenContext context)
             throws AlgebricksException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public IUnnestingFunctionFactory createUnnestingFunctionFactory(UnnestingFunctionCallExpression expr,
+    public ICopyUnnestingFunctionFactory createUnnestingFunctionFactory(UnnestingFunctionCallExpression expr,
             IVariableTypeEnvironment env, IOperatorSchema[] inputSchemas, JobGenContext context)
             throws AlgebricksException {
         throw new UnsupportedOperationException();

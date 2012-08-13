@@ -14,34 +14,33 @@
  */
 package edu.uci.ics.hyracks.algebricks.runtime.aggregators;
 
-import java.io.DataOutput;
 import java.io.IOException;
 
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IRunningAggregateFunction;
-import edu.uci.ics.hyracks.algebricks.runtime.base.IRunningAggregateFunctionFactory;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.IDataOutputProvider;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IRunningAggregateEvaluator;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IRunningAggregateEvaluatorFactory;
+import edu.uci.ics.hyracks.data.std.api.IPointable;
+import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
-public class TupleCountRunningAggregateFunctionFactory implements IRunningAggregateFunctionFactory {
+public class TupleCountRunningAggregateFunctionFactory implements IRunningAggregateEvaluatorFactory {
 
     private static final long serialVersionUID = 1L;
 
     @Override
-    public IRunningAggregateFunction createRunningAggregateFunction(IDataOutputProvider provider)
-            throws AlgebricksException {
-
-        final DataOutput out = provider.getDataOutput();
-
-        return new IRunningAggregateFunction() {
+    public IRunningAggregateEvaluator createRunningAggregateEvaluator() throws AlgebricksException {
+        final ArrayBackedValueStorage abvs = new ArrayBackedValueStorage();
+        return new IRunningAggregateEvaluator() {
 
             int cnt;
 
             @Override
-            public void step(IFrameTupleReference tuple) throws AlgebricksException {
+            public void step(IFrameTupleReference tuple, IPointable result) throws AlgebricksException {
                 ++cnt;
                 try {
-                    out.writeInt(cnt);
+                    abvs.reset();
+                    abvs.getDataOutput().writeInt(cnt);
+                    result.set(abvs);
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }

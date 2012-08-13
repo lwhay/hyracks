@@ -58,14 +58,14 @@ public class GroupJoinHelper{
     private int lastStateBIndex;
     private final int[] storedKeys;
     private final int[] keys;
-    private final int[] decor;
+    private final int[] decors;
     private final int[] keysAndDecors;
     private final IBinaryComparator[] comparators;
     private final ITuplePartitionComputer tpc;
     private final IAggregatorDescriptor aggregator;
     private final FrameTupleAppender appender, stateAppender;
     private final FrameTupleAccessor stateAccessor, storedKeysAccessor;
-    private final ArrayTupleBuilder stateTupleBuilder, outputTupleBuilder, nullTupleBuilder;
+    private final ArrayTupleBuilder groupTupleBuilder, stateTupleBuilder, outputTupleBuilder, nullTupleBuilder;
     private final ITuplePartitionComputer tpc1;
     protected final FrameTuplePairComparator ftpc1;
     private final int tableSize;
@@ -87,31 +87,23 @@ public class GroupJoinHelper{
 
         this.keys = gFields;
         this.storedKeys = new int[keys.length];
-        this.decor = dFields;
-        this.keysAndDecors = new int[keys.length + decor.length];
+        this.decors = dFields;
+        this.keysAndDecors = new int[keys.length + decors.length];
         
         @SuppressWarnings("rawtypes")
-        ISerializerDeserializer[] storedKeySerDeser = new ISerializerDeserializer[keys.length + decor.length + 2];
-        System.out.println("gFields: " + keys.length);
-        System.out.println("dFields: " + decor.length);
+        ISerializerDeserializer[] storedKeySerDeser = new ISerializerDeserializer[keys.length + decors.length + 2];
         for (int i = 0; i < keys.length; ++i) {
             storedKeys[i] = i;
             storedKeySerDeser[i] = inRecordDescriptor.getFields()[keys[i]];
             keysAndDecors[i] = i;
         }
-        for (int i = 0; i < decor.length; ++i) {
-            System.out.println("i = " + i);
+        for (int i = 0; i < decors.length; ++i) {
             keysAndDecors[keys.length + i] = keys.length + i;
-            storedKeySerDeser[keys.length + i] = inRecordDescriptor.getFields()[decor[i]];
+            storedKeySerDeser[keys.length + i] = inRecordDescriptor.getFields()[decors[i]];
         }
-        storedKeySerDeser[keys.length + decor.length] = IntegerSerializerDeserializer.INSTANCE;
-        storedKeySerDeser[keys.length + decor.length + 1] = IntegerSerializerDeserializer.INSTANCE;
-//        keysAndDecors[gFields.length] = storedKeySerDeser.length - 2;
-//        keysAndDecors[gFields.length + 1] = storedKeySerDeser.length - 1;
+        storedKeySerDeser[keys.length + decors.length] = IntegerSerializerDeserializer.INSTANCE;
+        storedKeySerDeser[keys.length + decors.length + 1] = IntegerSerializerDeserializer.INSTANCE;
 
-        for(int x = 0; x < keysAndDecors.length; x++)
-        	System.out.println("keysAndDecors : " + keysAndDecors[x]);
-        
         RecordDescriptor storedKeysRecordDescriptor = new RecordDescriptor(storedKeySerDeser);
         storedKeysAccessor = new FrameTupleAccessor(ctx.getFrameSize(), storedKeysRecordDescriptor);
         
@@ -134,7 +126,8 @@ public class GroupJoinHelper{
         addNewBuffer(false);
         addNewBuffer(true);
 
-        stateTupleBuilder = new ArrayTupleBuilder(keysAndDecors.length + 2);
+        groupTupleBuilder = new ArrayTupleBuilder(keysAndDecors.length + 2);
+        stateTupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFields().length - decors.length);
         outputTupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFields().length);
 
         tpc1 = gByTpc1.createPartitioner();
@@ -143,7 +136,6 @@ public class GroupJoinHelper{
         
         this.isLeftOuter = isLeftOuter;
         this.nullWriters = nullWriters1;
-        System.out.println("nullWriters size:" + nullWriters.length);
         if (isLeftOuter) {
             nullTupleBuilder = new ArrayTupleBuilder(nullWriters1.length);
             DataOutput out = nullTupleBuilder.getDataOutput();
@@ -221,26 +213,26 @@ public class GroupJoinHelper{
         for (int tIndex = 0; tIndex < tCount; ++tIndex) {
         	entry = tpc.partition(accessor, tIndex, tableSize);
         	
-            stateTupleBuilder.reset();
-            System.out.print("\nBTuple : " + entry);
+            groupTupleBuilder.reset();
+//            System.out.print("\nBTuple : " + entry);
             for (int k = 0; k < keys.length; k++) {
-                getField(accessor, tIndex, keys[k]);
-                stateTupleBuilder.addField(accessor, tIndex, keys[k]);
+//                getField(accessor, tIndex, keys[k]);
+                groupTupleBuilder.addField(accessor, tIndex, keys[k]);
             }
-            for (int d = 0; d < decor.length; d++) {
-                getField(accessor, tIndex, decor[d]);
-                stateTupleBuilder.addField(accessor, tIndex, decor[d]);
+            for (int d = 0; d < decors.length; d++) {
+//                getField(accessor, tIndex, decors[d]);
+                groupTupleBuilder.addField(accessor, tIndex, decors[d]);
             }
-            stateTupleBuilder.getDataOutput().writeInt(-1);
-            stateTupleBuilder.addFieldEndOffset();
-            stateTupleBuilder.getDataOutput().writeInt(-1);
-            stateTupleBuilder.addFieldEndOffset();
+            groupTupleBuilder.getDataOutput().writeInt(-1);
+            groupTupleBuilder.addFieldEndOffset();
+            groupTupleBuilder.getDataOutput().writeInt(-1);
+            groupTupleBuilder.addFieldEndOffset();
 
-            if (!appender.appendSkipEmptyField(stateTupleBuilder.getFieldEndOffsets(),
-                    stateTupleBuilder.getByteArray(), 0, stateTupleBuilder.getSize())) {
+            if (!appender.appendSkipEmptyField(groupTupleBuilder.getFieldEndOffsets(),
+                    groupTupleBuilder.getByteArray(), 0, groupTupleBuilder.getSize())) {
                 addNewBuffer(false);
-                if (!appender.appendSkipEmptyField(stateTupleBuilder.getFieldEndOffsets(),
-                        stateTupleBuilder.getByteArray(), 0, stateTupleBuilder.getSize())) {
+                if (!appender.appendSkipEmptyField(groupTupleBuilder.getFieldEndOffsets(),
+                        groupTupleBuilder.getByteArray(), 0, groupTupleBuilder.getSize())) {
                     throw new HyracksDataException("Cannot init the aggregate state in a single frame.");
                 }
             }
@@ -279,8 +271,8 @@ public class GroupJoinHelper{
             } while (true);
 
             if (foundGroup) {
-                System.out.print("\nITuple : " + entry);
-                getField(accessor, tIndex, storedKeys[0]);
+//                System.out.print("\nITuple : " + entry);
+//                getField(accessor, tIndex, storedKeys[0]);
             	stateTuplePointer = getAggregateIndex(storedKeysAccessor, storedTuplePointer.tupleIndex);
             	
             	if(stateTuplePointer.frameIndex < 0) {
@@ -292,10 +284,10 @@ public class GroupJoinHelper{
 
                 	aggregator.init(outputTupleBuilder, accessor, tIndex, state);
 
-    				if (!stateAppender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
+    				if (!stateAppender.append(outputTupleBuilder.getFieldEndOffsets(),
     						outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
     					addNewBuffer(true);
-        				if (!stateAppender.appendSkipEmptyField(outputTupleBuilder.getFieldEndOffsets(),
+        				if (!stateAppender.append(outputTupleBuilder.getFieldEndOffsets(),
         						outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
     						throw new HyracksDataException("Cannot write the state into a frame.");
     					}
@@ -316,6 +308,7 @@ public class GroupJoinHelper{
 	
 	public void write(IFrameWriter writer) throws HyracksDataException {
 		ByteBuffer buffer = ctx.allocateFrame();
+        ByteBuffer tmpBuffer = ctx.allocateFrame();
 		appender.reset(buffer, true);
 		TuplePointer stateTuplePointer = new TuplePointer();
 		int currentStateBuffer = -1;
@@ -343,13 +336,37 @@ public class GroupJoinHelper{
 				}
 				else if(isLeftOuter) {
 					emitTuple=true;
-					for (int j = 0; j < keysAndDecors.length; j++) {
-						outputTupleBuilder.addField(storedKeysAccessor, tIndex, keysAndDecors[j]);
-					}
-					for (int k = 0; k < nullWriters.length; k++) {
+/*					for (int k = 0; k < nullWriters.length; k++) {
 			            nullWriters[k].writeNull(outputTupleBuilder.getDataOutput());
 			            outputTupleBuilder.addFieldEndOffset();
 					}
+*/			    	
+//					tmpBuffer.clear();
+					state = aggregator.createAggregateStates();
+                	stateAppender.reset(tmpBuffer, true);
+                	
+            		outputTupleBuilder.reset();
+
+                    for (int k = 0; k < storedKeys.length; k++) {
+                    	outputTupleBuilder.addField(storedKeysAccessor, tIndex, storedKeys[k]);
+                    }
+
+                	aggregator.init(outputTupleBuilder, null, 0, state);
+
+    				if (!stateAppender.append(outputTupleBuilder.getFieldEndOffsets(),
+    						outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize()))
+						throw new HyracksDataException("Cannot write the state into a frame.");
+
+            		outputTupleBuilder.reset();
+
+					for (int j = 0; j < keysAndDecors.length; j++) {
+						outputTupleBuilder.addField(storedKeysAccessor, tIndex, keysAndDecors[j]);
+					}
+					
+					stateAccessor.reset(tmpBuffer);
+					currentStateBuffer = -1;
+
+					aggregator.outputFinalResult(outputTupleBuilder, stateAccessor, 0, state);
 				}
 				
 				if (emitTuple) {

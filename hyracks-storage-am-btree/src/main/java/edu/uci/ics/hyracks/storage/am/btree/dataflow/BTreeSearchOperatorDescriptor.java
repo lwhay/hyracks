@@ -46,9 +46,9 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
             IFileSplitProvider fileSplitProvider, ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] comparatorFactories, int[] lowKeyFields, int[] highKeyFields,
             boolean lowKeyInclusive, boolean highKeyInclusive, IIndexDataflowHelperFactory dataflowHelperFactory,
-            IOperationCallbackProvider opCallbackProvider) {
+            boolean retainInput, IOperationCallbackProvider opCallbackProvider) {
         super(spec, 1, 1, recDesc, storageManager, indexRegistryProvider, fileSplitProvider, typeTraits,
-                comparatorFactories, dataflowHelperFactory, null, opCallbackProvider);
+                comparatorFactories, dataflowHelperFactory, null, retainInput, opCallbackProvider);
         this.lowKeyFields = lowKeyFields;
         this.highKeyFields = highKeyFields;
         this.lowKeyInclusive = lowKeyInclusive;
@@ -58,7 +58,7 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
-        return new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider,
-                lowKeyFields, highKeyFields, lowKeyInclusive, highKeyInclusive);
+        return new BTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, lowKeyFields,
+                highKeyFields, lowKeyInclusive, highKeyInclusive);
     }
 }

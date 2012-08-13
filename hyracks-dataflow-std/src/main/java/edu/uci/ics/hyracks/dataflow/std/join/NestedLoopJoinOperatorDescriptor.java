@@ -48,8 +48,8 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
     private final ITuplePairComparatorFactory comparatorFactory;
     private final int memSize;
 
-    public NestedLoopJoinOperatorDescriptor(IOperatorDescriptorRegistry spec, ITuplePairComparatorFactory comparatorFactory,
-            RecordDescriptor recordDescriptor, int memSize) {
+    public NestedLoopJoinOperatorDescriptor(IOperatorDescriptorRegistry spec,
+            ITuplePairComparatorFactory comparatorFactory, RecordDescriptor recordDescriptor, int memSize) {
         super(spec, 2, 1);
         this.comparatorFactory = comparatorFactory;
         this.recordDescriptors[0] = recordDescriptor;
@@ -58,14 +58,15 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
 
     @Override
     public void contributeActivities(IActivityGraphBuilder builder) {
-        JoinCacheActivityNode jc = new JoinCacheActivityNode(new ActivityId(getOperatorId(), JOIN_CACHE_ACTIVITY_ID));
-        NestedLoopJoinActivityNode nlj = new NestedLoopJoinActivityNode(new ActivityId(getOperatorId(),
-                NL_JOIN_ACTIVITY_ID));
+        ActivityId jcaId = new ActivityId(getOperatorId(), JOIN_CACHE_ACTIVITY_ID);
+        ActivityId nljAid = new ActivityId(getOperatorId(), NL_JOIN_ACTIVITY_ID);
+        JoinCacheActivityNode jc = new JoinCacheActivityNode(jcaId, nljAid);
+        NestedLoopJoinActivityNode nlj = new NestedLoopJoinActivityNode(nljAid);
 
-        builder.addActivity(jc);
+        builder.addActivity(this, jc);
         builder.addSourceEdge(1, jc, 0);
 
-        builder.addActivity(nlj);
+        builder.addActivity(this, nlj);
         builder.addSourceEdge(0, nlj, 0);
 
         builder.addTargetEdge(0, nlj, 0);
@@ -96,16 +97,19 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
     private class JoinCacheActivityNode extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
-        public JoinCacheActivityNode(ActivityId id) {
+        private final ActivityId nljAid;
+
+        public JoinCacheActivityNode(ActivityId id, ActivityId nljAid) {
             super(id);
+            this.nljAid = nljAid;
         }
 
         @Override
         public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions) {
-            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 0);
-            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getOperatorId(), 1);
-            final ITuplePairComparator comparator = comparatorFactory.createTuplePairComparator();
+            final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(nljAid, 0);
+            final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getActivityId(), 0);
+            final ITuplePairComparator comparator = comparatorFactory.createTuplePairComparator(ctx);
 
             IOperatorNodePushable op = new AbstractUnaryInputSinkOperatorNodePushable() {
                 private JoinCacheTaskState state;
