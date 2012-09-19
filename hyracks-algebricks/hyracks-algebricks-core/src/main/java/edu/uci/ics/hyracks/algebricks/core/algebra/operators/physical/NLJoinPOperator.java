@@ -98,7 +98,7 @@ public class NLJoinPOperator extends AbstractJoinPOperator {
                 pp = pv1.getPartitioningProperty();
             }
         } else {
-        	pp = IPartitioningProperty.UNPARTITIONED;
+            pp = IPartitioningProperty.UNPARTITIONED;
         }
 
         List<ILocalStructuralProperty> localProps = new LinkedList<ILocalStructuralProperty>();
@@ -123,7 +123,8 @@ public class NLJoinPOperator extends AbstractJoinPOperator {
             IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
         AbstractBinaryJoinOperator join = (AbstractBinaryJoinOperator) op;
-        RecordDescriptor recDescriptor = JobGenHelper.mkRecordDescriptor(context.getTypeEnvironment(op), propagatedSchema, context);
+        RecordDescriptor recDescriptor = JobGenHelper.mkRecordDescriptor(context.getTypeEnvironment(op),
+                propagatedSchema, context);
         IOperatorSchema[] conditionInputSchemas = new IOperatorSchema[1];
         conditionInputSchemas[0] = propagatedSchema;
         IExpressionRuntimeProvider expressionRuntimeProvider = context.getExpressionRuntimeProvider();
@@ -136,16 +137,18 @@ public class NLJoinPOperator extends AbstractJoinPOperator {
 
         switch (kind) {
             case INNER: {
-                opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize);
+                opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize, false,
+                        null);
                 break;
             }
-            case LEFT_OUTER:{
-            	INullWriterFactory[] nullWriterFactories = new INullWriterFactory[inputSchemas[1].getSize()];
+            case LEFT_OUTER: {
+                INullWriterFactory[] nullWriterFactories = new INullWriterFactory[inputSchemas[1].getSize()];
                 for (int j = 0; j < nullWriterFactories.length; j++) {
                     nullWriterFactories[j] = context.getNullWriterFactory();
                 }
-            	opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize, true, nullWriterFactories);
-            	break;
+                opDesc = new NestedLoopJoinOperatorDescriptor(spec, comparatorFactory, recDescriptor, memSize, true,
+                        nullWriterFactories);
+                break;
             }
             default: {
                 throw new NotImplementedException();

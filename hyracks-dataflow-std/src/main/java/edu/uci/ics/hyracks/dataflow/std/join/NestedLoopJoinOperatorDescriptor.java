@@ -53,17 +53,8 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
     private final INullWriterFactory[] nullWriterFactories1;
 
     public NestedLoopJoinOperatorDescriptor(IOperatorDescriptorRegistry spec,
-            ITuplePairComparatorFactory comparatorFactory, RecordDescriptor recordDescriptor, int memSize) {
-        super(spec, 2, 1);
-        this.comparatorFactory = comparatorFactory;
-        this.recordDescriptors[0] = recordDescriptor;
-        this.memSize = memSize;
-        this.isLeftOuter = false;
-        this.nullWriterFactories1 = null;
-    }
-    
-    public NestedLoopJoinOperatorDescriptor(IOperatorDescriptorRegistry spec,
-            ITuplePairComparatorFactory comparatorFactory, RecordDescriptor recordDescriptor, int memSize, boolean isLeftOuter, INullWriterFactory[] nullWriterFactories1) {
+            ITuplePairComparatorFactory comparatorFactory, RecordDescriptor recordDescriptor, int memSize,
+            boolean isLeftOuter, INullWriterFactory[] nullWriterFactories1) {
         super(spec, 2, 1);
         this.comparatorFactory = comparatorFactory;
         this.recordDescriptors[0] = recordDescriptor;
@@ -126,7 +117,7 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
             final RecordDescriptor rd0 = recordDescProvider.getInputRecordDescriptor(nljAid, 0);
             final RecordDescriptor rd1 = recordDescProvider.getInputRecordDescriptor(getActivityId(), 0);
             final ITuplePairComparator comparator = comparatorFactory.createTuplePairComparator(ctx);
-            
+
             final INullWriter[] nullWriters1 = isLeftOuter ? new INullWriter[nullWriterFactories1.length] : null;
             if (isLeftOuter) {
                 for (int i = 0; i < nullWriterFactories1.length; i++) {
@@ -141,14 +132,11 @@ public class NestedLoopJoinOperatorDescriptor extends AbstractOperatorDescriptor
                 public void open() throws HyracksDataException {
                     state = new JoinCacheTaskState(ctx.getJobletContext().getJobId(), new TaskId(getActivityId(),
                             partition));
-                    if(isLeftOuter){
-                    	state.joiner = new NestedLoopJoin(ctx, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
-                                new FrameTupleAccessor(ctx.getFrameSize(), rd1), comparator, memSize, isLeftOuter, nullWriters1);
-                    }
-                    else{
-                    	state.joiner = new NestedLoopJoin(ctx, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
-                                new FrameTupleAccessor(ctx.getFrameSize(), rd1), comparator, memSize);
-                    }
+
+                    state.joiner = new NestedLoopJoin(ctx, new FrameTupleAccessor(ctx.getFrameSize(), rd0),
+                            new FrameTupleAccessor(ctx.getFrameSize(), rd1), comparator, memSize, isLeftOuter,
+                            nullWriters1);
+
                 }
 
                 @Override

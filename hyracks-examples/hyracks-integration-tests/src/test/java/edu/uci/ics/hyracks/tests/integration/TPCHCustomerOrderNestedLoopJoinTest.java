@@ -107,29 +107,6 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
             return 0;
         }
     }
-    
-    private static class NoopNullWriterFactory implements INullWriterFactory {
-
-        private static final long serialVersionUID = 1L;
-        public static final NoopNullWriterFactory INSTANCE = new NoopNullWriterFactory();
-
-        private NoopNullWriterFactory() {
-        }
-
-        @Override
-        public INullWriter createNullWriter() {
-            return new INullWriter() {
-                @Override
-                public void writeNull(DataOutput out) throws HyracksDataException {
-                    try {
-                        out.writeShort(0);
-                    } catch (IOException e) {
-                        throw new HyracksDataException(e);
-                    }
-                }
-            };
-        }
-    }
 
     /*
      * TPCH Customer table: CREATE TABLE CUSTOMER ( C_CUSTKEY INTEGER NOT NULL,
@@ -193,7 +170,8 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID);
 
         NestedLoopJoinOperatorDescriptor join = new NestedLoopJoinOperatorDescriptor(spec, new JoinComparatorFactory(
-                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 4);
+                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 4, false,
+                null);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID);
 
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
@@ -267,7 +245,8 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
 
         NestedLoopJoinOperatorDescriptor join = new NestedLoopJoinOperatorDescriptor(spec, new JoinComparatorFactory(
-                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 5);
+                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 5, false,
+                null);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
 
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
@@ -341,7 +320,8 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
 
         NestedLoopJoinOperatorDescriptor join = new NestedLoopJoinOperatorDescriptor(spec, new JoinComparatorFactory(
-                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 6);
+                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 6, false,
+                null);
         PartitionConstraintHelper.addPartitionCountConstraint(spec, join, 2);
 
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,
@@ -361,10 +341,10 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
         spec.addRoot(printer);
         runTest(spec);
     }
-    
+
     @Test
     public void customerOrderCIDOuterJoinMulti() throws Exception {
-    	JobSpecification spec = new JobSpecification();
+        JobSpecification spec = new JobSpecification();
 
         FileSplit[] custSplits = new FileSplit[] {
                 new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/customer-part1.tbl"))),
@@ -413,14 +393,15 @@ public class TPCHCustomerOrderNestedLoopJoinTest extends AbstractIntegrationTest
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE }, '|'), custDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, custScanner, NC1_ID, NC2_ID);
-        
+
         INullWriterFactory[] nullWriterFactories = new INullWriterFactory[ordersDesc.getFieldCount()];
         for (int j = 0; j < nullWriterFactories.length; j++) {
             nullWriterFactories[j] = NoopNullWriterFactory.INSTANCE;
         }
-        
+
         NestedLoopJoinOperatorDescriptor join = new NestedLoopJoinOperatorDescriptor(spec, new JoinComparatorFactory(
-                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 5, true, nullWriterFactories);
+                PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY), 1, 0), custOrderJoinDesc, 5, true,
+                nullWriterFactories);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, join, NC1_ID, NC2_ID);
 
         IFileSplitProvider outSplits = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID,

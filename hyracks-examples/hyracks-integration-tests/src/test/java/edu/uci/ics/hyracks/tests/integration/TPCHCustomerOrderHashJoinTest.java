@@ -54,28 +54,6 @@ import edu.uci.ics.hyracks.dataflow.std.join.InMemoryHashJoinOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.misc.MaterializingOperatorDescriptor;
 
 public class TPCHCustomerOrderHashJoinTest extends AbstractIntegrationTest {
-    private static class NoopNullWriterFactory implements INullWriterFactory {
-
-        private static final long serialVersionUID = 1L;
-        public static final NoopNullWriterFactory INSTANCE = new NoopNullWriterFactory();
-
-        private NoopNullWriterFactory() {
-        }
-
-        @Override
-        public INullWriter createNullWriter() {
-            return new INullWriter() {
-                @Override
-                public void writeNull(DataOutput out) throws HyracksDataException {
-                    try {
-                        out.writeShort(0);
-                    } catch (IOException e) {
-                        throw new HyracksDataException(e);
-                    }
-                }
-            };
-        }
-    }
 
     /*
      * TPCH Customer table: CREATE TABLE CUSTOMER ( C_CUSTKEY INTEGER NOT NULL,
