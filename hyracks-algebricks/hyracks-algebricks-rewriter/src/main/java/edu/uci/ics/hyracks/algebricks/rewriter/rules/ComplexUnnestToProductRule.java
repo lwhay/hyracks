@@ -153,6 +153,10 @@ public class ComplexUnnestToProductRule implements IAlgebraicRewriteRule {
             // Bail on subplan.
             return false;
         }
+        if (!belowSecondUnnest && op.getOperatorTag() == LogicalOperatorTag.AGGREGATE) {
+            // Bail on aggregate op.
+            return false;
+        }
         switch (op.getOperatorTag()) {
             case UNNEST:
             case DATASOURCESCAN: {

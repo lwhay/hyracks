@@ -92,7 +92,10 @@ public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
     private ILogicalExpression makeCondition(List<Mutable<ILogicalExpression>> predList, IOptimizationContext context) {
         if (predList.size() > 1) {
             IFunctionInfo finfo = context.getMetadataProvider().lookupFunction(AlgebricksBuiltinFunctions.AND);
-            return new ScalarFunctionCallExpression(finfo, predList);
+            // Make a copy of the pred list, since 'otherPredicates' may be cleared in a subsequent invocation of this rule.
+            List<Mutable<ILogicalExpression>> predListCopy = new ArrayList<Mutable<ILogicalExpression>>();
+            predListCopy.addAll(predList);
+            return new ScalarFunctionCallExpression(finfo, predListCopy);
         } else {
             return predList.get(0).getValue();
         }
