@@ -134,7 +134,6 @@ public class DistinctOperator extends AbstractLogicalOperator {
             ILogicalExpression expr = exprRef.getValue();
             if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
                 VariableReferenceExpression varRefExpr = (VariableReferenceExpression) expr;
-                System.out.println("VAR: " + varRefExpr.getVariableReference() + " TYPE: " + childEnv.getType(expr));
                 env.setVarType(varRefExpr.getVariableReference(), childEnv.getType(expr));
             }
         }
