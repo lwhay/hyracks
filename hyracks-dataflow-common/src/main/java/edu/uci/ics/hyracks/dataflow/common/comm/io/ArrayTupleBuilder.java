@@ -96,12 +96,7 @@ public class ArrayTupleBuilder implements IDataOutputProvider {
         int fStartOffset = accessor.getFieldStartOffset(tIndex, fIndex);
         int fLen = accessor.getFieldEndOffset(tIndex, fIndex) - fStartOffset;
         try {
-            try {
             dos.write(accessor.getBuffer().array(), startOffset + accessor.getFieldSlotsLength() + fStartOffset, fLen);
-            } catch (Exception e) {
-                System.out.println("HERE WE GO");
-                throw new HyracksDataException(e);
-            }
             if (FrameConstants.DEBUG_FRAME_IO) {
                 dos.writeInt(FrameConstants.FRAME_FIELD_MAGIC);
             }
