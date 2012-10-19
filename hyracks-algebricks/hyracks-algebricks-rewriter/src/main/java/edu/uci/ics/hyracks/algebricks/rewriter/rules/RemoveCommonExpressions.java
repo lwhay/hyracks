@@ -33,6 +33,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
@@ -44,9 +45,15 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
 
     private final CommonExpressionSubstitutionVisitor substVisitor = new CommonExpressionSubstitutionVisitor();
     private final Map<ILogicalExpression, ExprEquivalenceClass> exprEqClassMap = new HashMap<ILogicalExpression, ExprEquivalenceClass>();
+    private boolean recomputeTypes = false; 
     
     @Override
-    public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
+    public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
+        if (recomputeTypes) {
+            ILogicalOperator op = opRef.getValue();
+            context.computeAndSetTypeEnvironmentForOperator(op);
+            return false;
+        }
         return false;
     }
 
@@ -60,6 +67,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         boolean modified = removeCommonExpressions(opRef, context);
         if (modified) {
             context.computeAndSetTypeEnvironmentForOperator(opRef.getValue());
+            recomputeTypes = true;
         }
         return modified;
     }
@@ -84,7 +92,11 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
                 modified = true;
             }
         }
-
+        
+        // Exclude these operators.
+        if (op.getOperatorTag() == LogicalOperatorTag.UNNEST || op.getOperatorTag() == LogicalOperatorTag.AGGREGATE || op.getOperatorTag() == LogicalOperatorTag.RUNNINGAGGREGATE || op.getOperatorTag() == LogicalOperatorTag.GROUP) {
+            return modified;
+        }
         substVisitor.setOperator(op);
         if (op.acceptExpressionTransform(substVisitor)) {
             modified = true;
@@ -107,7 +119,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             }
         }
 
-        // Perform replacement in nested plans. 
+        // Perform replacement in nested plans.
         if (op.hasNestedPlans()) {
             AbstractOperatorWithNestedPlans opWithNestedPlan = (AbstractOperatorWithNestedPlans) op;
             for (ILogicalPlan nestedPlan : opWithNestedPlan.getNestedPlans()) {
@@ -156,12 +168,14 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
                     if (liveVars.contains(exprEqClass.getVariable())) {
                         exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));                        
                     }
+                    // Do not descend into children since this expr has been completely replaced.
+                    return true;
                 } else {
-                    assignCommonExpression(exprEqClass);
-                    exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
+                    if (assignCommonExpression(exprEqClass)) {
+                        exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
+                        return true;
+                    }
                 }
-                // Do not descend into children since this expr has been completely replaced.
-                return true;
             } else {
                 if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE
                         && expr.getExpressionTag() != LogicalExpressionTag.CONSTANT) {
@@ -182,9 +196,13 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             return modified;
         }
         
-        private void assignCommonExpression(ExprEquivalenceClass exprEqClass) throws AlgebricksException {
+        private boolean assignCommonExpression(ExprEquivalenceClass exprEqClass) throws AlgebricksException {
             // TODO: Deal with joins and other binary ops.
-            ILogicalOperator firstOp = exprEqClass.getFirstOperator();
+            AbstractLogicalOperator firstOp = (AbstractLogicalOperator) exprEqClass.getFirstOperator();
+            if (firstOp.getInputs().size() > 1) {
+                return false;
+            }
+            
             Mutable<ILogicalExpression> firstExprRef = exprEqClass.getFirstExpression();
             LogicalVariable newVar = context.newVar();
             AssignOperator newAssign = new AssignOperator(newVar, new MutableObject<ILogicalExpression>(firstExprRef.getValue().cloneExpression()));            
@@ -196,6 +214,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             exprEqClass.setVariable(newVar);
             context.computeAndSetTypeEnvironmentForOperator(newAssign);
             context.computeAndSetTypeEnvironmentForOperator(firstOp);
+            return true;
         }
     }
     
