@@ -14,8 +14,10 @@
  */
 package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,7 +27,6 @@ import org.apache.commons.lang3.mutable.MutableObject;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
@@ -33,9 +34,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
-import edu.uci.ics.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
@@ -45,29 +44,28 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
 
     private final CommonExpressionSubstitutionVisitor substVisitor = new CommonExpressionSubstitutionVisitor();
     private final Map<ILogicalExpression, ExprEquivalenceClass> exprEqClassMap = new HashMap<ILogicalExpression, ExprEquivalenceClass>();
-    private boolean recomputeTypes = false; 
+    
+    // Set of operators for which common subexpression elimination should not be performed.
+    private static final Set<LogicalOperatorTag> ignoreOps = new HashSet<LogicalOperatorTag>();
+    static {
+        ignoreOps.add(LogicalOperatorTag.UNNEST);
+        ignoreOps.add(LogicalOperatorTag.UNNEST_MAP);
+        ignoreOps.add(LogicalOperatorTag.AGGREGATE);
+        ignoreOps.add(LogicalOperatorTag.RUNNINGAGGREGATE);
+    }
     
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
-        if (recomputeTypes) {
-            ILogicalOperator op = opRef.getValue();
-            context.computeAndSetTypeEnvironmentForOperator(op);
-            return false;
-        }
         return false;
     }
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
-        if (context.checkIfInDontApplySet(this, opRef.getValue())) {
-            return false;
-        }
         exprEqClassMap.clear();
         substVisitor.setContext(context);
         boolean modified = removeCommonExpressions(opRef, context);
         if (modified) {
             context.computeAndSetTypeEnvironmentForOperator(opRef.getValue());
-            recomputeTypes = true;
         }
         return modified;
     }
@@ -84,8 +82,11 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
     private boolean removeCommonExpressions(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
             throws AlgebricksException {
         AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
+        if (context.checkIfInDontApplySet(this, opRef.getValue())) {
+            return false;
+        }
+        
         boolean modified = false;
-
         // Recurse into children.
         for (Mutable<ILogicalOperator> inputOpRef : op.getInputs()) {
             if (removeCommonExpressions(inputOpRef, context)) {
@@ -94,9 +95,11 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         }
         
         // Exclude these operators.
-        if (op.getOperatorTag() == LogicalOperatorTag.UNNEST || op.getOperatorTag() == LogicalOperatorTag.AGGREGATE || op.getOperatorTag() == LogicalOperatorTag.RUNNINGAGGREGATE || op.getOperatorTag() == LogicalOperatorTag.GROUP) {
+        if (op.requiresVariableReferenceExpressions() || ignoreOps.contains(op.getOperatorTag())) {
             return modified;
         }
+        
+        // Perform common subexpression elimination.
         substVisitor.setOperator(op);
         if (op.acceptExpressionTransform(substVisitor)) {
             modified = true;
@@ -119,7 +122,10 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             }
         }
 
-        // Perform replacement in nested plans.
+        // TODO: For now do not perform replacement in nested plans
+        // due to the complication of figuring out whether the firstOp in an equivalence class is within a subplan, 
+        // and the resulting variable will not be visible to the outside.
+        /*
         if (op.hasNestedPlans()) {
             AbstractOperatorWithNestedPlans opWithNestedPlan = (AbstractOperatorWithNestedPlans) op;
             for (ILogicalPlan nestedPlan : opWithNestedPlan.getNestedPlans()) {
@@ -130,6 +136,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
                 }
             }
         }
+        */
 
         if (modified) {
             context.computeAndSetTypeEnvironmentForOperator(op);
@@ -141,6 +148,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
     private class CommonExpressionSubstitutionVisitor implements ILogicalExpressionReferenceTransform {
                 
         private final Set<LogicalVariable> liveVars = new HashSet<LogicalVariable>();
+        private final List<LogicalVariable> usedVars = new ArrayList<LogicalVariable>();
         private IOptimizationContext context;
         private ILogicalOperator op;        
         
@@ -151,12 +159,14 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         public void setOperator(ILogicalOperator op) throws AlgebricksException {
             this.op = op;
             liveVars.clear();
+            usedVars.clear();
         }
         
         @Override
         public boolean transform(Mutable<ILogicalExpression> exprRef) throws AlgebricksException {
-            if (liveVars.isEmpty()) {
+            if (liveVars.isEmpty() && usedVars.isEmpty()) {
                 VariableUtilities.getLiveVariables(op, liveVars);
+                VariableUtilities.getUsedVariables(op, usedVars);
             }
             
             AbstractLogicalExpression expr = (AbstractLogicalExpression) exprRef.getValue();
@@ -165,14 +175,18 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             if (exprEqClass != null) {
                 // Replace common subexpression with existing variable. 
                 if (exprEqClass.variableIsSet()) {
-                    if (liveVars.contains(exprEqClass.getVariable())) {
-                        exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));                        
+                    // Check if the replacing variable is live at this op.
+                    // However, if the op is already using variables that are not live, then a replacement may enable fixing the plan.
+                    // This behavior is necessary to, e.g., properly deal with distinct by.
+                    if (liveVars.contains(exprEqClass.getVariable()) || !liveVars.containsAll(usedVars)) {
+                        exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
+                        // Do not descend into children since this expr has been completely replaced.
+                        return true;
                     }
-                    // Do not descend into children since this expr has been completely replaced.
-                    return true;
                 } else {
                     if (assignCommonExpression(exprEqClass)) {
                         exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
+                        // Do not descend into children since this expr has been completely replaced.
                         return true;
                     }
                 }
@@ -221,6 +235,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
     private final class ExprEquivalenceClass {
         // First operator in which expression is used.
         private final ILogicalOperator firstOp;
+        
         // Reference to expression in first op.
         private final Mutable<ILogicalExpression> firstExprRef;
         
