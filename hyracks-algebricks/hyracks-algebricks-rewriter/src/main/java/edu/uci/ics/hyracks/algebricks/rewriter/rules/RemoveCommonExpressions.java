@@ -14,14 +14,13 @@
  */
 package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -57,6 +56,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             return false;
         }
         exprEqClassMap.clear();
+        substVisitor.setContext(context);
         boolean modified = removeCommonExpressions(opRef, context);
         if (modified) {
             context.computeAndSetTypeEnvironmentForOperator(opRef.getValue());
@@ -64,14 +64,13 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         return modified;
     }
 
-    private void updateEquivalenceClassMap(LogicalVariable lhs, ILogicalExpression rhs, ILogicalOperator op) {
-        ExprEquivalenceClass exprEqClass = exprEqClassMap.get(rhs);
+    private void updateEquivalenceClassMap(LogicalVariable lhs, Mutable<ILogicalExpression> rhsExprRef, ILogicalOperator op) {
+        ExprEquivalenceClass exprEqClass = exprEqClassMap.get(rhsExprRef.getValue());
         if (exprEqClass == null) {
-            exprEqClass = new ExprEquivalenceClass();
-            exprEqClassMap.put(rhs, exprEqClass);
+            exprEqClass = new ExprEquivalenceClass(op, rhsExprRef);
+            exprEqClassMap.put(rhsExprRef.getValue(), exprEqClass);
         }
-        exprEqClass.addVariable(lhs);
-        exprEqClass.addOperator(op);
+        exprEqClass.setVariable(lhs);
     }
 
     private boolean removeCommonExpressions(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
@@ -96,14 +95,15 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             AssignOperator assignOp = (AssignOperator) op;
             int numVars = assignOp.getVariables().size();
             for (int i = 0; i < numVars; i++) {
-                ILogicalExpression expr = assignOp.getExpressions().get(i).getValue();
+                Mutable<ILogicalExpression> exprRef = assignOp.getExpressions().get(i);
+                ILogicalExpression expr = exprRef.getValue();
                 if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE
                         || expr.getExpressionTag() == LogicalExpressionTag.CONSTANT) {
                     continue;
                 }
                 // Update equivalence class map.
                 LogicalVariable lhs = assignOp.getVariables().get(i);
-                updateEquivalenceClassMap(lhs, expr, op);
+                updateEquivalenceClassMap(lhs, exprRef, op);
             }
         }
 
@@ -127,9 +127,14 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
     }
 
     private class CommonExpressionSubstitutionVisitor implements ILogicalExpressionReferenceTransform {
-        
+                
         private final Set<LogicalVariable> liveVars = new HashSet<LogicalVariable>();
-        private ILogicalOperator op;
+        private IOptimizationContext context;
+        private ILogicalOperator op;        
+        
+        public void setContext(IOptimizationContext context) {
+            this.context = context;
+        }
         
         public void setOperator(ILogicalOperator op) throws AlgebricksException {
             this.op = op;
@@ -147,20 +152,23 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             ExprEquivalenceClass exprEqClass = exprEqClassMap.get(expr);
             if (exprEqClass != null) {
                 // Replace common subexpression with existing variable. 
-                if (exprEqClass.hasVariables()) {
-                    // Find an existing live variable to replace the common expr.
-                    for (LogicalVariable var : exprEqClass.getVariables()) {
-                        if (liveVars.contains(var)) {
-                            exprRef.setValue(new VariableReferenceExpression(var));
-                            modified = true;
-                        }
+                if (exprEqClass.variableIsSet()) {
+                    if (liveVars.contains(exprEqClass.getVariable())) {
+                        exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));                        
                     }
+                } else {
+                    assignCommonExpression(exprEqClass);
+                    exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
                 }
+                // Do not descend into children since this expr has been completely replaced.
+                return true;
             } else {
-                exprEqClass = new ExprEquivalenceClass();                
-                exprEqClassMap.put(expr, exprEqClass);
+                if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE
+                        && expr.getExpressionTag() != LogicalExpressionTag.CONSTANT) {
+                    exprEqClass = new ExprEquivalenceClass(op, exprRef);
+                    exprEqClassMap.put(expr, exprEqClass);
+                }
             }
-            exprEqClass.addOperator(op);
             
             // Descend into function arguments.
             if (expr.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
@@ -173,37 +181,56 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             }
             return modified;
         }
+        
+        private void assignCommonExpression(ExprEquivalenceClass exprEqClass) throws AlgebricksException {
+            // TODO: Deal with joins and other binary ops.
+            ILogicalOperator firstOp = exprEqClass.getFirstOperator();
+            Mutable<ILogicalExpression> firstExprRef = exprEqClass.getFirstExpression();
+            LogicalVariable newVar = context.newVar();
+            AssignOperator newAssign = new AssignOperator(newVar, new MutableObject<ILogicalExpression>(firstExprRef.getValue().cloneExpression()));            
+            // Place assign below firstOp.
+            newAssign.getInputs().add(new MutableObject<ILogicalOperator>(firstOp.getInputs().get(0).getValue()));
+            firstOp.getInputs().get(0).setValue(newAssign);
+            // Replace original expr with variable reference, and set var in expression equivalence class.
+            firstExprRef.setValue(new VariableReferenceExpression(newVar));
+            exprEqClass.setVariable(newVar);
+            context.computeAndSetTypeEnvironmentForOperator(newAssign);
+            context.computeAndSetTypeEnvironmentForOperator(firstOp);
+        }
     }
     
     private final class ExprEquivalenceClass {
-        // List of operators in which expression is used.
-        private final List<ILogicalOperator> ops = new ArrayList<ILogicalOperator>();
+        // First operator in which expression is used.
+        private final ILogicalOperator firstOp;
+        // Reference to expression in first op.
+        private final Mutable<ILogicalExpression> firstExprRef;
         
-        // List of variables that this expression has been assigned to.
-        private final List<LogicalVariable> vars = new ArrayList<LogicalVariable>();
+        // Variable that this expression has been assigned to.
+        private LogicalVariable var;
         
-        public void addVariable(LogicalVariable var) {
-            if (!vars.contains(var)) {
-                vars.add(var);
-            }
+        public ExprEquivalenceClass(ILogicalOperator firstOp, Mutable<ILogicalExpression> firstExprRef) {
+            this.firstOp = firstOp;
+            this.firstExprRef = firstExprRef;
         }
         
-        public void addOperator(ILogicalOperator op) {
-            if (ops.isEmpty() || ops.get(ops.size() - 1) != op) {
-                ops.add(op);
-            }
+        public ILogicalOperator getFirstOperator() {
+            return firstOp;
         }
         
-        public List<ILogicalOperator> getOperators() {
-            return ops;
+        public Mutable<ILogicalExpression> getFirstExpression() {
+            return firstExprRef;
         }
         
-        public List<LogicalVariable> getVariables() {
-            return vars;
+        public void setVariable(LogicalVariable var) {
+            this.var = var;
         }
         
-        public boolean hasVariables() {
-            return !vars.isEmpty();
+        public LogicalVariable getVariable() {
+            return var;
+        }
+        
+        public boolean variableIsSet() {
+            return var != null;
         }
     }
 }
