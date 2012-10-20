@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,9 +34,14 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractLogicalExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.ConstantExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
+import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
@@ -94,6 +100,12 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             }
         }
         
+        // TODO: Deal with replicate properly. Currently, we just clear the expr equivalence map, since we want to avoid incorrect expression replacement
+        // (the resulting new variables should be assigned live below a replicate).
+        if (op.getOperatorTag() == LogicalOperatorTag.REPLICATE) {
+            exprEqClassMap.clear();
+            return modified;
+        }
         // Exclude these operators.
         if (op.requiresVariableReferenceExpressions() || ignoreOps.contains(op.getOperatorTag())) {
             return modified;
@@ -125,6 +137,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         // TODO: For now do not perform replacement in nested plans
         // due to the complication of figuring out whether the firstOp in an equivalence class is within a subplan, 
         // and the resulting variable will not be visible to the outside.
+        // Since subplans should be eliminated in most cases, this behavior is acceptable for now.
         /*
         if (op.hasNestedPlans()) {
             AbstractOperatorWithNestedPlans opWithNestedPlan = (AbstractOperatorWithNestedPlans) op;
@@ -173,6 +186,11 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             boolean modified = false;
             ExprEquivalenceClass exprEqClass = exprEqClassMap.get(expr);
             if (exprEqClass != null) {
+                // Avoid self-replacements.
+                if (op == exprEqClass.firstOp && expr == exprEqClass.firstExprRef.getValue()) {
+                    return false;
+                }
+                
                 // Replace common subexpression with existing variable. 
                 if (exprEqClass.variableIsSet()) {
                     // Check if the replacing variable is live at this op.
@@ -211,13 +229,26 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
         }
         
         private boolean assignCommonExpression(ExprEquivalenceClass exprEqClass) throws AlgebricksException {
-            // TODO: Deal with joins and other binary ops.
             AbstractLogicalOperator firstOp = (AbstractLogicalOperator) exprEqClass.getFirstOperator();
-            if (firstOp.getInputs().size() > 1) {
-                return false;
-            }
-            
             Mutable<ILogicalExpression> firstExprRef = exprEqClass.getFirstExpression();
+            if (firstOp.getOperatorTag() == LogicalOperatorTag.INNERJOIN || firstOp.getOperatorTag() == LogicalOperatorTag.LEFTOUTERJOIN) {
+                AbstractBinaryJoinOperator joinOp = (AbstractBinaryJoinOperator) firstOp;
+                Mutable<ILogicalExpression> joinCond = joinOp.getCondition();                
+                ILogicalExpression enclosingExpr = getEnclosingExpression(joinCond, firstExprRef.getValue());
+                if (enclosingExpr == null) {
+                    // No viable enclosing expression that we can pull out from the join.
+                    return false;
+                }
+                // Place a Select operator beneath op that contains the enclosing expression.
+                SelectOperator selectOp = new SelectOperator(new MutableObject<ILogicalExpression>(enclosingExpr));
+                selectOp.getInputs().add(new MutableObject<ILogicalOperator>(op.getInputs().get(0).getValue()));
+                op.getInputs().get(0).setValue(selectOp);
+                // Set firstOp to be the select below op, since we want to assign the common subexpr there.
+                firstOp = (AbstractLogicalOperator) selectOp;
+            } else if (firstOp.getInputs().size() > 1) { 
+                // Bail for any non-join operator with multiple inputs.
+                return false;
+            }                        
             LogicalVariable newVar = context.newVar();
             AssignOperator newAssign = new AssignOperator(newVar, new MutableObject<ILogicalExpression>(firstExprRef.getValue().cloneExpression()));            
             // Place assign below firstOp.
@@ -230,6 +261,73 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             context.computeAndSetTypeEnvironmentForOperator(firstOp);
             return true;
         }
+
+        private ILogicalExpression getEnclosingExpression(Mutable<ILogicalExpression> conditionExprRef, ILogicalExpression commonSubExpr) {
+            ILogicalExpression conditionExpr = conditionExprRef.getValue();
+            if (conditionExpr.getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
+                return null;
+            }
+            AbstractFunctionCallExpression conditionFuncExpr = (AbstractFunctionCallExpression) conditionExpr;
+            // Boolean expression that encloses the common subexpression.
+            ILogicalExpression enclosingBoolExpr = null;
+            // We are not dealing with arbitrarily nested and/or expressions here.
+            FunctionIdentifier funcIdent = conditionFuncExpr.getFunctionIdentifier();
+            if (funcIdent.equals(AlgebricksBuiltinFunctions.AND) || funcIdent.equals(AlgebricksBuiltinFunctions.OR)) {
+                if (isEqJoinCondition(commonSubExpr)) {
+                    // Do not eliminate the common expression if we could use it for an equi-join.
+                    return null;
+                }
+                Iterator<Mutable<ILogicalExpression>> argIter = conditionFuncExpr.getArguments().iterator();
+                while (argIter.hasNext()) {
+                    Mutable<ILogicalExpression> argRef = argIter.next();
+                    if (containsExpr(argRef.getValue(), commonSubExpr)) {
+                        enclosingBoolExpr = argRef.getValue();
+                        // Remove the enclosing expression from the argument list.
+                        // We are going to pull it out into a new select operator.
+                        argIter.remove();
+                        break;
+                    }
+                }
+                // If and/or only has a single argument left, pull it out and remove the and/or function.
+                if (conditionFuncExpr.getArguments().size() == 1) {
+                    conditionExprRef.setValue(conditionFuncExpr.getArguments().get(0).getValue());
+                }
+            } else {
+                enclosingBoolExpr = conditionFuncExpr;
+                // Replace the enclosing expression with TRUE.
+                conditionExprRef.setValue(ConstantExpression.TRUE);
+            }
+            return enclosingBoolExpr;
+        }
+    }
+    
+    private boolean containsExpr(ILogicalExpression expr, ILogicalExpression searchExpr) {
+        if (expr == searchExpr) {
+            return true;
+        }
+        if (expr.getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
+            return false;
+        }
+        AbstractFunctionCallExpression funcExpr = (AbstractFunctionCallExpression) expr;
+        for (Mutable<ILogicalExpression> argRef : funcExpr.getArguments()) {
+            if (containsExpr(argRef.getValue(), searchExpr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private boolean isEqJoinCondition(ILogicalExpression expr) {
+        AbstractFunctionCallExpression funcExpr = (AbstractFunctionCallExpression) expr;
+        if (funcExpr.getFunctionIdentifier().equals(AlgebricksBuiltinFunctions.EQ)) {
+            ILogicalExpression arg1 = funcExpr.getArguments().get(0).getValue();
+            ILogicalExpression arg2 = funcExpr.getArguments().get(1).getValue();
+            if (arg1.getExpressionTag() == LogicalExpressionTag.VARIABLE
+                    && arg2.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private final class ExprEquivalenceClass {
