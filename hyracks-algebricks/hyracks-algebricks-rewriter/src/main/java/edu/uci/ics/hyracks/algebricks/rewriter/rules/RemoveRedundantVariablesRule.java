@@ -68,6 +68,8 @@ public class RemoveRedundantVariablesRule implements IAlgebraicRewriteRule {
     private final VariableSubstitutionVisitor substVisitor = new VariableSubstitutionVisitor();
     private final Map<LogicalVariable, List<LogicalVariable>> equivalentVarsMap = new HashMap<LogicalVariable, List<LogicalVariable>>();
 
+    protected boolean hasRun = false;
+    
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
         return false;

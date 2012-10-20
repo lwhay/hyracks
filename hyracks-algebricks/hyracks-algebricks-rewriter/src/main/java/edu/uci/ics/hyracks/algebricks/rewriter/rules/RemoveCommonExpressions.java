@@ -56,6 +56,8 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
     static {
         ignoreOps.add(LogicalOperatorTag.UNNEST);
         ignoreOps.add(LogicalOperatorTag.UNNEST_MAP);
+        ignoreOps.add(LogicalOperatorTag.ORDER);
+        ignoreOps.add(LogicalOperatorTag.PROJECT);
         ignoreOps.add(LogicalOperatorTag.AGGREGATE);
         ignoreOps.add(LogicalOperatorTag.RUNNINGAGGREGATE);
     }
@@ -107,7 +109,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             return modified;
         }
         // Exclude these operators.
-        if (op.requiresVariableReferenceExpressions() || ignoreOps.contains(op.getOperatorTag())) {
+        if (ignoreOps.contains(op.getOperatorTag())) {
             return modified;
         }
         
@@ -253,6 +255,7 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             AssignOperator newAssign = new AssignOperator(newVar, new MutableObject<ILogicalExpression>(firstExprRef.getValue().cloneExpression()));            
             // Place assign below firstOp.
             newAssign.getInputs().add(new MutableObject<ILogicalOperator>(firstOp.getInputs().get(0).getValue()));
+            newAssign.setExecutionMode(firstOp.getExecutionMode());
             firstOp.getInputs().get(0).setValue(newAssign);
             // Replace original expr with variable reference, and set var in expression equivalence class.
             firstExprRef.setValue(new VariableReferenceExpression(newVar));
