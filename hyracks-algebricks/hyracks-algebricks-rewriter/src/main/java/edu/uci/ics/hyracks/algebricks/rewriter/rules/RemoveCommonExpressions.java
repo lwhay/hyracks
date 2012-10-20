@@ -186,8 +186,8 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             boolean modified = false;
             ExprEquivalenceClass exprEqClass = exprEqClassMap.get(expr);
             if (exprEqClass != null) {
-                // Avoid self-replacements.
-                if (op == exprEqClass.firstOp && expr == exprEqClass.firstExprRef.getValue()) {
+                // Do not eliminate common expressions within the same operator.
+                if (op == exprEqClass.firstOp) {
                     return false;
                 }
                 
@@ -267,16 +267,16 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             if (conditionExpr.getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
                 return null;
             }
+            if (isEqJoinCondition(commonSubExpr)) {
+                // Do not eliminate the common expression if we could use it for an equi-join.
+                return null;
+            }
             AbstractFunctionCallExpression conditionFuncExpr = (AbstractFunctionCallExpression) conditionExpr;
             // Boolean expression that encloses the common subexpression.
             ILogicalExpression enclosingBoolExpr = null;
             // We are not dealing with arbitrarily nested and/or expressions here.
             FunctionIdentifier funcIdent = conditionFuncExpr.getFunctionIdentifier();
             if (funcIdent.equals(AlgebricksBuiltinFunctions.AND) || funcIdent.equals(AlgebricksBuiltinFunctions.OR)) {
-                if (isEqJoinCondition(commonSubExpr)) {
-                    // Do not eliminate the common expression if we could use it for an equi-join.
-                    return null;
-                }
                 Iterator<Mutable<ILogicalExpression>> argIter = conditionFuncExpr.getArguments().iterator();
                 while (argIter.hasNext()) {
                     Mutable<ILogicalExpression> argRef = argIter.next();
@@ -293,6 +293,9 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
                     conditionExprRef.setValue(conditionFuncExpr.getArguments().get(0).getValue());
                 }
             } else {
+                if (!containsExpr(conditionExprRef.getValue(), commonSubExpr)) {
+                    return null;
+                }
                 enclosingBoolExpr = conditionFuncExpr;
                 // Replace the enclosing expression with TRUE.
                 conditionExprRef.setValue(ConstantExpression.TRUE);
