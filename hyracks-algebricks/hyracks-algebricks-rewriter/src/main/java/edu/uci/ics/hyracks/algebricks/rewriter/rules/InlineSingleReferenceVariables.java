@@ -28,7 +28,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 
-public class InlineSingleReferenceVariables extends AbstractInlineVariablesRule {
+public class InlineSingleReferenceVariables extends InlineVariablesRule {
 
     // Maps from variable to a list of operators using that variable.
     protected Map<LogicalVariable, List<ILogicalOperator>> usedVarsMap = new HashMap<LogicalVariable, List<ILogicalOperator>>();
