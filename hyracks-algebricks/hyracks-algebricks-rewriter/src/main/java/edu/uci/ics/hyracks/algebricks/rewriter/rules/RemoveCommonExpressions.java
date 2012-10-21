@@ -188,9 +188,10 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             boolean modified = false;
             ExprEquivalenceClass exprEqClass = exprEqClassMap.get(expr);
             if (exprEqClass != null) {
-                // Do not eliminate common expressions within the same operator.
-                if (op == exprEqClass.firstOp) {
-                    return false;
+                
+                AbstractLogicalOperator currentOp = (AbstractLogicalOperator) op;
+                if (currentOp.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                    System.out.println("HERE WE GO!");
                 }
                 
                 // Replace common subexpression with existing variable. 
@@ -198,13 +199,15 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
                     // Check if the replacing variable is live at this op.
                     // However, if the op is already using variables that are not live, then a replacement may enable fixing the plan.
                     // This behavior is necessary to, e.g., properly deal with distinct by.
-                    if (liveVars.contains(exprEqClass.getVariable()) || !liveVars.containsAll(usedVars)) {
+                    // Also just replace the expr if we are replacing common exprs from within the same operator.
+                    if (liveVars.contains(exprEqClass.getVariable()) || !liveVars.containsAll(usedVars)
+                            || op == exprEqClass.getFirstOperator()) {
                         exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
                         // Do not descend into children since this expr has been completely replaced.
                         return true;
                     }
                 } else {
-                    if (assignCommonExpression(exprEqClass)) {
+                    if (assignCommonExpression(exprEqClass, expr)) {
                         exprRef.setValue(new VariableReferenceExpression(exprEqClass.getVariable()));
                         // Do not descend into children since this expr has been completely replaced.
                         return true;
@@ -230,10 +233,14 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             return modified;
         }
         
-        private boolean assignCommonExpression(ExprEquivalenceClass exprEqClass) throws AlgebricksException {
+        private boolean assignCommonExpression(ExprEquivalenceClass exprEqClass, ILogicalExpression expr) throws AlgebricksException {
             AbstractLogicalOperator firstOp = (AbstractLogicalOperator) exprEqClass.getFirstOperator();
             Mutable<ILogicalExpression> firstExprRef = exprEqClass.getFirstExpression();
             if (firstOp.getOperatorTag() == LogicalOperatorTag.INNERJOIN || firstOp.getOperatorTag() == LogicalOperatorTag.LEFTOUTERJOIN) {
+                // Do not extract common expressions from within the same join operator.
+                if (firstOp == op) {
+                    return false;
+                }
                 AbstractBinaryJoinOperator joinOp = (AbstractBinaryJoinOperator) firstOp;
                 Mutable<ILogicalExpression> joinCond = joinOp.getCondition();                
                 ILogicalExpression enclosingExpr = getEnclosingExpression(joinCond, firstExprRef.getValue());

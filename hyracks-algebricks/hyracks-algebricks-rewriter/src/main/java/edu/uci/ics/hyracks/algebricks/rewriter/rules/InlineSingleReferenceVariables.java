@@ -16,10 +16,8 @@ package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
@@ -28,11 +26,14 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 
+/**
+ * Inlines variables that are referenced exactly once. 
+ */
 public class InlineSingleReferenceVariables extends InlineVariablesRule {
 
     // Maps from variable to a list of operators using that variable.
     protected Map<LogicalVariable, List<ILogicalOperator>> usedVarsMap = new HashMap<LogicalVariable, List<ILogicalOperator>>();
-    protected Set<LogicalVariable> usedVars = new HashSet<LogicalVariable>();
+    protected List<LogicalVariable> usedVars = new ArrayList<LogicalVariable>();
     
     @Override
     protected void prepare(IOptimizationContext context) {
