@@ -46,7 +46,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.Va
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
-public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
+public class ExtractCommonExpressions implements IAlgebraicRewriteRule {
 
     private final CommonExpressionSubstitutionVisitor substVisitor = new CommonExpressionSubstitutionVisitor();
     private final Map<ILogicalExpression, ExprEquivalenceClass> exprEqClassMap = new HashMap<ILogicalExpression, ExprEquivalenceClass>();
@@ -188,12 +188,6 @@ public class RemoveCommonExpressions implements IAlgebraicRewriteRule {
             boolean modified = false;
             ExprEquivalenceClass exprEqClass = exprEqClassMap.get(expr);
             if (exprEqClass != null) {
-                
-                AbstractLogicalOperator currentOp = (AbstractLogicalOperator) op;
-                if (currentOp.getOperatorTag() == LogicalOperatorTag.SELECT) {
-                    System.out.println("HERE WE GO!");
-                }
-                
                 // Replace common subexpression with existing variable. 
                 if (exprEqClass.variableIsSet()) {
                     // Check if the replacing variable is live at this op.
