@@ -1,11 +1,11 @@
-
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.uci.ics.hyracks</groupId>
-  <artifactId>hyracks</artifactId>
+  <artifactId>pregelix</artifactId>
   <version>0.2.2</version>
   <packaging>pom</packaging>
-  <name>hyracks</name>
+  <name>pregelix</name>
 
   <properties>
     <jvm.extraargs />
@@ -83,27 +83,13 @@
   </pluginRepositories>
 
   <modules>
-    <module>hyracks-ipc</module>
-    <module>hyracks-api</module>
-    <module>hyracks-dataflow-common</module>
-    <module>hyracks-dataflow-std</module>
-    <module>hyracks-dataflow-hadoop</module>
-    <module>hyracks-control</module>
-    <module>hyracks-net</module>
-    <module>hyracks-data</module>
-    <module>hyracks-cli</module>
-    <module>hyracks-storage-common</module>
-    <module>hyracks-storage-am-common</module>
-    <module>hyracks-storage-am-btree</module>
-    <module>hyracks-storage-am-invertedindex</module>
-    <module>hyracks-storage-am-rtree</module>
-    <module>hyracks-test-support</module>
-    <module>hyracks-tests</module>
-    <module>hyracks-server</module>
-    <module>hyracks-examples</module>
-    <module>hyracks-documentation</module>
-    <module>hyracks-hadoop-compat</module>
-    <!--module>hyracks-yarn</module-->
-    <module>hyracks-maven-plugins</module>
+    <module>pregelix-api</module>
+    <module>pregelix-dataflow-std-base</module>
+    <module>pregelix-dataflow-std</module>
+    <module>pregelix-dataflow</module>
+    <module>pregelix-runtime</module>
+    <module>pregelix-core</module>
+    <module>pregelix-example</module>
+    <module>pregelix-dist</module>
   </modules>
 </project>
