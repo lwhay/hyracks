@@ -38,9 +38,6 @@ import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
 public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
 
-    private List<Mutable<ILogicalExpression>> eqVarVarComps = new ArrayList<Mutable<ILogicalExpression>>();
-    private List<Mutable<ILogicalExpression>> otherPredicates = new ArrayList<Mutable<ILogicalExpression>>();
-
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
         return false;
@@ -66,8 +63,8 @@ public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
         if (!fi.equals(AlgebricksBuiltinFunctions.AND)) {
             return false;
         }
-        eqVarVarComps.clear();
-        otherPredicates.clear();
+        List<Mutable<ILogicalExpression>> eqVarVarComps = new ArrayList<Mutable<ILogicalExpression>>();
+        List<Mutable<ILogicalExpression>> otherPredicates = new ArrayList<Mutable<ILogicalExpression>>();
         for (Mutable<ILogicalExpression> arg : fexp.getArguments()) {
             if (isEqVarVar(arg.getValue())) {
                 eqVarVarComps.add(arg);
@@ -92,10 +89,7 @@ public class PullSelectOutOfEqJoin implements IAlgebraicRewriteRule {
     private ILogicalExpression makeCondition(List<Mutable<ILogicalExpression>> predList, IOptimizationContext context) {
         if (predList.size() > 1) {
             IFunctionInfo finfo = context.getMetadataProvider().lookupFunction(AlgebricksBuiltinFunctions.AND);
-            // Make a copy of the pred list, since 'otherPredicates' may be cleared in a subsequent invocation of this rule.
-            List<Mutable<ILogicalExpression>> predListCopy = new ArrayList<Mutable<ILogicalExpression>>();
-            predListCopy.addAll(predList);
-            return new ScalarFunctionCallExpression(finfo, predListCopy);
+            return new ScalarFunctionCallExpression(finfo, predList);
         } else {
             return predList.get(0).getValue();
         }

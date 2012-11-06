@@ -46,7 +46,53 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.Va
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
-public class ExtractCommonExpressions implements IAlgebraicRewriteRule {
+/**
+ * Factors out common sub-expressions by assigning them to a variables, and replacing the common sub-expressions with references to those variables.
+ *
+ * Preconditions/Assumptions:
+ * Assumes no projects are in the plan. This rule ignores variable reference expressions and constants (other rules deal with those separately).
+ * 
+ * Postconditions/Examples:
+ * Plan with extracted sub-expressions. Generates one assign operator per extracted expression.
+ * 
+ * Example 1 - Simple Arithmetic Example (simplified)
+ * 
+ * Before plan:
+ * assign [$$1] <- [5 + 6 - 10]
+ *   assign [$$0] <- [5 + 6 + 30]
+ * 
+ * After plan:
+ * assign [$$1] <- [$$5 - 10]
+ *   assign [$$0] <- [$$5 + 30]
+ *     assign [$$5] <- [5 + 6]
+ * 
+ * Example 2 - Cleaning up 'Distinct By' (simplified)
+ * 
+ * Before plan: (notice how $$0 is not live after the distinct)
+ * assign [$$3] <- [field-access($$0, 1)]
+ *   distinct ([%0->$$5])
+ *     assign [$$5] <- [field-access($$0, 1)]
+ *       unnest $$0 <- [scan-dataset]
+ * 
+ * After plan: (notice how the issue of $$0 is fixed)
+ * assign [$$3] <- [$$5]
+ *   distinct ([$$5])
+ *     assign [$$5] <- [field-access($$0, 1)]
+ *       unnest $$0 <- [scan-dataset]
+ * 
+ * Example 3 - Pulling Common Expressions Above Joins (simplified)
+ * 
+ * Before plan:
+ * assign [$$9] <- funcZ(funcY($$8))
+ *   join (funcX(funcY($$8)))
+ * 
+ * After plan:
+ * assign [$$9] <- funcZ($$10))
+ *   select (funcX($$10))
+ *     assign [$$10] <- [funcY($$8)]
+ *       join (TRUE)
+ */
+public class ExtractCommonExpressionsRule implements IAlgebraicRewriteRule {
 
     private final CommonExpressionSubstitutionVisitor substVisitor = new CommonExpressionSubstitutionVisitor();
     private final Map<ILogicalExpression, ExprEquivalenceClass> exprEqClassMap = new HashMap<ILogicalExpression, ExprEquivalenceClass>();

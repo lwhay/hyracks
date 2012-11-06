@@ -27,9 +27,24 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLog
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 
 /**
- * Inlines variables that are referenced exactly once. 
+ * Inlines variables that are referenced exactly once.
+ * 
+ * Preconditions/Assumptions:
+ * Assumes no projects are in the plan.
+ * 
+ * Example assuming variable $$3 is referenced exactly once.
+ * 
+ * Before plan:
+ * select (funcA($$3))
+ *   ...
+ *     assign [$$3] <- [field-access($$0, 1)]
+ * 
+ * After plan:
+ * select (funcA(field-access($$0, 1))
+ *   ...
+ *     assign [] <- []
  */
-public class InlineSingleReferenceVariables extends InlineVariablesRule {
+public class InlineSingleReferenceVariablesRule extends InlineVariablesRule {
 
     // Maps from variable to a list of operators using that variable.
     protected Map<LogicalVariable, List<ILogicalOperator>> usedVarsMap = new HashMap<LogicalVariable, List<ILogicalOperator>>();
