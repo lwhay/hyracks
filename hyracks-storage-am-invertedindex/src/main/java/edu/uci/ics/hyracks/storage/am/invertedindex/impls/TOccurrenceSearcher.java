@@ -294,7 +294,8 @@ public class TOccurrenceSearcher implements IInvertedIndexSearcher {
         boolean advanceCursor = true;
         boolean advancePrevResult = false;
         int resultTidx = 0;
-
+        currentNumResults = 0;
+        
         resultFrameTupleAcc.reset(prevCurrentBuffer);
         resultFrameTupleApp.reset(newCurrentBuffer, true);
 
