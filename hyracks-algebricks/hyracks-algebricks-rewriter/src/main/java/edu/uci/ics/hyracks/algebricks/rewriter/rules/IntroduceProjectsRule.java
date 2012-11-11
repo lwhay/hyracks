@@ -109,11 +109,13 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
                 vars.addAll(projectVars);
                 // Only retain those variables that are live in the i-th input branch.
                 vars.retainAll(liveVars);
-                ProjectOperator projectOp = new ProjectOperator(vars);
-                projectOp.getInputs().add(new MutableObject<ILogicalOperator>(childOp));
-                op.getInputs().get(i).setValue(projectOp);
-                context.computeAndSetTypeEnvironmentForOperator(projectOp);
-                modified = true;
+                if (vars.size() != liveVars.size()) {
+                    ProjectOperator projectOp = new ProjectOperator(vars);
+                    projectOp.getInputs().add(new MutableObject<ILogicalOperator>(childOp));
+                    op.getInputs().get(i).setValue(projectOp);
+                    context.computeAndSetTypeEnvironmentForOperator(projectOp);
+                    modified = true;
+                }
             }
         }
         if (modified) {
