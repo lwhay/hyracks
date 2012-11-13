@@ -26,6 +26,7 @@ import org.apache.commons.lang3.mutable.MutableObject;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
@@ -35,6 +36,7 @@ import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 /**
  * Projects away unused variables at the earliest possible point.
  * Does a full DFS sweep of the plan adding ProjectOperators in the bottom-up pass.
+ * Also, removes projects that have become useless.
  * TODO: This rule 'recklessly' adds as many projects as possible, but there is no guarantee
  * that the overall cost of the plan is reduced since project operators also add a cost.
  */
@@ -57,11 +59,12 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
             return false;
         }
         hasRun = true;
-        return introduceProjects(opRef, Collections.<LogicalVariable> emptySet(), context);
+        return introduceProjects(null, -1, opRef, Collections.<LogicalVariable> emptySet(), context);
     }
 
-    protected boolean introduceProjects(Mutable<ILogicalOperator> opRef, Set<LogicalVariable> parentUsedVars,
-            IOptimizationContext context) throws AlgebricksException {
+    protected boolean introduceProjects(AbstractLogicalOperator parentOp, int parentInputIndex,
+            Mutable<ILogicalOperator> opRef, Set<LogicalVariable> parentUsedVars, IOptimizationContext context)
+            throws AlgebricksException {
         AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
         boolean modified = false;
 
@@ -74,8 +77,9 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
         parentsUsedVars.addAll(usedVars);
 
         // Descend into children.        
-        for (Mutable<ILogicalOperator> inputOpRef : op.getInputs()) {
-            if (introduceProjects(inputOpRef, parentsUsedVars, context)) {
+        for (int i = 0; i < op.getInputs().size(); i++) {
+            Mutable<ILogicalOperator> inputOpRef = op.getInputs().get(i);
+            if (introduceProjects(op, i, inputOpRef, parentsUsedVars, context)) {
                 modified = true;
             }
         }
@@ -117,7 +121,18 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
                     modified = true;
                 }
             }
+        } else if (op.getOperatorTag() == LogicalOperatorTag.PROJECT) {
+            // Check if the existing project has become useless.
+            liveVars.clear();
+            VariableUtilities.getLiveVariables(op.getInputs().get(0).getValue(), liveVars);
+            ProjectOperator projectOp = (ProjectOperator) op;
+            List<LogicalVariable> projectVars = projectOp.getVariables();
+            if (liveVars.size() == projectVars.size() && liveVars.containsAll(projectVars)) {
+                // The existing project has become useless. Remove it.
+                parentOp.getInputs().get(parentInputIndex).setValue(op.getInputs().get(0).getValue());
+            }
         }
+
         if (modified) {
             context.computeAndSetTypeEnvironmentForOperator(op);
         }
