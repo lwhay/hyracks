@@ -24,12 +24,14 @@ import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
@@ -128,8 +130,16 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
             ProjectOperator projectOp = (ProjectOperator) op;
             List<LogicalVariable> projectVars = projectOp.getVariables();
             if (liveVars.size() == projectVars.size() && liveVars.containsAll(projectVars)) {
-                // The existing project has become useless. Remove it.
-                parentOp.getInputs().get(parentInputIndex).setValue(op.getInputs().get(0).getValue());
+                boolean eliminateProject = true;
+                // For UnionAll the variables must also be in exactly the correct order.
+                if (parentOp.getOperatorTag() == LogicalOperatorTag.UNIONALL) {
+                    eliminateProject = canEliminateProjectBelowUnion((UnionAllOperator) parentOp, projectOp,
+                            parentInputIndex);
+                }
+                if (eliminateProject) {
+                    // The existing project has become useless. Remove it.
+                    parentOp.getInputs().get(parentInputIndex).setValue(op.getInputs().get(0).getValue());
+                }
             }
         }
 
@@ -137,5 +147,25 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
             context.computeAndSetTypeEnvironmentForOperator(op);
         }
         return modified;
+    }
+    
+    private boolean canEliminateProjectBelowUnion(UnionAllOperator unionOp, ProjectOperator projectOp,
+            int unionInputIndex) throws AlgebricksException {
+        List<LogicalVariable> orderedLiveVars = new ArrayList<LogicalVariable>();
+        VariableUtilities.getLiveVariables(projectOp.getInputs().get(0).getValue(), orderedLiveVars);
+        int numVars = orderedLiveVars.size();
+        for (int i = 0; i < numVars; i++) {
+            Triple<LogicalVariable, LogicalVariable, LogicalVariable> varTriple = unionOp.getVariableMappings().get(i);
+            if (unionInputIndex == 0) {
+                if (varTriple.first != orderedLiveVars.get(i)) {
+                    return false;
+                }
+            } else {
+                if (varTriple.second != orderedLiveVars.get(i)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }
