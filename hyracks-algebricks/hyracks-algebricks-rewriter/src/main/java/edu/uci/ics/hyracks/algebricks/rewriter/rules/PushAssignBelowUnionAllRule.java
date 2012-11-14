@@ -63,16 +63,17 @@ public class PushAssignBelowUnionAllRule implements IAlgebraicRewriteRule {
             return false;
         }
 
+        boolean modified = false;
         for (int i = 0; i < op.getInputs().size(); i++) {
             AbstractLogicalOperator childOp = (AbstractLogicalOperator) op.getInputs().get(i).getValue();
             if (childOp.getOperatorTag() != LogicalOperatorTag.ASSIGN) {
-                return false;
+                continue;
             }
             AssignOperator assignOp = (AssignOperator) childOp;
 
             AbstractLogicalOperator childOfChildOp = (AbstractLogicalOperator) assignOp.getInputs().get(0).getValue();
             if (childOfChildOp.getOperatorTag() != LogicalOperatorTag.UNIONALL) {
-                return false;
+                continue;
             }
             UnionAllOperator unionOp = (UnionAllOperator) childOfChildOp;
 
@@ -98,9 +99,10 @@ public class PushAssignBelowUnionAllRule implements IAlgebraicRewriteRule {
             // Remove original assign operator.
             op.getInputs().set(i, assignOp.getInputs().get(0));
             context.computeAndSetTypeEnvironmentForOperator(op);
+            modified = true;
         }
 
-        return true;
+        return modified;
     }
 
     private AssignOperator createAssignBelowUnionAllBranch(UnionAllOperator unionOp, int inputIndex,
