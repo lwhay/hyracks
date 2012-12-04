@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -41,7 +41,7 @@ public class BinaryTokenizerOperatorNodePushable extends AbstractUnaryInputUnary
 
     private FrameTupleAccessor accessor;
     private ArrayTupleBuilder builder;
-    private IMutableValueStorage builderFieldData;
+    private GrowableArray builderFieldData;
     private FrameTupleAppender appender;
     private ByteBuffer writeBuffer;
 

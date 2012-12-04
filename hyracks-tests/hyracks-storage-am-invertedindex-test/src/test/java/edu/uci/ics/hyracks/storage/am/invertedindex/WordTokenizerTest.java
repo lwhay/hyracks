@@ -34,7 +34,7 @@ import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.AbstractUTF8Token;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.DelimitedUTF8StringBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.HashedUTF8WordTokenFactory;
@@ -128,7 +128,7 @@ public class WordTokenizerTest {
             tokenizer.next();
 
             // serialize token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);
@@ -159,7 +159,7 @@ public class WordTokenizerTest {
             tokenizer.next();
 
             // serialize token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);
@@ -190,7 +190,7 @@ public class WordTokenizerTest {
             tokenizer.next();
 
             // serialize hashed token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);

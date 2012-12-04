@@ -33,7 +33,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.AbstractUTF8Token;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.HashedUTF8NGramTokenFactory;
 import edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers.IToken;
@@ -113,7 +113,7 @@ public class NGramTokenizerTest {
             tokenizer.next();
 
             // serialize hashed token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);
@@ -153,7 +153,7 @@ public class NGramTokenizerTest {
             tokenizer.next();
 
             // serialize hashed token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);
@@ -188,7 +188,7 @@ public class NGramTokenizerTest {
             tokenizer.next();
 
             // serialize hashed token
-            ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+            GrowableArray tokenStorage = new GrowableArray();
 
             IToken token = tokenizer.getToken();
             token.serializeToken(tokenStorage);

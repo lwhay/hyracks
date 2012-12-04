@@ -26,8 +26,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.data.std.util.ByteArrayAccessibleOutputStream;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
@@ -113,7 +113,7 @@ public class SearchTest extends AbstractInvIndexSearchTest {
 	}
 
 	private class TokenIdPair implements Comparable<TokenIdPair> {
-	    public ArrayBackedValueStorage tokenStorage = new ArrayBackedValueStorage();
+	    public final GrowableArray tokenStorage = new GrowableArray();
 		public int id;
 
 		TokenIdPair(IToken token, int id) throws IOException {

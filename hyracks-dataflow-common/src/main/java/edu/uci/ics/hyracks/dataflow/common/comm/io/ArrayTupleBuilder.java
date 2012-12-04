@@ -21,8 +21,7 @@ import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
-import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 
 /**
  * Array backed tuple builder.
@@ -30,18 +29,16 @@ import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
  * @author vinayakb
  */
 public class ArrayTupleBuilder implements IDataOutputProvider {
-    private final ArrayBackedValueStorage fieldData;
+    private final GrowableArray fieldData = new GrowableArray();
     private final int[] fEndOffsets;
     private int nextField;
 
     public ArrayTupleBuilder(int nFields) {
-        fieldData = new ArrayBackedValueStorage();
         fEndOffsets = new int[nFields];
     }
 
     /**
      * Resets the builder.
-     * 
      * reset() must be called before attempting to create a new tuple.
      */
     public void reset() {
@@ -94,7 +91,8 @@ public class ArrayTupleBuilder implements IDataOutputProvider {
         int fStartOffset = accessor.getFieldStartOffset(tIndex, fIndex);
         int fLen = accessor.getFieldEndOffset(tIndex, fIndex) - fStartOffset;
         try {
-            fieldData.getDataOutput().write(accessor.getBuffer().array(), startOffset + accessor.getFieldSlotsLength() + fStartOffset, fLen);
+            fieldData.getDataOutput().write(accessor.getBuffer().array(),
+                    startOffset + accessor.getFieldSlotsLength() + fStartOffset, fLen);
             if (FrameConstants.DEBUG_FRAME_IO) {
                 fieldData.getDataOutput().writeInt(FrameConstants.FRAME_FIELD_MAGIC);
             }
@@ -148,12 +146,12 @@ public class ArrayTupleBuilder implements IDataOutputProvider {
     }
 
     /**
-     * Get the underlying mutable value storage for the field data.
+     * Get the growable array storing the field data.
      */
-    public IMutableValueStorage getFieldData() {
+    public GrowableArray getFieldData() {
         return fieldData;
     }
-    
+
     /**
      * Sets the byte offset of the end of the field into the field offset array.
      * Make sure this method is called when the {@link DataOutput} interface is

@@ -21,8 +21,8 @@ package edu.uci.ics.hyracks.storage.am.invertedindex.tokenizers;
 
 import java.io.IOException;
 
-import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
 import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
+import edu.uci.ics.hyracks.data.std.util.GrowableArray;
 import edu.uci.ics.hyracks.dataflow.common.data.util.StringUtils;
 
 public class UTF8WordToken extends AbstractUTF8Token {
@@ -32,20 +32,20 @@ public class UTF8WordToken extends AbstractUTF8Token {
     }
 
     @Override
-    public void serializeToken(IMutableValueStorage outVal) throws IOException {
-        handleTokenTypeTag(outVal.getDataOutput());
-        int tokenUTF8LenOff = outVal.getLength();
+    public void serializeToken(GrowableArray out) throws IOException {
+        handleTokenTypeTag(out.getDataOutput());
+        int tokenUTF8LenOff = out.getLength();
         int tokenUTF8Len = 0;
         // Write dummy UTF length which will be correctly set later.
-        outVal.getDataOutput().writeShort(0);
+        out.getDataOutput().writeShort(0);
         int pos = start;
         for (int i = 0; i < tokenLength; i++) {
             char c = Character.toLowerCase(UTF8StringPointable.charAt(data, pos));
-            tokenUTF8Len += StringUtils.writeCharAsModifiedUTF8(c, outVal.getDataOutput());
+            tokenUTF8Len += StringUtils.writeCharAsModifiedUTF8(c, out.getDataOutput());
             pos += UTF8StringPointable.charSize(data, pos);
         }
         // Set UTF length of token.
-        outVal.getByteArray()[tokenUTF8LenOff] = (byte) ((tokenUTF8Len >>> 8) & 0xFF);
-        outVal.getByteArray()[tokenUTF8LenOff + 1] = (byte) ((tokenUTF8Len >>> 0) & 0xFF);
+        out.getByteArray()[tokenUTF8LenOff] = (byte) ((tokenUTF8Len >>> 8) & 0xFF);
+        out.getByteArray()[tokenUTF8LenOff + 1] = (byte) ((tokenUTF8Len >>> 0) & 0xFF);
     }
 }
