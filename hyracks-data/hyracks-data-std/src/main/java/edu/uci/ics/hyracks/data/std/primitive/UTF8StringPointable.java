@@ -41,7 +41,7 @@ public final class UTF8StringPointable extends AbstractPointable implements IHas
 
         @Override
         public IPointable createPointable() {
-            return new RawUTF8StringPointable();
+            return new UTF8StringPointable();
         }
 
         @Override
