@@ -41,7 +41,7 @@ public final class UTF8StringPointable extends AbstractPointable implements IHas
 
         @Override
         public IPointable createPointable() {
-            return new UTF8StringPointable();
+            return new RawUTF8StringPointable();
         }
 
         @Override
@@ -51,8 +51,9 @@ public final class UTF8StringPointable extends AbstractPointable implements IHas
     };
 
     /**
-     * Returns the character at the given byte offset. The caller is responsible for making sure that
-     * the provided offset is within bounds and points to the beginning of a valid UTF8 character.
+     * Returns the character at the given byte offset. The caller is responsible
+     * for making sure that the provided offset is within bounds and points to
+     * the beginning of a valid UTF8 character.
      * 
      * @param offset
      *            - Byte offset
