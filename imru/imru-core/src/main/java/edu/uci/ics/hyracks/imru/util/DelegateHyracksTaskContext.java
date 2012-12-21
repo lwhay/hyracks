@@ -6,7 +6,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
 import edu.uci.ics.hyracks.api.dataflow.TaskId;
-import edu.uci.ics.hyracks.api.dataflow.state.ITaskState;
+import edu.uci.ics.hyracks.api.dataflow.state.IStateObject;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.io.IIOManager;
@@ -63,13 +63,13 @@ public class DelegateHyracksTaskContext implements IHyracksTaskContext {
     }
 
     @Override
-    public void setTaskState(ITaskState taskState) {
-        delegate.setTaskState(taskState);
+    public void setStateObject(IStateObject taskState) {
+        delegate.setStateObject(taskState);
     }
 
     @Override
-    public ITaskState getTaskState(TaskId taskId) {
-        return delegate.getTaskState(taskId);
+    public IStateObject getStateObject(Object taskId) {
+        return delegate.getStateObject(taskId);
     }
 
     @Override
@@ -87,4 +87,9 @@ public class DelegateHyracksTaskContext implements IHyracksTaskContext {
         return delegate.getCounterContext();
     }
 
+     @Override
+    public void sendApplicationMessageToCC(byte[] message, String nodeId)
+            throws Exception {
+        delegate.sendApplicationMessageToCC(message, nodeId);
+    }
 }

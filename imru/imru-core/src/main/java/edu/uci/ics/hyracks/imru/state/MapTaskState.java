@@ -7,13 +7,13 @@ import java.io.IOException;
 import edu.uci.ics.hyracks.api.dataflow.TaskId;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractTaskState;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
 
 /**
  * Used to share state (the cached data file) between the data loading
  * and map operators.
  */
-public class MapTaskState extends AbstractTaskState {
+public class MapTaskState extends AbstractStateObject {
 
     private RunFileWriter out;
 

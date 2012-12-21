@@ -18,26 +18,26 @@ import java.util.Map;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.dataflow.state.ITaskState;
+import edu.uci.ics.hyracks.api.dataflow.state.IStateObject;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.StateKey;
 
 public class IterationUtils {
 
-    public static void setIterationState(IHyracksTaskContext ctx, int partition, ITaskState state) {
+    public static void setIterationState(IHyracksTaskContext ctx, int partition, IStateObject state) {
         INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
         IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
-        Map<StateKey, ITaskState> map = context.getAppStateStore();
+        Map<StateKey, IStateObject> map = context.getAppStateStore();
         map.put(new StateKey(ctx.getJobletContext().getJobId(), partition), state);
     }
 
-    public static ITaskState getIterationState(IHyracksTaskContext ctx, int partition) {
+    public static IStateObject getIterationState(IHyracksTaskContext ctx, int partition) {
         JobId currentId = ctx.getJobletContext().getJobId();
         JobId lastId = new JobId(currentId.getId() - 1);
         INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
         IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
-        Map<StateKey, ITaskState> map = context.getAppStateStore();
+        Map<StateKey, IStateObject> map = context.getAppStateStore();
         return map.get(new StateKey(lastId, partition));
     }
 
@@ -46,7 +46,7 @@ public class IterationUtils {
         JobId lastId = new JobId(currentId.getId() - 1);
         INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
         IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
-        Map<StateKey, ITaskState> map = context.getAppStateStore();
+        Map<StateKey, IStateObject> map = context.getAppStateStore();
         map.remove(new StateKey(lastId, partition));
     }
 

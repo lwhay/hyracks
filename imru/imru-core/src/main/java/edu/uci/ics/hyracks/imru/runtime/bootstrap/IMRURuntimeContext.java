@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.dataflow.state.ITaskState;
+import edu.uci.ics.hyracks.api.dataflow.state.IStateObject;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.io.IWorkspaceFileFactory;
@@ -34,7 +34,7 @@ import edu.uci.ics.hyracks.imru.api.IModel;
  * dataflow.
  */
 public class IMRURuntimeContext implements IWorkspaceFileFactory {
-    private Map<StateKey, ITaskState> appStateMap = new ConcurrentHashMap<StateKey, ITaskState>();
+    private Map<StateKey, IStateObject> appStateMap = new ConcurrentHashMap<StateKey, IStateObject>();
     private IOManager ioManager;
     private DefaultDeallocatableRegistry registry = new DefaultDeallocatableRegistry();
 
@@ -63,7 +63,7 @@ public class IMRURuntimeContext implements IWorkspaceFileFactory {
      */
     public int modelAge = 0;
 
-    public Map<StateKey, ITaskState> getAppStateStore() {
+    public Map<StateKey, IStateObject> getAppStateStore() {
         return appStateMap;
     }
 

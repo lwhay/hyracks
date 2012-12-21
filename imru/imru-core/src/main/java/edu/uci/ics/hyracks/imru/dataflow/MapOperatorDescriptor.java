@@ -9,7 +9,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.mortbay.log.Log;
+import org.eclipse.jetty.util.log.Log;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -154,12 +154,15 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
             // To improve the filesystem cache hit rate under a LRU replacement
             // policy, alternate the read direction on each round.
             boolean readInReverse = roundNum % 2 != 0;
+            LOG.info("Can't read in reverse direction");
+            readInReverse=false;
             LOG.info("Reading cached input data in " + (readInReverse ? "forwards" : "reverse") + " direction");
             RunFileWriter runFileWriter = state.getRunFileWriter();
 
             Log.info("Cached example file size is " + runFileWriter.getFileSize() + " bytes");
             RunFileReader reader = new RunFileReader(runFileWriter.getFileReference(), ctx.getIOManager(),
-                    runFileWriter.getFileSize(), readInReverse);
+                    runFileWriter.getFileSize());
+            //readInReverse
             reader.open();
             ByteBuffer inputFrame = fileCtx.allocateFrame();
             ChunkFrameHelper chunkFrameHelper = new ChunkFrameHelper(ctx);

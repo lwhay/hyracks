@@ -3,6 +3,7 @@ package edu.uci.ics.hyracks.imru.runtime;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.EnumSet;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -13,6 +14,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
@@ -154,9 +156,12 @@ public class IMRUDriver<Model extends IModel> {
      */
     private JobStatus runDataLoad() throws Exception {
         JobSpecification job = jobFactory.generateDataLoadJob(imruSpec, id);
-        JobId jobId = hcc.createJob(app, job);
-        hcc.start(jobId);
+        JobId jobId = hcc.startJob(app, job, EnumSet
+                .of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
+//        JobId jobId = hcc.createJob(app, job);
+//        hcc.start(jobId);
+//        hcc.waitForCompletion(jobId);
         return hcc.getJobStatus(jobId);
     }
 
@@ -174,8 +179,10 @@ public class IMRUDriver<Model extends IModel> {
      */
     private JobStatus runIMRUIteration(String envInPath, String envOutPath, int iterationNum) throws Exception {
         JobSpecification job = jobFactory.generateJob(imruSpec, id, iterationNum, envInPath, envOutPath);
-        JobId jobId = hcc.createJob(app, job);
-        hcc.start(jobId);
+        JobId jobId = hcc.startJob(app, job, EnumSet
+                .of(JobFlag.PROFILE_RUNTIME));
+//        JobId jobId = hcc.createJob(app, job);
+//        hcc.start(jobId);
         hcc.waitForCompletion(jobId);
         return hcc.getJobStatus(jobId);
     }

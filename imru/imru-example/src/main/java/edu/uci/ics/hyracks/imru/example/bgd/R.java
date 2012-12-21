@@ -6,8 +6,8 @@ import java.util.Date;
 public class R {
     public static void p(String format, Object... args) {
         StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-        String line = "(" + elements[3].getFileName() + ":"
-                + elements[3].getLineNumber() + ")";
+        String line = "(" + elements[2].getFileName() + ":"
+                + elements[2].getLineNumber() + ")";
         String info = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                 .format(new Date())
                 + " " + line;
