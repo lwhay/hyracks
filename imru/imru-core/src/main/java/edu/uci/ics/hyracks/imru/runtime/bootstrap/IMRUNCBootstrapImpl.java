@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.application.INCBootstrap;
+import edu.uci.ics.hyracks.imru.example.bgd.R;
 
 /**
  * Bootstrap for creating the IMRU application context on node controllers.

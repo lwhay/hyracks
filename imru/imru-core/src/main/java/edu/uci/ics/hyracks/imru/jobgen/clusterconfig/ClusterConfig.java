@@ -185,6 +185,7 @@ public class ClusterConfig {
                 }
                 ncs.add(ncConfig[1]);
             }
+            reader.close();
             NCs = ncNames.toArray(new String[0]);
         } catch (IOException e) {
             throw new HyracksDataException(e);

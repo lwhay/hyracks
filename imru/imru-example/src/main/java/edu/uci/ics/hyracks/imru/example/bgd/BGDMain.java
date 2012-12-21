@@ -2,9 +2,12 @@ package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -76,13 +79,14 @@ public class BGDMain {
                         + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
                         + " -agg-tree-type none"//
                         + " -num-rounds 2"//
-                        + " -temp-path NC1:/tmp/output"//
-                        + " -model-file NC1:/tmp/__imru.txt"//
-                        + " -example-paths NC1:/data/imru/test/data.txt")
+                        + " -temp-path /tmp/output"//
+                        + " -model-file /tmp/__imru.txt"//
+                        + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
+                        + " -example-paths /data/imru/test/data.txt")
                         .split(" ");
 
             ImruTest.init();
-            ImruTest.createApp("bgd");
+            ImruTest.createApp("bgd",new File("imru/imru-example/src/main/resources/bgd.zip"));
 
             Options options = new Options();
             CmdLineParser parser = new CmdLineParser(options);
@@ -105,6 +109,10 @@ public class BGDMain {
             conf
                     .addResource(new Path(options.hadoopConfPath
                             + "/hdfs-site.xml"));
+            
+            FileSystem dfs = FileSystem.get(conf);
+            dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"), new Path("/data/imru/test/data.txt"));
+            
             // Hyracks cluster configuration
             ClusterConfig.setConfPath(options.clusterConfPath);
             ConfigurationFactory confFactory = new ConfigurationFactory(conf);

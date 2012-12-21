@@ -1,5 +1,6 @@
 package edu.uci.ics.hyracks.imru.example.bgd;
 
+import java.io.File;
 import java.util.EnumSet;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
@@ -63,8 +64,10 @@ public class ImruTest {
 
         // hyracks connection
         hcc = new HyracksConnection(CC_HOST, TEST_HYRACKS_CC_CLIENT_PORT);
-        ClusterConfig.setClusterPropertiesPath("imru/imru-core/src/main/resources/conf/cluster.properties");
-        ClusterConfig.setStorePath("imru/imru-core/src/main/resources/conf/stores.properties");
+        ClusterConfig
+                .setClusterPropertiesPath("imru/imru-core/src/main/resources/conf/cluster.properties");
+        ClusterConfig
+                .setStorePath("imru/imru-core/src/main/resources/conf/stores.properties");
         ClusterConfig.loadClusterConfig(CC_HOST, TEST_HYRACKS_CC_CLIENT_PORT);
     }
 
@@ -72,8 +75,9 @@ public class ImruTest {
         hcc.destroyApplication(hyracksAppName);
     }
 
-    public static void createApp(String hyracksAppName) throws Exception {
-        hcc.createApplication(hyracksAppName, null);
+    public static void createApp(String hyracksAppName, File harFile)
+            throws Exception {
+        hcc.createApplication(hyracksAppName, harFile);
     }
 
     public static void deinit() throws Exception {
@@ -88,12 +92,5 @@ public class ImruTest {
         JobId jobId = hcc.startJob(appName, spec, EnumSet
                 .of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
-    }
-
-    public static void main(String[] args) throws Exception {
-        ImruTest.init();
-        ImruTest.createApp("imru");
-        JobSpecification spec=new JobSpecification();
-        runJob(spec, "imru");
     }
 }
