@@ -23,7 +23,7 @@ import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 
 /**
  * Generic main class for running Hyracks IMRU jobs.
- *
+ * 
  * @author Josh Rosen
  */
 public class BGDMain {
@@ -68,11 +68,29 @@ public class BGDMain {
     }
 
     public static void main(String[] args) throws Exception {
+        if (args.length == 0)
+            args = ("-host localhost"//
+                    + " -app bgd"//
+                    + " -port 3099"//
+                    + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
+                    + " -agg-tree-type none"//
+                    + " -num-rounds 2"//
+                    + " -temp-path \"NC1:/tmp/output\""//
+                    + " -model-file \"NC1:/tmp/__imru.txt\""//
+                    + " -example-paths \"NC1:/data/imru/test/data.txt\"")
+                    .split(" ");
+
+        ImruTest.init();
+        ImruTest.createApp("bgd");
+
         Options options = new Options();
         CmdLineParser parser = new CmdLineParser(options);
         parser.parseArgument(args);
 
-        HyracksConnection hcc = new HyracksConnection(options.host, options.port);
+        R.p("connecting to hyracks");
+        HyracksConnection hcc = new HyracksConnection(options.host,
+                options.port);
+        R.p("connected to hyracks");
 
         if (!new File(options.hadoopConfPath).exists()) {
             System.err.println("Hadoop conf path does not exist!");
@@ -90,39 +108,49 @@ public class BGDMain {
         IJobFactory jobFactory;
 
         if (options.aggTreeType.equals("none")) {
-            jobFactory = new NoAggregationIMRUJobFactory(options.examplePaths, confFactory);
+            jobFactory = new NoAggregationIMRUJobFactory(options.examplePaths,
+                    confFactory);
         } else if (options.aggTreeType.equals("generic")) {
             if (options.aggCount < 1) {
                 throw new IllegalArgumentException(
                         "Must specify a nonnegative aggregator count using the -agg-count option");
             }
-            jobFactory = new GenericAggregationIMRUJobFactory(options.examplePaths, confFactory, options.aggCount);
+            jobFactory = new GenericAggregationIMRUJobFactory(
+                    options.examplePaths, confFactory, options.aggCount);
         } else if (options.aggTreeType.equals("nary")) {
-            if (options.fanIn < 1 ) {
+            if (options.fanIn < 1) {
                 throw new IllegalArgumentException(
                         "Must specify nonnegative -fan-in");
             }
-            jobFactory = new NAryAggregationIMRUJobFactory(options.examplePaths, confFactory, options.fanIn);
+            jobFactory = new NAryAggregationIMRUJobFactory(
+                    options.examplePaths, confFactory, options.fanIn);
         } else {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
 
-        DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(8000);
+        DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(
+                8000);
         LinearModel initalModel = new LinearModel(8000, options.numRounds);
 
-        IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc, imruSpec, initalModel, jobFactory, conf, options.tempPath, options.app);
+        IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc,
+                imruSpec, initalModel, jobFactory, conf, options.tempPath,
+                options.app);
 
+        R.p("starting job");
         JobStatus status = driver.run();
+        R.p("finish job");
         if (status == JobStatus.FAILURE) {
             System.err.println("Job failed; see CC and NC logs");
             System.exit(-1);
         }
         int iterationCount = driver.getIterationCount();
         LinearModel finalModel = driver.getModel();
-        System.out.println("Terminated after " + iterationCount + " iterations");
+        System.out
+                .println("Terminated after " + iterationCount + " iterations");
         System.out.println("Final model [0] " + finalModel.weights.array[0]);
         System.out.println("Final loss was " + finalModel.loss);
-        PrintWriter writer = new PrintWriter(new FileOutputStream(options.modelFilename));
+        PrintWriter writer = new PrintWriter(new FileOutputStream(
+                options.modelFilename));
         for (float x : finalModel.weights.array) {
             writer.println("" + x);
         }
