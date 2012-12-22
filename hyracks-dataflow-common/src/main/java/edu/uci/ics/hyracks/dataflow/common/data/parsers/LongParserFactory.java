@@ -32,7 +32,7 @@ public class LongParserFactory implements IValueParserFactory {
         return new IValueParser() {
             @Override
             public void parse(char[] buffer, int start, int length, DataOutput out) throws HyracksDataException {
-                long n = 0;
+                int n = 0;
                 int sign = 1;
                 int i = 0;
                 boolean pre = true;
@@ -48,6 +48,8 @@ public class LongParserFactory implements IValueParserFactory {
 
                         case '-':
                             sign = -1;
+                            pre = false;
+                            break;
 
                         case '0':
                         case '1':
@@ -60,6 +62,7 @@ public class LongParserFactory implements IValueParserFactory {
                         case '8':
                         case '9':
                             pre = false;
+                            n = n * 10 + (ch - '0');
                             break;
 
                         default:
@@ -99,7 +102,7 @@ public class LongParserFactory implements IValueParserFactory {
                             throw new HyracksDataException("Encountered " + ch);
                     }
                 }
-
+                
                 try {
                     out.writeLong(n * sign);
                 } catch (IOException e) {
