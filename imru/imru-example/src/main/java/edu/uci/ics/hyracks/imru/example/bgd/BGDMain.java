@@ -23,6 +23,7 @@ import edu.uci.ics.hyracks.imru.jobgen.NAryAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
+import edu.uci.ics.hyracks.imru.test.ImruTest;
 
 /**
  * Generic main class for running Hyracks IMRU jobs.
@@ -72,22 +73,22 @@ public class BGDMain {
 
     public static void main(String[] args) throws Exception {
         try {
-            if (args.length == 0)
+            if (args.length == 0) {
                 args = ("-host localhost"//
                         + " -app bgd"//
                         + " -port 3099"//
                         + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
                         + " -agg-tree-type none"//
                         + " -num-rounds 2"//
-                        + " -temp-path /tmp/output"//
+                        + " -temp-path /tmp"//
                         + " -model-file /tmp/__imru.txt"//
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
-                        + " -example-paths /data/imru/test/data.txt")
+                        + " -example-paths /input/data.txt")
                         .split(" ");
-
-            ImruTest.init();
-            ImruTest.createApp("bgd",new File("imru/imru-example/src/main/resources/bgd.zip"));
-
+                ImruTest.init();
+                ImruTest.createApp("bgd", new File(
+                        "imru/imru-example/src/main/resources/bgd.zip"));
+            }
             Options options = new Options();
             CmdLineParser parser = new CmdLineParser(options);
             parser.parseArgument(args);
@@ -109,10 +110,11 @@ public class BGDMain {
             conf
                     .addResource(new Path(options.hadoopConfPath
                             + "/hdfs-site.xml"));
-            
+
             FileSystem dfs = FileSystem.get(conf);
-            dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"), new Path("/data/imru/test/data.txt"));
-            
+            dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"),
+                    new Path("/input/data.txt"));
+
             // Hyracks cluster configuration
             ClusterConfig.setConfPath(options.clusterConfPath);
             ConfigurationFactory confFactory = new ConfigurationFactory(conf);

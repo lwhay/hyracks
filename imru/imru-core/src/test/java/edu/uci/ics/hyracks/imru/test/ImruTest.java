@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.imru.example.bgd;
+package edu.uci.ics.hyracks.imru.test;
 
 import java.io.File;
 import java.util.EnumSet;
