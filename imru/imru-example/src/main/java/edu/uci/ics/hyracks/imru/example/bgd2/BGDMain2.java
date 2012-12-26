@@ -1,12 +1,19 @@
 package edu.uci.ics.hyracks.imru.example.bgd2;
 
+import java.io.BufferedReader;
+import java.io.DataOutput;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
+import java.util.Scanner;
 import java.util.logging.Handler;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -15,11 +22,16 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobStatus;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
+import edu.uci.ics.hyracks.imru.api2.IMRUJobTmp;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.example.bgd.R;
@@ -34,7 +46,7 @@ import edu.uci.ics.hyracks.imru.test.ImruTest;
  * 
  * @author Josh Rosen
  */
-public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
+public class BGDMain2 implements IMRUJobTmp<LinearModel, LossGradient> {
     private final int numFeatures;
 
     public BGDMain2(int numFeatures) {
@@ -50,7 +62,7 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
     @Override
     public void openMap(LinearModel model, int cachedDataFrameSize)
             throws HyracksDataException {
-        R.p("openMap");
+        R.p("openMap " + this);
         lossGradientMap = new LossGradient();
         lossGradientMap.loss = 0.0f;
         lossGradientMap.gradient = new float[model.numFeatures];
@@ -64,7 +76,7 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
             throws HyracksDataException {
         accessor.reset(input);
         int tupleCount = accessor.getTupleCount();
-        R.p("map "+tupleCount);
+        R.p("map " + tupleCount + " " + this);
         for (int i = 0; i < tupleCount; i++) {
             example.reset(accessor, i);
             float innerProduct = example.dot(model.weights);
@@ -79,18 +91,19 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
     @Override
     public LossGradient closeMap(LinearModel model, int cachedDataFrameSize)
             throws HyracksDataException {
-        R.p("closeMap");
+        R.p("closeMap " + this);
         return lossGradientMap;
     }
 
     @Override
     public void openReduce() throws HyracksDataException {
-        R.p("openReduce");
+        R.p("openReduce " + this);
+        new Error().printStackTrace();
     }
 
     @Override
     public void reduce(LossGradient input) throws HyracksDataException {
-        R.p("reduce");
+        R.p("reduce " + this);
         if (lossGradientReduce == null) {
             lossGradientReduce = input;
         } else {
@@ -103,19 +116,19 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
     @Override
     public LossGradient closeReduce() throws HyracksDataException {
-        R.p("closeReduce");
+        R.p("closeReduce " + this);
         return lossGradientReduce;
     }
 
     @Override
     public void openUpdate(LinearModel model) throws HyracksDataException {
-        R.p("openUpdate");
+        R.p("openUpdate " + this);
     }
 
     @Override
     public void update(LossGradient input, LinearModel model)
             throws HyracksDataException {
-        R.p("update");
+        R.p("update " + this);
         if (lossGradientUpdate == null) {
             lossGradientUpdate = input;
         } else {
@@ -128,7 +141,7 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
     @Override
     public void closeUpdate(LinearModel model) throws HyracksDataException {
-        R.p("closeUpdate");
+        R.p("closeUpdate " + this);
         // Update loss
         model.loss = lossGradientUpdate.loss;
         model.loss += model.regularizationConstant * norm(model.weights.array);
@@ -155,7 +168,7 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
     @Override
     public int getCachedDataFrameSize() {
-        return 1024 * 1024;
+        return 4 * 1024;
     }
 
     @Override
@@ -164,8 +177,88 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
     }
 
     @Override
-    public ITupleParserFactory getTupleParserFactory() {
-        return new LibsvmExampleTupleParserFactory(numFeatures);
+    public void parse(IHyracksTaskContext ctx, InputStream in,
+            IFrameWriter writer) throws HyracksDataException {
+        ByteBuffer frame = ctx.allocateFrame();
+        FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
+        appender.reset(frame, true);
+        ArrayTupleBuilder tb = new ArrayTupleBuilder(2);
+        DataOutput dos = tb.getDataOutput();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        int activeFeatures = 0;
+        try {
+            Pattern whitespacePattern = Pattern.compile("\\s+");
+            Pattern labelFeaturePattern = Pattern.compile("[:=]");
+            String line;
+            boolean firstLine = true;
+            while (true) {
+                tb.reset();
+                if (firstLine) {
+                    long start = System.currentTimeMillis();
+                    line = reader.readLine();
+                    long end = System.currentTimeMillis();
+                    // LOG.info("First call to reader.readLine() took " + (end -
+                    // start) + " milliseconds");
+                    firstLine = false;
+                } else {
+                    line = reader.readLine();
+                }
+                if (line == null) {
+                    break;
+                }
+                String[] comps = whitespacePattern.split(line, 2);
+
+                // Label
+                // Ignore leading plus sign
+                if (comps[0].charAt(0) == '+') {
+                    comps[0] = comps[0].substring(1);
+                }
+
+                int label = Integer.parseInt(comps[0]);
+                dos.writeInt(label);
+                tb.addFieldEndOffset();
+                Scanner scan = new Scanner(comps[1]);
+                scan.useDelimiter(",|\\s+");
+                while (scan.hasNext()) {
+                    String[] parts = labelFeaturePattern.split(scan.next());
+                    int index = Integer.parseInt(parts[0]);
+                    if (index > numFeatures) {
+                        throw new IndexOutOfBoundsException("Feature index "
+                                + index
+                                + " exceed the declared number of features ("
+                                + numFeatures + ")");
+                    }
+                    // Ignore leading plus sign.
+                    if (parts[1].charAt(0) == '+') {
+                        parts[1] = parts[1].substring(1);
+                    }
+                    float value = Float.parseFloat(parts[1]);
+                    dos.writeInt(index);
+                    dos.writeFloat(value);
+                    activeFeatures++;
+                }
+                dos.writeInt(-1); // Marks the end of the sparse array.
+                tb.addFieldEndOffset();
+                if (!appender.append(tb.getFieldEndOffsets(),
+                        tb.getByteArray(), 0, tb.getSize())) {
+                    FrameUtils.flushFrame(frame, writer);
+                    appender.reset(frame, true);
+                    if (!appender.append(tb.getFieldEndOffsets(), tb
+                            .getByteArray(), 0, tb.getSize())) {
+                        // LOG.severe("Example too large to fit in frame: " +
+                        // line);
+                        throw new IllegalStateException();
+                    }
+                }
+            }
+            if (appender.getTupleCount() > 0) {
+                FrameUtils.flushFrame(frame, writer);
+            }
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+        // LOG.info("Parsed input partition containing " + activeFeatures +
+        // " active features");
     }
 
     private static class Options {
@@ -209,11 +302,6 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
     public static void main(String[] args) throws Exception {
         try {
-            Logger globalLogger = Logger.getLogger("");
-            Handler[] handlers = globalLogger.getHandlers();
-            for (Handler handler : handlers) {
-                globalLogger.removeHandler(handler);
-            }
             if (args.length == 0) {
                 args = ("-host localhost"//
                         + " -app bgd"//
@@ -226,9 +314,10 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
                         + " -model-file /tmp/__imru.txt"//
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
                         + " -example-paths /input/data.txt").split(" ");
-                ImruTest.init();
+                ImruTest.startControllers();
                 ImruTest.createApp("bgd", new File(
-                        "imru/imru-example/src/main/resources/bgd.zip"));
+                        "imru/imru-example/src/main/resources/bootstrap.zip"));
+                ImruTest.disableLogging();
             }
             Options options = new Options();
             CmdLineParser parser = new CmdLineParser(options);
@@ -241,31 +330,19 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
             // copy input files to HDFS
             FileSystem dfs = FileSystem.get(control.conf);
-            for (FileStatus f : dfs.listStatus(new Path("/tmp")))
-                dfs.delete(f.getPath());
+            if (dfs.listStatus(new Path("/tmp")) != null)
+                for (FileStatus f : dfs.listStatus(new Path("/tmp")))
+                    dfs.delete(f.getPath());
             dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"),
                     new Path("/input/data.txt"));
 
-            IJobFactory jobFactory;
-
             if (options.aggTreeType.equals("none")) {
-                jobFactory = new NoAggregationIMRUJobFactory(
-                        options.examplePaths, control.confFactory);
+                control.selectNoAggregation(options.examplePaths);
             } else if (options.aggTreeType.equals("generic")) {
-                if (options.aggCount < 1) {
-                    throw new IllegalArgumentException(
-                            "Must specify a nonnegative aggregator count using the -agg-count option");
-                }
-                jobFactory = new GenericAggregationIMRUJobFactory(
-                        options.examplePaths, control.confFactory,
+                control.selectGenericAggregation(options.examplePaths,
                         options.aggCount);
             } else if (options.aggTreeType.equals("nary")) {
-                if (options.fanIn < 1) {
-                    throw new IllegalArgumentException(
-                            "Must specify nonnegative -fan-in");
-                }
-                jobFactory = new NAryAggregationIMRUJobFactory(
-                        options.examplePaths, control.confFactory,
+                control.selectNAryAggregation(options.examplePaths,
                         options.fanIn);
             } else {
                 throw new IllegalArgumentException(
@@ -274,8 +351,8 @@ public class BGDMain2 implements IMRUJob2<LinearModel, LossGradient> {
 
             LinearModel initalModel = new LinearModel(8000, options.numRounds);
 
-            JobStatus status = control.run(job, initalModel, jobFactory,
-                    options.tempPath, options.app);
+            JobStatus status = control.run(job, initalModel, options.tempPath,
+                    options.app);
             if (status == JobStatus.FAILURE) {
                 System.err.println("Job failed; see CC and NC logs");
                 System.exit(-1);

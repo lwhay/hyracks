@@ -13,6 +13,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
+import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.example.bgd.data.FragmentableFloatArray;
 import edu.uci.ics.hyracks.imru.example.bgd.data.LinearExample;
@@ -20,7 +21,15 @@ import edu.uci.ics.hyracks.imru.example.bgd.data.LinearModel;
 import edu.uci.ics.hyracks.imru.example.bgd.data.RecordDescriptorUtils;
 
 public class BGDMapFunctionFactory implements IMapFunctionFactory<LinearModel> {
-
+     @Override
+    public IMapFunction2 createMapFunction2(IHyracksTaskContext ctx,
+            int cachedDataFrameSize, LinearModel model) {
+        return null;
+    }
+      @Override
+    public boolean useAPI2() {
+        return false;
+    }
     @Override
     public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize, final LinearModel model) {
         return new IMapFunction() {

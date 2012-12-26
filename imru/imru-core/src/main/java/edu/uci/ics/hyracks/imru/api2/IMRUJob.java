@@ -10,16 +10,16 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-abstract public class IMRUJob2<Model> implements Serializable {
-    abstract public void map(Iterator<ByteBuffer> input, Model model,
-            OutputStream output,int cachedDataFrameSize) throws HyracksDataException;
+abstract public class IMRUJob<Model, IntermediateResult> implements
+        Serializable {
+    abstract public IntermediateResult map(Iterator<ByteBuffer> input,
+            Model model, int cachedDataFrameSize) throws HyracksDataException;
 
-    abstract public void reduce(IHyracksTaskContext ctx,
-            Iterator<byte[]> input, OutputStream output)
+    abstract public IntermediateResult reduce(Iterator<IntermediateResult> input)
             throws HyracksDataException;
 
-    abstract public void update(IHyracksTaskContext ctx,
-            Iterator<byte[]> input, Model model) throws HyracksDataException;
+    abstract public void update(Iterator<IntermediateResult> input, Model model)
+            throws HyracksDataException;
 
     abstract public Model initModel();
 
@@ -29,4 +29,5 @@ abstract public class IMRUJob2<Model> implements Serializable {
             IFrameWriter writer) throws HyracksDataException;
 
     public abstract boolean shouldTerminate(Model model);
+
 }

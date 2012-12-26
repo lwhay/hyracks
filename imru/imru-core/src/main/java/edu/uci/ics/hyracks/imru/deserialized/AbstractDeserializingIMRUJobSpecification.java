@@ -3,6 +3,7 @@ package edu.uci.ics.hyracks.imru.deserialized;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -13,6 +14,7 @@ import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
+import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
@@ -45,12 +47,21 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
     @Override
     public final IMapFunctionFactory<Model> getMapFunctionFactory() {
         return new IMapFunctionFactory<Model>() {
+            @Override
+            public boolean useAPI2() {
+                return false;
+            }
+
+            public IMapFunction2 createMapFunction2(IHyracksTaskContext ctx,
+                    int cachedDataFrameSize, Model model) {
+                return null;
+            };
 
             @Override
             public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize,
                     final Model model) {
                 return new IMapFunction() {
-
+                    
                     private IFrameWriter writer;
                     private IDeserializedMapFunction<T> mapFunction = getDeserializedMapFunctionFactory()
                             .createMapFunction(model, cachedDataFrameSize);

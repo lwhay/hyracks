@@ -3,6 +3,7 @@ package edu.uci.ics.hyracks.imru.dataflow;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.logging.Logger;
 
 import org.apache.hadoop.conf.Configuration;
@@ -25,6 +26,8 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
+import edu.uci.ics.hyracks.imru.api.IMapFunction2;
+import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
@@ -160,20 +163,55 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
             RunFileWriter runFileWriter = state.getRunFileWriter();
 
             Log.info("Cached example file size is " + runFileWriter.getFileSize() + " bytes");
-            RunFileReader reader = new RunFileReader(runFileWriter.getFileReference(), ctx.getIOManager(),
+            final RunFileReader reader = new RunFileReader(runFileWriter.getFileReference(), ctx.getIOManager(),
                     runFileWriter.getFileSize());
             //readInReverse
             reader.open();
-            ByteBuffer inputFrame = fileCtx.allocateFrame();
+            final ByteBuffer inputFrame = fileCtx.allocateFrame();
             ChunkFrameHelper chunkFrameHelper = new ChunkFrameHelper(ctx);
-            IMapFunction mapFunction = imruSpec.getMapFunctionFactory().createMapFunction(chunkFrameHelper.getContext(), imruSpec.getCachedDataFrameSize(), model);
-            writer = chunkFrameHelper.wrapWriter(writer, partition);
-            mapFunction.open();
-            mapFunction.setFrameWriter(writer);
-            while (reader.nextFrame(inputFrame)) {
-                mapFunction.map(inputFrame);
+            IMapFunctionFactory<Model> factory=imruSpec.getMapFunctionFactory();
+            if (factory.useAPI2()) {
+                Iterator<ByteBuffer> input=new Iterator<ByteBuffer>() {
+                    boolean read=false;
+                    boolean hasData;
+                    @Override
+                    public void remove() {
+                    }
+                    
+                    @Override
+                    public ByteBuffer next() {
+                        if (!hasNext())
+                             return null;
+                        read=false;
+                        return inputFrame;
+                    }
+                    
+                    @Override
+                    public boolean hasNext() {
+                        try {
+                            if (!read) {
+                                hasData=reader.nextFrame(inputFrame);
+                                read=true;
+                            }
+                        } catch (HyracksDataException e) {
+                            e.printStackTrace();
+                        }
+                        return hasData;
+                    }
+                };
+                writer = chunkFrameHelper.wrapWriter(writer, partition);
+                IMapFunction2 mapFunction = factory.createMapFunction2(chunkFrameHelper.getContext(), imruSpec.getCachedDataFrameSize(), model);
+                mapFunction.map(input, writer);
+            } else {
+                IMapFunction mapFunction = factory.createMapFunction(chunkFrameHelper.getContext(), imruSpec.getCachedDataFrameSize(), model);
+                writer = chunkFrameHelper.wrapWriter(writer, partition);
+                mapFunction.open();
+                mapFunction.setFrameWriter(writer);
+                while (reader.nextFrame(inputFrame)) {
+                    mapFunction.map(inputFrame);
+                }
+                mapFunction.close();
             }
-            mapFunction.close();
             writer.close();
         }
 

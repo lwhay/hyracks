@@ -85,7 +85,7 @@ public class BGDMain {
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
                         + " -example-paths /input/data.txt")
                         .split(" ");
-                ImruTest.init();
+                ImruTest.startControllers();
                 ImruTest.createApp("bgd", new File(
                         "imru/imru-example/src/main/resources/bgd.zip"));
             }

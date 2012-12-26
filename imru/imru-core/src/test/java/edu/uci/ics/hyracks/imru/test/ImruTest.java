@@ -2,6 +2,8 @@ package edu.uci.ics.hyracks.imru.test;
 
 import java.io.File;
 import java.util.EnumSet;
+import java.util.logging.Handler;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
@@ -30,7 +32,7 @@ public class ImruTest {
     private static NodeControllerService nc2;
     private static IHyracksClientConnection hcc;
 
-    public static void init() throws Exception {
+    public static void startControllers() throws Exception {
         CCConfig ccConfig = new CCConfig();
         ccConfig.clientNetIpAddress = CC_HOST;
         ccConfig.clusterNetIpAddress = CC_HOST;
@@ -69,6 +71,13 @@ public class ImruTest {
         ClusterConfig
                 .setStorePath("imru/imru-core/src/main/resources/conf/stores.properties");
         ClusterConfig.loadClusterConfig(CC_HOST, TEST_HYRACKS_CC_CLIENT_PORT);
+    }
+
+    public static void disableLogging() throws Exception {
+        Logger globalLogger = Logger.getLogger("");
+        Handler[] handlers = globalLogger.getHandlers();
+        for (Handler handler : handlers)
+            globalLogger.removeHandler(handler);
     }
 
     public static void destroyApp(String hyracksAppName) throws Exception {

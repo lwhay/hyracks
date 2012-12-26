@@ -66,6 +66,7 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
             reduceFunction = imruSpec.getReduceFunctionFactory().createReduceFunction(chunkFrameHelper.getContext());
             writer = chunkFrameHelper.wrapWriter(writer, partition);
             reduceFunction.setFrameWriter(writer);
+            reduceFunction.open();
         }
 
         @Override
