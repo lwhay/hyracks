@@ -5,4 +5,9 @@ import java.io.Serializable;
 public class LossGradient implements Serializable {
     float loss;
     float[] gradient;
+
+    public LossGradient(int numFeatures) {
+        loss = 0;
+        gradient = new float[numFeatures];
+    }
 }
