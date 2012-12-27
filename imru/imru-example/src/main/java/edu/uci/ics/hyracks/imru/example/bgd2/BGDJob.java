@@ -18,7 +18,6 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
-import edu.uci.ics.hyracks.imru.example.bgd.R;
 
 public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
     int features;

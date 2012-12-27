@@ -17,13 +17,14 @@ import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.example.bgd.data.LinearModel;
 import edu.uci.ics.hyracks.imru.example.bgd.deserialized.DeserializedBGDJobSpecification;
+import edu.uci.ics.hyracks.imru.example.utils.ImruTest;
+import edu.uci.ics.hyracks.imru.example.utils.R;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.GenericAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.NAryAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
-import edu.uci.ics.hyracks.imru.test.ImruTest;
 
 /**
  * Generic main class for running Hyracks IMRU jobs.
@@ -83,11 +84,12 @@ public class BGDMain {
                         + " -temp-path /tmp"//
                         + " -model-file /tmp/__imru.txt"//
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
-                        + " -example-paths /input/data.txt")
-                        .split(" ");
-                ImruTest.startControllers();
+                        + " -example-paths /input/data.txt").split(" ");
+                ImruTest.startCC("localhost", 1099, 3099);
+                ImruTest.startNC1("nc1", "localhost", 1099);
+                ImruTest.startNC2("nc2", "localhost", 1099);
                 ImruTest.createApp("bgd", new File(
-                        "imru/imru-example/src/main/resources/bgd.zip"));
+                        "imru/imru-example/src/main/resources/bootstrap.zip"));
             }
             Options options = new Options();
             CmdLineParser parser = new CmdLineParser(options);

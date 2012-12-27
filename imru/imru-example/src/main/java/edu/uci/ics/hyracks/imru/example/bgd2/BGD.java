@@ -12,7 +12,7 @@ import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
-import edu.uci.ics.hyracks.imru.test.ImruTest;
+import edu.uci.ics.hyracks.imru.example.utils.ImruTest;
 
 /**
  * Generic main class for running Hyracks IMRU jobs.
@@ -72,7 +72,9 @@ public class BGD {
                         + " -model-file /tmp/__imru.txt"//
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
                         + " -example-paths /input/data.txt").split(" ");
-                ImruTest.startControllers();
+                ImruTest.startCC("localhost", 1099, 3099);
+                ImruTest.startNC1("nc1", "localhost", 1099);
+                ImruTest.startNC2("nc2", "localhost", 1099);
                 ImruTest.createApp("bgd", new File(
                         "imru/imru-example/src/main/resources/bootstrap.zip"));
                 ImruTest.disableLogging();

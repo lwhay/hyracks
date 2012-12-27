@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.imru.example.bgd;
+package edu.uci.ics.hyracks.imru.example.utils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;

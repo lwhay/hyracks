@@ -15,6 +15,7 @@
 package edu.uci.ics.hyracks.imru.jobgen.clusterconfig;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -171,6 +172,10 @@ public class ClusterConfig {
     private static void loadClusterConfig() throws HyracksException {
         String line = "";
         ipToNcMapping = new HashMap<String, List<String>>();
+        if (!new File(confPath).exists()) {
+            NCs=new String[0];
+            return;
+        }
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(confPath)));
             List<String> ncNames = new ArrayList<String>();

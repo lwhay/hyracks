@@ -22,7 +22,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
-import edu.uci.ics.hyracks.imru.example.bgd.R;
+import edu.uci.ics.hyracks.imru.example.utils.R;
 
 public class HelloWorldJob implements
         IMRUJob<HelloWorldModel, HelloWorldIncrementalResult> {

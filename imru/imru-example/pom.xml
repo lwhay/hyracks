@@ -3,13 +3,13 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>edu.uci.ics.hyracks.examples</groupId>
 	<artifactId>hyracks-imru-example</artifactId>
-	<version>0.2.0-SNAPSHOT</version>
+	<version>0.1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<parent>
 		<groupId>edu.uci.ics.hyracks</groupId>
-		<artifactId>hyracks-examples</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
+		<artifactId>imru</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
 	</parent>
 
 	<build>
@@ -85,29 +85,8 @@
 	<dependencies>
 	<dependency>
 		<groupId>edu.uci.ics.hyracks</groupId>
-		<artifactId>hyracks-api</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
-	</dependency>
-	<dependency>
-		<groupId>edu.uci.ics.hyracks</groupId>
-		<artifactId>hyracks-dataflow-common</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
-	</dependency>
-	<dependency>
-		<groupId>edu.uci.ics.hyracks</groupId>
-		<artifactId>hyracks-dataflow-std</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
-	</dependency>
-	<dependency>
-		<groupId>edu.uci.ics.hyracks</groupId>
 		<artifactId>hyracks-imru</artifactId>
-		<version>0.2.0-SNAPSHOT</version>
-	</dependency>
-	<dependency>
-		<groupId>org.apache.hadoop</groupId>
-		<artifactId>hadoop-core</artifactId>
-		<version>0.20.2</version>
-        <scope>provided</scope>
+		<version>0.1.0-SNAPSHOT</version>
 	</dependency>
 	</dependencies>
 
