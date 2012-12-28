@@ -22,12 +22,11 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
-import edu.uci.ics.hyracks.imru.example.utils.R;
+import edu.uci.ics.hyracks.imru.api2.TupleReader;
+import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
 public class HelloWorldJob implements
         IMRUJob<HelloWorldModel, HelloWorldIncrementalResult> {
-    static AtomicInteger nextId = new AtomicInteger();
-
     public HelloWorldJob() {
     }
 
@@ -41,40 +40,31 @@ public class HelloWorldJob implements
         return 256;
     }
 
+    @Override
+    public int getFieldCount() {
+        return 3;
+    }
+
     /**
      * Parse input data and create frames
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream in,
-            IFrameWriter writer) throws HyracksDataException {
-        ByteBuffer frame = ctx.allocateFrame();
-        FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
-        appender.reset(frame, true);
-        ArrayTupleBuilder tb = new ArrayTupleBuilder(2);
-        DataOutput dos = tb.getDataOutput();
+    public void parse(IHyracksTaskContext ctx, InputStream input,
+            TupleWriter output) throws HyracksDataException {
         try {
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(in));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    input));
             String line = reader.readLine();
             reader.close();
             for (String s : line.split(" ")) {
-                // create a new frame
-                appender.reset(frame, true);
-
-                tb.reset();
+                System.out.println("parse: " + s);
                 // add one field
-                dos.writeUTF(s);
-                tb.addFieldEndOffset();
+                output.writeUTF(s);
+                output.finishField();
                 // add another field
-                dos.writeUTF(s + "_copy");
-                tb.addFieldEndOffset();
-                if (!appender.append(tb.getFieldEndOffsets(),
-                        tb.getByteArray(), 0, tb.getSize())) {
-                    // if frame can't hold this tuple
-                    throw new IllegalStateException(
-                            "Example too large to fit in frame: " + line);
-                }
-                FrameUtils.flushFrame(frame, writer);
+                output.writeUTF(s + "1");
+                output.finishField();
+                output.finishTuple();
             }
         } catch (IOException e) {
             throw new HyracksDataException(e);
@@ -82,69 +72,45 @@ public class HelloWorldJob implements
     }
 
     @Override
-    public HelloWorldIncrementalResult map(Iterator<ByteBuffer> input,
-            HelloWorldModel model, int cachedDataFrameSize)
-            throws HyracksDataException {
-        int id = nextId.getAndIncrement();
-        HelloWorldIncrementalResult mapResult;
-        IFrameTupleAccessor accessor;
-        R.p("openMap" + id + " model=" + model.totalLength);
-        mapResult = new HelloWorldIncrementalResult();
-        accessor = new FrameTupleAccessor(cachedDataFrameSize,
-                new RecordDescriptor(new ISerializerDeserializer[2]));
-        while (input.hasNext()) {
-            ByteBuffer buf = input.next();
-            try {
-                accessor.reset(buf);
-                int tupleCount = accessor.getTupleCount();
-                ByteBufferInputStream bbis = new ByteBufferInputStream();
-                DataInputStream di = new DataInputStream(bbis);
-                for (int i = 0; i < tupleCount; i++) {
-                    int fieldId = 0;
-                    int startOffset = accessor.getFieldSlotsLength()
-                            + accessor.getTupleStartOffset(i)
-                            + accessor.getFieldStartOffset(i, fieldId);
-                    bbis.setByteBuffer(accessor.getBuffer(), startOffset);
-                    String word = di.readUTF();
-                    R.p("map%d read frame: %s", id, word);
-                    mapResult.length += word.length();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        R.p("closeMap" + id + " output=" + mapResult.length);
-        return mapResult;
+    public HelloWorldIncrementalResult map(TupleReader input,
+            HelloWorldModel model, int cachedDataFrameSize) throws IOException {
+        HelloWorldIncrementalResult result = new HelloWorldIncrementalResult();
+        input.seekToField(0);
+        String word = input.readUTF();
+        result.length = word.length();
+        System.out.println("map: " + word + " -> " + result.length);
+        return result;
     }
 
     @Override
     public HelloWorldIncrementalResult reduce(
             Iterator<HelloWorldIncrementalResult> input)
             throws HyracksDataException {
-        int id = nextId.getAndIncrement();
-        HelloWorldIncrementalResult reduceResult;
-        R.p("openReduce" + id);
-        reduceResult = new HelloWorldIncrementalResult();
+        HelloWorldIncrementalResult combined = new HelloWorldIncrementalResult();
+        StringBuilder sb = new StringBuilder();
         while (input.hasNext()) {
             HelloWorldIncrementalResult result = input.next();
-            R.p("reduce" + id + " input=" + result.length);
-            reduceResult.length += result.length;
+            sb.append(result.length + "+");
+            combined.length += result.length;
         }
-        R.p("closeReduce" + id + " output=" + reduceResult.length);
-        return reduceResult;
+        if (sb.length() > 0)
+            sb.deleteCharAt(sb.length() - 1);
+        System.out.println("reduce: " + sb + " -> " + combined.length);
+        return combined;
     }
 
     @Override
     public void update(Iterator<HelloWorldIncrementalResult> input,
             HelloWorldModel model) throws HyracksDataException {
-        int id = nextId.getAndIncrement();
-        R.p("openUpdate" + id + " input=" + model.totalLength);
+        StringBuilder sb = new StringBuilder();
+        int oldLength=model.totalLength;
         while (input.hasNext()) {
             HelloWorldIncrementalResult result = input.next();
-            R.p("update" + id);
+            sb.append("+" + result.length);
             model.totalLength += result.length;
         }
-        R.p("closeUpdate" + id + " output=" + model.totalLength);
+        System.out.println("update: " + oldLength + sb + " -> "
+                + model.totalLength);
         model.roundsRemaining--;
     }
 

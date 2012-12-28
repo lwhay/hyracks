@@ -1,83 +1,51 @@
 package edu.uci.ics.hyracks.imru.example.bgd2;
 
-import java.io.DataInputStream;
 import java.io.IOException;
 
-import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.imru.api2.TupleReader;
 
 public class LinearExample {
-
-    private final ByteBufferInputStream bbis;
-    private final DataInputStream di;
-
-    private IFrameTupleAccessor accessor;
-    private int tIndex;
+    TupleReader input;
     private boolean readLabel;
     private int label;
 
-    public LinearExample() {
-        bbis = new ByteBufferInputStream();
-        di = new DataInputStream(bbis);
+    public LinearExample(TupleReader input) {
+        this.input = input;
     }
 
-    public int getLabel() throws HyracksDataException {
+    public int getLabel() throws IOException {
         if (!readLabel) {
-            int tupleOffset = accessor.getTupleStartOffset(tIndex);
-            int fieldStart = accessor.getFieldStartOffset(tIndex, 0);
-            int startOffset = tupleOffset + accessor.getFieldSlotsLength() + fieldStart;
-            bbis.setByteBuffer(accessor.getBuffer(), startOffset);
-            label = IntegerSerializerDeserializer.INSTANCE.deserialize(di);
+            input.seekToField(0);
+            label = input.readInt();
             readLabel = true;
         }
         return label;
     }
 
-    public float dot(FragmentableFloatArray weights) throws HyracksDataException {
+    public float dot(FragmentableFloatArray weights) throws IOException {
         assert weights.fragmentStart == 0;
-        int tupleOffset = accessor.getTupleStartOffset(tIndex);
-        int fieldStart = accessor.getFieldStartOffset(tIndex, 1);
-        int startOffset = tupleOffset + accessor.getFieldSlotsLength() + fieldStart;
-        bbis.setByteBuffer(accessor.getBuffer(), startOffset);
+        input.seekToField(1);
         float innerProduct = 0.0f;
-        try {
-            int index = di.readInt();
-            while (index != -1) {
-                float value = di.readFloat();
-                innerProduct += value * weights.array[index - 1];
-                index = di.readInt();
-            }
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
+        while (true) {
+            int index = input.readInt();
+            if (index < 0)
+                break;
+            float value = input.readFloat();
+            innerProduct += value * weights.array[index - 1];
         }
         return innerProduct;
     }
 
-    public void computeGradient(FragmentableFloatArray weights, float innerProduct, float[] gradientAcc)
-            throws HyracksDataException {
+    public void computeGradient(FragmentableFloatArray weights,
+            float innerProduct, float[] gradientAcc) throws IOException {
         assert weights.fragmentStart == 0;
-        int tupleOffset = accessor.getTupleStartOffset(tIndex);
-        int fieldStart = accessor.getFieldStartOffset(tIndex, 1);
-        int startOffset = tupleOffset + accessor.getFieldSlotsLength() + fieldStart;
-        bbis.setByteBuffer(accessor.getBuffer(), startOffset);
-        try {
-            int index = di.readInt();
-            while (index != -1) {
-                float value = di.readFloat();
-                gradientAcc[index - 1] += 2 * (getLabel() - innerProduct) * value;
-                index = di.readInt();
-            }
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
+        input.seekToField(1);
+        while (true) {
+            int index = input.readInt();
+            if (index < 0)
+                break;
+            float value = input.readFloat();
+            gradientAcc[index - 1] += 2 * (getLabel() - innerProduct) * value;
         }
     }
-
-    public void reset(IFrameTupleAccessor accessor, int tIndex) {
-        this.accessor = accessor;
-        this.tIndex = tIndex;
-        readLabel = false;
-    }
-
 }

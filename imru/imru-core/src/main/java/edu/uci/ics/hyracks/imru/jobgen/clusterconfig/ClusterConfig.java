@@ -173,8 +173,9 @@ public class ClusterConfig {
         String line = "";
         ipToNcMapping = new HashMap<String, List<String>>();
         if (!new File(confPath).exists()) {
-            NCs=new String[0];
-            return;
+            throw new HyracksException("Can't find "+ confPath);
+//            NCs=new String[0];
+//            return;
         }
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(confPath)));

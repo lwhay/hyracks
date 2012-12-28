@@ -61,23 +61,49 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
                 confFactory, fanIn);
     }
 
-    public JobStatus run2(IMRUJob2<Model> job2, Model initialModel,
-            String tempPath, String app) throws Exception {
-        IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(
-                job2);
+    /**
+     * run job using low level interface
+     * @param job
+     * @param initialModel
+     * @param tempPath
+     * @param app
+     * @return
+     * @throws Exception
+     */
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
+            Model initialModel, String tempPath, String app) throws Exception {
         driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory,
                 conf, tempPath, app);
         return driver.run();
     }
 
+    /**
+     * run job using middle level interface
+     * @param job2
+     * @param tempPath
+     * @param app
+     * @return
+     * @throws Exception
+     */
+    public JobStatus run(IMRUJob2<Model> job2, String tempPath, String app)
+            throws Exception {
+        Model initialModel = job2.initModel();
+        IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(
+                job2);
+        return run(job, initialModel, tempPath, app);
+    }
+
+    /**
+     * run job using high level interface
+     * @param job
+     * @param tempPath
+     * @param app
+     * @return
+     * @throws Exception
+     */
     public JobStatus run(final IMRUJob<Model, T> job, String tempPath,
             String app) throws Exception {
-        Model initialModel = job.initModel();
-        IIMRUJobSpecificationImpl<Model> job2 = new IIMRUJobSpecificationImpl<Model>(
-                new IMRUJob2Impl<Model, T>(job));
-        driver = new IMRUDriver<Model>(hcc, job2, initialModel, jobFactory,
-                conf, tempPath, app);
-        return driver.run();
+        return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
     }
 
     /**

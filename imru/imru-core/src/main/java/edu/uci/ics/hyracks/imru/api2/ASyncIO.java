@@ -7,8 +7,8 @@ import java.util.List;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public class ASyncIO {
-    private LinkedList<byte[]> queue = new LinkedList<byte[]>();
+public class ASyncIO<Data> {
+    private LinkedList<Data> queue = new LinkedList<Data>();
     private boolean more = true;
 
     public ASyncIO() {
@@ -21,26 +21,26 @@ public class ASyncIO {
         }
     }
 
-    public void add(byte[] data) throws HyracksDataException {
+    public void add(Data data) throws HyracksDataException {
         synchronized (queue) {
             queue.addLast(data);
             queue.notifyAll();
         }
     }
 
-    public Iterator<byte[]> getInput() {
-        return new Iterator<byte[]>() {
-            byte[] data;
+    public Iterator<Data> getInput() {
+        return new Iterator<Data>() {
+            Data data;
 
             @Override
             public void remove() {
             }
 
             @Override
-            public byte[] next() {
+            public Data next() {
                 if (!hasNext())
                     return null;
-                byte[] data2 = data;
+                Data data2 = data;
                 data = null;
                 return data2;
             }

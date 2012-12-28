@@ -1,6 +1,7 @@
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -46,7 +47,11 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                     @Override
                     public void parse(InputStream in, IFrameWriter writer)
                             throws HyracksDataException {
-                        job2.parse(ctx, in, writer);
+                        try {
+                            job2.parse(ctx, in, writer);
+                        } catch (IOException e) {
+                            throw new HyracksDataException(e);
+                        }
                     }
                 };
             }
@@ -102,7 +107,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                     final IHyracksTaskContext ctx) {
                 return new IReassemblingReduceFunction() {
                     private IFrameWriter writer;
-                    private ASyncIO io;
+                    private ASyncIO<byte[]> io;
                     Future future;
 
                     @Override
@@ -112,7 +117,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
 
                     @Override
                     public void open() throws HyracksDataException {
-                        io = new ASyncIO();
+                        io = new ASyncIO<byte[]>();
                         future = threadPool.submit(new Runnable() {
                             @Override
                             public void run() {
@@ -158,12 +163,12 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
             public IUpdateFunction createUpdateFunction(
                     final IHyracksTaskContext ctx, final Model model) {
                 return new IReassemblingUpdateFunction() {
-                    private ASyncIO io;
+                    private ASyncIO<byte[]> io;
                     Future future;
 
                     @Override
                     public void open() throws HyracksDataException {
-                        io = new ASyncIO();
+                        io = new ASyncIO<byte[]>();
                         future = threadPool.submit(new Runnable() {
                             @Override
                             public void run() {
