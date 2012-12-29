@@ -232,6 +232,7 @@ public class Client<Model extends IModel, T extends Serializable> {
             throws IOException {
         FileSystem dfs = getHDFS();
         dfs.mkdirs(new Path(hdfsPath).getParent());
+        System.out.println("copy "+ localPath+" to "+ hdfsPath);
         dfs.copyFromLocalFile(new Path(localPath), new Path(hdfsPath));
         dfs.close();
     }

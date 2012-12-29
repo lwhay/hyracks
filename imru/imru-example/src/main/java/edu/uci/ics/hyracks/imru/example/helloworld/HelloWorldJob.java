@@ -75,10 +75,15 @@ public class HelloWorldJob implements
     public HelloWorldIncrementalResult map(TupleReader input,
             HelloWorldModel model, int cachedDataFrameSize) throws IOException {
         HelloWorldIncrementalResult result = new HelloWorldIncrementalResult();
-        input.seekToField(0);
-        String word = input.readUTF();
-        result.length = word.length();
-        System.out.println("map: " + word + " -> " + result.length);
+        while (true) {
+            input.seekToField(0);
+            String word = input.readUTF();
+            result.length = word.length();
+            System.out.println("map: " + word + " -> " + result.length);
+            if (!input.hasNextTuple())
+                break;
+            input.nextTuple();
+        }
         return result;
     }
 
@@ -103,7 +108,7 @@ public class HelloWorldJob implements
     public void update(Iterator<HelloWorldIncrementalResult> input,
             HelloWorldModel model) throws HyracksDataException {
         StringBuilder sb = new StringBuilder();
-        int oldLength=model.totalLength;
+        int oldLength = model.totalLength;
         while (input.hasNext()) {
             HelloWorldIncrementalResult result = input.next();
             sb.append("+" + result.length);

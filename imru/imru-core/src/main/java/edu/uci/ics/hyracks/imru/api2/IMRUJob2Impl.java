@@ -25,8 +25,8 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.example.utils.R;
 
-public class IMRUJob2Impl<Model extends IModel, T extends Serializable> implements
-        IMRUJob2<Model> {
+public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
+        implements IMRUJob2<Model> {
     IMRUJob<Model, T> job;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
 
@@ -48,42 +48,40 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable> implemen
     public void map(Iterator<ByteBuffer> input, Model model,
             OutputStream output, int cachedDataFrameSize)
             throws HyracksDataException {
-        final ASyncIO<T> io = new ASyncIO<T>();
-        Future<T> future = threadPool.submit(new Callable<T>() {
-            @Override
-            public T call() {
-                Iterator<T> input = io.getInput();
-                try {
-                    return job.reduce(input);
-                } catch (HyracksDataException e) {
-                    e.printStackTrace();
-                }
-                return null;
-            }
-        });
         FrameTupleAccessor accessor = new FrameTupleAccessor(
                 cachedDataFrameSize, new RecordDescriptor(
                         new ISerializerDeserializer[job.getFieldCount()]));
-        while (input.hasNext()) {
-            ByteBuffer buf = input.next();
-            try {
-                accessor.reset(buf);
-                int tupleCount = accessor.getTupleCount();
-                ByteBufferInputStream bbis = new ByteBufferInputStream();
-                TupleReader reader = new TupleReader(accessor, bbis);
-                for (int i = 0; i < tupleCount; i++) {
-                    reader.tupleId = i;
-                    reader.seekToField(0);
+        TupleReader reader = new TupleReader(input, accessor,
+                new ByteBufferInputStream());
+        try {
+            reader.nextTuple();
+            T reduceResult;
+            T firstResult = job.map(reader, model, cachedDataFrameSize);
+            if (!reader.hasNextTuple()) {
+                reduceResult = firstResult;
+            } else {
+                final ASyncIO<T> io = new ASyncIO<T>();
+                Future<T> future = threadPool.submit(new Callable<T>() {
+                    @Override
+                    public T call() {
+                        Iterator<T> input = io.getInput();
+                        try {
+                            return job.reduce(input);
+                        } catch (HyracksDataException e) {
+                            e.printStackTrace();
+                        }
+                        return null;
+                    }
+                });
+                io.add(firstResult);
+                while (reader.hasNextTuple()) {
+                    reader.nextTuple();
                     T result = job.map(reader, model, cachedDataFrameSize);
                     io.add(result);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+                io.close();
+                reduceResult = future.get();
             }
-            io.close();
-        }
-        try {
-            T reduceResult = future.get();
             byte[] objectData = JavaSerializationUtils.serialize(reduceResult);
             output.write(objectData);
             output.close();
