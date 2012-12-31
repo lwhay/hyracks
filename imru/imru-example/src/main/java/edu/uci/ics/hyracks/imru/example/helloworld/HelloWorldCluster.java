@@ -1,16 +1,27 @@
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
+import java.io.File;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+import java.util.Enumeration;
+
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 public class HelloWorldCluster {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            // default argument to run the example
-            String cmdline = "-host 10.0.2.15"//localhost
+            // default argument to run on local cluster
+            Client.generateClusterConfig(new File(
+                    "src/main/resources/cluster.conf"), Client.getLocalIp(),
+                    Client.getLocalHostName());
+            String cmdline = "-host "
+                    + Client.getLocalIp()// localhost
                     + " -port 3099"//
                     + " -app helloworld"//
-                    + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
+                    + " -hadoop-conf " + System.getProperty("user.home")
+                    + "/hadoop-0.20.2/conf"//
                     + " -cluster-conf src/main/resources/cluster.conf"//
                     + " -temp-path /helloworld"//
                     + " -example-paths /helloworld/input.txt"//
@@ -21,7 +32,6 @@ public class HelloWorldCluster {
         }
         Client<HelloWorldModel, HelloWorldIncrementalResult> client = new Client<HelloWorldModel, HelloWorldIncrementalResult>(
                 args);
-        Client.disableLogging(); // disable logs during debugging
         try {
             // connect to the cluster controller
             client.connect();

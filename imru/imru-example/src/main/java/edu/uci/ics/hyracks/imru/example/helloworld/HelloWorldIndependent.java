@@ -1,5 +1,7 @@
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
+import java.io.File;
+
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
@@ -7,10 +9,15 @@ public class HelloWorldIndependent {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             // default argument to run the example
+            Client.generateClusterConfig(new File(
+                    "src/main/resources/cluster.conf"), "127.0.0.1", "nc1",
+                    "127.0.0.1", "nc2");
             String cmdline = "-host localhost"//
                     + " -port 3099"//
                     + " -app helloworld"//
-                    + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
+                    + " -hadoop-conf "
+                    + System.getProperty("user.home")
+                    + "/hadoop-0.20.2/conf"//
                     + " -cluster-conf src/main/resources/cluster.conf"//
                     + " -temp-path /helloworld"//
                     + " -example-paths /helloworld/input.txt"//

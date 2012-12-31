@@ -5,8 +5,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.Serializable;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Enumeration;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
 import java.util.zip.ZipFile;
@@ -92,6 +97,32 @@ public class Client<Model extends IModel, T extends Serializable> {
     public Client(String[] args) throws CmdLineException {
         CmdLineParser parser = new CmdLineParser(options);
         parser.parseArgument(args);
+    }
+
+    public static String getLocalHostName() throws Exception {
+        return java.net.InetAddress.getLocalHost().getHostName();
+    }
+
+    public static String getLocalIp() throws Exception {
+        // return same ip as
+        // pregelix/pregelix-dist/target/appassembler/bin/getip.sh
+        String ip = "127.0.0.1";
+        NetworkInterface netint = NetworkInterface.getByName("eth0");
+        Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
+        for (InetAddress inetAddress : Collections.list(inetAddresses)) {
+            byte[] addr = inetAddress.getAddress();
+            if (addr != null && addr.length == 4)
+                ip = inetAddress.getHostAddress();
+        }
+        return ip;
+    }
+
+    public static void generateClusterConfig(File file, String... args)
+            throws IOException {
+        PrintStream ps = new PrintStream(file);
+        for (int i = 0; i < args.length / 2; i++)
+            ps.println(args[i * 2] + " " + args[i * 2 + 1]);
+        ps.close();
     }
 
     public void connect() throws Exception {

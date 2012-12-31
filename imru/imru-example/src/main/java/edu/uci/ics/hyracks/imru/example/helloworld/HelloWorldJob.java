@@ -78,7 +78,7 @@ public class HelloWorldJob implements
         while (true) {
             input.seekToField(0);
             String word = input.readUTF();
-            result.length = word.length();
+            result.length += word.length();
             System.out.println("map: " + word + " -> " + result.length);
             if (!input.hasNextTuple())
                 break;
