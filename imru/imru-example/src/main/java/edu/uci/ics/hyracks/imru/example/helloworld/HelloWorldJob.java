@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -27,26 +28,32 @@ import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
 public class HelloWorldJob implements
         IMRUJob<HelloWorldModel, HelloWorldIncrementalResult> {
-    public HelloWorldJob() {
-    }
-
+    /**
+     * Return initial model
+     */
     @Override
     public HelloWorldModel initModel() {
         return new HelloWorldModel();
     }
 
+    /**
+     * Frame size must be large enough to store at least one tuple
+     */
     @Override
     public int getCachedDataFrameSize() {
         return 256;
     }
 
+    /**
+     * Number of fields for each tuple
+     */
     @Override
     public int getFieldCount() {
         return 3;
     }
 
     /**
-     * Parse input data and create frames
+     * Parse input data and output tuples
      */
     @Override
     public void parse(IHyracksTaskContext ctx, InputStream input,
@@ -71,6 +78,11 @@ public class HelloWorldJob implements
         }
     }
 
+    /**
+     * For each tuple, return one result.
+     * Or by using nextTuple(), return one result
+     * after processing multiple tuples.
+     */
     @Override
     public HelloWorldIncrementalResult map(TupleReader input,
             HelloWorldModel model, int cachedDataFrameSize) throws IOException {
@@ -87,6 +99,9 @@ public class HelloWorldJob implements
         return result;
     }
 
+    /**
+     * Combine multiple results to one result
+     */
     @Override
     public HelloWorldIncrementalResult reduce(
             Iterator<HelloWorldIncrementalResult> input)
@@ -104,6 +119,9 @@ public class HelloWorldJob implements
         return combined;
     }
 
+    /**
+     * update the model using combined result
+     */
     @Override
     public void update(Iterator<HelloWorldIncrementalResult> input,
             HelloWorldModel model) throws HyracksDataException {

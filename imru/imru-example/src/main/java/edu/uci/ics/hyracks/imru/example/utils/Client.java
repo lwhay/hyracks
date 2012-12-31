@@ -36,7 +36,9 @@ import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
 import edu.uci.ics.hyracks.control.common.controllers.NCConfig;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 import edu.uci.ics.hyracks.imru.api.IModel;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.example.helloworld.HelloWorldIncrementalResult;
 import edu.uci.ics.hyracks.imru.example.helloworld.HelloWorldModel;
@@ -94,18 +96,32 @@ public class Client<Model extends IModel, T extends Serializable> {
     public Options options = new Options();
     Configuration conf;
 
+    /**
+     * Create a client object using a list of arguments
+     * @param args
+     * @throws CmdLineException
+     */
     public Client(String[] args) throws CmdLineException {
         CmdLineParser parser = new CmdLineParser(options);
         parser.parseArgument(args);
     }
 
+    /**
+     * Return local host name
+     * @return
+     * @throws Exception
+     */
     public static String getLocalHostName() throws Exception {
         return java.net.InetAddress.getLocalHost().getHostName();
     }
 
+    /**
+     * Return same ip as pregelix/pregelix-dist/target/appassembler/bin/getip.sh
+     * 
+     * @return
+     * @throws Exception
+     */
     public static String getLocalIp() throws Exception {
-        // return same ip as
-        // pregelix/pregelix-dist/target/appassembler/bin/getip.sh
         String ip = "127.0.0.1";
         NetworkInterface netint = NetworkInterface.getByName("eth0");
         Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
@@ -117,6 +133,15 @@ public class Client<Model extends IModel, T extends Serializable> {
         return ip;
     }
 
+    /**
+     * Generate cluster config file, required by IMRU
+     * 
+     * @param file
+     *            the config file to be written
+     * @param args
+     *            a list of ip and node names
+     * @throws IOException
+     */
     public static void generateClusterConfig(File file, String... args)
             throws IOException {
         PrintStream ps = new PrintStream(file);
@@ -125,6 +150,11 @@ public class Client<Model extends IModel, T extends Serializable> {
         ps.close();
     }
 
+    /**
+     * connect to the cluster controller
+     * 
+     * @throws Exception
+     */
     public void connect() throws Exception {
         this.control = new IMRUJobControl<Model, T>();
         control.connect(options.host, options.port, options.hadoopConfPath,
@@ -142,17 +172,50 @@ public class Client<Model extends IModel, T extends Serializable> {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
         // hyracks connection
-        hcc = new HyracksConnection(options.host, options.port);
+        hcc = control.hcc;
     }
 
+    /**
+     * run IMRU job
+     * 
+     * @throws Exception
+     */
     public JobStatus run(IMRUJob<Model, T> job) throws Exception {
         return control.run(job, options.tempPath, options.app);
     }
 
+    /**
+     * run IMRU job using low level interface
+     * 
+     * @throws Exception
+     */
+    public JobStatus run(IMRUJob2<Model> job) throws Exception {
+        return control.run(job, options.tempPath, options.app);
+    }
+
+    /**
+     * run IMRU job using callback interface
+     * 
+     * @throws Exception
+     */
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
+            Model initialModel) throws Exception {
+        return control.run(job, initialModel, options.tempPath, options.app);
+    }
+
+    /**
+     * @return a handle to HDFS
+     * @throws IOException
+     */
     public FileSystem getHDFS() throws IOException {
         return FileSystem.get(conf);
     }
 
+    /**
+     * Clear HDFS temp directory which holds intermediate models
+     * 
+     * @throws Exception
+     */
     public void clearTempDirectory() throws Exception {
         FileSystem dfs = getHDFS();
         // remove old intermediate models
@@ -162,12 +225,26 @@ public class Client<Model extends IModel, T extends Serializable> {
         dfs.close();
     }
 
+    /**
+     * start local cluster controller and two node controller for debugging
+     * purpose
+     * 
+     * @throws Exception
+     */
     public void startClusterAndNodes() throws Exception {
         startCC(options.host, options.clusterPort, options.port);
         startNC1("nc1", options.host, options.clusterPort);
         startNC2("nc2", options.host, options.clusterPort);
     }
 
+    /**
+     * Start a cluster controller
+     * 
+     * @param host
+     * @param clusterNetPort
+     * @param clientNetPort
+     * @throws Exception
+     */
     public void startCC(String host, int clusterNetPort, int clientNetPort)
             throws Exception {
         CCConfig ccConfig = new CCConfig();
@@ -183,6 +260,14 @@ public class Client<Model extends IModel, T extends Serializable> {
         cc.start();
     }
 
+    /**
+     * Start the first node controller
+     * 
+     * @param NC1_ID
+     * @param host
+     * @param clusterNetPort
+     * @throws Exception
+     */
     public void startNC1(String NC1_ID, String host, int clusterNetPort)
             throws Exception {
         NCConfig ncConfig1 = new NCConfig();
@@ -195,6 +280,14 @@ public class Client<Model extends IModel, T extends Serializable> {
         nc1.start();
     }
 
+    /**
+     * Start the second node controller
+     * 
+     * @param NC2_ID
+     * @param host
+     * @param clusterNetPort
+     * @throws Exception
+     */
     public void startNC2(String NC2_ID, String host, int clusterNetPort)
             throws Exception {
         NCConfig ncConfig2 = new NCConfig();
@@ -214,6 +307,11 @@ public class Client<Model extends IModel, T extends Serializable> {
         // TEST_HYRACKS_CC_CLIENT_PORT);
     }
 
+    /**
+     * disable logs
+     * 
+     * @throws Exception
+     */
     public static void disableLogging() throws Exception {
         Logger globalLogger = Logger.getLogger("");
         Handler[] handlers = globalLogger.getHandlers();
@@ -221,16 +319,34 @@ public class Client<Model extends IModel, T extends Serializable> {
             globalLogger.removeHandler(handler);
     }
 
+    /**
+     * Remove the application
+     * 
+     * @param hyracksAppName
+     * @throws Exception
+     */
     public void destroyApp(String hyracksAppName) throws Exception {
         hcc.destroyApplication(hyracksAppName);
     }
 
+    /**
+     * Stop cluster controller and node controllers
+     * 
+     * @throws Exception
+     */
     public void deinit() throws Exception {
         nc2.stop();
         nc1.stop();
         cc.stop();
     }
 
+    /**
+     * Run an already uploaded job
+     * 
+     * @param spec
+     * @param appName
+     * @throws Exception
+     */
     public void runJob(JobSpecification spec, String appName) throws Exception {
         spec.setFrameSize(FRAME_SIZE);
         JobId jobId = hcc.startJob(appName, spec, EnumSet
@@ -238,12 +354,26 @@ public class Client<Model extends IModel, T extends Serializable> {
         hcc.waitForCompletion(jobId);
     }
 
+    /**
+     * Write raw data to a local file
+     * 
+     * @param file
+     * @param bs
+     * @throws IOException
+     */
     public void writeLocalFile(File file, byte[] bs) throws IOException {
         FileOutputStream out = new FileOutputStream(file);
         out.write(bs);
         out.close();
     }
 
+    /**
+     * Copy a local file to HDFS
+     * 
+     * @param localPath
+     * @param hdfsPath
+     * @throws IOException
+     */
     public void copyFromLocalToHDFS(String localPath, String hdfsPath)
             throws IOException {
         FileSystem dfs = getHDFS();
@@ -253,6 +383,12 @@ public class Client<Model extends IModel, T extends Serializable> {
         dfs.close();
     }
 
+    /**
+     * Create a HAR file contains jars specified in .classpath and uploaded to
+     * hyracks cluster
+     * 
+     * @throws Exception
+     */
     public void uploadApp() throws Exception {
         File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);

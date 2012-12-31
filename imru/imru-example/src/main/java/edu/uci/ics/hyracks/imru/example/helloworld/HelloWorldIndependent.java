@@ -8,27 +8,41 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
 public class HelloWorldIndependent {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            // default argument to run the example
+            // if no argument is given, the following code
+            // create default arguments to run the example
             Client.generateClusterConfig(new File(
                     "src/main/resources/cluster.conf"), "127.0.0.1", "nc1",
                     "127.0.0.1", "nc2");
-            String cmdline = "-host localhost"//
-                    + " -port 3099"//
-                    + " -app helloworld"//
-                    + " -hadoop-conf "
-                    + System.getProperty("user.home")
-                    + "/hadoop-0.20.2/conf"//
-                    + " -cluster-conf src/main/resources/cluster.conf"//
-                    + " -temp-path /helloworld"//
-                    + " -example-paths /helloworld/input.txt"//
-                    + " -agg-tree-type generic"//
-                    + " -agg-count 1";
+            String cmdline = "";
+            // hostname of cluster controller
+            cmdline += "-host localhost";
+            // port of cluster controller
+            cmdline += " -port 3099";
+            // application name
+            cmdline += " -app helloworld";
+            // hadoop config path
+            cmdline += " -hadoop-conf " + System.getProperty("user.home")
+                    + "/hadoop-0.20.2/conf";
+            // ip address and node names
+            cmdline += " -cluster-conf src/main/resources/cluster.conf";
+            // HDFS path to hold intermediate models
+            cmdline += " -temp-path /helloworld";
+            // HDFS path of input data
+            cmdline += " -example-paths /helloworld/input.txt";
+            // aggregation type
+            cmdline += " -agg-tree-type generic";
+            // aggregation parameter
+            cmdline += " -agg-count 1";
             System.out.println("Using command line: " + cmdline);
             args = cmdline.split(" ");
         }
+
+        // create a client object, which handles everything
         Client<HelloWorldModel, HelloWorldIncrementalResult> client = new Client<HelloWorldModel, HelloWorldIncrementalResult>(
                 args);
-        Client.disableLogging(); // disable logs during debugging
+
+        // disable logs
+        Client.disableLogging();
         try {
             // start local cluster controller and two node controller
             // for debugging purpose
@@ -58,6 +72,10 @@ public class HelloWorldIndependent {
         } catch (Throwable e) {
             e.printStackTrace();
         }
+        // stop local cluster
+        client.deinit();
+
+        // terminate everything
         System.exit(0);
     }
 }
