@@ -9,6 +9,8 @@ import java.io.Serializable;
 import java.util.EnumSet;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -108,6 +110,8 @@ public class Client<Model extends IModel, T extends Serializable> {
         } else {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
+        // hyracks connection
+        hcc = new HyracksConnection(options.host, options.port);
     }
 
     public JobStatus run(IMRUJob<Model, T> job) throws Exception {
@@ -146,9 +150,6 @@ public class Client<Model extends IModel, T extends Serializable> {
         // cluster controller
         cc = new ClusterControllerService(ccConfig);
         cc.start();
-
-        // hyracks connection
-        hcc = new HyracksConnection(host, clientNetPort);
     }
 
     public void startNC1(String NC1_ID, String host, int clusterNetPort)
@@ -193,22 +194,6 @@ public class Client<Model extends IModel, T extends Serializable> {
         hcc.destroyApplication(hyracksAppName);
     }
 
-    public void createApp() throws Exception {
-        // Minimum config file to invoke
-        // edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUNCBootstrapImpl
-        InputStream in = IMRUJobControl.class.getClassLoader()
-                .getResourceAsStream("imru_bootstrap.zip");
-        if (in == null)
-            throw new Exception("can't find imru_bootstrap.zip");
-        File harFile = File.createTempFile("imru_bootstrap", ".zip");
-        FileOutputStream out = new FileOutputStream(harFile);
-        CreateHar.copy(in, out);
-        in.close();
-        out.close();
-        hcc.createApplication(options.app, harFile);
-        harFile.delete();
-    }
-
     public void deinit() throws Exception {
         nc2.stop();
         nc1.stop();
@@ -232,16 +217,21 @@ public class Client<Model extends IModel, T extends Serializable> {
             throws IOException {
         FileSystem dfs = getHDFS();
         dfs.mkdirs(new Path(hdfsPath).getParent());
-        System.out.println("copy "+ localPath+" to "+ hdfsPath);
+        System.out.println("copy " + localPath + " to " + hdfsPath);
         dfs.copyFromLocalFile(new Path(localPath), new Path(hdfsPath));
         dfs.close();
     }
 
-    public void deployHar() throws Exception {
-        File harFile = new File("tmp/helloworld.har");
+    public void uploadApp() throws Exception {
+        File harFile = File.createTempFile("imru_app", ".zip");
+        FileOutputStream out = new FileOutputStream(harFile);
         CreateHar.createHar(harFile);
-        HyracksConnection hcc = new HyracksConnection(options.host,
-                options.port);
-        hcc.createApplication(options.app, harFile);
+        out.close();
+        try {
+            hcc.createApplication(options.app, harFile);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        harFile.delete();
     }
 }

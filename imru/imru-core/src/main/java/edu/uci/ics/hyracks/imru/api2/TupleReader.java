@@ -6,7 +6,6 @@ import java.util.Iterator;
 
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
-import edu.uci.ics.hyracks.imru.example.utils.R;
 
 public class TupleReader extends DataInputStream {
     Iterator<ByteBuffer> input;

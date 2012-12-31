@@ -35,19 +35,14 @@ public class BGD {
             // for debugging purpose
             client.startClusterAndNodes();
 
-            // create the application in local cluster
-            client.createApp();
-
             // connect to the cluster controller
             client.connect();
 
-            // Remove everything in the HDFS temporary directory
-            // The models will be added up there after running this example many
-            // times
-            client.clearTempDirectory();
+            // create the application in local cluster
+            client.uploadApp();
 
-            client.copyFromLocalToHDFS("/data/imru/test/data.txt",
-                    "/input/data.txt");
+//            client.copyFromLocalToHDFS("/data/imru/test/data.txt",
+//                    "/input/data.txt");
 
             BGDJob job = new BGDJob(8000, client.options.numRounds);
 

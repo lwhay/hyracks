@@ -1,7 +1,5 @@
 package edu.uci.ics.hyracks.imru.api2;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,7 +21,6 @@ import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.imru.api.IModel;
-import edu.uci.ics.hyracks.imru.example.utils.R;
 
 public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
         implements IMRUJob2<Model> {

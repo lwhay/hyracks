@@ -17,7 +17,6 @@ import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.example.bgd.data.LinearModel;
 import edu.uci.ics.hyracks.imru.example.bgd.deserialized.DeserializedBGDJobSpecification;
-import edu.uci.ics.hyracks.imru.example.utils.R;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.GenericAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.NAryAggregationIMRUJobFactory;
@@ -157,9 +156,7 @@ public class BGDMain {
                     imruSpec, initalModel, jobFactory, conf, options.tempPath,
                     options.app);
 
-            R.p("starting job");
             JobStatus status = driver.run();
-            R.p("finish job");
             if (status == JobStatus.FAILURE) {
                 System.err.println("Job failed; see CC and NC logs");
                 System.exit(-1);

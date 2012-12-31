@@ -33,7 +33,7 @@ public class CreateHar {
             for (File f : file.listFiles())
                 add(name + "/" + f.getName(), f, zip);
         } else {
-            System.out.println("add " + name);
+//            System.out.println("add " + name);
             ZipEntry entry = new ZipEntry(name);
             entry.setTime(file.lastModified());
             zip.putNextEntry(entry);
@@ -44,10 +44,11 @@ public class CreateHar {
 
     public static void createHar(File harFile) throws IOException {
         ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(harFile));
-        add("hyracks-deployment.properties", new File(
-                "conf/hyracks-deployment.properties"), zip);
+        // add("hyracks-deployment.properties", new File(
+        // "src/main/resources/hyracks-deployment.properties"), zip);
         add("lib/hyracks-imru-0.1.0-SNAPSHOT.jar", new File(
-                "lib/hyracks-imru-0.1.0-SNAPSHOT.jar"), zip);
-        add("classes", new File("bin"), zip);
+                "target/appassembler/lib/hyracks-imru-0.1.0-SNAPSHOT.jar"), zip);
+        add("classes", new File("target/classes"), zip);
+        zip.finish();
     }
 }

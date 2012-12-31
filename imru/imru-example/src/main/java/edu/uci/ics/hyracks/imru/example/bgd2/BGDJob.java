@@ -105,12 +105,17 @@ public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
             int cachedDataFrameSize) throws IOException {
         LossGradient lossGradientMap = new LossGradient(model.numFeatures);
         LinearExample example = new LinearExample(input);
-        float innerProduct = example.dot(model.weights);
-        float diff = (example.getLabel() - innerProduct);
-        lossGradientMap.loss += diff * diff; // Use L2 loss
-        // function.
-        example.computeGradient(model.weights, innerProduct,
-                lossGradientMap.gradient);
+        while (true) {
+            float innerProduct = example.dot(model.weights);
+            float diff = (example.getLabel() - innerProduct);
+            lossGradientMap.loss += diff * diff; // Use L2 loss
+            // function.
+            example.computeGradient(model.weights, innerProduct,
+                    lossGradientMap.gradient);
+            if (!input.hasNextTuple())
+                break;
+            input.nextTuple();
+        }
         return lossGradientMap;
     }
 
