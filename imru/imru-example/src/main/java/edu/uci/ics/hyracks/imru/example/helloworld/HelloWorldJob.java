@@ -26,6 +26,12 @@ import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
+/**
+ * Core IMRU application specific code.
+ * The dataflow is parse->map->reduce->update
+ * 
+ * @author wangrui
+ */
 public class HelloWorldJob implements
         IMRUJob<HelloWorldModel, HelloWorldIncrementalResult> {
     /**

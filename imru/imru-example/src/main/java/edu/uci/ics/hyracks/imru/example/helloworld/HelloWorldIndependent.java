@@ -5,6 +5,12 @@ import java.io.File;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
+/**
+ * Start a local cluster within the process
+ * and run the helloworld example.
+ * 
+ * @author wangrui
+ */
 public class HelloWorldIndependent {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
@@ -65,7 +71,7 @@ public class HelloWorldIndependent {
             }
 
             // print (or save) the model
-            HelloWorldModel finalModel = client.control.getModel();
+            HelloWorldModel finalModel = client.getModel();
             System.out.println("Terminated after "
                     + client.control.getIterationCount() + " iterations");
             System.out.println("FinalModel: " + finalModel.totalLength);
