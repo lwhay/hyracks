@@ -39,17 +39,20 @@ import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 /**
  * This class wraps IMRU common functions.
  * 
- * Example usage:
- * <blockquote><pre>
- * Client<Model, MapReduceResult> client = new Client<Model, MapReduceResult>(args);
+ * Example usage: <blockquote>
+ * 
+ * <pre>
+ * Client&lt;Model, MapReduceResult&gt; client = new Client&lt;Model, MapReduceResult&gt;(args);
  * //start a in-process cluster for debugging 
  * //client.startClusterAndNodes();  
- * client.connect(); 
- * client.uploadApp(); 
- * IMRUJob job = new IMRUJob(); 
- * JobStatus status = client.run(job); 
+ * client.connect();
+ * client.uploadApp();
+ * IMRUJob job = new IMRUJob();
+ * JobStatus status = client.run(job);
  * Model finalModel = client.getModel();
- * </pre></blockquote>
+ * </pre>
+ * 
+ * </blockquote>
  * 
  * @author wangrui
  * 
@@ -142,11 +145,13 @@ public class Client<Model extends IModel, T extends Serializable> {
     public static String getLocalIp() throws Exception {
         String ip = "127.0.0.1";
         NetworkInterface netint = NetworkInterface.getByName("eth0");
-        Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
-        for (InetAddress inetAddress : Collections.list(inetAddresses)) {
-            byte[] addr = inetAddress.getAddress();
-            if (addr != null && addr.length == 4)
-                ip = inetAddress.getHostAddress();
+        if (netint != null) {
+            Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
+            for (InetAddress inetAddress : Collections.list(inetAddresses)) {
+                byte[] addr = inetAddress.getAddress();
+                if (addr != null && addr.length == 4)
+                    ip = inetAddress.getHostAddress();
+            }
         }
         return ip;
     }
