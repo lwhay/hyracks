@@ -16,9 +16,6 @@ public class HelloWorldIndependent {
         if (args.length == 0) {
             // if no argument is given, the following code
             // create default arguments to run the example
-            Client.generateClusterConfig(new File(
-                    "src/main/resources/cluster.conf"), "127.0.0.1", "nc1",
-                    "127.0.0.1", "nc2");
             String cmdline = "";
             // hostname of cluster controller
             cmdline += "-host localhost";
@@ -29,8 +26,6 @@ public class HelloWorldIndependent {
             // hadoop config path
             cmdline += " -hadoop-conf " + System.getProperty("user.home")
                     + "/hadoop-0.20.2/conf";
-            // ip address and node names
-            cmdline += " -cluster-conf src/main/resources/cluster.conf";
             // HDFS path to hold intermediate models
             cmdline += " -temp-path /helloworld";
             // HDFS path of input data

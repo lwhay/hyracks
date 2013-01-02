@@ -35,6 +35,7 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
+import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 
 /**
  * This class wraps IMRU common functions.
@@ -182,6 +183,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         this.control = new IMRUJobControl<Model, T>();
         control.connect(options.host, options.port, options.hadoopConfPath,
                 options.clusterConfPath);
+        hcc = control.hcc;
         conf = control.conf;
         // set aggregation type
         if (options.aggTreeType.equals("none")) {
@@ -195,7 +197,6 @@ public class Client<Model extends IModel, T extends Serializable> {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
         // hyracks connection
-        hcc = control.hcc;
     }
 
     /**

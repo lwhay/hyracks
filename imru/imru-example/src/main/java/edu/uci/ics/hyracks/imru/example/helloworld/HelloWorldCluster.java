@@ -1,7 +1,9 @@
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
 import java.io.File;
+import java.util.Map;
 
+import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
@@ -15,9 +17,6 @@ public class HelloWorldCluster {
         if (args.length == 0) {
             // if no argument is given, the following code
             // create default arguments to run the example
-            Client.generateClusterConfig(new File(
-                    "src/main/resources/cluster.conf"), Client.getLocalIp(),
-                    Client.getLocalHostName());
             String cmdline = "";
             // hostname of cluster controller
             cmdline += "-host " + Client.getLocalIp();
@@ -28,8 +27,6 @@ public class HelloWorldCluster {
             // hadoop config path
             cmdline += " -hadoop-conf " + System.getProperty("user.home")
                     + "/hadoop-0.20.2/conf";
-            // ip address and node names
-            cmdline += " -cluster-conf src/main/resources/cluster.conf";
             // HDFS path to hold intermediate models
             cmdline += " -temp-path /helloworld";
             // HDFS path of input data

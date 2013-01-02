@@ -24,7 +24,6 @@ public class BGD {
                         + " -num-rounds 5"//
                         + " -temp-path /tmp"//
                         + " -model-file /tmp/__imru.txt"//
-                        + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
                         + " -example-paths /input/data.txt").split(" ");
             }
             Client<LinearModel, LossGradient> client = new Client<LinearModel, LossGradient>(

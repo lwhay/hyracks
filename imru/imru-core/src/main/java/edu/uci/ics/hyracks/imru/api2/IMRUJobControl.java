@@ -36,7 +36,10 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
         conf.addResource(new Path(hadoopConfPath + "/core-site.xml"));
         conf.addResource(new Path(hadoopConfPath + "/mapred-site.xml"));
         conf.addResource(new Path(hadoopConfPath + "/hdfs-site.xml"));
-        ClusterConfig.setConfPath(clusterConfPath);
+        if (clusterConfPath == null || !new File(clusterConfPath).exists())
+            ClusterConfig.setConf(hcc);
+        else
+            ClusterConfig.setConfPath(clusterConfPath);
         confFactory = new ConfigurationFactory(conf);
     }
 
@@ -63,6 +66,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
 
     /**
      * run job using low level interface
+     * 
      * @param job
      * @param initialModel
      * @param tempPath
@@ -79,6 +83,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
 
     /**
      * run job using middle level interface
+     * 
      * @param job2
      * @param tempPath
      * @param app
@@ -95,6 +100,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
 
     /**
      * run job using high level interface
+     * 
      * @param job
      * @param tempPath
      * @param app
