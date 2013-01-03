@@ -1,7 +1,5 @@
 package edu.uci.ics.hyracks.imru.example.digitRecognition;
 
-import java.io.File;
-
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 

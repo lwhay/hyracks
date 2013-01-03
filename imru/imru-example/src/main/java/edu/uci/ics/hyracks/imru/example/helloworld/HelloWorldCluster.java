@@ -9,8 +9,6 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**
  * Upload helloworld example to a cluster and run it.
- * 
- * @author wangrui
  */
 public class HelloWorldCluster {
     public static void main(String[] args) throws Exception {

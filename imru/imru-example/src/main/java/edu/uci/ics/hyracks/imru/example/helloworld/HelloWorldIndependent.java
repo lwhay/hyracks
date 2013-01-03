@@ -8,8 +8,6 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
 /**
  * Start a local cluster within the process
  * and run the helloworld example.
- * 
- * @author wangrui
  */
 public class HelloWorldIndependent {
     public static void main(String[] args) throws Exception {
