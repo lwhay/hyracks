@@ -83,6 +83,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
             output.write(objectData);
             output.close();
         } catch (Exception e) {
+            e.printStackTrace();
             throw new HyracksDataException(e);
         }
     }

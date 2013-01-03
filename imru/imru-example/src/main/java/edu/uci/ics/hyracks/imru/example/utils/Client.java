@@ -86,6 +86,15 @@ public class Client<Model extends IModel, T extends Serializable> {
         @Option(name = "-temp-path", usage = "HDFS path to hold temporary files", required = true)
         public String tempPath;
 
+        @Option(name = "-abondon-intermediate-models", usage = "Don't save intermediate models to the temp directory")
+        public boolean abondonIntermediateModels;
+
+        @Option(name = "-model-file-name", usage = "Name of the model file")
+        public String modelFileNameHDFS;
+        
+        @Option(name = "-using-existing-model", usage = "Use existing model if possible")
+        public boolean useExistingModels;
+
         @Option(name = "-example-paths", usage = "HDFS path to hold input data")
         public String examplePaths = "/input/data.txt";
 
@@ -181,6 +190,9 @@ public class Client<Model extends IModel, T extends Serializable> {
      */
     public void connect() throws Exception {
         this.control = new IMRUJobControl<Model, T>();
+        control.saveIntermediateModels = !options.abondonIntermediateModels;
+        control.modelFileName = options.modelFileNameHDFS;
+        control.useExistingModels=options.useExistingModels;
         control.connect(options.host, options.port, options.hadoopConfPath,
                 options.clusterConfPath);
         hcc = control.hcc;

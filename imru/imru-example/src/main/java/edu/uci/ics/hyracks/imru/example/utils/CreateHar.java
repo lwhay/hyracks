@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -60,7 +62,13 @@ public class CreateHar {
 
         ByteArrayOutputStream memory = new ByteArrayOutputStream();
         ZipOutputStream zip2 = new ZipOutputStream(memory);
-        add("", new File("target/classes"), zip2);
+        String p = CreateHar.class.getName().replace('.', '/') + ".class";
+        URL url = CreateHar.class.getClassLoader().getResource(p);
+        String path = url.getPath();
+        path = path.substring(0, path.length() - p.length());
+        Logger.getLogger(CreateHar.class.getName()).info(
+                "Add " + path + " to HAR");
+        add("", new File(path), zip2);
         zip2.finish();
 
         ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(harFile));

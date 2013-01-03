@@ -21,7 +21,7 @@ public class BGD {
                         + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
                         + " -agg-tree-type generic"//
                         + " -agg-count 1"//
-                        + " -num-rounds 5"//
+                        + " -num-rounds 15"//
                         + " -temp-path /tmp"//
                         + " -model-file /tmp/__imru.txt"//
                         + " -example-paths /input/data.txt").split(" ");
@@ -39,9 +39,6 @@ public class BGD {
 
             // create the application in local cluster
             client.uploadApp();
-
-//            client.copyFromLocalToHDFS("/data/imru/test/data.txt",
-//                    "/input/data.txt");
 
             BGDJob job = new BGDJob(8000, client.options.numRounds);
 

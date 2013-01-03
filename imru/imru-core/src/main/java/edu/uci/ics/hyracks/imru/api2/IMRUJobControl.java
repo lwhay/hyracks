@@ -23,6 +23,9 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
     public ConfigurationFactory confFactory;
     IJobFactory jobFactory;
     IMRUDriver<Model> driver;
+    public boolean saveIntermediateModels=true;
+    public String modelFileName;
+    public boolean useExistingModels;
 
     public void connect(String ccHost, int ccPort, String hadoopConfPath,
             String clusterConfPath) throws Exception {
@@ -78,6 +81,9 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
             Model initialModel, String tempPath, String app) throws Exception {
         driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory,
                 conf, tempPath, app);
+        driver.modelFileName=modelFileName;
+        driver.saveIntermediateModels= saveIntermediateModels;
+        driver.useExistingModels= useExistingModels;
         return driver.run();
     }
 

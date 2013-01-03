@@ -42,6 +42,9 @@ public class IMRUDriver<Model extends IModel> {
     private final UUID id;
 
     private int iterationCount;
+    public String modelFileName;
+    public boolean saveIntermediateModels=true;
+    public boolean useExistingModels=false;
 
     /**
      * Construct a new IMRUDriver.
@@ -75,6 +78,12 @@ public class IMRUDriver<Model extends IModel> {
         iterationCount = 0;
     }
 
+    public String getModelName() {
+        if ( modelFileName!=null)
+            return modelFileName;
+        else
+            return "IMRU-" + id;
+    }
     /**
      * Run iterative map reduce update.
      *
@@ -92,7 +101,18 @@ public class IMRUDriver<Model extends IModel> {
         Path modelOutPath;
         // For the first round, the initial model is written by the
         // driver.
-        writeModelToFile(model, new Path(tempPath, "IMRU-" + id + "-iter" + 0));
+        if (saveIntermediateModels)
+            writeModelToFile(model, new Path(tempPath, getModelName() + "-iter" + 0));
+        else {
+            Path path=new Path(tempPath, getModelName());
+            if (useExistingModels) {
+                FileSystem dfs = FileSystem.get(conf);
+                if (!dfs.exists(path))
+                    writeModelToFile(model, path);
+            } else {
+                writeModelToFile(model, path);
+            }
+        }
 
         // Data load
         LOGGER.info("Starting data load");
@@ -108,9 +128,14 @@ public class IMRUDriver<Model extends IModel> {
         // Iterations
         do {
             iterationCount++;
-            modelOutPath = new Path(tempPath, "IMRU-" + id + "-iter" + iterationCount);
-            modelInPath = new Path(tempPath, "IMRU-" + id + "-iter" + (iterationCount - 1));
-
+            if (saveIntermediateModels) {
+                modelOutPath = new Path(tempPath, getModelName() + "-iter" + iterationCount);
+                modelInPath = new Path(tempPath, getModelName() + "-iter" + (iterationCount - 1));
+            } else {
+                modelOutPath = new Path(tempPath, getModelName());
+                modelInPath = new Path(tempPath, getModelName());
+            }
+            
             LOGGER.info("Starting round " + iterationCount);
             long start = System.currentTimeMillis();
             status = runIMRUIteration(modelInPath.toString(), modelOutPath.toString(), iterationCount);
