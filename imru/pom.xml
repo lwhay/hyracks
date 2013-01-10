@@ -96,5 +96,6 @@
   <modules>
     <module>imru-core</module>
     <module>imru-example</module>
+    <module>imru-dist</module>
   </modules>
 </project>
