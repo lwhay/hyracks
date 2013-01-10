@@ -1,6 +1,7 @@
 package edu.uci.ics.hyracks.imru.example.kmeans;
 
 import java.io.File;
+import java.io.Serializable;
 
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
@@ -36,7 +37,7 @@ public class KMeansIndependent {
         }
 
         // create a client object, which handles everything
-        Client<KMeansModel, KMeansCentroids> client = new Client<KMeansModel, KMeansCentroids>(
+        Client<KMeansModel, Serializable> client = new Client<KMeansModel, Serializable>(
                 args);
 
         // disable logs

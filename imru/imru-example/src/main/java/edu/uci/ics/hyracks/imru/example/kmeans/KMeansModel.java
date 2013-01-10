@@ -9,15 +9,13 @@ import edu.uci.ics.hyracks.imru.api.IModel;
  */
 public class KMeansModel implements IModel {
     Centroid[] centroids;
+    public int roundsRemaining = 20;
+    public boolean firstRound = true;
 
     public KMeansModel(int k) {
         centroids = new Centroid[k];
-        Random random = new Random();
-        for (int i = 0; i < k; i++) {
+        for (int i = 0; i < k; i++)
             centroids[i] = new Centroid();
-            centroids[i].x = centroids[i].y = random.nextDouble() * 20;
-        }
     }
 
-    public int roundsRemaining = 20;
 }

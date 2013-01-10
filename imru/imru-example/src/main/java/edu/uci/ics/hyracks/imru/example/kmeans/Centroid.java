@@ -22,6 +22,11 @@ public class Centroid implements Serializable {
         count += c.count;
     }
 
+    public void set(DataPoint p) {
+        x = p.x;
+        y = p.y;
+    }
+
     @Override
     public String toString() {
         return "(" + x + "," + y + ")";
