@@ -14,8 +14,12 @@ public class Main {
             // if no argument is given, the following code
             // create default arguments to run the example
             String cmdline = "";
+            // debugging mode, everything run in one process
+            cmdline += "-debug";
+            // disable logging
+            cmdline += " -disable-logging";
             // hostname of cluster controller
-            cmdline += "-host localhost";
+            cmdline += " -host localhost";
             // port of cluster controller
             cmdline += " -port 3099";
             // application name
@@ -41,45 +45,8 @@ public class Main {
             args = cmdline.split(" ");
         }
 
-        // create a client object, which handles everything
-        Client<NeuralNetwork, Result> client = new Client<NeuralNetwork, Result>(
-                args);
-
-        // disable logs
-        Client.disableLogging();
-        try {
-            // start local cluster controller and two node controller
-            // for debugging purpose
-            client.startClusterAndNodes();
-
-            // connect to the cluster controller
-            client.connect();
-
-            // create the application in local cluster
-            client.uploadApp();
-
-            // create IMRU job
-            Job job = new Job();
-
-            // run job
-            JobStatus status = client.run(job);
-            if (status == JobStatus.FAILURE) {
-                System.err.println("Job failed; see CC and NC logs");
-                System.exit(-1);
-            }
-
-            // print (or save) the model
-            NeuralNetwork finalModel = client.getModel();
-            System.out.println("Terminated after "
-                    + client.control.getIterationCount() + " iterations");
-            System.out.println("FinalModel: " + finalModel.errorRate);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-        // stop local cluster
-        client.deinit();
-
-        // terminate everything
+        NeuralNetwork finalModel = Client.run(new Job(), args);
+        System.out.println("FinalModel: " + finalModel.errorRate);
         System.exit(0);
     }
 }

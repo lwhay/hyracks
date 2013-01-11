@@ -35,7 +35,6 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
-import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 
 /**
  * This class wraps IMRU common functions.
@@ -65,6 +64,12 @@ import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
  */
 public class Client<Model extends IModel, T extends Serializable> {
     public static class Options {
+        @Option(name = "-debug", usage = "Start cluster controller and node controller in this process for debugging")
+        public boolean debug;
+
+        @Option(name = "-disable-logging", usage = "Disable logging. So console output can be seen when debugging")
+        public boolean disableLogging;
+
         @Option(name = "-host", usage = "Hyracks Cluster Controller Host name", required = true)
         public String host;
 
@@ -91,7 +96,7 @@ public class Client<Model extends IModel, T extends Serializable> {
 
         @Option(name = "-model-file-name", usage = "Name of the model file")
         public String modelFileNameHDFS;
-        
+
         @Option(name = "-using-existing-model", usage = "Use existing model if possible")
         public boolean useExistingModels;
 
@@ -192,7 +197,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         this.control = new IMRUJobControl<Model, T>();
         control.saveIntermediateModels = !options.abondonIntermediateModels;
         control.modelFileName = options.modelFileNameHDFS;
-        control.useExistingModels=options.useExistingModels;
+        control.useExistingModels = options.useExistingModels;
         control.connect(options.host, options.port, options.hadoopConfPath,
                 options.clusterConfPath);
         hcc = control.hcc;
@@ -443,5 +448,53 @@ public class Client<Model extends IModel, T extends Serializable> {
      */
     public Model getModel() {
         return control.getModel();
+    }
+
+    /**
+     * start local cluster controller and two node controller for debugging
+     * purpose
+     * 
+     * @throws Exception
+     */
+    public static void startClusterAndNodes(String[] args) throws Exception {
+        Client clent = new Client<IModel, Serializable>(args);
+        clent.startClusterAndNodes();
+    }
+
+    /**
+     * run job
+     * 
+     * @throws Exception
+     */
+    public static <M extends IModel, R extends Serializable> M run(
+            IMRUJob<M, R> job, String[] args) throws Exception {
+        // create a client object, which handles everything
+        Client<M, R> client = new Client<M, R>(args);
+
+        // disable logs
+        if (client.options.disableLogging)
+            Client.disableLogging();
+
+        // start local cluster controller and two node controller
+        // for debugging purpose
+        if (client.options.debug)
+            client.startClusterAndNodes();
+
+        // connect to the cluster controller
+        client.connect();
+
+        // create the application in local cluster
+        client.uploadApp();
+
+        // run job
+        JobStatus status = client.run(job);
+        if (status == JobStatus.FAILURE) {
+            System.err.println("Job failed; see CC and NC logs");
+            System.exit(-1);
+        }
+        // System.out.println("Terminated after "
+        // + client.control.getIterationCount() + " iterations");
+
+        return client.getModel();
     }
 }

@@ -1,36 +1,33 @@
-package edu.uci.ics.hyracks.imru.example.helloworld;
+package edu.uci.ics.hyracks.imru.example.kmeans;
 
-import java.io.File;
-import java.util.Map;
-
-import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
-import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.imru.example.kmeans.KMeansJob;
-import edu.uci.ics.hyracks.imru.example.kmeans.KMeansModel;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**
- * Upload helloworld example to a cluster and run it.
+ * Start a local cluster within the process and run the kmeans example.
  */
-public class HelloWorldCluster {
+public class KMeans {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             // if no argument is given, the following code
             // create default arguments to run the example
             String cmdline = "";
+            // debugging mode, everything run in one process
+            cmdline += "-debug";
+            // disable logging
+            cmdline += " -disable-logging";
             // hostname of cluster controller
-            cmdline += "-host " + Client.getLocalIp();
+            cmdline += " -host localhost";
             // port of cluster controller
             cmdline += " -port 3099";
             // application name
-            cmdline += " -app helloworld";
+            cmdline += " -app kmeans";
             // hadoop config path
             cmdline += " -hadoop-conf " + System.getProperty("user.home")
                     + "/hadoop-0.20.2/conf";
             // HDFS path to hold intermediate models
-            cmdline += " -temp-path /helloworld";
+            cmdline += " -temp-path /kmeans";
             // HDFS path of input data
-            cmdline += " -example-paths /helloworld/input.txt";
+            cmdline += " -example-paths /kmeans/input.txt";
             // aggregation type
             cmdline += " -agg-tree-type generic";
             // aggregation parameter
@@ -39,7 +36,11 @@ public class HelloWorldCluster {
             args = cmdline.split(" ");
         }
 
-        HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
-        System.out.println("FinalModel: " + finalModel.totalLength);
+        int k = 3;
+        KMeansModel finalModel = Client.run(new KMeansJob(k), args);
+        System.out.println("FinalModel:");
+        for (int i = 0; i < k; i++)
+            System.out.println(" " + finalModel.centroids[i]);
+        System.exit(0);
     }
 }
