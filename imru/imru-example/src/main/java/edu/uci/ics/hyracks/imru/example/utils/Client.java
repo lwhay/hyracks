@@ -35,6 +35,8 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
+import edu.uci.ics.hyracks.imru.api2.IMRUJobV2;
+import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
 
 /**
  * This class wraps IMRU common functions.
@@ -222,6 +224,15 @@ public class Client<Model extends IModel, T extends Serializable> {
      * @throws Exception
      */
     public JobStatus run(IMRUJob<Model, T> job) throws Exception {
+        return control.run(job, options.tempPath, options.app);
+    }
+
+    /**
+     * run IMRU job
+     * 
+     * @throws Exception
+     */
+    public JobStatus run(IMRUJobV2<Model, T> job) throws Exception {
         return control.run(job, options.tempPath, options.app);
     }
 
@@ -468,6 +479,43 @@ public class Client<Model extends IModel, T extends Serializable> {
      */
     public static <M extends IModel, R extends Serializable> M run(
             IMRUJob<M, R> job, String[] args) throws Exception {
+        // create a client object, which handles everything
+        Client<M, R> client = new Client<M, R>(args);
+
+        // disable logs
+        if (client.options.disableLogging)
+            Client.disableLogging();
+
+        // start local cluster controller and two node controller
+        // for debugging purpose
+        if (client.options.debug)
+            client.startClusterAndNodes();
+
+        // connect to the cluster controller
+        client.connect();
+
+        // create the application in local cluster
+        client.uploadApp();
+
+        // run job
+        JobStatus status = client.run(job);
+        if (status == JobStatus.FAILURE) {
+            System.err.println("Job failed; see CC and NC logs");
+            System.exit(-1);
+        }
+        // System.out.println("Terminated after "
+        // + client.control.getIterationCount() + " iterations");
+
+        return client.getModel();
+    }
+
+    /**
+     * run job
+     * 
+     * @throws Exception
+     */
+    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(
+            IMRUJobV3<M, D, R> job, String[] args) throws Exception {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);
 

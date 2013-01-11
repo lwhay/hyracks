@@ -83,7 +83,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                     public void map(Iterator<ByteBuffer> input,
                             IFrameWriter writer) throws HyracksDataException {
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
-                        job2.map(input, model, out, cachedDataFrameSize);
+                        job2.map(ctx,input, model, out, cachedDataFrameSize);
                         byte[] objectData = out.toByteArray();
                         serializeToFrames(ctx, writer, objectData);
                     }

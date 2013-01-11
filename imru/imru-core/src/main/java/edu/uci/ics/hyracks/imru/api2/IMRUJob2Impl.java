@@ -24,10 +24,58 @@ import edu.uci.ics.hyracks.imru.api.IModel;
 
 public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
         implements IMRUJob2<Model> {
-    IMRUJob<Model, T> job;
+    IMRUJobV2<Model, T> job;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
 
-    public IMRUJob2Impl(IMRUJob<Model, T> job) {
+    public IMRUJob2Impl(final IMRUJob<Model, T> job) {
+        this.job = new IMRUJobV2<Model, T>() {
+            @Override
+            public int getCachedDataFrameSize() {
+                return job.getCachedDataFrameSize();
+            }
+
+            @Override
+            public int getFieldCount() {
+                return job.getFieldCount();
+            }
+
+            @Override
+            public Model initModel() {
+                return job.initModel();
+            }
+
+            @Override
+            public T map(IHyracksTaskContext ctx, TupleReader input,
+                    Model model, int cachedDataFrameSize) throws IOException {
+                return job.map(input, model, cachedDataFrameSize);
+            }
+
+            @Override
+            public void parse(IHyracksTaskContext ctx, InputStream input,
+                    TupleWriter output) throws IOException {
+                job.parse(ctx, input, output);
+            }
+
+            @Override
+            public T reduce(IHyracksTaskContext ctx, Iterator<T> input)
+                    throws HyracksDataException {
+                return job.reduce(input);
+            }
+
+            @Override
+            public boolean shouldTerminate(Model model) {
+                return job.shouldTerminate(model);
+            }
+
+            @Override
+            public void update(IHyracksTaskContext ctx, Iterator<T> input,
+                    Model model) throws HyracksDataException {
+                job.update(input, model);
+            }
+        };
+    }
+
+    public IMRUJob2Impl(IMRUJobV2<Model, T> job) {
         this.job = job;
     }
 
@@ -42,8 +90,8 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
     }
 
     @Override
-    public void map(Iterator<ByteBuffer> input, Model model,
-            OutputStream output, int cachedDataFrameSize)
+    public void map(final IHyracksTaskContext ctx, Iterator<ByteBuffer> input,
+            Model model, OutputStream output, int cachedDataFrameSize)
             throws HyracksDataException {
         FrameTupleAccessor accessor = new FrameTupleAccessor(
                 cachedDataFrameSize, new RecordDescriptor(
@@ -53,7 +101,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
         try {
             reader.nextTuple();
             T reduceResult;
-            T firstResult = job.map(reader, model, cachedDataFrameSize);
+            T firstResult = job.map(ctx, reader, model, cachedDataFrameSize);
             if (!reader.hasNextTuple()) {
                 reduceResult = firstResult;
             } else {
@@ -63,7 +111,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                     public T call() {
                         Iterator<T> input = io.getInput();
                         try {
-                            return job.reduce(input);
+                            return job.reduce(ctx, input);
                         } catch (HyracksDataException e) {
                             e.printStackTrace();
                         }
@@ -73,7 +121,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                 io.add(firstResult);
                 while (reader.hasNextTuple()) {
                     reader.nextTuple();
-                    T result = job.map(reader, model, cachedDataFrameSize);
+                    T result = job.map(ctx, reader, model, cachedDataFrameSize);
                     io.add(result);
                 }
                 io.close();
@@ -126,7 +174,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                 return null;
             }
         };
-        T object = job.reduce(iterator);
+        T object = job.reduce(ctx, iterator);
         byte[] objectData;
         try {
             objectData = JavaSerializationUtils.serialize(object);
@@ -171,6 +219,6 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                 return null;
             }
         };
-        job.update(iterator, model);
+        job.update(ctx, iterator, model);
     }
 }

@@ -29,7 +29,7 @@ public class TupleReader extends DataInputStream {
             return true;
         return input.hasNext();
     }
-
+    
     public boolean nextTuple() {
         tupleId++;
         while (tupleId >= tupleCount) {

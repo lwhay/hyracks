@@ -37,7 +37,7 @@ public class KMeans {
         }
 
         int k = 3;
-        KMeansModel finalModel = Client.run(new KMeansJob(k), args);
+        KMeansModel finalModel = Client.run(new KMeansJobV3(k), args);
         System.out.println("FinalModel:");
         for (int i = 0; i < k; i++)
             System.out.println(" " + finalModel.centroids[i]);

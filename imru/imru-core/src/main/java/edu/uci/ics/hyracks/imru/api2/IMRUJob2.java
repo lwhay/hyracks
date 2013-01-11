@@ -19,8 +19,8 @@ public interface IMRUJob2<Model> extends Serializable {
     public void parse(IHyracksTaskContext ctx, InputStream in,
             IFrameWriter writer) throws IOException;
 
-    public void map(Iterator<ByteBuffer> input, Model model,
-            OutputStream output, int cachedDataFrameSize)
+    public void map(IHyracksTaskContext ctx, Iterator<ByteBuffer> input,
+            Model model, OutputStream output, int cachedDataFrameSize)
             throws HyracksDataException;
 
     public void reduce(IHyracksTaskContext ctx, Iterator<byte[]> input,
