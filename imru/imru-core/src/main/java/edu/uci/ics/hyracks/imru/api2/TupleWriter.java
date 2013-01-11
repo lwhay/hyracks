@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.DataOutput;
@@ -36,6 +51,7 @@ public class TupleWriter implements DataOutput {
 
     /**
      * Force to finish a frame
+     * 
      * @throws HyracksDataException
      */
     public void finishFrame() throws HyracksDataException {
@@ -44,16 +60,13 @@ public class TupleWriter implements DataOutput {
     }
 
     public void finishTuple() throws HyracksDataException {
-        if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb
-                .getSize())) {
+        if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
             FrameUtils.flushFrame(frame, writer);
             appender.reset(frame, true);
-            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0,
-                    tb.getSize())) {
+            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 // LOG.severe("Example too large to fit in frame: " +
                 // line);
-                throw new HyracksDataException(
-                        "Example too large to fit in frame");
+                throw new HyracksDataException("Example too large to fit in frame");
             }
         }
         tb.reset();

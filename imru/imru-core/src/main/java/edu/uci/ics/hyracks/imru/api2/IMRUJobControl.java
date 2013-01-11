@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.File;
@@ -27,8 +42,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
     public String modelFileName;
     public boolean useExistingModels;
 
-    public void connect(String ccHost, int ccPort, String hadoopConfPath,
-            String clusterConfPath) throws Exception {
+    public void connect(String ccHost, int ccPort, String hadoopConfPath, String clusterConfPath) throws Exception {
         hcc = new HyracksConnection(ccHost, ccPort);
 
         if (!new File(hadoopConfPath).exists()) {
@@ -54,17 +68,14 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
         if (aggCount < 1)
             throw new IllegalArgumentException(
                     "Must specify a nonnegative aggregator count using the -agg-count option");
-        jobFactory = new GenericAggregationIMRUJobFactory(examplePaths,
-                confFactory, aggCount);
+        jobFactory = new GenericAggregationIMRUJobFactory(examplePaths, confFactory, aggCount);
     }
 
     public void selectNAryAggregation(String examplePaths, int fanIn) {
         if (fanIn < 1) {
-            throw new IllegalArgumentException(
-                    "Must specify nonnegative -fan-in");
+            throw new IllegalArgumentException("Must specify nonnegative -fan-in");
         }
-        jobFactory = new NAryAggregationIMRUJobFactory(examplePaths,
-                confFactory, fanIn);
+        jobFactory = new NAryAggregationIMRUJobFactory(examplePaths, confFactory, fanIn);
     }
 
     /**
@@ -77,10 +88,9 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
-            Model initialModel, String tempPath, String app) throws Exception {
-        driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory,
-                conf, tempPath, app);
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel, String tempPath, String app)
+            throws Exception {
+        driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory, conf, tempPath, app);
         driver.modelFileName = modelFileName;
         driver.saveIntermediateModels = saveIntermediateModels;
         driver.useExistingModels = useExistingModels;
@@ -96,11 +106,9 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(IMRUJob2<Model> job2, String tempPath, String app)
-            throws Exception {
+    public JobStatus run(IMRUJob2<Model> job2, String tempPath, String app) throws Exception {
         Model initialModel = job2.initModel();
-        IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(
-                job2);
+        IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(job2);
         return run(job, initialModel, tempPath, app);
     }
 
@@ -113,8 +121,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(final IMRUJob<Model, T> job, String tempPath,
-            String app) throws Exception {
+    public JobStatus run(final IMRUJob<Model, T> job, String tempPath, String app) throws Exception {
         return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
     }
 
@@ -127,8 +134,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(final IMRUJobV2<Model, T> job, String tempPath,
-            String app) throws Exception {
+    public JobStatus run(final IMRUJobV2<Model, T> job, String tempPath, String app) throws Exception {
         return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
     }
 

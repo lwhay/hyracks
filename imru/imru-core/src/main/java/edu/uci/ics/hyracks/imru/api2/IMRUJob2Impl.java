@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.IOException;
@@ -22,8 +37,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.imru.api.IModel;
 
-public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
-        implements IMRUJob2<Model> {
+public class IMRUJob2Impl<Model extends IModel, T extends Serializable> implements IMRUJob2<Model> {
     IMRUJobV2<Model, T> job;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
 
@@ -45,20 +59,18 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
             }
 
             @Override
-            public T map(IHyracksTaskContext ctx, TupleReader input,
-                    Model model, int cachedDataFrameSize) throws IOException {
+            public T map(IHyracksTaskContext ctx, TupleReader input, Model model, int cachedDataFrameSize)
+                    throws IOException {
                 return job.map(input, model, cachedDataFrameSize);
             }
 
             @Override
-            public void parse(IHyracksTaskContext ctx, InputStream input,
-                    TupleWriter output) throws IOException {
+            public void parse(IHyracksTaskContext ctx, InputStream input, TupleWriter output) throws IOException {
                 job.parse(ctx, input, output);
             }
 
             @Override
-            public T reduce(IHyracksTaskContext ctx, Iterator<T> input)
-                    throws HyracksDataException {
+            public T reduce(IHyracksTaskContext ctx, Iterator<T> input) throws HyracksDataException {
                 return job.reduce(input);
             }
 
@@ -68,8 +80,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
             }
 
             @Override
-            public void update(IHyracksTaskContext ctx, Iterator<T> input,
-                    Model model) throws HyracksDataException {
+            public void update(IHyracksTaskContext ctx, Iterator<T> input, Model model) throws HyracksDataException {
                 job.update(input, model);
             }
         };
@@ -90,14 +101,11 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
     }
 
     @Override
-    public void map(final IHyracksTaskContext ctx, Iterator<ByteBuffer> input,
-            Model model, OutputStream output, int cachedDataFrameSize)
-            throws HyracksDataException {
-        FrameTupleAccessor accessor = new FrameTupleAccessor(
-                cachedDataFrameSize, new RecordDescriptor(
-                        new ISerializerDeserializer[job.getFieldCount()]));
-        TupleReader reader = new TupleReader(input, accessor,
-                new ByteBufferInputStream());
+    public void map(final IHyracksTaskContext ctx, Iterator<ByteBuffer> input, Model model, OutputStream output,
+            int cachedDataFrameSize) throws HyracksDataException {
+        FrameTupleAccessor accessor = new FrameTupleAccessor(cachedDataFrameSize, new RecordDescriptor(
+                new ISerializerDeserializer[job.getFieldCount()]));
+        TupleReader reader = new TupleReader(input, accessor, new ByteBufferInputStream());
         try {
             reader.nextTuple();
             T reduceResult;
@@ -137,17 +145,14 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
     }
 
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream in,
-            IFrameWriter writer) throws IOException {
-        TupleWriter tupleWriter = new TupleWriter(ctx, writer, job
-                .getFieldCount());
+    public void parse(IHyracksTaskContext ctx, InputStream in, IFrameWriter writer) throws IOException {
+        TupleWriter tupleWriter = new TupleWriter(ctx, writer, job.getFieldCount());
         job.parse(ctx, in, tupleWriter);
         tupleWriter.close();
     }
 
     @Override
-    public void reduce(final IHyracksTaskContext ctx,
-            final Iterator<byte[]> input, OutputStream output)
+    public void reduce(final IHyracksTaskContext ctx, final Iterator<byte[]> input, OutputStream output)
             throws HyracksDataException {
         Iterator<T> iterator = new Iterator<T>() {
             @Override
@@ -164,8 +169,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx
-                        .getJobletContext().getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);
                 } catch (Exception e) {
@@ -191,8 +195,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
     }
 
     @Override
-    public void update(final IHyracksTaskContext ctx,
-            final Iterator<byte[]> input, Model model)
+    public void update(final IHyracksTaskContext ctx, final Iterator<byte[]> input, Model model)
             throws HyracksDataException {
         Iterator<T> iterator = new Iterator<T>() {
             @Override
@@ -209,8 +212,7 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable>
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx
-                        .getJobletContext().getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);
                 } catch (Exception e) {

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.ByteArrayOutputStream;
@@ -28,8 +43,7 @@ import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
 
-public class IIMRUJobSpecificationImpl<Model extends IModel> implements
-        IIMRUJobSpecification<Model> {
+public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJobSpecification<Model> {
     private static final int BYTES_IN_INT = 4;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
     IMRUJob2<Model> job2;
@@ -45,8 +59,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
             public ITupleParser createTupleParser(final IHyracksTaskContext ctx) {
                 return new ITupleParser() {
                     @Override
-                    public void parse(InputStream in, IFrameWriter writer)
-                            throws HyracksDataException {
+                    public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
                         try {
                             job2.parse(ctx, in, writer);
                         } catch (IOException e) {
@@ -75,15 +88,13 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                 return true;
             }
 
-            public IMapFunction2 createMapFunction2(
-                    final IHyracksTaskContext ctx,
-                    final int cachedDataFrameSize, final Model model) {
+            public IMapFunction2 createMapFunction2(final IHyracksTaskContext ctx, final int cachedDataFrameSize,
+                    final Model model) {
                 return new IMapFunction2() {
                     @Override
-                    public void map(Iterator<ByteBuffer> input,
-                            IFrameWriter writer) throws HyracksDataException {
+                    public void map(Iterator<ByteBuffer> input, IFrameWriter writer) throws HyracksDataException {
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
-                        job2.map(ctx,input, model, out, cachedDataFrameSize);
+                        job2.map(ctx, input, model, out, cachedDataFrameSize);
                         byte[] objectData = out.toByteArray();
                         serializeToFrames(ctx, writer, objectData);
                     }
@@ -91,9 +102,8 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
             };
 
             @Override
-            public IMapFunction createMapFunction(
-                    final IHyracksTaskContext ctx,
-                    final int cachedDataFrameSize, final Model model) {
+            public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize,
+                    final Model model) {
                 return null;
             }
         };
@@ -103,8 +113,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
     public IReduceFunctionFactory getReduceFunctionFactory() {
         return new IReduceFunctionFactory() {
             @Override
-            public IReduceFunction createReduceFunction(
-                    final IHyracksTaskContext ctx) {
+            public IReduceFunction createReduceFunction(final IHyracksTaskContext ctx) {
                 return new IReassemblingReduceFunction() {
                     private IFrameWriter writer;
                     private ASyncIO<byte[]> io;
@@ -145,8 +154,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                     }
 
                     @Override
-                    public void reduce(List<ByteBuffer> chunks)
-                            throws HyracksDataException {
+                    public void reduce(List<ByteBuffer> chunks) throws HyracksDataException {
                         byte[] data = deserializeFromChunks(ctx, chunks);
                         io.add(data);
                     }
@@ -160,8 +168,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
         return new IUpdateFunctionFactory<Model>() {
 
             @Override
-            public IUpdateFunction createUpdateFunction(
-                    final IHyracksTaskContext ctx, final Model model) {
+            public IUpdateFunction createUpdateFunction(final IHyracksTaskContext ctx, final Model model) {
                 return new IReassemblingUpdateFunction() {
                     private ASyncIO<byte[]> io;
                     Future future;
@@ -194,8 +201,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
                     }
 
                     @Override
-                    public void update(List<ByteBuffer> chunks)
-                            throws HyracksDataException {
+                    public void update(List<ByteBuffer> chunks) throws HyracksDataException {
                         byte[] data = deserializeFromChunks(ctx, chunks);
                         io.add(data);
                     }
@@ -205,15 +211,14 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
     }
 
     @SuppressWarnings("unchecked")
-    private static byte[] deserializeFromChunks(IHyracksTaskContext ctx,
-            List<ByteBuffer> chunks) throws HyracksDataException {
+    private static byte[] deserializeFromChunks(IHyracksTaskContext ctx, List<ByteBuffer> chunks)
+            throws HyracksDataException {
         int size = chunks.get(0).getInt(0);
         byte objectData[] = new byte[size];
         ByteBuffer objectDataByteBuffer = ByteBuffer.wrap(objectData);
         int remaining = size;
         // Handle the first chunk separately, since it contains the object size.
-        int length = Math.min(chunks.get(0).array().length - BYTES_IN_INT,
-                remaining);
+        int length = Math.min(chunks.get(0).array().length - BYTES_IN_INT, remaining);
         objectDataByteBuffer.put(chunks.get(0).array(), BYTES_IN_INT, length);
         remaining -= length;
         // Handle the remaining chunks:
@@ -225,14 +230,13 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements
         return objectData;
     }
 
-    private static void serializeToFrames(IHyracksTaskContext ctx,
-            IFrameWriter writer, byte[] objectData) throws HyracksDataException {
+    private static void serializeToFrames(IHyracksTaskContext ctx, IFrameWriter writer, byte[] objectData)
+            throws HyracksDataException {
         ByteBuffer frame = ctx.allocateFrame();
         int position = 0;
         frame.position(0);
         while (position < objectData.length) {
-            int length = Math.min(objectData.length - position, ctx
-                    .getFrameSize());
+            int length = Math.min(objectData.length - position, ctx.getFrameSize());
             if (position == 0) {
                 // The first chunk is a special case, since it begins
                 // with an integer containing the length of the
