@@ -16,6 +16,8 @@
 package edu.uci.ics.hyracks.imru.api;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.util.Iterator;
 
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 

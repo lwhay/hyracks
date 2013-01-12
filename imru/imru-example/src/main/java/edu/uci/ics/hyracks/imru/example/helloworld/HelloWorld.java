@@ -13,16 +13,14 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.kmeans;
-
-import java.io.File;
+package edu.uci.ics.hyracks.imru.example.helloworld;
 
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**
- * Start a local cluster within the process and run the kmeans example.
+ * Upload helloworld example to a cluster and run it.
  */
-public class KMeans {
+public class HelloWorld {
     static String[] defaultArgs(boolean debugging) throws Exception {
         // if no argument is given, the following code
         // create default arguments to run the example
@@ -38,22 +36,21 @@ public class KMeans {
             // hostname of cluster controller
             cmdline += "-host " + Client.getLocalIp();
         }
-
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
-        cmdline += " -app kmeans";
+        cmdline += " -app helloworld";
         // hadoop config path
         cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // HDFS path to hold intermediate models
-        cmdline += " -temp-path /kmeans";
+        cmdline += " -temp-path /helloworld";
         // HDFS path of input data
-        cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
+        cmdline += " -example-paths /helloworld/input.txt";
         // aggregation type
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
         cmdline += " -agg-count 1";
-        cmdline=cmdline.trim();
+        cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         return cmdline.split(" ");
     }
@@ -62,10 +59,7 @@ public class KMeans {
         if (args.length == 0)
             args = defaultArgs(false);
 
-        int k = 3;
-        KMeansModel finalModel = Client.run(new KMeansJobV3(k), args);
-        System.out.println("FinalModel:");
-        for (int i = 0; i < k; i++)
-            System.out.println(" " + finalModel.centroids[i]);
+        HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
+        System.out.println("FinalModel: " + finalModel.totalLength);
     }
 }

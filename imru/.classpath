@@ -5,7 +5,7 @@
 	<classpathentry kind="src" path="imru-example/src/main/resources"/>
 	<classpathentry kind="src" output="imru-core/target/classes" path="imru-core/src/main/resources"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
-	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-api-0.2.3-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-api-0.2.3-SNAPSHOT.jar" sourcepath="/home/wangrui/a/imru/fullstack_imru/hyracks/hyracks-api/src/main/java"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-control-cc-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-control-nc-0.2.3-SNAPSHOT.jar" sourcepath="/home/wangrui/fullstack_imru/hyracks/hyracks-control/hyracks-control-nc/src/main/java"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-data-std-0.2.3-SNAPSHOT.jar"/>

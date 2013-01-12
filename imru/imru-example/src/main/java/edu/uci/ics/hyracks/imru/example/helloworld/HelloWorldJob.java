@@ -16,37 +16,21 @@
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
-import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
-import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
-import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
-import edu.uci.ics.hyracks.imru.api2.TupleReader;
-import edu.uci.ics.hyracks.imru.api2.TupleWriter;
+import edu.uci.ics.hyracks.imru.api2.DataWriter;
+import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
 
 /**
  * Core IMRU application specific code.
  * The dataflow is parse->map->reduce->update
  */
-public class HelloWorldJob implements
-        IMRUJob<HelloWorldModel, HelloWorldIncrementalResult> {
+public class HelloWorldJob extends IMRUJobV3<HelloWorldModel, HelloWorldData, HelloWorldResult> {
     /**
      * Return initial model
      */
@@ -56,7 +40,7 @@ public class HelloWorldJob implements
     }
 
     /**
-     * Frame size must be large enough to store at least one tuple
+     * Frame size must be large enough to store at least one data object
      */
     @Override
     public int getCachedDataFrameSize() {
@@ -64,56 +48,30 @@ public class HelloWorldJob implements
     }
 
     /**
-     * Number of fields for each tuple
+     * Parse input data and output data objects
      */
     @Override
-    public int getFieldCount() {
-        return 3;
-    }
-
-    /**
-     * Parse input data and output tuples
-     */
-    @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input,
-            TupleWriter output) throws HyracksDataException {
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    input));
-            String line = reader.readLine();
-            reader.close();
-            for (String s : line.split(" ")) {
-                System.out.println("parse: " + s);
-                // add one field
-                output.writeUTF(s);
-                output.finishField();
-                // add another field
-                output.writeUTF(s + "1");
-                output.finishField();
-                output.finishTuple();
-            }
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
+    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<HelloWorldData> output) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+        String line = reader.readLine();
+        reader.close();
+        for (String s : line.split(" ")) {
+            System.out.println("parse: " + s);
+            output.addData(new HelloWorldData(s));
         }
     }
 
     /**
-     * For each tuple, return one result.
-     * Or by using nextTuple(), return one result
-     * after processing multiple tuples.
+     * For a list of data objects, return one result
      */
     @Override
-    public HelloWorldIncrementalResult map(TupleReader input,
-            HelloWorldModel model, int cachedDataFrameSize) throws IOException {
-        HelloWorldIncrementalResult result = new HelloWorldIncrementalResult();
-        while (true) {
-            input.seekToField(0);
-            String word = input.readUTF();
+    public HelloWorldResult map(IHyracksTaskContext ctx, Iterator<HelloWorldData> input, HelloWorldModel model)
+            throws IOException {
+        HelloWorldResult result = new HelloWorldResult();
+        while (input.hasNext()) {
+            String word = input.next().word;
             result.length += word.length();
             System.out.println("map: " + word + " -> " + result.length);
-            if (!input.hasNextTuple())
-                break;
-            input.nextTuple();
         }
         return result;
     }
@@ -122,13 +80,12 @@ public class HelloWorldJob implements
      * Combine multiple results to one result
      */
     @Override
-    public HelloWorldIncrementalResult reduce(
-            Iterator<HelloWorldIncrementalResult> input)
+    public HelloWorldResult reduce(IHyracksTaskContext ctx, Iterator<HelloWorldResult> input)
             throws HyracksDataException {
-        HelloWorldIncrementalResult combined = new HelloWorldIncrementalResult();
+        HelloWorldResult combined = new HelloWorldResult();
         StringBuilder sb = new StringBuilder();
         while (input.hasNext()) {
-            HelloWorldIncrementalResult result = input.next();
+            HelloWorldResult result = input.next();
             sb.append(result.length + "+");
             combined.length += result.length;
         }
@@ -142,17 +99,16 @@ public class HelloWorldJob implements
      * update the model using combined result
      */
     @Override
-    public void update(Iterator<HelloWorldIncrementalResult> input,
-            HelloWorldModel model) throws HyracksDataException {
+    public void update(IHyracksTaskContext ctx, Iterator<HelloWorldResult> input, HelloWorldModel model)
+            throws HyracksDataException {
         StringBuilder sb = new StringBuilder();
         int oldLength = model.totalLength;
         while (input.hasNext()) {
-            HelloWorldIncrementalResult result = input.next();
+            HelloWorldResult result = input.next();
             sb.append("+" + result.length);
             model.totalLength += result.length;
         }
-        System.out.println("update: " + oldLength + sb + " -> "
-                + model.totalLength);
+        System.out.println("update: " + oldLength + sb + " -> " + model.totalLength);
         model.roundsRemaining--;
     }
 

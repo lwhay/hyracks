@@ -40,6 +40,9 @@
 								<resource>
 									<directory>../../pregelix/pregelix-core/target/appassembler</directory>
 								</resource>
+								<resource>
+									<directory>../imru-core/src/main/resources/scripts</directory>
+								</resource>
 							</resources>
 						</configuration>
 					</execution>

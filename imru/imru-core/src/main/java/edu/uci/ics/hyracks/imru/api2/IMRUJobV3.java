@@ -28,7 +28,7 @@ import edu.uci.ics.hyracks.imru.example.utils.R;
 public abstract class IMRUJobV3<Model extends Serializable, Data extends Serializable, IntermediateResult extends Serializable>
         implements IMRUJobV2<Model, IntermediateResult> {
     @Override
-    public int getFieldCount() {
+    final public int getFieldCount() {
         return 1;
     }
 
@@ -37,6 +37,9 @@ public abstract class IMRUJobV3<Model extends Serializable, Data extends Seriali
         parse(ctx, input, new DataWriter<Data>(output));
     }
 
+    /**
+     * Parse input data and output data objects
+     */
     public abstract void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException;
 
     @Override
@@ -87,27 +90,9 @@ public abstract class IMRUJobV3<Model extends Serializable, Data extends Seriali
         return map(ctx, dataInterator, model);
     }
 
+    /**
+     * For a list of data objects, return one result
+     */
     public abstract IntermediateResult map(IHyracksTaskContext ctx, Iterator<Data> input, Model model)
             throws IOException;
-
-    @Override
-    public IntermediateResult reduce(IHyracksTaskContext ctx, Iterator<IntermediateResult> input)
-            throws HyracksDataException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public boolean shouldTerminate(Model model) {
-        // TODO Auto-generated method stub
-        return false;
-    }
-
-    @Override
-    public void update(IHyracksTaskContext ctx, Iterator<IntermediateResult> input, Model model)
-            throws HyracksDataException {
-        // TODO Auto-generated method stub
-
-    }
-
 }
