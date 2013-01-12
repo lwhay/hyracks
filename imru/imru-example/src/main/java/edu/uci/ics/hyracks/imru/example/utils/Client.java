@@ -55,7 +55,6 @@ import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
 
 /**
  * This class wraps IMRU common functions.
- * 
  * Example usage: <blockquote>
  * 
  * <pre>
@@ -72,7 +71,6 @@ import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
  * </blockquote>
  * 
  * @author wangrui
- * 
  * @param <Model>
  *            IMRU model which will be used in map() and updated in update()
  * @param <T>
@@ -132,8 +130,8 @@ public class Client<Model extends IModel, T extends Serializable> {
         @Option(name = "-model-file", usage = "Local file to write the final weights to")
         public String modelFilename;
 
-//        @Option(name = "-num-rounds", usage = "The number of iterations to perform")
-//        public int numRounds = 5;
+        //        @Option(name = "-num-rounds", usage = "The number of iterations to perform")
+        //        public int numRounds = 5;
     }
 
     public static final int FRAME_SIZE = 65536;
@@ -197,8 +195,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      *            a list of ip and node names
      * @throws IOException
      */
-    public static void generateClusterConfig(File file, String... args)
-            throws IOException {
+    public static void generateClusterConfig(File file, String... args) throws IOException {
         PrintStream ps = new PrintStream(file);
         for (int i = 0; i < args.length / 2; i++)
             ps.println(args[i * 2] + " " + args[i * 2 + 1]);
@@ -215,16 +212,14 @@ public class Client<Model extends IModel, T extends Serializable> {
         control.saveIntermediateModels = !options.abondonIntermediateModels;
         control.modelFileName = options.modelFileNameHDFS;
         control.useExistingModels = options.useExistingModels;
-        control.connect(options.host, options.port, options.hadoopConfPath,
-                options.clusterConfPath);
+        control.connect(options.host, options.port, options.hadoopConfPath, options.clusterConfPath);
         hcc = control.hcc;
         conf = control.conf;
         // set aggregation type
         if (options.aggTreeType.equals("none")) {
             control.selectNoAggregation(options.examplePaths);
         } else if (options.aggTreeType.equals("generic")) {
-            control.selectGenericAggregation(options.examplePaths,
-                    options.aggCount);
+            control.selectGenericAggregation(options.examplePaths, options.aggCount);
         } else if (options.aggTreeType.equals("nary")) {
             control.selectNAryAggregation(options.examplePaths, options.fanIn);
         } else {
@@ -265,8 +260,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * 
      * @throws Exception
      */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
-            Model initialModel) throws Exception {
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel) throws Exception {
         return control.run(job, initialModel, options.tempPath, options.app);
     }
 
@@ -312,8 +306,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * @param clientNetPort
      * @throws Exception
      */
-    public void startCC(String host, int clusterNetPort, int clientNetPort)
-            throws Exception {
+    public void startCC(String host, int clusterNetPort, int clientNetPort) throws Exception {
         CCConfig ccConfig = new CCConfig();
         ccConfig.clientNetIpAddress = host;
         ccConfig.clusterNetIpAddress = host;
@@ -335,8 +328,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * @param clusterNetPort
      * @throws Exception
      */
-    public void startNC1(String NC1_ID, String host, int clusterNetPort)
-            throws Exception {
+    public void startNC1(String NC1_ID, String host, int clusterNetPort) throws Exception {
         NCConfig ncConfig1 = new NCConfig();
         ncConfig1.ccHost = host;
         ncConfig1.clusterNetIPAddress = host;
@@ -355,8 +347,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * @param clusterNetPort
      * @throws Exception
      */
-    public void startNC2(String NC2_ID, String host, int clusterNetPort)
-            throws Exception {
+    public void startNC2(String NC2_ID, String host, int clusterNetPort) throws Exception {
         NCConfig ncConfig2 = new NCConfig();
         ncConfig2.ccHost = host;
         ncConfig2.clusterNetIPAddress = host;
@@ -416,8 +407,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      */
     public void runJob(JobSpecification spec, String appName) throws Exception {
         spec.setFrameSize(FRAME_SIZE);
-        JobId jobId = hcc.startJob(appName, spec, EnumSet
-                .of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(appName, spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
     }
 
@@ -441,8 +431,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * @param hdfsPath
      * @throws IOException
      */
-    public void copyFromLocalToHDFS(String localPath, String hdfsPath)
-            throws IOException {
+    public void copyFromLocalToHDFS(String localPath, String hdfsPath) throws IOException {
         FileSystem dfs = getHDFS();
         dfs.mkdirs(new Path(hdfsPath).getParent());
         System.out.println("copy " + localPath + " to " + hdfsPath);
@@ -466,7 +455,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         } catch (Exception e) {
             e.printStackTrace();
         }
-//        harFile.delete();
+        //        harFile.delete();
     }
 
     /**
@@ -492,8 +481,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * 
      * @throws Exception
      */
-    public static <M extends IModel, R extends Serializable> M run(
-            IMRUJob<M, R> job, String[] args) throws Exception {
+    public static <M extends IModel, R extends Serializable> M run(IMRUJob<M, R> job, String[] args) throws Exception {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);
 
@@ -524,13 +512,25 @@ public class Client<Model extends IModel, T extends Serializable> {
         return client.getModel();
     }
 
+    private static boolean alreadyStartedDebug = false;
+
     /**
      * run job
      * 
      * @throws Exception
      */
-    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(
-            IMRUJobV3<M, D, R> job, String[] args) throws Exception {
+    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJobV3<M, D, R> job,
+            String[] args) throws Exception {
+        return run(job, args, null);
+    }
+
+    /**
+     * run job
+     * 
+     * @throws Exception
+     */
+    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJobV3<M, D, R> job,
+            String[] args, String overrideAppName) throws Exception {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);
 
@@ -540,11 +540,16 @@ public class Client<Model extends IModel, T extends Serializable> {
 
         // start local cluster controller and two node controller
         // for debugging purpose
-        if (client.options.debug)
+        if (client.options.debug && !alreadyStartedDebug) {
+            alreadyStartedDebug = true;
             client.startClusterAndNodes();
+        }
 
         // connect to the cluster controller
         client.connect();
+
+        if (overrideAppName != null)
+            client.options.app = overrideAppName;
 
         // create the application in local cluster
         client.uploadApp();

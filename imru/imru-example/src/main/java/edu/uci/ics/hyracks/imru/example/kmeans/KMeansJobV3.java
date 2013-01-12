@@ -19,23 +19,20 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Serializable;
 import java.util.Iterator;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
-import edu.uci.ics.hyracks.imru.api2.TupleReader;
-import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
-public class KMeansJobV3 extends
-        IMRUJobV3<KMeansModel, DataPoint, Serializable> {
+public class KMeansJobV3 extends IMRUJobV3<KMeansModel, DataPoint, KMeansCentroids> {
     int k;
+    KMeansModel initModel;
 
-    public KMeansJobV3(int k) {
+    public KMeansJobV3(int k, KMeansModel initModel) {
         this.k = k;
+        this.initModel = initModel;
     }
 
     /**
@@ -43,7 +40,6 @@ public class KMeansJobV3 extends
      */
     @Override
     public KMeansModel initModel() {
-        KMeansModel initModel = new KMeansModel(k);
         return initModel;
     }
 
@@ -59,11 +55,9 @@ public class KMeansJobV3 extends
      * Parse input data and output tuples
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input,
-            DataWriter<DataPoint> output) throws IOException {
+    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<DataPoint> output) throws IOException {
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    input));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(input));
             while (true) {
                 String line = reader.readLine();
                 if (line == null)
@@ -82,90 +76,53 @@ public class KMeansJobV3 extends
     }
 
     @Override
-    public Serializable map(IHyracksTaskContext ctx, Iterator<DataPoint> input,
-            KMeansModel model) throws IOException {
+    public KMeansCentroids map(IHyracksTaskContext ctx, Iterator<DataPoint> input, KMeansModel model)
+            throws IOException {
         KMeansCentroids result = new KMeansCentroids(k);
-        KMeansStartingPoints startingPoints = new KMeansStartingPoints(k);
         while (input.hasNext()) {
             DataPoint dataPoint = input.next();
-            if (model.firstRound) {
-                // In the first round, random select some data points as
-                // starting points
-                startingPoints.add(dataPoint);
-            } else {
-                // Classify data points using existing centroids
-                double min = Double.MAX_VALUE;
-                int belong = -1;
-                for (int i = 0; i < k; i++) {
-                    double dis = model.centroids[i].dis(dataPoint);
-                    if (dis < min) {
-                        min = dis;
-                        belong = i;
-                    }
+            // Classify data points using existing centroids
+            double min = Double.MAX_VALUE;
+            int belong = -1;
+            for (int i = 0; i < k; i++) {
+                double dis = model.centroids[i].dis(dataPoint);
+                if (dis < min) {
+                    min = dis;
+                    belong = i;
                 }
-                result.centroids[belong].add(dataPoint);
             }
+            result.centroids[belong].add(dataPoint);
         }
-        return model.firstRound ? startingPoints : result;
+        return result;
     }
 
     /**
      * Combine multiple results to one result
      */
     @Override
-    public Serializable reduce(IHyracksTaskContext ctx,
-            Iterator<Serializable> input) throws HyracksDataException {
+    public KMeansCentroids reduce(IHyracksTaskContext ctx, Iterator<KMeansCentroids> input) throws HyracksDataException {
         KMeansCentroids combined = new KMeansCentroids(k);
-        KMeansStartingPoints startingPoints = null;
-        boolean firstRound = false;
         while (input.hasNext()) {
-            Serializable obj = input.next();
-            if (obj instanceof KMeansCentroids) {
-                KMeansCentroids result = (KMeansCentroids) obj;
-                for (int i = 0; i < k; i++) {
-                    combined.centroids[i].add(result.centroids[i]);
-                }
-            } else {
-                firstRound = true;
-                KMeansStartingPoints result = (KMeansStartingPoints) obj;
-                if (startingPoints == null)
-                    startingPoints = result;
-                else
-                    startingPoints.add(result);
-            }
-
+            KMeansCentroids result = input.next();
+            for (int i = 0; i < k; i++)
+                combined.centroids[i].add(result.centroids[i]);
         }
-        return firstRound ? startingPoints : combined;
+        return combined;
     }
 
     /**
      * update the model using combined result
      */
     @Override
-    public void update(IHyracksTaskContext ctx, Iterator<Serializable> input,
-            KMeansModel model) throws HyracksDataException {
-        Serializable obj = reduce(ctx,input);
-        if (model.firstRound) {
-            KMeansStartingPoints startingPoints = (KMeansStartingPoints) obj;
-            for (int i = 0; i < k; i++) {
-                model.centroids[i].set(startingPoints.ps[i]);
-            }
-            System.out.println("InitModel:");
-            for (int i = 0; i < k; i++) {
-                System.out.println(" " + model.centroids[i]);
-            }
-        } else {
-            KMeansCentroids combined = (KMeansCentroids) obj;
-            for (int i = 0; i < k; i++) {
-                model.centroids[i].x = combined.centroids[i].x
-                        / combined.centroids[i].count;
-                model.centroids[i].y = combined.centroids[i].y
-                        / combined.centroids[i].count;
-            }
+    public void update(IHyracksTaskContext ctx, Iterator<KMeansCentroids> input, KMeansModel model)
+            throws HyracksDataException {
+        KMeansCentroids combined = reduce(ctx, input);
+        for (int i = 0; i < k; i++) {
+            model.centroids[i].x = combined.centroids[i].x / combined.centroids[i].count;
+            model.centroids[i].y = combined.centroids[i].y / combined.centroids[i].count;
         }
         model.roundsRemaining--;
-        if (model.firstRound)
-            model.firstRound = false;
+        System.out.println("K-Means round remaining: " + model.roundsRemaining);
     }
 
     /**
@@ -173,6 +130,6 @@ public class KMeansJobV3 extends
      */
     @Override
     public boolean shouldTerminate(KMeansModel model) {
-        return model.roundsRemaining == 0;
+        return model.roundsRemaining <= 0;
     }
 }

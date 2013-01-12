@@ -46,6 +46,7 @@ import edu.uci.ics.hyracks.imru.api2.TupleWriter;
  * Core IMRU application specific code. The dataflow is
  * parse->map->reduce->update
  */
+@Deprecated
 public class KMeansJob implements IMRUJob<KMeansModel, Serializable> {
     int k;
 

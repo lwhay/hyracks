@@ -53,7 +53,11 @@ public class KMeans {
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
         cmdline += " -agg-count 1";
-        cmdline=cmdline.trim();
+        // don't save intermediate models on HDFS
+        cmdline += " -abondon-intermediate-models";
+        // write to the same file
+        cmdline += " -model-file-name kmeans";
+        cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         return cmdline.split(" ");
     }
@@ -63,7 +67,9 @@ public class KMeans {
             args = defaultArgs(false);
 
         int k = 3;
-        KMeansModel finalModel = Client.run(new KMeansJobV3(k), args);
+        KMeansModel initModel = Client.run(new RandomSelectJob(k), args, "kmeansInit");
+        initModel.roundsRemaining = 20;
+        KMeansModel finalModel = Client.run(new KMeansJobV3(k, initModel), args);
         System.out.println("FinalModel:");
         for (int i = 0; i < k; i++)
             System.out.println(" " + finalModel.centroids[i]);
