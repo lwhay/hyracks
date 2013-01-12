@@ -23,7 +23,6 @@ import java.util.Iterator;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
-import edu.uci.ics.hyracks.imru.example.utils.R;
 
 public abstract class IMRUJobV3<Model extends Serializable, Data extends Serializable, IntermediateResult extends Serializable>
         implements IMRUJobV2<Model, IntermediateResult> {
@@ -60,7 +59,7 @@ public abstract class IMRUJobV3<Model extends Serializable, Data extends Seriali
                 byte[] bs = new byte[length];
                 int len = input.read(bs);
                 if (len != length)
-                    R.p("read half");
+                    throw new Exception("read half");
                 NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 return (Data) appContext.deserialize(bs);
             }

@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>edu.uci.ics.hyracks</groupId>
 		<artifactId>imru</artifactId>
-		<version>0.1.0-SNAPSHOT</version>
+		<version>0.2.3-SNAPSHOT</version>
 	</parent>
 	<artifactId>imru-dist</artifactId>
 	<name>imru-dist</name>
@@ -40,6 +40,19 @@
 								<resource>
 									<directory>../../pregelix/pregelix-core/target/appassembler</directory>
 								</resource>
+							</resources>
+						</configuration>
+					</execution>
+					<execution>
+						<id>copy-imru-scripts</id>
+						<!-- here the phase you need -->
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>target/appassembler/bin</outputDirectory>
+							<resources>
 								<resource>
 									<directory>../imru-core/src/main/resources/scripts</directory>
 								</resource>
@@ -64,6 +77,25 @@
 							</resources>
 						</configuration>
 					</execution>
+					<execution>
+						<id>copy-imru</id>
+						<!-- here the phase you need -->
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>target/appassembler/lib</outputDirectory>
+							<resources>
+								<resource>
+									<directory>../imru-core/target</directory>
+									<includes>
+										<include>*.jar</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
 				</executions>
 			</plugin>
 		</plugins>
@@ -71,13 +103,13 @@
 	<dependencies>
 		<dependency>
 			<groupId>edu.uci.ics.hyracks</groupId>
-			<artifactId>pregelix-core</artifactId>
+			<artifactId>imru-core</artifactId>
 			<version>0.2.3-SNAPSHOT</version>
-			<scope>comile</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>edu.uci.ics.hyracks</groupId>
-			<artifactId>pregelix-example</artifactId>
+			<groupId>edu.uci.ics.hyracks.examples</groupId>
+			<artifactId>imru-example</artifactId>
 			<version>0.2.3-SNAPSHOT</version>
 		</dependency>
 	</dependencies>

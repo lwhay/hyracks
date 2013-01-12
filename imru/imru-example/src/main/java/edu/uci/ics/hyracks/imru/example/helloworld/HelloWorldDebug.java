@@ -21,6 +21,5 @@ package edu.uci.ics.hyracks.imru.example.helloworld;
 public class HelloWorldDebug {
     public static void main(String[] args) throws Exception {
         HelloWorld.main(HelloWorld.defaultArgs(true));
-        System.exit(0);
     }
 }

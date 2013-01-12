@@ -61,5 +61,6 @@ public class HelloWorld {
 
         HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
         System.out.println("FinalModel: " + finalModel.totalLength);
+        System.exit(0);
     }
 }

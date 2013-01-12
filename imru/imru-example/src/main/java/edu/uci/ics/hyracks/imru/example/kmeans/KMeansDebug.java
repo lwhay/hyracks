@@ -18,6 +18,5 @@ package edu.uci.ics.hyracks.imru.example.kmeans;
 public class KMeansDebug {
     public static void main(String[] args) throws Exception {
         KMeans.main(KMeans.defaultArgs(true));
-        System.exit(0);
     }
 }

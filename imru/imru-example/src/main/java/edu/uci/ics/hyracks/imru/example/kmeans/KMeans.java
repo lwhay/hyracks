@@ -67,5 +67,6 @@ public class KMeans {
         System.out.println("FinalModel:");
         for (int i = 0; i < k; i++)
             System.out.println(" " + finalModel.centroids[i]);
+        System.exit(0);
     }
 }

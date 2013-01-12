@@ -132,8 +132,8 @@ public class Client<Model extends IModel, T extends Serializable> {
         @Option(name = "-model-file", usage = "Local file to write the final weights to")
         public String modelFilename;
 
-        @Option(name = "-num-rounds", usage = "The number of iterations to perform")
-        public int numRounds = 5;
+//        @Option(name = "-num-rounds", usage = "The number of iterations to perform")
+//        public int numRounds = 5;
     }
 
     public static final int FRAME_SIZE = 65536;
@@ -466,7 +466,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        harFile.delete();
+//        harFile.delete();
     }
 
     /**

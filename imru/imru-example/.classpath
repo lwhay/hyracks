@@ -9,7 +9,7 @@
 	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-data-std-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-dataflow-common-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-dataflow-std-0.2.3-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-imru-0.1.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-imru-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-ipc-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="target/appassembler/lib/hyracks-storage-common-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="target/appassembler/lib/args4j-2.0.12.jar"/>
