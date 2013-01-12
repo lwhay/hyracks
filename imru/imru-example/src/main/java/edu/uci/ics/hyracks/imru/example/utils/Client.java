@@ -25,6 +25,7 @@ import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
 
@@ -94,8 +95,8 @@ public class Client<Model extends IModel, T extends Serializable> {
         @Option(name = "-clusterport", usage = "Hyracks Cluster Controller Port (default: 3099)")
         public int clusterPort = 1099;
 
-        @Option(name = "-app", usage = "Hyracks Application name", required = true)
-        public String app;
+        @Option(name = "-app", usage = "Hyracks Application name")
+        public String app = "imru-examples";
 
         @Option(name = "-hadoop-conf", usage = "Path to Hadoop configuration", required = true)
         public String hadoopConfPath;
@@ -144,6 +145,8 @@ public class Client<Model extends IModel, T extends Serializable> {
     public IMRUJobControl<Model, T> control;
     public Options options = new Options();
     Configuration conf;
+    private static boolean alreadyStartedDebug = false;
+    private static HashSet<String> uploadedApps = new HashSet<String>();
 
     /**
      * Create a client object using a list of arguments
@@ -449,6 +452,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
         CreateHar.createHar(harFile);
+        //        System.out.println("Upload "+ appName+" "+ harFile.getAbsolutePath());
         out.close();
         try {
             hcc.createApplication(options.app, harFile);
@@ -476,6 +480,28 @@ public class Client<Model extends IModel, T extends Serializable> {
         clent.startClusterAndNodes();
     }
 
+    public void init() throws Exception {
+        // disable logs
+        if (options.disableLogging)
+            Client.disableLogging();
+
+        // start local cluster controller and two node controller
+        // for debugging purpose
+        if (options.debug && !alreadyStartedDebug) {
+            alreadyStartedDebug = true;
+            startClusterAndNodes();
+        }
+
+        // connect to the cluster controller
+        connect();
+
+        if (!uploadedApps.contains(options.app)) {
+            // create the application in local cluster
+            uploadApp();
+            uploadedApps.add(options.app);
+        }
+    }
+
     /**
      * run job
      * 
@@ -485,20 +511,7 @@ public class Client<Model extends IModel, T extends Serializable> {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);
 
-        // disable logs
-        if (client.options.disableLogging)
-            Client.disableLogging();
-
-        // start local cluster controller and two node controller
-        // for debugging purpose
-        if (client.options.debug)
-            client.startClusterAndNodes();
-
-        // connect to the cluster controller
-        client.connect();
-
-        // create the application in local cluster
-        client.uploadApp();
+        client.init();
 
         // run job
         JobStatus status = client.run(job);
@@ -511,8 +524,6 @@ public class Client<Model extends IModel, T extends Serializable> {
 
         return client.getModel();
     }
-
-    private static boolean alreadyStartedDebug = false;
 
     /**
      * run job
@@ -534,25 +545,9 @@ public class Client<Model extends IModel, T extends Serializable> {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);
 
-        // disable logs
-        if (client.options.disableLogging)
-            Client.disableLogging();
-
-        // start local cluster controller and two node controller
-        // for debugging purpose
-        if (client.options.debug && !alreadyStartedDebug) {
-            alreadyStartedDebug = true;
-            client.startClusterAndNodes();
-        }
-
-        // connect to the cluster controller
-        client.connect();
-
         if (overrideAppName != null)
             client.options.app = overrideAppName;
-
-        // create the application in local cluster
-        client.uploadApp();
+        client.init();
 
         // run job
         JobStatus status = client.run(job);

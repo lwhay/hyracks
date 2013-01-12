@@ -115,20 +115,6 @@ public class IMRUDriver<Model extends IModel> {
         // Update operator.
         Path modelOutPath;
 
-        // Data load
-        LOGGER.info("Starting data load");
-        long loadStart = System.currentTimeMillis();
-        JobStatus status = runDataLoad();
-        long loadEnd = System.currentTimeMillis();
-        LOGGER.info("Finished data load in " + (loadEnd - loadStart) + " milliseconds");
-        if (status == JobStatus.FAILURE) {
-            LOGGER.severe("Failed during data load");
-            return JobStatus.FAILURE;
-        }
-        
-        if (model==null) {
-            
-        }
         // For the first round, the initial model is written by the
         // driver.
         if (saveIntermediateModels)
@@ -144,6 +130,17 @@ public class IMRUDriver<Model extends IModel> {
             }
         }
 
+        // Data load
+        LOGGER.info("Starting data load");
+        long loadStart = System.currentTimeMillis();
+        JobStatus status = runDataLoad();
+        long loadEnd = System.currentTimeMillis();
+        LOGGER.info("Finished data load in " + (loadEnd - loadStart) + " milliseconds");
+        if (status == JobStatus.FAILURE) {
+            LOGGER.severe("Failed during data load");
+            return JobStatus.FAILURE;
+        }
+        
         // Iterations
         do {
             iterationCount++;

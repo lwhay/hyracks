@@ -42,7 +42,7 @@ public class KMeans {
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
-        cmdline += " -app kmeans";
+//        cmdline += " -app kmeans";
         // hadoop config path
         cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // HDFS path to hold intermediate models
@@ -67,12 +67,14 @@ public class KMeans {
             args = defaultArgs(false);
 
         int k = 3;
-        KMeansModel initModel = Client.run(new RandomSelectJob(k), args, "kmeansInit");
-        initModel.roundsRemaining = 20;
+        
+        KMeansModel initModel = Client.run(new RandomSelectJob(k), args);
+        System.out.println("InitModel: "+initModel);
+        
+        initModel.roundsRemaining=20;
+        
         KMeansModel finalModel = Client.run(new KMeansJobV3(k, initModel), args);
-        System.out.println("FinalModel:");
-        for (int i = 0; i < k; i++)
-            System.out.println(" " + finalModel.centroids[i]);
+        System.out.println("FinalModel: "+finalModel);
         System.exit(0);
     }
 }

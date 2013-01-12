@@ -146,7 +146,7 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
                         input.close();
                         long end = System.currentTimeMillis();
                         long modelReadTime = (end - start);
-                        LOG.info("Read model in " + modelReadTime + " milliseconds");
+                        LOG.info("Read model "+envInPath+" in " + modelReadTime + " milliseconds");
                     } catch (IOException e) {
                         throw new HyracksDataException("Exception while reading model", e);
                     } catch (ClassNotFoundException e) {

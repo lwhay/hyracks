@@ -93,6 +93,7 @@ public class KMeansJobV3 extends IMRUJobV3<KMeansModel, DataPoint, KMeansCentroi
             }
             result.centroids[belong].add(dataPoint);
         }
+        //        System.out.println("map "+model);
         return result;
     }
 
@@ -117,12 +118,13 @@ public class KMeansJobV3 extends IMRUJobV3<KMeansModel, DataPoint, KMeansCentroi
     public void update(IHyracksTaskContext ctx, Iterator<KMeansCentroids> input, KMeansModel model)
             throws HyracksDataException {
         KMeansCentroids combined = reduce(ctx, input);
-        for (int i = 0; i < k; i++) {
-            model.centroids[i].x = combined.centroids[i].x / combined.centroids[i].count;
-            model.centroids[i].y = combined.centroids[i].y / combined.centroids[i].count;
-        }
+        boolean changed = false;
+        for (int i = 0; i < k; i++)
+            changed = changed || model.centroids[i].set(combined.centroids[i]);
         model.roundsRemaining--;
-        System.out.println("K-Means round remaining: " + model.roundsRemaining);
+        if (!changed)
+            model.roundsRemaining = 0;
+        System.out.println("Model: " + model);
     }
 
     /**

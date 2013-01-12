@@ -37,6 +37,20 @@ public class Centroid implements Serializable {
         count += c.count;
     }
 
+    public boolean set(Centroid c) {
+        double x = c.x;
+        double y = c.y;
+        if (c.count > 0) {
+            x /= c.count;
+            y /= c.count;
+        }
+        if (Math.abs(x-this.x)<1E-10&&Math.abs(y-this.y)<1E-10)
+            return false;
+        this.x=x;
+        this.y=y;
+        return true;
+    }
+
     public void set(DataPoint p) {
         x = p.x;
         y = p.y;

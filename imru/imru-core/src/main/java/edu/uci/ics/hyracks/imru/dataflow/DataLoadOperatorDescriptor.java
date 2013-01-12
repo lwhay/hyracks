@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
+import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
@@ -43,6 +44,7 @@ import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
 import edu.uci.ics.hyracks.imru.file.HDFSUtils;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.state.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
 
@@ -116,10 +118,15 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
             // Load the examples.
             MapTaskState state = (MapTaskState) IterationUtils.getIterationState(ctx, partition);
             if (state != null) {
-                throw new IllegalStateException("Duplicate loading of input data.");
+                LOG.severe("Duplicate loading of input data.");
+                INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
+                IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+                context.modelAge=0;
+//                throw new IllegalStateException("Duplicate loading of input data.");
             }
             long start = System.currentTimeMillis();
-            state = new MapTaskState(ctx.getJobletContext().getJobId(), ctx.getTaskAttemptId().getTaskId());
+            if (state == null)
+                state = new MapTaskState(ctx.getJobletContext().getJobId(), ctx.getTaskAttemptId().getTaskId());
             FileReference file = ctx.createUnmanagedWorkspaceFile("IMRUInput");
             RunFileWriter runFileWriter = new RunFileWriter(file, ctx.getIOManager());
             state.setRunFileWriter(runFileWriter);

@@ -15,8 +15,6 @@
 
 package edu.uci.ics.hyracks.imru.example.kmeans;
 
-import java.util.Random;
-
 import edu.uci.ics.hyracks.imru.api.IModel;
 
 /**
@@ -26,7 +24,7 @@ public class KMeansModel implements IModel {
     Centroid[] centroids;
     public int roundsRemaining = 20;
     @Deprecated
-    boolean firstRound=true;
+    boolean firstRound = true;
 
     public KMeansModel(int k) {
         centroids = new Centroid[k];
@@ -34,4 +32,12 @@ public class KMeansModel implements IModel {
             centroids[i] = new Centroid();
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < centroids.length; i++)
+            sb.append(centroids[i] + " ");
+        sb.append(roundsRemaining);
+        return sb.toString();
+    }
 }

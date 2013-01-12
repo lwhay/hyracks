@@ -48,7 +48,7 @@ public class RandomSelectJob extends IMRUJobV3<KMeansModel, DataPoint, KMeansSta
     @Override
     public KMeansModel initModel() {
         KMeansModel initModel = new KMeansModel(k);
-        initModel.roundsRemaining=1;
+        initModel.roundsRemaining = 1;
         return initModel;
     }
 
@@ -71,7 +71,6 @@ public class RandomSelectJob extends IMRUJobV3<KMeansModel, DataPoint, KMeansSta
                 String line = reader.readLine();
                 if (line == null)
                     break;
-                System.out.println("parse: " + line);
                 String[] ss = line.split("[ |\t]+");
                 DataPoint dataPoint = new DataPoint();
                 dataPoint.x = Double.parseDouble(ss[0]);
@@ -123,13 +122,8 @@ public class RandomSelectJob extends IMRUJobV3<KMeansModel, DataPoint, KMeansSta
             throws HyracksDataException {
         KMeansStartingPoints obj = reduce(ctx, input);
         KMeansStartingPoints startingPoints = (KMeansStartingPoints) obj;
-        for (int i = 0; i < k; i++) {
+        for (int i = 0; i < k; i++)
             model.centroids[i].set(startingPoints.ps[i]);
-        }
-        System.out.println("InitModel:"+model.roundsRemaining);
-        for (int i = 0; i < k; i++) {
-            System.out.println(" " + model.centroids[i]);
-        }
         model.roundsRemaining--;
     }
 
