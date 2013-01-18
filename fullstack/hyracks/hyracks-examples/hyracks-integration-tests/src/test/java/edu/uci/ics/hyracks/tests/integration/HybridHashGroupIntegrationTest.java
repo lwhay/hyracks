@@ -102,7 +102,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void singleKeySumHybridHashSortTest() throws Exception {
+    public void singleKeySumHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
@@ -149,7 +149,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void singleKeyAvgHybridHashSortTest() throws Exception {
+    public void singleKeyAvgHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
@@ -196,7 +196,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void singleKeyMinMaxStringHybridHashSortTest() throws Exception {
+    public void singleKeyMinMaxStringHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
@@ -242,7 +242,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void multiKeySumHybridHashSortTest() throws Exception {
+    public void multiKeySumHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
@@ -289,7 +289,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void multiKeyAvgHybridHashSortTest() throws Exception {
+    public void multiKeyAvgHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
@@ -338,7 +338,7 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    public void multiKeyMinMaxStringHybridHashSortTest() throws Exception {
+    public void multiKeyMinMaxStringHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,

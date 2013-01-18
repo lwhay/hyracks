@@ -252,31 +252,48 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 topProcessor.finishup();
 
                 List<IFrameReader> runs = topProcessor.getSpilledRuns();
-                List<Integer> runSizesInPages = topProcessor.getSpilledRunsSizeInPages();
+                List<Integer> runsSizeInFrames = topProcessor.getSpilledRunsSizeInPages();
 
                 // get statistics from the hash table
                 int hashedKeys = topProcessor.getHashedUniqueKeys();
                 int hashedRawRecords = topProcessor.getHashedRawRecords();
+
+                // Get the raw record size of each partition (in records but not in pages)
+                List<Integer> partitionRawRecordsCount = topProcessor.getSpilledRunsSizeInTuples();
 
                 topProcessor.close();
 
                 // get a new estimation on the number of keys in the input data set: if the previous level is pure-partition, 
                 // then use the size inputed in the previous level; otherwise, compute the key ratio in the data set based on
                 // the processed keys.
-                int newKeySizeInPages = (doInputAdjustment || hashedRawRecords == 0) ? (int) Math
-                        .ceil(userProvidedInputSizeInFrames * ESTIMATOR_MAGNIFIER) : (int) Math
-                        .ceil((double) hashedKeys / hashedRawRecords * observedInputSizeInFrames * ESTIMATOR_MAGNIFIER);
+                int newKeySizeInPages = (doInputAdjustment && hashedRawRecords > 0) ? (int) Math
+                        .ceil((double) hashedKeys / hashedRawRecords * observedInputSizeInFrames) : (int) Math
+                        .ceil(userProvidedInputSizeInFrames);
 
-                for (int i = 0; i < runs.size(); i++) {
+                IFrameReader runReader;
+                int runSizeInFrames;
+                int partitionRawRecords;
+
+                while (!runs.isEmpty()) {
+
+                    runReader = runs.remove(0);
+                    runSizeInFrames = runsSizeInFrames.remove(0);
+                    partitionRawRecords = partitionRawRecordsCount.remove(0);
 
                     // compute the estimated key size in frames for the run file
-                    int runKeySize = (int) Math.ceil((double) newKeySizeInPages * runSizesInPages.get(i)
-                            / observedInputSizeInFrames);
+                    int runKeySize;
+
+                    if (doInputAdjustment && hashedRawRecords > 0)
+                        runKeySize = (int) Math.ceil((double) newKeySizeInPages * runSizeInFrames
+                                / observedInputSizeInFrames);
+                    else
+                        runKeySize = (int) Math.ceil((double) userProvidedInputSizeInFrames * partitionRawRecords
+                                / inputSizeInRawRecords);
 
                     if (topLevelFallbackCheck && runKeySize > HYBRID_FALLBACK_THRESHOLD * newKeySizeInPages) {
-                        fallBack(runs.get(i), runSizesInPages.get(i), runKeySize, 1);
+                        fallBack(runReader, runSizeInFrames, runKeySize, 1);
                     } else {
-                        processRunFiles(runs.get(i), runKeySize, 1);
+                        processRunFiles(runReader, runKeySize, 1);
                     }
                 }
 
@@ -287,60 +304,72 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
             private void processRunFiles(IFrameReader runReader, int uniqueKeysOfRunFileInFrames, int runLevel)
                     throws HyracksDataException {
 
-                List<IFrameReader> runs;
-                List<Integer> runSizes;
-                HybridHashGroupHashTable processor;
-
                 boolean checkFallback = true;
 
                 int numOfPartitions = getNumberOfPartitions(tableSize, framesLimit, uniqueKeysOfRunFileInFrames,
                         fudgeFactor);
 
-                processor = new HybridHashGroupHashTable(ctx, framesLimit, tableSize, numOfPartitions, keyFields,
-                        runLevel, comparators, tpcf, aggregatorFactory.createAggregator(ctx, inRecDesc,
-                                recordDescriptors[0], keyFields, storedKeyFields), inRecDesc, recordDescriptors[0],
-                        writer);
+                HybridHashGroupHashTable processor = new HybridHashGroupHashTable(ctx, framesLimit, tableSize,
+                        numOfPartitions, keyFields, runLevel, comparators, tpcf, aggregatorFactory.createAggregator(
+                                ctx, inRecDesc, recordDescriptors[0], keyFields, storedKeyFields), inRecDesc,
+                        recordDescriptors[0], writer);
 
                 processor.open();
 
                 runReader.open();
 
-                int inputRunRawSizeInFrames = 0;
+                int inputRunRawSizeInFrames = 0, inputRunRawSizeInTuples = 0;
 
                 if (readAheadBuf == null) {
                     readAheadBuf = ctx.allocateFrame();
                 }
                 while (runReader.nextFrame(readAheadBuf)) {
-                    processor.nextFrame(readAheadBuf);
                     inputRunRawSizeInFrames++;
+                    inputRunRawSizeInTuples += readAheadBuf.getInt(readAheadBuf.capacity() - 4);
+                    processor.nextFrame(readAheadBuf);
                 }
 
                 runReader.close();
 
                 processor.finishup();
 
-                runs = processor.getSpilledRuns();
-                runSizes = processor.getSpilledRunsSizeInPages();
+                List<IFrameReader> runs = processor.getSpilledRuns();
+                List<Integer> runSizes = processor.getSpilledRunsSizeInPages();
+                List<Integer> partitionRawRecords = processor.getSpilledRunsSizeInTuples();
 
                 int directFlushKeysInTuples = processor.getHashedUniqueKeys();
                 int directFlushRawRecordsInTuples = processor.getHashedRawRecords();
 
                 processor.close();
 
-                int newKeySizeInPages = (doInputAdjustment || directFlushRawRecordsInTuples == 0) ? uniqueKeysOfRunFileInFrames
-                        : (int) Math.ceil((double) directFlushKeysInTuples / directFlushRawRecordsInTuples
-                                * inputRunRawSizeInFrames * ESTIMATOR_MAGNIFIER);
+                int newKeySizeInPages = (doInputAdjustment && directFlushRawRecordsInTuples > 0) ? (int) Math
+                        .ceil((double) directFlushKeysInTuples / directFlushRawRecordsInTuples
+                                * inputRunRawSizeInFrames) : uniqueKeysOfRunFileInFrames;
 
-                for (int i = 0; i < runs.size(); i++) {
-                    IFrameReader recurRunReader = runs.get(i);
+                IFrameReader recurRunReader;
+                int runSizeInPages, subPartitionRawRecords;
 
-                    int newRunKeySize = (int) Math.ceil((double) newKeySizeInPages * runSizes.get(i)
-                            / inputRunRawSizeInFrames);
+                while (!runs.isEmpty()) {
+                    recurRunReader = runs.remove(0);
+                    runSizeInPages = runSizes.remove(0);
+                    subPartitionRawRecords = partitionRawRecords.remove(0);
+
+                    int newRunKeySize;
+
+                    if (doInputAdjustment && directFlushRawRecordsInTuples > 0) {
+                        // do adjustment
+                        newRunKeySize = (int) Math.ceil((double) newKeySizeInPages * runSizeInPages
+                                / inputRunRawSizeInFrames);
+                    } else {
+                        // no adjustment
+                        newRunKeySize = (int) Math.ceil((double) subPartitionRawRecords * uniqueKeysOfRunFileInFrames
+                                / inputRunRawSizeInTuples);
+                    }
 
                     if (checkFallback && newRunKeySize > HYBRID_FALLBACK_THRESHOLD * newKeySizeInPages) {
-                        fallBack(recurRunReader, runSizes.get(i), newRunKeySize, runLevel);
+                        fallBack(recurRunReader, runSizeInPages, newRunKeySize, runLevel);
                     } else {
-                        processRunFiles(runs.get(i), newRunKeySize, runLevel + 1);
+                        processRunFiles(recurRunReader, newRunKeySize, runLevel + 1);
                     }
 
                 }
@@ -393,5 +422,4 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
         };
     }
-
 }
