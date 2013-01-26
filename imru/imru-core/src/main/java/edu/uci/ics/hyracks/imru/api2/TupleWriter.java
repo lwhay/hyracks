@@ -19,24 +19,21 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
 public class TupleWriter implements DataOutput {
-    IFrameWriter writer;
+    FrameWriter writer;
     ByteBuffer frame;
     DataOutput dos;
     FrameTupleAppender appender;
     ArrayTupleBuilder tb;
 
-    public TupleWriter(IHyracksTaskContext ctx, IFrameWriter writer, int nFields) {
+    public TupleWriter(IMRUContext ctx, FrameWriter writer, int nFields) {
         this.writer = writer;
-        frame = ctx.allocateFrame();
-        appender = new FrameTupleAppender(ctx.getFrameSize());
+        frame = ctx.ctx.allocateFrame();
+        appender = new FrameTupleAppender(ctx.ctx.getFrameSize());
         appender.reset(frame, true);
         tb = new ArrayTupleBuilder(nFields);
         dos = tb.getDataOutput();
@@ -55,13 +52,13 @@ public class TupleWriter implements DataOutput {
      * @throws HyracksDataException
      */
     public void finishFrame() throws HyracksDataException {
-        FrameUtils.flushFrame(frame, writer);
+        writer.writeFrame(frame);
         appender.reset(frame, true);
     }
 
     public void finishTuple() throws HyracksDataException {
         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-            FrameUtils.flushFrame(frame, writer);
+            writer.writeFrame(frame);
             appender.reset(frame, true);
             if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 // LOG.severe("Example too large to fit in frame: " +
@@ -74,7 +71,7 @@ public class TupleWriter implements DataOutput {
 
     public void close() throws HyracksDataException {
         if (appender.getTupleCount() > 0) {
-            FrameUtils.flushFrame(frame, writer);
+            writer.writeFrame(frame);
             appender.reset(frame, true);
         }
     }

@@ -23,8 +23,6 @@ import edu.uci.ics.hyracks.imru.api.IModel;
 public class KMeansModel implements IModel {
     Centroid[] centroids;
     public int roundsRemaining = 20;
-    @Deprecated
-    boolean firstRound = true;
 
     public KMeansModel(int k) {
         centroids = new Centroid[k];

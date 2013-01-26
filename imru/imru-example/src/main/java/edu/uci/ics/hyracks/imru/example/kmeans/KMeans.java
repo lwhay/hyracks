@@ -15,8 +15,6 @@
 
 package edu.uci.ics.hyracks.imru.example.kmeans;
 
-import java.io.File;
-
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**

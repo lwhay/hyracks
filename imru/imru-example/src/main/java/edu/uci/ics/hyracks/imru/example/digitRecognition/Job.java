@@ -24,10 +24,10 @@ import java.util.Iterator;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IMRUContext;
+import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 import edu.uci.ics.hyracks.imru.example.utils.CreateHar;
@@ -39,7 +39,7 @@ import edu.uci.ics.hyracks.imru.example.utils.R;
  * 
  * @author wangrui
  */
-public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
+public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
     /**
      * Return initial model
      */
@@ -60,7 +60,7 @@ public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
      * Parse input data and output tuples
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
         try {
             R.p("parse data");
             ZipInputStream zip = new ZipInputStream(input);
@@ -81,14 +81,14 @@ public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
                 }
             }
             if (images == null || labels == null)
-                throw new HyracksDataException("invalid input data");
+                throw new IMRUDataException("invalid input data");
             for (int i = 0; i < labels.length; i++) {
                 Data data = new Data();
                 data.label = labels[i];
                 data.image = images[i];
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw new IMRUDataException(e);
         }
     }
 
@@ -97,7 +97,7 @@ public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
      * result after processing multiple tuples.
      */
     @Override
-    public Result map(IHyracksTaskContext ctx, Iterator<Data> input, NeuralNetwork model) throws IOException {
+    public Result map(IMRUContext ctx, Iterator<Data> input, NeuralNetwork model) throws IOException {
         Result weight = new Result(model.layers);
         NNResult result = new NNResult(model.layers);
         int numPatternsSampled = 0;
@@ -131,7 +131,7 @@ public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
      * Combine multiple results to one result
      */
     @Override
-    public Result reduce(IHyracksTaskContext ctx, Iterator<Result> input) throws HyracksDataException {
+    public Result reduce(IMRUContext ctx, Iterator<Result> input) throws IMRUDataException {
         Result combined = null;
         while (input.hasNext()) {
             Result result = input.next();
@@ -149,8 +149,8 @@ public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
      * update the model using combined result
      */
     @Override
-    public void update(IHyracksTaskContext ctx, Iterator<Result> input, NeuralNetwork model)
-            throws HyracksDataException {
+    public void update(IMRUContext ctx, Iterator<Result> input, NeuralNetwork model)
+            throws IMRUDataException {
         int total = 0;
         int correct = 0;
         double loss = 0;

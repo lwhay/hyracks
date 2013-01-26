@@ -21,16 +21,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IMRUContext;
+import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 
 /**
  * Core IMRU application specific code.
  * The dataflow is parse->map->reduce->update
  */
-public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, HelloWorldResult> {
+public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, HelloWorldResult> {
     /**
      * Return initial model
      */
@@ -51,7 +51,7 @@ public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, Hell
      * Parse input data and output data objects
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<HelloWorldData> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input, DataWriter<HelloWorldData> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
         String line = reader.readLine();
         reader.close();
@@ -65,7 +65,7 @@ public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, Hell
      * For a list of data objects, return one result
      */
     @Override
-    public HelloWorldResult map(IHyracksTaskContext ctx, Iterator<HelloWorldData> input, HelloWorldModel model)
+    public HelloWorldResult map(IMRUContext ctx, Iterator<HelloWorldData> input, HelloWorldModel model)
             throws IOException {
         HelloWorldResult result = new HelloWorldResult();
         while (input.hasNext()) {
@@ -80,8 +80,8 @@ public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, Hell
      * Combine multiple results to one result
      */
     @Override
-    public HelloWorldResult reduce(IHyracksTaskContext ctx, Iterator<HelloWorldResult> input)
-            throws HyracksDataException {
+    public HelloWorldResult reduce(IMRUContext ctx, Iterator<HelloWorldResult> input)
+            throws IMRUDataException {
         HelloWorldResult combined = new HelloWorldResult();
         StringBuilder sb = new StringBuilder();
         while (input.hasNext()) {
@@ -99,8 +99,8 @@ public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, Hell
      * update the model using combined result
      */
     @Override
-    public void update(IHyracksTaskContext ctx, Iterator<HelloWorldResult> input, HelloWorldModel model)
-            throws HyracksDataException {
+    public void update(IMRUContext ctx, Iterator<HelloWorldResult> input, HelloWorldModel model)
+            throws IMRUDataException {
         StringBuilder sb = new StringBuilder();
         int oldLength = model.totalLength;
         while (input.hasNext()) {

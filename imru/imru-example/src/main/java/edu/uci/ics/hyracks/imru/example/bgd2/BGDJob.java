@@ -20,17 +20,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-import java.util.Scanner;
 import java.util.regex.Pattern;
 
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IMRUContext;
+import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
-public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
+public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     int features;
     int rounds;
 
@@ -50,7 +49,7 @@ public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
         int activeFeatures = 0;
         Pattern whitespacePattern = Pattern.compile("\\s+");
@@ -102,7 +101,7 @@ public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public LossGradient map(IHyracksTaskContext ctx, Iterator<Data> input, LinearModel model) throws IOException {
+    public LossGradient map(IMRUContext ctx, Iterator<Data> input, LinearModel model) throws IOException {
         LossGradient lossGradientMap = new LossGradient(model.numFeatures);
         while (input.hasNext()) {
             Data data = input.next();
@@ -116,7 +115,7 @@ public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public LossGradient reduce(IHyracksTaskContext ctx, Iterator<LossGradient> input) throws HyracksDataException {
+    public LossGradient reduce(IMRUContext ctx, Iterator<LossGradient> input) throws IMRUDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();
@@ -134,8 +133,7 @@ public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public void update(IHyracksTaskContext ctx, Iterator<LossGradient> input, LinearModel model)
-            throws HyracksDataException {
+    public void update(IMRUContext ctx, Iterator<LossGradient> input, LinearModel model) throws IMRUDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();

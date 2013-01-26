@@ -21,12 +21,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api2.IMRUContext;
+import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 
-public class KMeansJob extends IMRUJob<KMeansModel, DataPoint, KMeansCentroids> {
+public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroids> {
     int k;
     KMeansModel initModel;
 
@@ -55,7 +55,7 @@ public class KMeansJob extends IMRUJob<KMeansModel, DataPoint, KMeansCentroids> 
      * Parse input data and output tuples
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<DataPoint> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input, DataWriter<DataPoint> output) throws IOException {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(input));
             while (true) {
@@ -71,13 +71,12 @@ public class KMeansJob extends IMRUJob<KMeansModel, DataPoint, KMeansCentroids> 
             }
             reader.close();
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw new IMRUDataException(e);
         }
     }
 
     @Override
-    public KMeansCentroids map(IHyracksTaskContext ctx, Iterator<DataPoint> input, KMeansModel model)
-            throws IOException {
+    public KMeansCentroids map(IMRUContext ctx, Iterator<DataPoint> input, KMeansModel model) throws IOException {
         KMeansCentroids result = new KMeansCentroids(k);
         while (input.hasNext()) {
             DataPoint dataPoint = input.next();
@@ -101,7 +100,7 @@ public class KMeansJob extends IMRUJob<KMeansModel, DataPoint, KMeansCentroids> 
      * Combine multiple results to one result
      */
     @Override
-    public KMeansCentroids reduce(IHyracksTaskContext ctx, Iterator<KMeansCentroids> input) throws HyracksDataException {
+    public KMeansCentroids reduce(IMRUContext ctx, Iterator<KMeansCentroids> input) throws IMRUDataException {
         KMeansCentroids combined = new KMeansCentroids(k);
         while (input.hasNext()) {
             KMeansCentroids result = input.next();
@@ -115,8 +114,7 @@ public class KMeansJob extends IMRUJob<KMeansModel, DataPoint, KMeansCentroids> 
      * update the model using combined result
      */
     @Override
-    public void update(IHyracksTaskContext ctx, Iterator<KMeansCentroids> input, KMeansModel model)
-            throws HyracksDataException {
+    public void update(IMRUContext ctx, Iterator<KMeansCentroids> input, KMeansModel model) throws IMRUDataException {
         KMeansCentroids combined = reduce(ctx, input);
         boolean changed = false;
         for (int i = 0; i < k; i++)

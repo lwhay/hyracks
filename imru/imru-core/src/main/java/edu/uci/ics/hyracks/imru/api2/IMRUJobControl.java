@@ -32,7 +32,7 @@ import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 
-public class IMRUJobControl<Model extends IModel, T extends Serializable> {
+public class IMRUJobControl<Model extends IModel> {
     public HyracksConnection hcc;
     public Configuration conf = new Configuration();
     public ConfigurationFactory confFactory;
@@ -106,7 +106,7 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(IMRUJob2<Model> job2, String tempPath, String app) throws Exception {
+    public JobStatus run(IIMRUJob2<Model> job2, String tempPath, String app) throws Exception {
         Model initialModel = job2.initModel();
         IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(job2);
         return run(job, initialModel, tempPath, app);
@@ -121,8 +121,9 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(final IMRUJobV2<Model, T> job, String tempPath, String app) throws Exception {
-        return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
+    public <Data extends Serializable, T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job,
+            String tempPath, String app) throws Exception {
+        return run(new IMRUJob2Impl<Model, Data, T>(job), tempPath, app);
     }
 
     /**
