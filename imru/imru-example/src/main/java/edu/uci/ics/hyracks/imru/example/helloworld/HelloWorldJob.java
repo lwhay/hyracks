@@ -21,9 +21,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 
 /**
@@ -56,7 +56,7 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
         String line = reader.readLine();
         reader.close();
         for (String s : line.split(" ")) {
-            System.out.println("parse: " + s);
+            System.out.println(ctx.getOperatorName()+": " + s);
             output.addData(new HelloWorldData(s));
         }
     }
@@ -71,7 +71,7 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
         while (input.hasNext()) {
             String word = input.next().word;
             result.length += word.length();
-            System.out.println("map: " + word + " -> " + result.length);
+            System.out.println(ctx.getOperatorName()+": " + word + " -> " + result.length);
         }
         return result;
     }
@@ -91,7 +91,7 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
         }
         if (sb.length() > 0)
             sb.deleteCharAt(sb.length() - 1);
-        System.out.println("reduce: " + sb + " -> " + combined.length);
+        System.out.println(ctx.getOperatorName()+": " + sb + " -> " + combined.length);
         return combined;
     }
 
@@ -108,7 +108,7 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
             sb.append("+" + result.length);
             model.totalLength += result.length;
         }
-        System.out.println("update: " + oldLength + sb + " -> " + model.totalLength);
+        System.out.println(ctx.getOperatorName()+": " + oldLength + sb + " -> " + model.totalLength);
         model.roundsRemaining--;
     }
 

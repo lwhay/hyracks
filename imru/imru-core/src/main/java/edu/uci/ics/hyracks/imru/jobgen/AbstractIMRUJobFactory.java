@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import org.apache.hadoop.mapreduce.InputSplit;
 
+import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -42,7 +43,7 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
 
     /**
      * Construct a new AbstractIMRUJobFactory.
-     *
+     * 
      * @param inputPaths
      *            The paths to load data from in HDFS.
      * @param confFactory
@@ -58,16 +59,17 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
     public JobSpecification generateDataLoadJob(IIMRUJobSpecification model, UUID id) throws HyracksException {
         JobSpecification spec = new JobSpecification();
 
-        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPaths,
+        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPaths,
                 confFactory.createConfiguration());
-        List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
+        List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
 
-        IOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, confFactory);
+        IOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, inputPaths,
+                confFactory);
         // For repeatability of the partition assignments, seed the
         // source of
         // randomness using the job id.
         Random random = new Random(id.getLeastSignificantBits());
-        ClusterConfig.setLocationConstraint(spec, dataLoad, inputSplits, random);
+        ClusterConfig.setLocationConstraint(spec, dataLoad, inputSplits, inputPaths, random);
         spec.addRoot(dataLoad);
 
         return spec;

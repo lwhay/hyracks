@@ -22,9 +22,9 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.regex.Pattern;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;

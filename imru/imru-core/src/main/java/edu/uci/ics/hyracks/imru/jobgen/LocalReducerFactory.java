@@ -43,7 +43,7 @@ public class LocalReducerFactory {
 
     /**
      * Add local reducers to the output of a map operator.
-     *
+     * 
      * @param spec
      *            The JobSpecification.
      * @param producerOp
@@ -61,11 +61,11 @@ public class LocalReducerFactory {
      * @param imruSpec
      *            The IMRU spec used by the job
      */
-    @SuppressWarnings({ "rawtypes" })
+    @SuppressWarnings( { "rawtypes" })
     public static void addLocalReducers(JobSpecification spec, IOperatorDescriptor producerOp, int producerPort,
             String[] producerLocations, IOperatorDescriptor consumerOp, int consumerPort,
             IConnectorDescriptor consumerConn, IIMRUJobSpecification imruSpec) {
-        IOperatorDescriptor localReducer = new ReduceOperatorDescriptor(spec, imruSpec);
+        IOperatorDescriptor localReducer = new ReduceOperatorDescriptor(spec, imruSpec, "local reducer");
         // Construct the locality map used to route tuples to local
         // reducers:
         Set<String> ncsWithMapOperators = new HashSet<String>(Arrays.asList(producerLocations));

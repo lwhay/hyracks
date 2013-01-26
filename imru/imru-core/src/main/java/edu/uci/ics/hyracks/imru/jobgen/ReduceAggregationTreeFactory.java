@@ -33,7 +33,7 @@ public class ReduceAggregationTreeFactory {
 
     /**
      * Construct an aggregation tree with the specified fan-in.
-     *
+     * 
      * @param spec
      *            The JobSpecification.
      * @param producerOp
@@ -61,7 +61,7 @@ public class ReduceAggregationTreeFactory {
      * @param imruSpec
      *            The IMRU job specification.
      */
-    @SuppressWarnings({ "rawtypes" })
+    @SuppressWarnings( { "rawtypes" })
     public static void buildAggregationTree(JobSpecification spec, IOperatorDescriptor producerOp, int producerPort,
             int producerOpCount, IOperatorDescriptor consumerOp, int consumerPort, IConnectorDescriptor consumerConn,
             int fanIn, boolean useLocalCombiners, String[] producerOpLocations, IIMRUJobSpecification imruSpec) {
@@ -72,7 +72,7 @@ public class ReduceAggregationTreeFactory {
         int numLevels = levelNodeCounts.length;
         IOperatorDescriptor[] aggregatorOperators = new IOperatorDescriptor[numLevels];
         for (int level = 0; level < numLevels; level++) {
-            aggregatorOperators[level] = new ReduceOperatorDescriptor(spec, imruSpec);
+            aggregatorOperators[level] = new ReduceOperatorDescriptor(spec, imruSpec, "tree");
             aggregatorOperators[level].setDisplayName("ReduceOperatorDescriptor(level " + level + ")");
             PartitionConstraintHelper.addPartitionCountConstraint(spec, aggregatorOperators[level],
                     levelNodeCounts[levelNodeCounts.length - 1 - level]);
@@ -98,7 +98,7 @@ public class ReduceAggregationTreeFactory {
     /**
      * Determines the number of nodes at each level of an aggregation
      * tree.
-     *
+     * 
      * @param size
      *            The number of leaf nodes
      * @param fanIn

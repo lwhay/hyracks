@@ -66,8 +66,7 @@ public class ClusterConfig {
      * @return
      * @throws HyracksDataException
      */
-    public static List<String> getNCNames(String ipAddress)
-            throws HyracksException {
+    public static List<String> getNCNames(String ipAddress) throws HyracksException {
         if (NCs == null) {
             loadClusterConfig();
         }
@@ -92,11 +91,21 @@ public class ClusterConfig {
      * @return The assigned partition locations.
      * @throws HyracksException
      */
-    public static String[] setLocationConstraint(JobSpecification spec,
-            IOperatorDescriptor operator, List<InputSplit> splits, Random random)
-            throws HyracksException {
-        if (NCs == null) {
+    public static String[] setLocationConstraint(JobSpecification spec, IOperatorDescriptor operator,
+            List<InputSplit> splits, String inputPaths, Random random) throws HyracksException {
+        if (NCs == null)
             loadClusterConfig();
+        if (splits == null) {
+            String[] splits2 = inputPaths.split(",");
+            int partitionCount = splits2.length;
+            String[] partitionLocations = new String[partitionCount];
+            for (int partition = 0; partition < partitionCount; partition++) {
+                int pos = partition % NCs.length;
+                partitionLocations[partition] = NCs[pos];
+            }
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
+            PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
+            return partitionLocations;
         }
         int partitionCount = splits.size();
         String[] partitionLocations = new String[partitionCount];
@@ -109,20 +118,16 @@ public class ClusterConfig {
                 Collections.sort(Arrays.asList(localHosts));
                 Collections.shuffle(Arrays.asList(localHosts), random);
                 if (localHosts.length > 0) {
-                    LOG.info("Partition " + partition + " is local at "
-                            + localHosts.length + " hosts: "
+                    LOG.info("Partition " + partition + " is local at " + localHosts.length + " hosts: "
                             + StringUtils.join(localHosts, ", "));
                     for (int host = 0; host < localHosts.length; host++) {
-                        InetAddress[] hostIps = InetAddress
-                                .getAllByName(localHosts[host]);
+                        InetAddress[] hostIps = InetAddress.getAllByName(localHosts[host]);
                         for (InetAddress ip : hostIps) {
                             if (ipToNcMapping.get(ip.getHostAddress()) != null) {
-                                List<String> ncs = ipToNcMapping.get(ip
-                                        .getHostAddress());
+                                List<String> ncs = ipToNcMapping.get(ip.getHostAddress());
                                 int pos = random.nextInt(ncs.size());
                                 partitionLocations[partition] = ncs.get(pos);
-                                LOG.info("Partition " + partition
-                                        + " assigned to " + ncs.get(pos)
+                                LOG.info("Partition " + partition + " assigned to " + ncs.get(pos)
                                         + ", where it is local.");
                                 localAssignments++;
                                 break;
@@ -136,16 +141,14 @@ public class ClusterConfig {
                         int pos = random.nextInt(NCs.length);
                         partitionLocations[partition] = NCs[pos];
                         nonlocalAssignments++;
-                        LOG.info("Partition " + partition + " assigned to "
-                                + NCs[pos]
+                        LOG.info("Partition " + partition + " assigned to " + NCs[pos]
                                 + " because there is no NC where it is local.");
                     }
                 } else {
                     int pos = random.nextInt(NCs.length);
                     partitionLocations[partition] = NCs[pos];
                     nonlocalAssignments++;
-                    LOG.info("Partition " + partition + " assigned to "
-                            + NCs[pos]
+                    LOG.info("Partition " + partition + " assigned to " + NCs[pos]
                             + " becasue getLocations() returned no locations.");
 
                 }
@@ -160,26 +163,20 @@ public class ClusterConfig {
             Map<String, MutableInt> ncPartitionCounts = new HashMap<String, MutableInt>();
             for (int i = 0; i < partitionLocations.length; i++) {
                 if (ncPartitionCounts.get(partitionLocations[i]) == null) {
-                    ncPartitionCounts.put(partitionLocations[i],
-                            new MutableInt(1));
+                    ncPartitionCounts.put(partitionLocations[i], new MutableInt(1));
                 } else {
                     ncPartitionCounts.get(partitionLocations[i]).increment();
                 }
             }
-            for (Map.Entry<String, MutableInt> entry : ncPartitionCounts
-                    .entrySet()) {
-                LOG.info(entry.getKey() + ": " + entry.getValue().intValue()
-                        + " partitions");
+            for (Map.Entry<String, MutableInt> entry : ncPartitionCounts.entrySet()) {
+                LOG.info(entry.getKey() + ": " + entry.getValue().intValue() + " partitions");
             }
         }
         double localityPercentage = ((1.0 * localAssignments) / (localAssignments + nonlocalAssignments)) * 100;
-        LOG.info(operator.getClass().getSimpleName() + ": " + localAssignments
-                + " local; " + nonlocalAssignments + " non-local; "
-                + localityPercentage + "% locality");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator,
-                partitionLocations);
-        PartitionConstraintHelper.addPartitionCountConstraint(spec, operator,
-                partitionCount);
+        LOG.info(operator.getClass().getSimpleName() + ": " + localAssignments + " local; " + nonlocalAssignments
+                + " non-local; " + localityPercentage + "% locality");
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
+        PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
         return partitionLocations;
     }
 
@@ -220,8 +217,7 @@ public class ClusterConfig {
             // return;
         }
         try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    new FileInputStream(confPath)));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(confPath)));
             List<String> ncNames = new ArrayList<String>();
             while ((line = reader.readLine()) != null) {
                 String[] ncConfig = line.split(" ");

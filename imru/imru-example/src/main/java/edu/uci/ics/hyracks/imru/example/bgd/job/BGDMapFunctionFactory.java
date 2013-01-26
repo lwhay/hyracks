@@ -20,13 +20,13 @@ import java.util.Arrays;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -37,7 +37,7 @@ import edu.uci.ics.hyracks.imru.example.bgd.data.RecordDescriptorUtils;
 
 public class BGDMapFunctionFactory implements IMapFunctionFactory<LinearModel> {
      @Override
-    public IMapFunction2 createMapFunction2(IHyracksTaskContext ctx,
+    public IMapFunction2 createMapFunction2(IMRUContext ctx,
             int cachedDataFrameSize, LinearModel model) {
         return null;
     }
@@ -46,7 +46,7 @@ public class BGDMapFunctionFactory implements IMapFunctionFactory<LinearModel> {
         return false;
     }
     @Override
-    public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize, final LinearModel model) {
+    public IMapFunction createMapFunction(final IMRUContext ctx, final int cachedDataFrameSize, final LinearModel model) {
         return new IMapFunction() {
 
             private IFrameWriter writer;

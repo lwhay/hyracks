@@ -22,12 +22,12 @@ import java.util.Iterator;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -67,13 +67,13 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
                 return false;
             }
 
-            public IMapFunction2 createMapFunction2(IHyracksTaskContext ctx,
+            public IMapFunction2 createMapFunction2(IMRUContext ctx,
                     int cachedDataFrameSize, Model model) {
                 return null;
             };
 
             @Override
-            public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize,
+            public IMapFunction createMapFunction(final IMRUContext ctx, final int cachedDataFrameSize,
                     final Model model) {
                 return new IMapFunction() {
                     
@@ -111,7 +111,7 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
         return new IReduceFunctionFactory() {
 
             @Override
-            public IReduceFunction createReduceFunction(final IHyracksTaskContext ctx) {
+            public IReduceFunction createReduceFunction(final IMRUContext ctx) {
                 return new IReassemblingReduceFunction() {
 
                     private IFrameWriter writer;
@@ -149,7 +149,7 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
         return new IUpdateFunctionFactory<Model>() {
 
             @Override
-            public IUpdateFunction createUpdateFunction(final IHyracksTaskContext ctx, final Model model) {
+            public IUpdateFunction createUpdateFunction(final IMRUContext ctx, final Model model) {
                 return new IReassemblingUpdateFunction() {
 
                     private IDeserializedUpdateFunction<T> updateFunction = getDeserializedUpdateFunctionFactory()
@@ -177,7 +177,7 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
     }
 
     @SuppressWarnings("unchecked")
-    private T deserializeFromChunks(IHyracksTaskContext ctx, List<ByteBuffer> chunks) throws HyracksDataException {
+    private T deserializeFromChunks(IMRUContext ctx, List<ByteBuffer> chunks) throws HyracksDataException {
         int size = chunks.get(0).getInt(0);
         byte objectData[] = new byte[size];
         ByteBuffer objectDataByteBuffer = ByteBuffer.wrap(objectData);
@@ -202,7 +202,7 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
         }
     }
 
-    private void serializeToFrames(IHyracksTaskContext ctx, IFrameWriter writer, T object) throws HyracksDataException {
+    private void serializeToFrames(IMRUContext ctx, IFrameWriter writer, T object) throws HyracksDataException {
         byte[] objectData;
         try {
             objectData = JavaSerializationUtils.serialize(object);

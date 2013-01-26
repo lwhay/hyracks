@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import edu.uci.ics.hyracks.api.comm.FrameConstants;
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -31,6 +30,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatArraySerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 
 public class FragmentableFloatArray implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -51,7 +51,7 @@ public class FragmentableFloatArray implements Serializable {
         array = fragmentArray;
     }
 
-    public void writeFragments(IFrameWriter writer, IHyracksTaskContext ctx) throws HyracksDataException {
+    public void writeFragments(IFrameWriter writer, IMRUContext ctx) throws HyracksDataException {
         ArrayTupleBuilder gradientBuilder = new ArrayTupleBuilder(2);
         FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
         ByteBuffer outFrame = ctx.allocateFrame();

@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 
 public class TupleWriter implements DataOutput {
     FrameWriter writer;
@@ -32,8 +33,8 @@ public class TupleWriter implements DataOutput {
 
     public TupleWriter(IMRUContext ctx, FrameWriter writer, int nFields) {
         this.writer = writer;
-        frame = ctx.ctx.allocateFrame();
-        appender = new FrameTupleAppender(ctx.ctx.getFrameSize());
+        frame = ctx.allocateFrame();
+        appender = new FrameTupleAppender(ctx.getFrameSize());
         appender.reset(frame, true);
         tb = new ArrayTupleBuilder(nFields);
         dos = tb.getDataOutput();

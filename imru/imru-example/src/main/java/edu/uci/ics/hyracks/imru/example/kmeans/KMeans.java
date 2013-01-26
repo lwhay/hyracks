@@ -37,16 +37,26 @@ public class KMeans {
             cmdline += "-host " + Client.getLocalIp();
         }
 
+        boolean useHDFS = true;
+        String home = System.getProperty("user.home");
+        String exampleData = home + "/fullstack_imru/imru/imru-example/data";
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
-//        cmdline += " -app kmeans";
+        // cmdline += " -app kmeans";
         // hadoop config path
-        cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
+        if (useHDFS)
+            cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // HDFS path to hold intermediate models
-        cmdline += " -temp-path /kmeans";
+        if (useHDFS)
+            cmdline += " -temp-path /kmeans";
+        else
+            cmdline += " -temp-path /tmp/imru_kmeans";
         // HDFS path of input data
-        cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
+        if (useHDFS)
+            cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
+        else
+            cmdline += " -example-paths " + exampleData + "/kmeans.txt," + exampleData + "/kmeans2.txt";
         // aggregation type
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
@@ -65,14 +75,14 @@ public class KMeans {
             args = defaultArgs(false);
 
         int k = 3;
-        
+
         KMeansModel initModel = Client.run(new RandomSelectJob(k), args);
-        System.out.println("InitModel: "+initModel);
-        
-        initModel.roundsRemaining=20;
-        
+        System.out.println("InitModel: " + initModel);
+
+        initModel.roundsRemaining = 20;
+
         KMeansModel finalModel = Client.run(new KMeansJob(k, initModel), args);
-        System.out.println("FinalModel: "+finalModel);
+        System.out.println("FinalModel: " + finalModel);
         System.exit(0);
     }
 }

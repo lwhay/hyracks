@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.primitive.FloatPointable;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -27,6 +26,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
@@ -42,7 +42,7 @@ public class BGDReduceFunctionFactory implements IReduceFunctionFactory {
     }
 
     @Override
-    public IReduceFunction createReduceFunction(final IHyracksTaskContext ctx) {
+    public IReduceFunction createReduceFunction(final IMRUContext ctx) {
         return new IOneByOneReduceFunction() {
 
             private IFrameWriter writer;

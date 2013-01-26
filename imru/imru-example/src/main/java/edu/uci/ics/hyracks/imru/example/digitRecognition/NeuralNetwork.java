@@ -18,7 +18,7 @@ package edu.uci.ics.hyracks.imru.example.digitRecognition;
 import java.util.Arrays;
 
 import edu.uci.ics.hyracks.imru.api.IModel;
-import edu.uci.ics.hyracks.imru.example.utils.R;
+import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * IMRU model which will be used in map() and updated in update()

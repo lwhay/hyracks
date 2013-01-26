@@ -15,7 +15,10 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -40,6 +43,7 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -54,11 +58,10 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
 
 /**
  * Evaluates the map function in an iterative map reduce update job.
- *
+ * 
  * @param <Model>
  *            The class used to represent the global model that is
  *            persisted between iterations.
- *
  * @author Josh Rosen
  */
 public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleActivityOperatorDescriptor {
@@ -72,10 +75,11 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
     private final String envInPath;
     private final IConfigurationFactory confFactory;
     private final int roundNum;
+    private final String name;
 
     /**
      * Create a new MapOperatorDescriptor.
-     *
+     * 
      * @param spec
      *            The job specification
      * @param imruSpec
@@ -87,17 +91,19 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
      * @param roundNum
      *            The round number.
      */
-    public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec,
-            String envInPath, IConfigurationFactory confFactory, int roundNum) {
+    public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String envInPath,
+            IConfigurationFactory confFactory, int roundNum, String name) {
         super(spec, 0, 1);
         recordDescriptors[0] = dummyRecordDescriptor;
         this.imruSpec = imruSpec;
         this.envInPath = envInPath;
         this.confFactory = confFactory;
         this.roundNum = roundNum;
+        this.name = name;
     }
 
-    private static class MapOperatorNodePushable<Model extends IModel> extends AbstractUnaryOutputSourceOperatorNodePushable {
+    private static class MapOperatorNodePushable<Model extends IModel> extends
+            AbstractUnaryOutputSourceOperatorNodePushable {
 
         private final IHyracksTaskContext ctx;
         private final IHyracksTaskContext fileCtx;
@@ -106,16 +112,17 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
         private final IConfigurationFactory confFactory;
         private final int partition;
         private final int roundNum;
+        private final String name;
 
-        public MapOperatorNodePushable(IHyracksTaskContext ctx,
-                IIMRUJobSpecification<Model> imruSpec, String envInPath, IConfigurationFactory confFactory,
-                int partition, int roundNum) {
+        public MapOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
+                String envInPath, IConfigurationFactory confFactory, int partition, int roundNum, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.envInPath = envInPath;
             this.confFactory = confFactory;
             this.partition = partition;
             this.roundNum = roundNum;
+            this.name = name;
             fileCtx = new RunFileContext(ctx, imruSpec.getCachedDataFrameSize());
         }
 
@@ -135,10 +142,15 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
                 if (context.modelAge < roundNum) {
                     try {
                         long start = System.currentTimeMillis();
-                        Configuration conf = confFactory.createConfiguration();
-                        FileSystem dfs;
-                        dfs = FileSystem.get(conf);
-                        FSDataInputStream fileInput = dfs.open(new Path(envInPath));
+                        InputStream fileInput;
+                        if (confFactory == null) {
+                            fileInput = new FileInputStream(new File(envInPath));
+                        } else {
+                            Configuration conf = confFactory.createConfiguration();
+                            FileSystem dfs;
+                            dfs = FileSystem.get(conf);
+                            fileInput = dfs.open(new Path(envInPath));
+                        }
                         ObjectInputStream input = new ObjectInputStream(fileInput);
                         model = (Model) input.readObject();
                         context.model = model;
@@ -146,10 +158,12 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
                         input.close();
                         long end = System.currentTimeMillis();
                         long modelReadTime = (end - start);
-                        LOG.info("Read model "+envInPath+" in " + modelReadTime + " milliseconds");
+                        LOG.info("Read model " + envInPath + " in " + modelReadTime + " milliseconds");
                     } catch (IOException e) {
+                        e.printStackTrace();
                         throw new HyracksDataException("Exception while reading model", e);
                     } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
                         throw new HyracksDataException("Exception while deserializing model", e);
                     }
                 } else {
@@ -173,7 +187,7 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
             // policy, alternate the read direction on each round.
             boolean readInReverse = roundNum % 2 != 0;
             LOG.info("Can't read in reverse direction");
-            readInReverse=false;
+            readInReverse = false;
             LOG.info("Reading cached input data in " + (readInReverse ? "forwards" : "reverse") + " direction");
             RunFileWriter runFileWriter = state.getRunFileWriter();
 
@@ -184,29 +198,31 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
             reader.open();
             final ByteBuffer inputFrame = fileCtx.allocateFrame();
             ChunkFrameHelper chunkFrameHelper = new ChunkFrameHelper(ctx);
-            IMapFunctionFactory<Model> factory=imruSpec.getMapFunctionFactory();
+            IMapFunctionFactory<Model> factory = imruSpec.getMapFunctionFactory();
+            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
             if (factory.useAPI2()) {
-                Iterator<ByteBuffer> input=new Iterator<ByteBuffer>() {
-                    boolean read=false;
+                Iterator<ByteBuffer> input = new Iterator<ByteBuffer>() {
+                    boolean read = false;
                     boolean hasData;
+
                     @Override
                     public void remove() {
                     }
-                    
+
                     @Override
                     public ByteBuffer next() {
                         if (!hasNext())
-                             return null;
-                        read=false;
+                            return null;
+                        read = false;
                         return inputFrame;
                     }
-                    
+
                     @Override
                     public boolean hasNext() {
                         try {
                             if (!read) {
-                                hasData=reader.nextFrame(inputFrame);
-                                read=true;
+                                hasData = reader.nextFrame(inputFrame);
+                                read = true;
                             }
                         } catch (HyracksDataException e) {
                             e.printStackTrace();
@@ -215,10 +231,12 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
                     }
                 };
                 writer = chunkFrameHelper.wrapWriter(writer, partition);
-                IMapFunction2 mapFunction = factory.createMapFunction2(chunkFrameHelper.getContext(), imruSpec.getCachedDataFrameSize(), model);
+                IMapFunction2 mapFunction = factory.createMapFunction2(imruContext, imruSpec.getCachedDataFrameSize(),
+                        model);
                 mapFunction.map(input, writer);
             } else {
-                IMapFunction mapFunction = factory.createMapFunction(chunkFrameHelper.getContext(), imruSpec.getCachedDataFrameSize(), model);
+                IMapFunction mapFunction = factory.createMapFunction(imruContext, imruSpec.getCachedDataFrameSize(),
+                        model);
                 writer = chunkFrameHelper.wrapWriter(writer, partition);
                 mapFunction.open();
                 mapFunction.setFrameWriter(writer);
@@ -235,7 +253,8 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum);
+        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum, name
+                + " " + partition + "/" + nPartitions);
     }
 
 }

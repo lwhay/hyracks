@@ -38,7 +38,7 @@ import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
  * Generates JobSpecifications for iterations of iterative map reduce
  * update, using an n-ary aggregation tree. The reducers are
  * assigned to random NC's by the Hyracks scheduler.
- *
+ * 
  * @author Josh Rosen
  */
 public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
@@ -47,7 +47,7 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
 
     /**
      * Construct a new GenericAggregationIMRUJobFactory.
-     *
+     * 
      * @param inputPaths
      *            A comma-separated list of paths specifying the input
      *            files.
@@ -63,7 +63,7 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         this.fanIn = fanIn;
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings( { "rawtypes", "unchecked" })
     @Override
     public JobSpecification generateJob(IIMRUJobSpecification model, UUID id, int roundNum, String modelInPath,
             String modelOutPath) throws HyracksException {
@@ -71,18 +71,19 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         JobSpecification spec = new JobSpecification();
         // Create operators
         // File reading and writing
-        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPaths,
+        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPaths,
                 confFactory.createConfiguration());
-        List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
+        List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
 
         // IMRU Computation
         // We will have one Map operator per input file.
-        IOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, modelInPath, confFactory, roundNum);
+        IOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, modelInPath, confFactory, roundNum,
+                "map");
         // For repeatability of the partition assignments, seed the source of
         // randomness using the job id.
         Random random = new Random(id.getLeastSignificantBits());
-        final String[] mapOperatorLocations = ClusterConfig.setLocationConstraint(spec, mapOperator,
-                inputSplits, random);
+        final String[] mapOperatorLocations = ClusterConfig.setLocationConstraint(spec, mapOperator, inputSplits,
+                inputPaths, random);
 
         // Environment updating
         IOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, modelInPath, confFactory,
@@ -91,8 +92,8 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
 
         // Reduce aggregation tree.
         IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(spec);
-        ReduceAggregationTreeFactory.buildAggregationTree(spec, mapOperator, 0, inputSplits.size(),
-                updateOperator, 0, reduceUpdateConn, fanIn, true, mapOperatorLocations, model);
+        ReduceAggregationTreeFactory.buildAggregationTree(spec, mapOperator, 0, inputSplits.size(), updateOperator, 0,
+                reduceUpdateConn, fanIn, true, mapOperatorLocations, model);
 
         spec.addRoot(updateOperator);
         return spec;

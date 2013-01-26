@@ -22,6 +22,8 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
+
 /**
  * Low level IMRU job interface. Data passed through
  * is raw frame data.

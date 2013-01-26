@@ -18,10 +18,10 @@ package edu.uci.ics.hyracks.imru.example.bgd.job;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
-import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.primitive.FloatPointable;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
@@ -32,7 +32,7 @@ import edu.uci.ics.hyracks.imru.example.bgd.data.RecordDescriptorUtils;
 public class BGDUpdateFunctionFactory implements IUpdateFunctionFactory<LinearModel> {
 
     @Override
-    public IUpdateFunction createUpdateFunction(final IHyracksTaskContext ctx, final LinearModel model) {
+    public IUpdateFunction createUpdateFunction(final IMRUContext ctx, final LinearModel model) {
         return new IOneByOneUpdateFunction() {
 
             private IFrameTupleAccessor accessor;

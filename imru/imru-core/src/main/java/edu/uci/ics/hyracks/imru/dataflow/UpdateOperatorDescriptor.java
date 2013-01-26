@@ -15,9 +15,14 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -38,6 +43,7 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api.IOneByOneUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
@@ -50,9 +56,8 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
  * Evaluates the update function in an iterative map reduce update
  * job.
  * <p>
- * The updated model is serialized to a file in HDFS, where it is read
- * by the driver and mappers.
- *
+ * The updated model is serialized to a file in HDFS, where it is read by the driver and mappers.
+ * 
  * @param <Model>
  *            Josh Rosen
  */
@@ -68,7 +73,7 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
 
     /**
      * Create a new UpdateOperatorDescriptor.
-     *
+     * 
      * @param spec
      *            The job specification
      * @param imruSpec
@@ -118,11 +123,17 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
         @Override
         public void open() throws HyracksDataException {
             MemoryStatsLogger.logHeapStats(LOG, "Update: Initializing Update");
-            conf = confFactory.createConfiguration();
+            conf = confFactory == null ? null : confFactory.createConfiguration();
             // Load the model
             try {
-                FileSystem dfs = FileSystem.get(conf);
-                FSDataInputStream fileInput = dfs.open(new Path(modelPath));
+                InputStream fileInput;
+                if (conf == null) {
+                    fileInput = new FileInputStream(modelPath);
+                } else {
+                    FileSystem dfs = FileSystem.get(conf);
+                    fileInput = dfs.open(new Path(modelPath));
+                }
+
                 ObjectInputStream input = new ObjectInputStream(fileInput);
                 model = (Model) input.readObject();
                 input.close();
@@ -131,8 +142,8 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
             } catch (ClassNotFoundException e) {
                 throw new HyracksDataException(e);
             }
-            updateFunction = imruSpec.getUpdateFunctionFactory().createUpdateFunction(chunkFrameHelper.getContext(),
-                    model);
+            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), "update");
+            updateFunction = imruSpec.getUpdateFunctionFactory().createUpdateFunction(imruContext, model);
             updateFunction.open();
         }
 
@@ -164,9 +175,16 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
             // driver program.
             long start = System.currentTimeMillis();
             try {
-                FileSystem dfs = FileSystem.get(conf);
-                Path path = new Path(outPath);
-                FSDataOutputStream fileOutput = dfs.create(path, true);
+                OutputStream fileOutput;
+                if (conf == null) {
+                    File file = new File(outPath);
+                    fileOutput = new FileOutputStream(file);
+                } else {
+                    FileSystem dfs = FileSystem.get(conf);
+                    Path path = new Path(outPath);
+                    fileOutput = dfs.create(path, true);
+                }
+
                 ObjectOutputStream output = new ObjectOutputStream(fileOutput);
                 output.writeObject(model);
                 output.close();

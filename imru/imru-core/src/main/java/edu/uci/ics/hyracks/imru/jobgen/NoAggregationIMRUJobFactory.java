@@ -42,7 +42,7 @@ public class NoAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
 
     /**
      * Construct a new NoAggregationIMRUJobFactory.
-     *
+     * 
      * @param inputPaths
      *            A comma-separated list of paths specifying the input files.
      * @param confFactory
@@ -52,28 +52,29 @@ public class NoAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         super(inputPaths, confFactory);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings( { "rawtypes", "unchecked" })
     @Override
     public JobSpecification generateJob(IIMRUJobSpecification model, UUID id, int roundNum, String envInPath,
             String envOutPath) throws HyracksException {
         JobSpecification spec = new JobSpecification();
         // Create operators
         // File reading and writing
-        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPaths,
+        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPaths,
                 confFactory.createConfiguration());
-        List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
+        List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
 
         // IMRU Computation
         // We will have one Map operator per input file.
-        IOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, envInPath, confFactory, roundNum);
+        IOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, envInPath, confFactory, roundNum,
+                "map");
         // For repeatability of the partition assignments, seed the source of
         // randomness using the job id.
         Random random = new Random(id.getLeastSignificantBits());
-        ClusterConfig.setLocationConstraint(spec, mapOperator, inputSplits, random);
+        ClusterConfig.setLocationConstraint(spec, mapOperator, inputSplits, inputPaths, random);
 
         // Environment updating
-        IOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, envInPath,
-                confFactory, envOutPath);
+        IOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, envInPath, confFactory,
+                envOutPath);
         PartitionConstraintHelper.addPartitionCountConstraint(spec, updateOperator, 1);
 
         // Connect things together

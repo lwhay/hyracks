@@ -20,6 +20,8 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Iterator;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
+
 /**
  * High level IMRU job interface. Data passed through
  * is objects.

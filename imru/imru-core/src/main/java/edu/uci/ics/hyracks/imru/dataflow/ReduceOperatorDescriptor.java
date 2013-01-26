@@ -30,14 +30,16 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
+import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * Evaluates the reduce function in an iterative map reduce update job.
- *
+ * 
  * @author Josh Rosen
  */
 public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
@@ -47,16 +49,19 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
 
     private final IIMRUJobSpecification<?> imruSpec;
 
+    public String name;
+
     /**
      * Create a new ReduceOperatorDescriptor.
-     *
+     * 
      * @param spec
      *            The job specification
      * @param imruSpec
      *            The IMRU Job specification
      */
-    public ReduceOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec) {
+    public ReduceOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec, String name) {
         super(spec, 1, 1);
+        this.name = name;
         this.imruSpec = imruSpec;
         recordDescriptors[0] = dummyRecordDescriptor;
     }
@@ -67,9 +72,12 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
         private final List<List<ByteBuffer>> bufferedChunks;
         private final int partition;
         private IReduceFunction reduceFunction;
+        public String name;
 
-        public ReduceOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec, int partition) {
+        public ReduceOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec, int partition,
+                String name) {
             this.imruSpec = imruSpec;
+            this.name = name;
             this.chunkFrameHelper = new ChunkFrameHelper(ctx);
             this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
             this.partition = partition;
@@ -78,7 +86,8 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
         @Override
         public void open() throws HyracksDataException {
             writer.open();
-            reduceFunction = imruSpec.getReduceFunctionFactory().createReduceFunction(chunkFrameHelper.getContext());
+            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(),name);
+            reduceFunction = imruSpec.getReduceFunctionFactory().createReduceFunction(imruContext);
             writer = chunkFrameHelper.wrapWriter(writer, partition);
             reduceFunction.setFrameWriter(writer);
             reduceFunction.open();
@@ -126,7 +135,7 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new ReduceOperatorNodePushable(ctx, imruSpec, partition);
+        return new ReduceOperatorNodePushable(ctx, imruSpec, partition, name + " " + partition + "/" + nPartitions);
     }
 
 }

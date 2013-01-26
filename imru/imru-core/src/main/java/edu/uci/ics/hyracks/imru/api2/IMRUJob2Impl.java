@@ -34,6 +34,7 @@ import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IModel;
 
 public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T extends Serializable> implements
@@ -74,7 +75,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
                 int len = reader.read(bs);
                 if (len != length)
                     throw new Exception("read half");
-                NCApplicationContext appContext = (NCApplicationContext) ctx.ctx.getJobletContext()
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
                         .getApplicationContext();
                 return (Data) appContext.deserialize(bs);
             }
@@ -157,7 +158,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx.ctx.getJobletContext()
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
                         .getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);
@@ -200,7 +201,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx.ctx.getJobletContext()
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
                         .getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);

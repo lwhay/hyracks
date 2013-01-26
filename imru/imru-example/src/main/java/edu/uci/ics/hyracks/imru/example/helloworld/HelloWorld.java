@@ -36,20 +36,34 @@ public class HelloWorld {
             // hostname of cluster controller
             cmdline += "-host " + Client.getLocalIp();
         }
+        boolean useHDFS = false;
+        String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data";
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
         cmdline += " -app helloworld";
         // hadoop config path
-        cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
+        if (useHDFS)
+            cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // HDFS path to hold intermediate models
-        cmdline += " -temp-path /helloworld";
+        if (useHDFS)
+            cmdline += " -temp-path /helloworld";
+        else
+            cmdline += " -temp-path /tmp/imru_helloworld";
         // HDFS path of input data
-        cmdline += " -example-paths /helloworld/input.txt";
+        if (useHDFS)
+            cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
+        else
+            cmdline += " -example-paths " + exampleData + "/hello.txt," + exampleData + "/hello2.txt";
         // aggregation type
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
         cmdline += " -agg-count 1";
+        // don't save intermediate models
+        cmdline += " -abondon-intermediate-models";
+        // write to the same file
+        cmdline += " -model-file-name helloworld";
+
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         return cmdline.split(" ");

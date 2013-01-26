@@ -34,7 +34,7 @@ import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 
 public class IMRUJobControl<Model extends IModel> {
     public HyracksConnection hcc;
-    public Configuration conf = new Configuration();
+    public Configuration conf;
     public ConfigurationFactory confFactory;
     IJobFactory jobFactory;
     IMRUDriver<Model> driver;
@@ -45,19 +45,22 @@ public class IMRUJobControl<Model extends IModel> {
     public void connect(String ccHost, int ccPort, String hadoopConfPath, String clusterConfPath) throws Exception {
         hcc = new HyracksConnection(ccHost, ccPort);
 
-        if (!new File(hadoopConfPath).exists()) {
+        if (hadoopConfPath != null && !new File(hadoopConfPath).exists()) {
             System.err.println("Hadoop conf path does not exist!");
             System.exit(-1);
         }
         // Hadoop configuration
-        conf.addResource(new Path(hadoopConfPath + "/core-site.xml"));
-        conf.addResource(new Path(hadoopConfPath + "/mapred-site.xml"));
-        conf.addResource(new Path(hadoopConfPath + "/hdfs-site.xml"));
         if (clusterConfPath == null || !new File(clusterConfPath).exists())
             ClusterConfig.setConf(hcc);
         else
             ClusterConfig.setConfPath(clusterConfPath);
-        confFactory = new ConfigurationFactory(conf);
+        if (hadoopConfPath != null) {
+            conf = new Configuration();
+            conf.addResource(new Path(hadoopConfPath + "/core-site.xml"));
+            conf.addResource(new Path(hadoopConfPath + "/mapred-site.xml"));
+            conf.addResource(new Path(hadoopConfPath + "/hdfs-site.xml"));
+            confFactory = new ConfigurationFactory(conf);
+        }
     }
 
     public void selectNoAggregation(String examplePaths) {

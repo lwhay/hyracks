@@ -24,14 +24,14 @@ import java.util.Iterator;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 import edu.uci.ics.hyracks.imru.example.utils.CreateHar;
-import edu.uci.ics.hyracks.imru.example.utils.R;
+import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * Core IMRU application specific code. The dataflow is

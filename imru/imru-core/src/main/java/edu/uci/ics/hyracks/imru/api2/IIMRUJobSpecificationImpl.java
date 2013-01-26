@@ -32,6 +32,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -42,6 +43,7 @@ import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
+import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * Implement a IMRUJobSpecification interface using
@@ -64,7 +66,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
         return new ITupleParserFactory() {
             @Override
             public ITupleParser createTupleParser(IHyracksTaskContext ctx) {
-                final IMRUContext context = new IMRUContext(ctx);
+                final IMRUContext context = new IMRUContext(ctx, "parse");
                 return new ITupleParser() {
                     @Override
                     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
@@ -96,22 +98,22 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
                 return true;
             }
 
-            public IMapFunction2 createMapFunction2(IHyracksTaskContext ctx, final int cachedDataFrameSize,
+            public IMapFunction2 createMapFunction2(final IMRUContext ctx, final int cachedDataFrameSize,
                     final Model model) {
-                final IMRUContext context = new IMRUContext(ctx);
                 return new IMapFunction2() {
                     @Override
                     public void map(Iterator<ByteBuffer> input, IFrameWriter writer) throws HyracksDataException {
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
-                        job2.map(context, input, model, out, cachedDataFrameSize);
+                        job2.map(ctx, input, model, out, cachedDataFrameSize);
                         byte[] objectData = out.toByteArray();
-                        serializeToFrames(context, writer, objectData);
+                        serializeToFrames(ctx, writer, objectData);
+                        //                        R.p("flushed "+objectData.length);
                     }
                 };
             };
 
             @Override
-            public IMapFunction createMapFunction(final IHyracksTaskContext ctx, final int cachedDataFrameSize,
+            public IMapFunction createMapFunction(final IMRUContext ctx, final int cachedDataFrameSize,
                     final Model model) {
                 return null;
             }
@@ -122,8 +124,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
     public IReduceFunctionFactory getReduceFunctionFactory() {
         return new IReduceFunctionFactory() {
             @Override
-            public IReduceFunction createReduceFunction(IHyracksTaskContext ctx) {
-                final IMRUContext context = new IMRUContext(ctx);
+            public IReduceFunction createReduceFunction(final IMRUContext ctx) {
                 return new IReassemblingReduceFunction() {
                     private IFrameWriter writer;
                     private ASyncIO<byte[]> io;
@@ -143,9 +144,9 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
                                 Iterator<byte[]> input = io.getInput();
                                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                                 try {
-                                    job2.reduce(context, input, out);
+                                    job2.reduce(ctx, input, out);
                                     byte[] objectData = out.toByteArray();
-                                    serializeToFrames(context, writer, objectData);
+                                    serializeToFrames(ctx, writer, objectData);
                                 } catch (HyracksDataException e) {
                                     e.printStackTrace();
                                 }
@@ -165,7 +166,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
 
                     @Override
                     public void reduce(List<ByteBuffer> chunks) throws HyracksDataException {
-                        byte[] data = deserializeFromChunks(context, chunks);
+                        byte[] data = deserializeFromChunks(ctx, chunks);
                         io.add(data);
                     }
                 };
@@ -178,8 +179,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
         return new IUpdateFunctionFactory<Model>() {
 
             @Override
-            public IUpdateFunction createUpdateFunction(IHyracksTaskContext ctx, final Model model) {
-                final IMRUContext context = new IMRUContext(ctx);
+            public IUpdateFunction createUpdateFunction(final IMRUContext ctx, final Model model) {
                 return new IReassemblingUpdateFunction() {
                     private ASyncIO<byte[]> io;
                     Future future;
@@ -192,7 +192,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
                             public void run() {
                                 Iterator<byte[]> input = io.getInput();
                                 try {
-                                    job2.update(context, input, model);
+                                    job2.update(ctx, input, model);
                                 } catch (HyracksDataException e) {
                                     e.printStackTrace();
                                 }
@@ -213,7 +213,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
 
                     @Override
                     public void update(List<ByteBuffer> chunks) throws HyracksDataException {
-                        byte[] data = deserializeFromChunks(context, chunks);
+                        byte[] data = deserializeFromChunks(ctx, chunks);
                         io.add(data);
                     }
                 };
@@ -242,20 +242,21 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
 
     private static void serializeToFrames(IMRUContext ctx, IFrameWriter writer, byte[] objectData)
             throws HyracksDataException {
-        ByteBuffer frame = ctx.ctx.allocateFrame();
+        ByteBuffer frame = ctx.allocateFrame();
         int position = 0;
         frame.position(0);
         while (position < objectData.length) {
-            int length = Math.min(objectData.length - position, ctx.ctx.getFrameSize());
+            int length = Math.min(objectData.length - position, ctx.getFrameSize());
             if (position == 0) {
                 // The first chunk is a special case, since it begins
                 // with an integer containing the length of the
                 // serialized object.
-                length = Math.min(ctx.ctx.getFrameSize() - BYTES_IN_INT, length);
+                length = Math.min(ctx.getFrameSize() - BYTES_IN_INT, length);
                 frame.putInt(objectData.length);
             }
             frame.put(objectData, position, length);
             FrameUtils.flushFrame(frame, writer);
+            //            R.p("flush "+ position);
             position += length;
         }
     }

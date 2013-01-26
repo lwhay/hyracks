@@ -27,6 +27,7 @@ import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.apache.hadoop.conf.Configuration;
@@ -96,7 +97,7 @@ public class Client<Model extends IModel> {
         @Option(name = "-app", usage = "Hyracks Application name")
         public String app = "imru-examples";
 
-        @Option(name = "-hadoop-conf", usage = "Path to Hadoop configuration", required = true)
+        @Option(name = "-hadoop-conf", usage = "Path to Hadoop configuration")
         public String hadoopConfPath;
 
         @Option(name = "-cluster-conf", usage = "Path to Hyracks cluster configuration")
@@ -368,6 +369,23 @@ public class Client<Model extends IModel> {
         Handler[] handlers = globalLogger.getHandlers();
         for (Handler handler : handlers)
             globalLogger.removeHandler(handler);
+         globalLogger.addHandler(new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                String s=record.getMessage();
+                if (s.contains("Exception caught by thread")) {
+                    System.err.println(s);
+                }
+            }
+            
+            @Override
+            public void flush() {
+            }
+            
+            @Override
+            public void close() throws SecurityException {
+            }
+        });
     }
 
     /**

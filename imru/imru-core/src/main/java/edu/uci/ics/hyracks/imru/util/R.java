@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.utils;
+package edu.uci.ics.hyracks.imru.util;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;

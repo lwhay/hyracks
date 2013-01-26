@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -52,7 +53,7 @@ import edu.uci.ics.hyracks.imru.util.IterationUtils;
  * Parses input data from files in HDFS and caches it on the local
  * file system. During IMRU iterations, these cached examples are
  * processed by the Map operator.
- *
+ * 
  * @author Josh Rosen
  */
 public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
@@ -64,10 +65,11 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
     private final IIMRUJobSpecification<?> imruSpec;
     private final HDFSInputSplitProvider inputSplitProvider;
     private final IConfigurationFactory confFactory;
+    private final String inputPaths;
 
     /**
      * Create a new MapOperatorDescriptor.
-     *
+     * 
      * @param spec
      *            The Hyracks job specification for the dataflow
      * @param imruSpec
@@ -78,11 +80,12 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
      *            A Hadoop configuration, used for HDFS.
      */
     public DataLoadOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec,
-            HDFSInputSplitProvider inputSplitProvider, IConfigurationFactory confFactory) {
+            HDFSInputSplitProvider inputSplitProvider, String inputPaths, IConfigurationFactory confFactory) {
         super(spec, 0, 0);
         this.inputSplitProvider = inputSplitProvider;
         this.imruSpec = imruSpec;
         this.confFactory = confFactory;
+        this.inputPaths = inputPaths;
     }
 
     private static class DataLoadOperatorNodePushable extends AbstractOperatorNodePushable {
@@ -92,24 +95,30 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private final IIMRUJobSpecification<?> imruSpec;
         private final IConfigurationFactory confFactory;
         private final HDFSInputSplitProvider inputSplitProvider;
+        private final String inputPaths;
         private final int partition;
+        private final String name;
 
         public DataLoadOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec,
-                HDFSInputSplitProvider inputSplitProvider, IConfigurationFactory confFactory, int partition) {
+                HDFSInputSplitProvider inputSplitProvider, String inputPaths, IConfigurationFactory confFactory,
+                int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.confFactory = confFactory;
+            this.inputPaths = inputPaths;
             this.inputSplitProvider = inputSplitProvider;
             this.partition = partition;
+            this.name = name;
             fileCtx = new RunFileContext(ctx, imruSpec.getCachedDataFrameSize());
         }
 
         @Override
         public void initialize() throws HyracksDataException {
-            Configuration conf = confFactory.createConfiguration();
-            FileSystem dfs;
+            Configuration conf = confFactory == null ? null : confFactory.createConfiguration();
+            FileSystem dfs = null;
             try {
-                dfs = FileSystem.get(conf);
+                if (conf != null)
+                    dfs = FileSystem.get(conf);
             } catch (IOException e) {
                 fail();
                 throw new HyracksDataException(e);
@@ -121,8 +130,8 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 LOG.severe("Duplicate loading of input data.");
                 INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
                 IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
-                context.modelAge=0;
-//                throw new IllegalStateException("Duplicate loading of input data.");
+                context.modelAge = 0;
+                //                throw new IllegalStateException("Duplicate loading of input data.");
             }
             long start = System.currentTimeMillis();
             if (state == null)
@@ -132,17 +141,29 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
             state.setRunFileWriter(runFileWriter);
             runFileWriter.open();
 
-            List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
-            final FileSplit split = (FileSplit) inputSplits.get(partition);
-            Path path = split.getPath();
-            try {
-                InputStream in = HDFSUtils.open(dfs, conf, path);
-                ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(fileCtx);
-                dataLoader.parse(in, runFileWriter);
-                in.close();
-            } catch (IOException e) {
-                fail();
-                throw new HyracksDataException(e);
+            if (inputSplitProvider == null) {
+                try {
+                    InputStream in = new FileInputStream(inputPaths.split(",")[partition]);
+                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(fileCtx);
+                    dataLoader.parse(in, runFileWriter);
+                    in.close();
+                } catch (IOException e) {
+                    fail();
+                    throw new HyracksDataException(e);
+                }
+            } else {
+                List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
+                final FileSplit split = (FileSplit) inputSplits.get(partition);
+                Path path = split.getPath();
+                try {
+                    InputStream in = HDFSUtils.open(dfs, conf, path);
+                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(fileCtx);
+                    dataLoader.parse(in, runFileWriter);
+                    in.close();
+                } catch (IOException e) {
+                    fail();
+                    throw new HyracksDataException(e);
+                }
             }
             runFileWriter.close();
             LOG.info("Cached input data file " + runFileWriter.getFileReference().getFile().getAbsolutePath() + " is "
@@ -179,7 +200,8 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplitProvider, confFactory, partition);
+        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplitProvider, inputPaths, confFactory, partition,
+                "update " + partition + "/" + nPartitions);
     }
 
 }

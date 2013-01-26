@@ -21,9 +21,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUContext;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 
 public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroids> {

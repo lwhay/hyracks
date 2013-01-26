@@ -15,9 +15,14 @@
 
 package edu.uci.ics.hyracks.imru.runtime;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.util.EnumSet;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -39,7 +44,7 @@ import edu.uci.ics.hyracks.imru.base.IJobFactory;
 
 /**
  * Schedules iterative map reduce update jobs.
- *
+ * 
  * @param <Model>
  *            The class used to represent the global model that is
  *            persisted between iterations.
@@ -58,12 +63,12 @@ public class IMRUDriver<Model extends IModel> {
 
     private int iterationCount;
     public String modelFileName;
-    public boolean saveIntermediateModels=true;
-    public boolean useExistingModels=false;
+    public boolean saveIntermediateModels = true;
+    public boolean useExistingModels = false;
 
     /**
      * Construct a new IMRUDriver.
-     *
+     * 
      * @param hcc
      *            A client connection to the cluster controller.
      * @param imruSpec
@@ -94,14 +99,15 @@ public class IMRUDriver<Model extends IModel> {
     }
 
     public String getModelName() {
-        if ( modelFileName!=null)
+        if (modelFileName != null)
             return modelFileName;
         else
             return "IMRU-" + id;
     }
+
     /**
      * Run iterative map reduce update.
-     *
+     * 
      * @return The JobStatus of the IMRU computation.
      * @throws Exception
      */
@@ -120,10 +126,9 @@ public class IMRUDriver<Model extends IModel> {
         if (saveIntermediateModels)
             writeModelToFile(model, new Path(tempPath, getModelName() + "-iter" + 0));
         else {
-            Path path=new Path(tempPath, getModelName());
+            Path path = new Path(tempPath, getModelName());
             if (useExistingModels) {
-                FileSystem dfs = FileSystem.get(conf);
-                if (!dfs.exists(path))
+                if (!exists(path))
                     writeModelToFile(model, path);
             } else {
                 writeModelToFile(model, path);
@@ -140,7 +145,7 @@ public class IMRUDriver<Model extends IModel> {
             LOGGER.severe("Failed during data load");
             return JobStatus.FAILURE;
         }
-        
+
         // Iterations
         do {
             iterationCount++;
@@ -151,7 +156,7 @@ public class IMRUDriver<Model extends IModel> {
                 modelOutPath = new Path(tempPath, getModelName());
                 modelInPath = new Path(tempPath, getModelName());
             }
-            
+
             LOGGER.info("Starting round " + iterationCount);
             long start = System.currentTimeMillis();
             status = runIMRUIteration(modelInPath.toString(), modelOutPath.toString(), iterationCount);
@@ -191,24 +196,23 @@ public class IMRUDriver<Model extends IModel> {
 
     /**
      * Run the dataflow to cache the input records.
-
+     * 
      * @return The JobStatus of the job after completion or failure.
      * @throws Exception
      */
     private JobStatus runDataLoad() throws Exception {
         JobSpecification job = jobFactory.generateDataLoadJob(imruSpec, id);
-        JobId jobId = hcc.startJob(app, job, EnumSet
-                .of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
-//        JobId jobId = hcc.createJob(app, job);
-//        hcc.start(jobId);
-//        hcc.waitForCompletion(jobId);
+        //        JobId jobId = hcc.createJob(app, job);
+        //        hcc.start(jobId);
+        //        hcc.waitForCompletion(jobId);
         return hcc.getJobStatus(jobId);
     }
 
     /**
      * Run the dataflow for a single IMRU iteration.
-     *
+     * 
      * @param envInPath
      *            The HDFS path to read the current environment from.
      * @param envOutPath
@@ -220,17 +224,23 @@ public class IMRUDriver<Model extends IModel> {
      */
     private JobStatus runIMRUIteration(String envInPath, String envOutPath, int iterationNum) throws Exception {
         JobSpecification job = jobFactory.generateJob(imruSpec, id, iterationNum, envInPath, envOutPath);
-        JobId jobId = hcc.startJob(app, job, EnumSet
-                .of(JobFlag.PROFILE_RUNTIME));
-//        JobId jobId = hcc.createJob(app, job);
-//        hcc.start(jobId);
+        JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        //        JobId jobId = hcc.createJob(app, job);
+        //        hcc.start(jobId);
         hcc.waitForCompletion(jobId);
         return hcc.getJobStatus(jobId);
     }
 
+    private boolean exists(Path path) throws IOException {
+        if (conf == null)
+            return new File(path.toString()).exists();
+        FileSystem dfs = FileSystem.get(conf);
+        return dfs.exists(path);
+    }
+
     /**
      * Read the updated model from a file.
-     *
+     * 
      * @param modelPath
      *            The DFS file containing the updated model.
      * @return The updated model.
@@ -240,8 +250,14 @@ public class IMRUDriver<Model extends IModel> {
     private Model readModelFromFile(Path modelPath) throws IOException, ClassNotFoundException {
         // Deserialize the environment so it can be passed to
         // shouldTerminate().
-        FileSystem dfs = FileSystem.get(conf);
-        FSDataInputStream fileInput = dfs.open(modelPath);
+        InputStream fileInput;
+        if (conf == null) {
+            fileInput = new FileInputStream(modelPath.toString());
+        } else {
+            FileSystem dfs = FileSystem.get(conf);
+            fileInput = dfs.open(modelPath);
+        }
+
         ObjectInputStream input = new ObjectInputStream(fileInput);
         @SuppressWarnings("unchecked")
         Model newModel = (Model) input.readObject();
@@ -251,7 +267,7 @@ public class IMRUDriver<Model extends IModel> {
 
     /**
      * Write the model to a file.
-     *
+     * 
      * @param model
      *            The model to write.
      * @param modelPath
@@ -261,8 +277,17 @@ public class IMRUDriver<Model extends IModel> {
     private void writeModelToFile(IModel model, Path modelPath) throws IOException {
         // Serialize the model so it can be read during the next
         // iteration.
-        FileSystem dfs = FileSystem.get(conf);
-        FSDataOutputStream fileOutput = dfs.create(modelPath, true);
+        OutputStream fileOutput;
+        if (conf == null) {
+            File file=new File(modelPath.toString());
+            if (!file.getParentFile().exists())
+                file.getParentFile().mkdirs();
+            fileOutput = new FileOutputStream(file);
+        } else {
+            FileSystem dfs = FileSystem.get(conf);
+            fileOutput = dfs.create(modelPath, true);
+        }
+
         ObjectOutputStream output = new ObjectOutputStream(fileOutput);
         output.writeObject(model);
         output.close();
