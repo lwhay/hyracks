@@ -26,6 +26,7 @@ import java.util.zip.ZipInputStream;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
@@ -38,7 +39,7 @@ import edu.uci.ics.hyracks.imru.example.utils.R;
  * 
  * @author wangrui
  */
-public class Job implements IMRUJob<NeuralNetwork, Result> {
+public class Job extends IMRUJob<NeuralNetwork, Data, Result> {
     /**
      * Return initial model
      */
@@ -56,19 +57,10 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
     }
 
     /**
-     * Number of fields for each tuple
-     */
-    @Override
-    public int getFieldCount() {
-        return 3;
-    }
-
-    /**
      * Parse input data and output tuples
      */
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input,
-            TupleWriter output) throws HyracksDataException {
+    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
         try {
             R.p("parse data");
             ZipInputStream zip = new ZipInputStream(input);
@@ -81,30 +73,19 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
                 if (entry.getName().startsWith("images")) {
                     ByteArrayOutputStream memory = new ByteArrayOutputStream();
                     CreateHar.copy(zip, memory);
-                    images = MNIST.readImages(new DataInputStream(
-                            new ByteArrayInputStream(memory.toByteArray())));
+                    images = MNIST.readImages(new DataInputStream(new ByteArrayInputStream(memory.toByteArray())));
                 } else if (entry.getName().startsWith("labels")) {
                     ByteArrayOutputStream memory = new ByteArrayOutputStream();
                     CreateHar.copy(zip, memory);
-                    labels = MNIST.readLabel(new DataInputStream(
-                            new ByteArrayInputStream(memory.toByteArray())));
+                    labels = MNIST.readLabel(new DataInputStream(new ByteArrayInputStream(memory.toByteArray())));
                 }
             }
             if (images == null || labels == null)
                 throw new HyracksDataException("invalid input data");
             for (int i = 0; i < labels.length; i++) {
-                output.writeInt(i);
-                output.finishField();
-                output.writeByte(labels[i]);
-                output.finishField();
-                output.writeByte(images[i].length);
-                output.writeByte(images[i][0].length);
-                for (byte[] bs : images[i])
-                    output.write(bs);
-                output.finishField();
-                output.finishTuple();
-//                if (i > 1)
-//                    break;
+                Data data = new Data();
+                data.label = labels[i];
+                data.image = images[i];
             }
         } catch (IOException e) {
             throw new HyracksDataException(e);
@@ -116,47 +97,29 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
      * result after processing multiple tuples.
      */
     @Override
-    public Result map(TupleReader input, NeuralNetwork model,
-            int cachedDataFrameSize) throws IOException {
+    public Result map(IHyracksTaskContext ctx, Iterator<Data> input, NeuralNetwork model) throws IOException {
         Result weight = new Result(model.layers);
         NNResult result = new NNResult(model.layers);
         int numPatternsSampled = 0;
 
-        while (true) {
-            input.seekToField(0);
-            int id = input.readInt();
-            input.seekToField(1);
-            int label = input.readByte() & 0xFF;
-            input.seekToField(2);
-            int h = input.readByte() & 0xFF;
-            int w = input.readByte() & 0xFF;
-            byte[][] image = new byte[h][w];
-            for (int i = 0; i < h; i++) {
-                int len = input.read(image[i]);
-                if (len != w)
-                    throw new Error();
-            }
-
-            model.calculate(result, image);
+        while (input.hasNext()) {
+            Data data = input.next();
+            model.calculate(result, data.image);
             int result2 = model.result(result);
-            double loss = model.loss(result, label);
-            model.backpropagate(result, label);
+            double loss = model.loss(result, data.label);
+            model.backpropagate(result, data.label);
             weight.total++;
-            if (result2 == label)
+            if (result2 == data.label)
                 weight.correct++;
             weight.loss += loss;
             // R.p("map "+result.sum());
             weight.add(result);
 
             if (numPatternsSampled < 100) {
-                model.calculate(result, image);
+                model.calculate(result, data.image);
                 model.backpropagateSecondDervatives(result, weight);
                 numPatternsSampled++;
             }
-
-            if (!input.hasNextTuple())
-                break;
-            input.nextTuple();
         }
 
         // R.p("map end " + weight.correct + " " + weight.total + " "
@@ -168,7 +131,7 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
      * Combine multiple results to one result
      */
     @Override
-    public Result reduce(Iterator<Result> input) throws HyracksDataException {
+    public Result reduce(IHyracksTaskContext ctx, Iterator<Result> input) throws HyracksDataException {
         Result combined = null;
         while (input.hasNext()) {
             Result result = input.next();
@@ -186,13 +149,13 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
      * update the model using combined result
      */
     @Override
-    public void update(Iterator<Result> input, NeuralNetwork model)
+    public void update(IHyracksTaskContext ctx, Iterator<Result> input, NeuralNetwork model)
             throws HyracksDataException {
         int total = 0;
         int correct = 0;
         double loss = 0;
         double weightChange = 0;
-        Result result = reduce(input);
+        Result result = reduce(ctx, input);
         total += result.total;
         correct += result.correct;
         loss += result.loss;
@@ -207,8 +170,7 @@ public class Job implements IMRUJob<NeuralNetwork, Result> {
             }
         }
         model.errorRate = (double) (total - correct) / total;
-        R.p("error rate: " + model.errorRate + "\tloss:" + loss
-                + "\tweightChange: " + weightChange);
+        R.p("error rate: " + model.errorRate + "\tloss:" + loss + "\tweightChange: " + weightChange);
         model.learningRate *= model.learningRateDecrease;
         model.roundsRemaining--;
     }

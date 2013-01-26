@@ -25,11 +25,12 @@ import java.util.regex.Pattern;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
-public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
+public class BGDJob extends IMRUJob<LinearModel, Data, LossGradient> {
     int features;
     int rounds;
 
@@ -39,26 +40,21 @@ public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
     }
 
     @Override
-    public int getCachedDataFrameSize() {
-        return 4 * 1024;
-    }
-
-    @Override
     public LinearModel initModel() {
         return new LinearModel(features, rounds);
     }
 
     @Override
-    public int getFieldCount() {
-        return 2;
+    public int getCachedDataFrameSize() {
+        return 1024 * 1024;
     }
 
     @Override
-    public void parse(IHyracksTaskContext ctx, InputStream input,
-            TupleWriter output) throws IOException {
+    public void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
         int activeFeatures = 0;
         Pattern whitespacePattern = Pattern.compile("\\s+");
+        Pattern whitespacePattern2 = Pattern.compile(",|\\s+");
         Pattern labelFeaturePattern = Pattern.compile("[:=]");
         String line;
         boolean firstLine = true;
@@ -78,65 +74,49 @@ public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
             }
             String[] comps = whitespacePattern.split(line, 2);
 
-            // Label
             // Ignore leading plus sign
-            if (comps[0].charAt(0) == '+') {
+            if (comps[0].charAt(0) == '+')
                 comps[0] = comps[0].substring(1);
-            }
 
-            int label = Integer.parseInt(comps[0]);
-            output.writeInt(label);
-            output.finishField();
-            Scanner scan = new Scanner(comps[1]);
-            scan.useDelimiter(",|\\s+");
-            while (scan.hasNext()) {
-                String[] parts = labelFeaturePattern.split(scan.next());
-                int index = Integer.parseInt(parts[0]);
-                if (index > features) {
-                    throw new IndexOutOfBoundsException("Feature index "
-                            + index
-                            + " exceed the declared number of features ("
-                            + features + ")");
+            Data data = new Data();
+            data.label = Integer.parseInt(comps[0]);
+            String[] kvs = whitespacePattern2.split(comps[1]);
+            data.fieldIds = new int[kvs.length];
+            data.values = new float[kvs.length];
+            for (int i = 0; i < kvs.length; i++) {
+                String[] parts = labelFeaturePattern.split(kvs[i]);
+                data.fieldIds[i] = Integer.parseInt(parts[0]);
+                if (data.fieldIds[i] > features) {
+                    throw new IndexOutOfBoundsException("Feature index " + data.fieldIds[i]
+                            + " exceed the declared number of features (" + features + ")");
                 }
                 // Ignore leading plus sign.
                 if (parts[1].charAt(0) == '+') {
                     parts[1] = parts[1].substring(1);
                 }
-                float value = Float.parseFloat(parts[1]);
-                output.writeInt(index);
-                output.writeFloat(value);
+                data.values[i] = Float.parseFloat(parts[1]);
                 activeFeatures++;
             }
-            output.writeInt(-1); // Marks the end of the sparse array.
-            output.finishField();
-            output.finishTuple();
+            output.addData(data);
         }
-        // LOG.info("Parsed input partition containing " + activeFeatures +
-        // " active features");
     }
 
     @Override
-    public LossGradient map(TupleReader input, LinearModel model,
-            int cachedDataFrameSize) throws IOException {
+    public LossGradient map(IHyracksTaskContext ctx, Iterator<Data> input, LinearModel model) throws IOException {
         LossGradient lossGradientMap = new LossGradient(model.numFeatures);
-        LinearExample example = new LinearExample(input);
-        while (true) {
-            float innerProduct = example.dot(model.weights);
-            float diff = (example.getLabel() - innerProduct);
+        while (input.hasNext()) {
+            Data data = input.next();
+            float innerProduct = data.dot(model.weights);
+            float diff = (data.label - innerProduct);
             lossGradientMap.loss += diff * diff; // Use L2 loss
             // function.
-            example.computeGradient(model.weights, innerProduct,
-                    lossGradientMap.gradient);
-            if (!input.hasNextTuple())
-                break;
-            input.nextTuple();
+            data.computeGradient(model.weights, innerProduct, lossGradientMap.gradient);
         }
         return lossGradientMap;
     }
 
     @Override
-    public LossGradient reduce(Iterator<LossGradient> input)
-            throws HyracksDataException {
+    public LossGradient reduce(IHyracksTaskContext ctx, Iterator<LossGradient> input) throws HyracksDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();
@@ -154,7 +134,7 @@ public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
     }
 
     @Override
-    public void update(Iterator<LossGradient> input, LinearModel model)
+    public void update(IHyracksTaskContext ctx, Iterator<LossGradient> input, LinearModel model)
             throws HyracksDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
@@ -169,8 +149,7 @@ public class BGDJob implements IMRUJob<LinearModel, LossGradient> {
         model.loss += model.regularizationConstant * norm(model.weights.array);
         // Update weights
         for (int i = 0; i < model.weights.length; i++) {
-            model.weights.array[i] = (model.weights.array[i] - loss.gradient[i]
-                    * model.stepSize)
+            model.weights.array[i] = (model.weights.array[i] - loss.gradient[i] * model.stepSize)
                     * (1.0f - model.stepSize * model.regularizationConstant);
         }
         model.stepSize *= 0.9;

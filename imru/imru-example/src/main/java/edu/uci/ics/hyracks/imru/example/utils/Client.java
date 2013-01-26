@@ -48,11 +48,10 @@ import edu.uci.ics.hyracks.control.common.controllers.NCConfig;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
-import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobV2;
-import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
+import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 
 /**
  * This class wraps IMRU common functions.
@@ -229,15 +228,6 @@ public class Client<Model extends IModel, T extends Serializable> {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
         // hyracks connection
-    }
-
-    /**
-     * run IMRU job
-     * 
-     * @throws Exception
-     */
-    public JobStatus run(IMRUJob<Model, T> job) throws Exception {
-        return control.run(job, options.tempPath, options.app);
     }
 
     /**
@@ -507,30 +497,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * 
      * @throws Exception
      */
-    public static <M extends IModel, R extends Serializable> M run(IMRUJob<M, R> job, String[] args) throws Exception {
-        // create a client object, which handles everything
-        Client<M, R> client = new Client<M, R>(args);
-
-        client.init();
-
-        // run job
-        JobStatus status = client.run(job);
-        if (status == JobStatus.FAILURE) {
-            System.err.println("Job failed; see CC and NC logs");
-            System.exit(-1);
-        }
-        // System.out.println("Terminated after "
-        // + client.control.getIterationCount() + " iterations");
-
-        return client.getModel();
-    }
-
-    /**
-     * run job
-     * 
-     * @throws Exception
-     */
-    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJobV3<M, D, R> job,
+    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJob<M, D, R> job,
             String[] args) throws Exception {
         return run(job, args, null);
     }
@@ -540,7 +507,7 @@ public class Client<Model extends IModel, T extends Serializable> {
      * 
      * @throws Exception
      */
-    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJobV3<M, D, R> job,
+    public static <M extends IModel, D extends Serializable, R extends Serializable> M run(IMRUJob<M, D, R> job,
             String[] args, String overrideAppName) throws Exception {
         // create a client object, which handles everything
         Client<M, R> client = new Client<M, R>(args);

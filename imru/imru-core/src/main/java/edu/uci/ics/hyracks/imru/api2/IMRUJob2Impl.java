@@ -41,51 +41,6 @@ public class IMRUJob2Impl<Model extends IModel, T extends Serializable> implemen
     IMRUJobV2<Model, T> job;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
 
-    public IMRUJob2Impl(final IMRUJob<Model, T> job) {
-        this.job = new IMRUJobV2<Model, T>() {
-            @Override
-            public int getCachedDataFrameSize() {
-                return job.getCachedDataFrameSize();
-            }
-
-            @Override
-            public int getFieldCount() {
-                return job.getFieldCount();
-            }
-
-            @Override
-            public Model initModel() {
-                return job.initModel();
-            }
-
-            @Override
-            public T map(IHyracksTaskContext ctx, TupleReader input, Model model, int cachedDataFrameSize)
-                    throws IOException {
-                return job.map(input, model, cachedDataFrameSize);
-            }
-
-            @Override
-            public void parse(IHyracksTaskContext ctx, InputStream input, TupleWriter output) throws IOException {
-                job.parse(ctx, input, output);
-            }
-
-            @Override
-            public T reduce(IHyracksTaskContext ctx, Iterator<T> input) throws HyracksDataException {
-                return job.reduce(input);
-            }
-
-            @Override
-            public boolean shouldTerminate(Model model) {
-                return job.shouldTerminate(model);
-            }
-
-            @Override
-            public void update(IHyracksTaskContext ctx, Iterator<T> input, Model model) throws HyracksDataException {
-                job.update(input, model);
-            }
-        };
-    }
-
     public IMRUJob2Impl(IMRUJobV2<Model, T> job) {
         this.job = job;
     }

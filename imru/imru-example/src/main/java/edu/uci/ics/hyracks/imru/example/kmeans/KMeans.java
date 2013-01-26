@@ -73,7 +73,7 @@ public class KMeans {
         
         initModel.roundsRemaining=20;
         
-        KMeansModel finalModel = Client.run(new KMeansJobV3(k, initModel), args);
+        KMeansModel finalModel = Client.run(new KMeansJob(k, initModel), args);
         System.out.println("FinalModel: "+finalModel);
         System.exit(0);
     }

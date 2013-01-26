@@ -19,23 +19,19 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Serializable;
 import java.util.Iterator;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
-import edu.uci.ics.hyracks.imru.api2.TupleReader;
-import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
 /**
  * Random select data examples as centroids
  * 
  * @author wangrui
  */
-public class RandomSelectJob extends IMRUJobV3<KMeansModel, DataPoint, KMeansStartingPoints> {
+public class RandomSelectJob extends IMRUJob<KMeansModel, DataPoint, KMeansStartingPoints> {
     int k;
 
     public RandomSelectJob(int k) {

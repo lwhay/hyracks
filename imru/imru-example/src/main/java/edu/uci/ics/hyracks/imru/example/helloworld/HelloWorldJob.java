@@ -24,13 +24,13 @@ import java.util.Iterator;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IMRUJobV3;
+import edu.uci.ics.hyracks.imru.api2.IMRUJob;
 
 /**
  * Core IMRU application specific code.
  * The dataflow is parse->map->reduce->update
  */
-public class HelloWorldJob extends IMRUJobV3<HelloWorldModel, HelloWorldData, HelloWorldResult> {
+public class HelloWorldJob extends IMRUJob<HelloWorldModel, HelloWorldData, HelloWorldResult> {
     /**
      * Return initial model
      */

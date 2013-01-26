@@ -121,19 +121,6 @@ public class IMRUJobControl<Model extends IModel, T extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(final IMRUJob<Model, T> job, String tempPath, String app) throws Exception {
-        return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
-    }
-
-    /**
-     * run job using high level interface
-     * 
-     * @param job
-     * @param tempPath
-     * @param app
-     * @return
-     * @throws Exception
-     */
     public JobStatus run(final IMRUJobV2<Model, T> job, String tempPath, String app) throws Exception {
         return run(new IMRUJob2Impl<Model, T>(job), tempPath, app);
     }

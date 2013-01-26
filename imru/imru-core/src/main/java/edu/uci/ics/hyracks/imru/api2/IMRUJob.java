@@ -22,47 +22,76 @@ import java.util.Iterator;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 
-public interface IMRUJob<Model, IntermediateResult> extends Serializable {
-    /**
-     * Return initial model
-     */
-    public Model initModel();
+public abstract class IMRUJob<Model extends Serializable, Data extends Serializable, IntermediateResult extends Serializable>
+        implements IMRUJobV2<Model, IntermediateResult> {
+    @Override
+    final public int getFieldCount() {
+        return 1;
+    }
 
-    /**
-     * Frame size must be large enough to store at least one tuple
-     */
-    public int getCachedDataFrameSize();
-
-    /**
-     * Number of fields for each tuple
-     */
-    public int getFieldCount();
+    @Override
+    final public void parse(IHyracksTaskContext ctx, InputStream input, TupleWriter output) throws IOException {
+        parse(ctx, input, new DataWriter<Data>(output));
+    }
 
     /**
-     * Parse input data and output tuples
+     * Parse input data and output data objects
      */
-    public void parse(IHyracksTaskContext ctx, InputStream input, TupleWriter output) throws IOException;
+    public abstract void parse(IHyracksTaskContext ctx, InputStream input, DataWriter<Data> output) throws IOException;
+
+    @Override
+    final public IntermediateResult map(final IHyracksTaskContext ctx, final TupleReader input, Model model,
+            int cachedDataFrameSize) throws IOException {
+        Iterator<Data> dataInterator = new Iterator<Data>() {
+            boolean first = true;
+
+            @Override
+            public boolean hasNext() {
+                if (first)
+                    return true;
+                return input.hasNextTuple();
+            }
+
+            public Data read() throws Exception {
+                int length = input.readInt();
+                byte[] bs = new byte[length];
+                int len = input.read(bs);
+                if (len != length)
+                    throw new Exception("read half");
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
+                return (Data) appContext.deserialize(bs);
+            }
+
+            @Override
+            public Data next() {
+                if (!hasNext())
+                    return null;
+                try {
+                    if (first) {
+                        first = false;
+                        return read();
+                    } else {
+                        input.nextTuple();
+                        return read();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            public void remove() {
+            }
+        };
+        return map(ctx, dataInterator, model);
+    }
 
     /**
-     * For each tuple, return one result.
-     * Or by using nextTuple(), return one result
-     * after processing multiple tuples.
+     * For a list of data objects, return one result
      */
-    public IntermediateResult map(TupleReader input, Model model, int cachedDataFrameSize) throws IOException;
-
-    /**
-     * Combine multiple results to one result
-     */
-    public IntermediateResult reduce(Iterator<IntermediateResult> input) throws HyracksDataException;
-
-    /**
-     * update the model using combined result
-     */
-    public void update(Iterator<IntermediateResult> input, Model model) throws HyracksDataException;
-
-    /**
-     * Return true to exit loop
-     */
-    public boolean shouldTerminate(Model model);
+    public abstract IntermediateResult map(IHyracksTaskContext ctx, Iterator<Data> input, Model model)
+            throws IOException;
 }
