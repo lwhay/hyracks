@@ -28,5 +28,10 @@
   	<artifactId>hyracks-api</artifactId>
   	<version>0.2.3-SNAPSHOT</version>
   </dependency>
+  <dependency>
+  	<groupId>junit</groupId>
+  	<artifactId>junit</artifactId>
+  	<version>4.11</version>
+  </dependency>
   </dependencies>
 </project>
