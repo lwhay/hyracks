@@ -22,9 +22,9 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFamily;
 
 public class AbstractHashFunctionQualityTest {
 
-    private static final int testers = 65536;
-    private static final int tableSizes[] = new int[] { 65537, 131101 };
-    private static final int byteArrayLength = 255;
+    private static final int integerTableSizes[] = new int[] { 1048583, 2097169 };
+    private static final int bytesTableSizes[] = new int[] { 262657, 525313 };
+    private static final int byteArrayLength = 1024;
 
     private static final Logger LOGGER = Logger.getLogger(AbstractHashFunctionQualityTest.class.getSimpleName());
 
@@ -34,7 +34,7 @@ public class AbstractHashFunctionQualityTest {
 
         LOGGER.info("====> Hash Quality Test (Integer Keys) for " + hfFamily.getClass().getSimpleName());
 
-        for (int tableSize : tableSizes) {
+        for (int tableSize : integerTableSizes) {
             ByteBuffer statBuf = ByteBuffer.allocate(tableSize);
 
             for (int seed = 0; seed < 5; seed++) {
@@ -49,7 +49,7 @@ public class AbstractHashFunctionQualityTest {
 
                 long time = System.nanoTime();
 
-                for (int i = testers; i > 0; i--) {
+                for (int i = 0; i < byteArrayLength * byteArrayLength; i++) {
                     bbuf.putInt(0, i);
                     h = hashFunction.hash(bbuf.array(), 0, 4) % tableSize;
                     if (h < 0) {
@@ -67,14 +67,14 @@ public class AbstractHashFunctionQualityTest {
                     }
                 }
 
-                double averageSlotLength = ((double) testers) / slots;
+                double averageSlotLength = ((double) byteArrayLength * byteArrayLength) / slots;
 
                 if (averageSlotLength > 2) {
-                    LOGGER.warning("Table Size " + tableSize + " with Seeds " + seed + ": total " + testers
-                            + " keys uses " + slots + " hash slots (" + averageSlotLength
-                            + "); the hash performance would be bad!");
+                    LOGGER.warning("Table Size " + tableSize + " with Seeds " + seed + ": total "
+                            + (byteArrayLength * byteArrayLength) + " keys uses " + slots + " hash slots ("
+                            + averageSlotLength + "); the hash performance would be bad!");
                 } else {
-                    LOGGER.info("Table Size " + tableSize + " with Seeds " + seed + ": total " + testers
+                    LOGGER.info("Table Size " + tableSize + " with Seeds " + seed + ": total " + (byteArrayLength * byteArrayLength)
                             + " keys uses " + slots + " hash slots (" + averageSlotLength + ")");
                 }
             }
@@ -91,7 +91,7 @@ public class AbstractHashFunctionQualityTest {
 
         LOGGER.info("====> Hash Quality Test (Bytes Keys) for " + hfFamily.getClass().getSimpleName());
 
-        for (int tableSize : tableSizes) {
+        for (int tableSize : bytesTableSizes) {
 
             ByteBuffer statBuf = ByteBuffer.allocate(tableSize);
 
