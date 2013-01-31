@@ -23,8 +23,7 @@ import java.util.Iterator;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 
 /**
- * High level IMRU job interface. Data passed through
- * is objects.
+ * High level IMRU job interface. Data passed through are objects.
  * 
  * @author wangrui
  * @param <Model>

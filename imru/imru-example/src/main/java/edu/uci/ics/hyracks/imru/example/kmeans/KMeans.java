@@ -38,6 +38,7 @@ public class KMeans {
         }
 
         boolean useHDFS = true;
+        useHDFS = false;
         String home = System.getProperty("user.home");
         String exampleData = home + "/fullstack_imru/imru/imru-example/data";
         // port of cluster controller
@@ -76,13 +77,24 @@ public class KMeans {
 
         int k = 3;
 
-        KMeansModel initModel = Client.run(new RandomSelectJob(k), args);
-        System.out.println("InitModel: " + initModel);
+        double minDis = Double.MAX_VALUE;
+        KMeansModel bestModel = null;
+        for (int modelId = 0; modelId < 20; modelId++) {
+            System.out.println("trial " + modelId);
+            KMeansModel initModel = Client.run(new RandomSelectJob(k), args);
+            System.out.println("InitModel: " + initModel);
 
-        initModel.roundsRemaining = 20;
+            initModel.roundsRemaining = 20;
 
-        KMeansModel finalModel = Client.run(new KMeansJob(k, initModel), args);
-        System.out.println("FinalModel: " + finalModel);
+            KMeansModel finalModel = Client.run(new KMeansJob(k, initModel), args);
+            System.out.println("FinalModel: " + finalModel);
+            System.out.println("DistanceSum: " + finalModel.lastDistanceSum);
+            if (finalModel.lastDistanceSum < minDis) {
+                minDis = finalModel.lastDistanceSum;
+                bestModel = finalModel;
+            }
+        }
+        System.out.println("BestModel: " + bestModel);
         System.exit(0);
     }
 }

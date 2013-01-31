@@ -23,13 +23,14 @@ import edu.uci.ics.hyracks.imru.api.IModel;
 public class KMeansModel implements IModel {
     Centroid[] centroids;
     public int roundsRemaining = 20;
+    public double lastDistanceSum=0;
 
     public KMeansModel(int k) {
         centroids = new Centroid[k];
         for (int i = 0; i < k; i++)
             centroids[i] = new Centroid();
     }
-
+    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

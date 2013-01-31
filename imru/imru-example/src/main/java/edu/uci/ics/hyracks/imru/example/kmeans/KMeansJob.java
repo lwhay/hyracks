@@ -91,6 +91,7 @@ public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroi
                 }
             }
             result.centroids[belong].add(dataPoint);
+            result.distanceSum += min;
         }
         //        System.out.println("map "+model);
         return result;
@@ -106,6 +107,7 @@ public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroi
             KMeansCentroids result = input.next();
             for (int i = 0; i < k; i++)
                 combined.centroids[i].add(result.centroids[i]);
+            combined.distanceSum += result.distanceSum;
         }
         return combined;
     }
@@ -120,6 +122,7 @@ public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroi
         for (int i = 0; i < k; i++)
             changed = changed || model.centroids[i].set(combined.centroids[i]);
         model.roundsRemaining--;
+        model.lastDistanceSum = combined.distanceSum;
         if (!changed)
             model.roundsRemaining = 0;
         System.out.println("Model: " + model);

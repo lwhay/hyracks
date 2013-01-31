@@ -22,7 +22,8 @@ import java.io.Serializable;
  * update()
  */
 public class KMeansCentroids implements Serializable {
-    Centroid[] centroids;
+    public Centroid[] centroids;
+    public double distanceSum=0;
 
     public KMeansCentroids(int k) {
         centroids = new Centroid[k];
