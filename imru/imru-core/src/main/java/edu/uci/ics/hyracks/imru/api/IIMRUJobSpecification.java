@@ -37,7 +37,7 @@ public interface IIMRUJobSpecification<Model extends IModel> extends Serializabl
     /**
      * @return A tuple parser factory for parsing the input records.
      */
-    ITupleParserFactory getTupleParserFactory();
+    IIMRUTupleParserFactory getTupleParserFactory();
 
     /* UDFs */
     IMapFunctionFactory<Model> getMapFunctionFactory();

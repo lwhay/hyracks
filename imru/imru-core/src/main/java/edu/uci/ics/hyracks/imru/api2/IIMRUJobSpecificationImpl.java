@@ -32,7 +32,9 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUTupleParserFactory;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -62,11 +64,10 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
     }
 
     @Override
-    public ITupleParserFactory getTupleParserFactory() {
-        return new ITupleParserFactory() {
+    public IIMRUTupleParserFactory getTupleParserFactory() {
+        return new IIMRUTupleParserFactory() {
             @Override
-            public ITupleParser createTupleParser(IHyracksTaskContext ctx) {
-                final IMRUContext context = new IMRUContext(ctx, "parse");
+            public ITupleParser createTupleParser(final IMRUContext context) {
                 return new ITupleParser() {
                     @Override
                     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
@@ -124,7 +125,7 @@ public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJob
     public IReduceFunctionFactory getReduceFunctionFactory() {
         return new IReduceFunctionFactory() {
             @Override
-            public IReduceFunction createReduceFunction(final IMRUContext ctx) {
+            public IReduceFunction createReduceFunction(final IMRUReduceContext ctx) {
                 return new IReassemblingReduceFunction() {
                     private IFrameWriter writer;
                     private ASyncIO<byte[]> io;

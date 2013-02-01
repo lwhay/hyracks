@@ -61,15 +61,13 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
  * @param <Model>
  *            Josh Rosen
  */
-public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSingleActivityOperatorDescriptor {
+public class UpdateOperatorDescriptor<Model extends IModel> extends IMRUOperatorDescriptor<Model> {
 
     private static final long serialVersionUID = 1L;
     private static Logger LOG = Logger.getLogger(UpdateOperatorDescriptor.class.getName());
 
-    private final IIMRUJobSpecification<Model> imruSpec;
     private final String envInPath;
     private final String envOutPath;
-    private final IConfigurationFactory confFactory;
 
     /**
      * Create a new UpdateOperatorDescriptor.
@@ -88,11 +86,9 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
      */
     public UpdateOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String modelInPath,
             IConfigurationFactory confFactory, String envOutPath) {
-        super(spec, 1, 0);
-        this.imruSpec = imruSpec;
+        super(spec, 1, 0, "update", imruSpec, confFactory);
         this.envInPath = modelInPath;
         this.envOutPath = envOutPath;
-        this.confFactory = confFactory;
     }
 
     private static class UpdateOperatorNodePushable<Model extends IModel> extends
@@ -108,13 +104,15 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
         private IUpdateFunction updateFunction;
         private Configuration conf;
         private Model model;
+        private final String name;
 
         public UpdateOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
-                String modelPath, IConfigurationFactory confFactory, String outPath) {
+                String modelPath, IConfigurationFactory confFactory, String outPath, String name) {
             this.imruSpec = imruSpec;
             this.modelPath = modelPath;
             this.outPath = outPath;
             this.confFactory = confFactory;
+            this.name = name;
             this.chunkFrameHelper = new ChunkFrameHelper(ctx);
             this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
         }
@@ -142,7 +140,7 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
             } catch (ClassNotFoundException e) {
                 throw new HyracksDataException(e);
             }
-            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), "update");
+            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
             updateFunction = imruSpec.getUpdateFunctionFactory().createUpdateFunction(imruContext, model);
             updateFunction.open();
         }
@@ -209,7 +207,9 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends AbstractSing
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, envOutPath);
+        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, envOutPath, this
+                .getDisplayName()
+                + partition);
     }
 
 }

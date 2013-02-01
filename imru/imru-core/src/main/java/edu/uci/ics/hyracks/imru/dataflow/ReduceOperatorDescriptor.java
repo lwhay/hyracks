@@ -31,6 +31,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
@@ -42,14 +43,14 @@ import edu.uci.ics.hyracks.imru.util.R;
  * 
  * @author Josh Rosen
  */
-public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
+public class ReduceOperatorDescriptor extends IMRUOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
     private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[1]);
 
     private final IIMRUJobSpecification<?> imruSpec;
-
-    public String name;
+    public boolean isLocal = false;
+    public int level = 0;
 
     /**
      * Create a new ReduceOperatorDescriptor.
@@ -60,8 +61,7 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
      *            The IMRU Job specification
      */
     public ReduceOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec, String name) {
-        super(spec, 1, 1);
-        this.name = name;
+        super(spec, 1, 1, name, imruSpec, null);
         this.imruSpec = imruSpec;
         recordDescriptors[0] = dummyRecordDescriptor;
     }
@@ -73,20 +73,25 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
         private final int partition;
         private IReduceFunction reduceFunction;
         public String name;
+        public boolean isLocal = false;
+        public int level = 0;
 
         public ReduceOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec, int partition,
-                String name) {
+                String name, boolean isLocal, int level) {
             this.imruSpec = imruSpec;
             this.name = name;
             this.chunkFrameHelper = new ChunkFrameHelper(ctx);
             this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
             this.partition = partition;
+            this.isLocal = isLocal;
+            this.level = level;
         }
 
         @Override
         public void open() throws HyracksDataException {
             writer.open();
-            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(),name);
+            IMRUReduceContext imruContext = new IMRUReduceContext(chunkFrameHelper.getContext(), name, this.isLocal,
+                    this.level);
             reduceFunction = imruSpec.getReduceFunctionFactory().createReduceFunction(imruContext);
             writer = chunkFrameHelper.wrapWriter(writer, partition);
             reduceFunction.setFrameWriter(writer);
@@ -135,7 +140,8 @@ public class ReduceOperatorDescriptor extends AbstractSingleActivityOperatorDesc
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new ReduceOperatorNodePushable(ctx, imruSpec, partition, name + " " + partition + "/" + nPartitions);
+        return new ReduceOperatorNodePushable(ctx, imruSpec, partition, this.getDisplayName() + partition, isLocal,
+                level);
     }
 
 }

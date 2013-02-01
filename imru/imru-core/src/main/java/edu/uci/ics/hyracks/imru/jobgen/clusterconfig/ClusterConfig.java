@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 
 public class ClusterConfig {
 
@@ -91,18 +92,18 @@ public class ClusterConfig {
      * @return The assigned partition locations.
      * @throws HyracksException
      */
-    public static String[] setLocationConstraint(JobSpecification spec, IOperatorDescriptor operator,
-            List<InputSplit> splits, String inputPaths, Random random) throws HyracksException {
+    public static String[] setLocationConstraint(JobSpecification spec, IMRUOperatorDescriptor operator,
+            List<InputSplit> splits, String[] inputPaths, Random random) throws HyracksException {
         if (NCs == null)
             loadClusterConfig();
         if (splits == null) {
-            String[] splits2 = inputPaths.split(",");
-            int partitionCount = splits2.length;
+            int partitionCount = inputPaths.length;
             String[] partitionLocations = new String[partitionCount];
             for (int partition = 0; partition < partitionCount; partition++) {
                 int pos = partition % NCs.length;
                 partitionLocations[partition] = NCs[pos];
             }
+
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
             PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
             return partitionLocations;

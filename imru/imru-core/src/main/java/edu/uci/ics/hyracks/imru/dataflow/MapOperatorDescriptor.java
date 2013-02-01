@@ -64,18 +64,15 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
  *            persisted between iterations.
  * @author Josh Rosen
  */
-public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleActivityOperatorDescriptor {
+public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDescriptor<Model> {
 
     private static Logger LOG = Logger.getLogger(MapOperatorDescriptor.class.getName());
 
     private static final long serialVersionUID = 1L;
     private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[1]);
 
-    private final IIMRUJobSpecification<Model> imruSpec;
     private final String envInPath;
-    private final IConfigurationFactory confFactory;
     private final int roundNum;
-    private final String name;
 
     /**
      * Create a new MapOperatorDescriptor.
@@ -93,13 +90,10 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
      */
     public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String envInPath,
             IConfigurationFactory confFactory, int roundNum, String name) {
-        super(spec, 0, 1);
+        super(spec, 0, 1, name, imruSpec, confFactory);
         recordDescriptors[0] = dummyRecordDescriptor;
-        this.imruSpec = imruSpec;
         this.envInPath = envInPath;
-        this.confFactory = confFactory;
         this.roundNum = roundNum;
-        this.name = name;
     }
 
     private static class MapOperatorNodePushable<Model extends IModel> extends
@@ -247,14 +241,14 @@ public class MapOperatorDescriptor<Model extends IModel> extends AbstractSingleA
             }
             writer.close();
         }
-
     }
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum, name
-                + " " + partition + "/" + nPartitions);
+        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum, this
+                .getDisplayName()
+                + partition);
     }
 
 }

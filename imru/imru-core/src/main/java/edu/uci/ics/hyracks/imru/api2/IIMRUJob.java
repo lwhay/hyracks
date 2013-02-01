@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 
 /**
  * High level IMRU job interface. Data passed through are objects.

@@ -15,6 +15,8 @@
 
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
+import org.kohsuke.args4j.Option;
+
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**
@@ -32,12 +34,13 @@ public class HelloWorld {
             cmdline += " -disable-logging";
             // hostname of cluster controller
             cmdline += " -host localhost";
+            cmdline += " -debugNodes 16";
         } else {
             // hostname of cluster controller
             cmdline += "-host " + Client.getLocalIp();
         }
         boolean useHDFS = false;
-        String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data";
+        String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data/helloworld";
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
@@ -53,12 +56,16 @@ public class HelloWorld {
         // HDFS path of input data
         if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
-        else
-            cmdline += " -example-paths " + exampleData + "/hello.txt," + exampleData + "/hello2.txt";
-        // aggregation type
-        cmdline += " -agg-tree-type generic";
-        // aggregation parameter
-        cmdline += " -agg-count 1";
+        else {
+            cmdline += " -example-paths " + exampleData + "/hello0.txt";
+            for (int i = 1; i < 52; i++)
+                cmdline += "," + exampleData + "/hello" + i + ".txt";
+        }
+        // aggregation
+        cmdline += " -agg-tree-type nary -fan-in 2";
+        // cmdline += " -agg-tree-type generic -agg-count 10";
+        // cmdline += " -agg-tree-type none";
+
         // don't save intermediate models
         cmdline += " -abondon-intermediate-models";
         // write to the same file
@@ -71,10 +78,11 @@ public class HelloWorld {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0)
-            args = defaultArgs(false);
+            //            args = defaultArgs(false);
+            args = defaultArgs(true);
 
         HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
-        System.out.println("FinalModel: " + finalModel.totalLength);
+        System.out.println("FinalModel: " + finalModel.sentence);
         System.exit(0);
     }
 }

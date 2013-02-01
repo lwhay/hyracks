@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Vector;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -82,6 +83,9 @@ public class Client<Model extends IModel> {
         @Option(name = "-debug", usage = "Start cluster controller and node controller in this process for debugging")
         public boolean debug;
 
+        @Option(name = "-debugNodes", usage = "Number of nodes started for debugging")
+        public int numOfNodes = 2;
+
         @Option(name = "-disable-logging", usage = "Disable logging. So console output can be seen when debugging")
         public boolean disableLogging;
 
@@ -118,7 +122,7 @@ public class Client<Model extends IModel> {
         @Option(name = "-example-paths", usage = "HDFS path to hold input data")
         public String examplePaths = "/input/data.txt";
 
-        @Option(name = "-agg-tree-type", usage = "The aggregation tree type (none, rack, nary, or generic)", required = true)
+        @Option(name = "-agg-tree-type", usage = "The aggregation tree type (none, nary, or generic)", required = true)
         public String aggTreeType;
 
         @Option(name = "-agg-count", usage = "The number of aggregators to use, if using an aggregation tree")
@@ -137,8 +141,7 @@ public class Client<Model extends IModel> {
     public static final int FRAME_SIZE = 65536;
 
     private ClusterControllerService cc;
-    private NodeControllerService nc1;
-    private NodeControllerService nc2;
+    private Vector<NodeControllerService> ncs = new Vector<NodeControllerService>();
     private IHyracksClientConnection hcc;
 
     public IMRUJobControl<Model> control;
@@ -288,8 +291,8 @@ public class Client<Model extends IModel> {
      */
     public void startClusterAndNodes() throws Exception {
         startCC(options.host, options.clusterPort, options.port);
-        startNC1("nc1", options.host, options.clusterPort);
-        startNC2("nc2", options.host, options.clusterPort);
+        for (int i = 0; i < options.numOfNodes; i++)
+            startNC1("nc" + i, options.host, options.clusterPort);
     }
 
     /**
@@ -329,34 +332,9 @@ public class Client<Model extends IModel> {
         ncConfig1.ccPort = clusterNetPort;
         ncConfig1.dataIPAddress = "127.0.0.1";
         ncConfig1.nodeId = NC1_ID;
-        nc1 = new NodeControllerService(ncConfig1);
-        nc1.start();
-    }
-
-    /**
-     * Start the second node controller
-     * 
-     * @param NC2_ID
-     * @param host
-     * @param clusterNetPort
-     * @throws Exception
-     */
-    public void startNC2(String NC2_ID, String host, int clusterNetPort) throws Exception {
-        NCConfig ncConfig2 = new NCConfig();
-        ncConfig2.ccHost = host;
-        ncConfig2.clusterNetIPAddress = host;
-        ncConfig2.ccPort = clusterNetPort;
-        ncConfig2.dataIPAddress = "127.0.0.1";
-        ncConfig2.nodeId = NC2_ID;
-        nc2 = new NodeControllerService(ncConfig2);
-        nc2.start();
-
-        // ClusterConfig
-        // .setClusterPropertiesPath("imru/imru-core/src/main/resources/conf/cluster.properties");
-        // ClusterConfig
-        // .setStorePath("imru/imru-core/src/main/resources/conf/stores.properties");
-        // ClusterConfig.loadClusterConfig(CC_HOST,
-        // TEST_HYRACKS_CC_CLIENT_PORT);
+        NodeControllerService nc = new NodeControllerService(ncConfig1);
+        nc.start();
+        ncs.add(nc);
     }
 
     /**
@@ -369,19 +347,19 @@ public class Client<Model extends IModel> {
         Handler[] handlers = globalLogger.getHandlers();
         for (Handler handler : handlers)
             globalLogger.removeHandler(handler);
-         globalLogger.addHandler(new Handler() {
+        globalLogger.addHandler(new Handler() {
             @Override
             public void publish(LogRecord record) {
-                String s=record.getMessage();
+                String s = record.getMessage();
                 if (s.contains("Exception caught by thread")) {
                     System.err.println(s);
                 }
             }
-            
+
             @Override
             public void flush() {
             }
-            
+
             @Override
             public void close() throws SecurityException {
             }
@@ -404,8 +382,9 @@ public class Client<Model extends IModel> {
      * @throws Exception
      */
     public void deinit() throws Exception {
-        nc2.stop();
-        nc1.stop();
+        for (NodeControllerService nc : ncs)
+            nc.stop();
+        ncs.clear();
         cc.stop();
     }
 

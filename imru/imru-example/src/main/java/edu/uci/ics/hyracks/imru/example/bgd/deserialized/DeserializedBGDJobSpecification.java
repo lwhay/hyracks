@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.imru.example.bgd.deserialized;
 import java.io.Serializable;
 
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
+import edu.uci.ics.hyracks.imru.api.IIMRUTupleParserFactory;
 import edu.uci.ics.hyracks.imru.deserialized.AbstractDeserializingIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.deserialized.IDeserializedMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.deserialized.IDeserializedReduceFunctionFactory;
@@ -45,7 +46,7 @@ public class DeserializedBGDJobSpecification extends AbstractDeserializingIMRUJo
     }
 
     @Override
-    public ITupleParserFactory getTupleParserFactory() {
+    public IIMRUTupleParserFactory getTupleParserFactory() {
         return new LibsvmExampleTupleParserFactory(numFeatures);
     }
 

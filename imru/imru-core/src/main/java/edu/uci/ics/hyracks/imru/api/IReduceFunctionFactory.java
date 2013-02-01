@@ -16,5 +16,5 @@
 package edu.uci.ics.hyracks.imru.api;
 
 public interface IReduceFunctionFactory {
-    IReduceFunction createReduceFunction(IMRUContext ctx);
+    IReduceFunction createReduceFunction(IMRUReduceContext ctx);
 }

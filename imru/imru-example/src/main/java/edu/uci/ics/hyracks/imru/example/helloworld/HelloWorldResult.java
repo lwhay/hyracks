@@ -22,5 +22,5 @@ import java.io.Serializable;
  * update()
  */
 public class HelloWorldResult implements Serializable {
-    public int length;
+    public String sentence="";
 }

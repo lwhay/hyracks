@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
@@ -56,16 +57,14 @@ import edu.uci.ics.hyracks.imru.util.IterationUtils;
  * 
  * @author Josh Rosen
  */
-public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
+public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
 
     private static final Logger LOG = Logger.getLogger(MapOperatorDescriptor.class.getName());
 
     private static final long serialVersionUID = 1L;
 
-    private final IIMRUJobSpecification<?> imruSpec;
-    private final HDFSInputSplitProvider inputSplitProvider;
-    private final IConfigurationFactory confFactory;
-    private final String inputPaths;
+    protected final HDFSInputSplitProvider inputSplitProvider;
+    protected final String[] inputPaths;
 
     /**
      * Create a new MapOperatorDescriptor.
@@ -80,11 +79,9 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
      *            A Hadoop configuration, used for HDFS.
      */
     public DataLoadOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec,
-            HDFSInputSplitProvider inputSplitProvider, String inputPaths, IConfigurationFactory confFactory) {
-        super(spec, 0, 0);
+            HDFSInputSplitProvider inputSplitProvider, String[] inputPaths, IConfigurationFactory confFactory) {
+        super(spec, 0, 0, "parse", imruSpec, confFactory);
         this.inputSplitProvider = inputSplitProvider;
-        this.imruSpec = imruSpec;
-        this.confFactory = confFactory;
         this.inputPaths = inputPaths;
     }
 
@@ -95,12 +92,12 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private final IIMRUJobSpecification<?> imruSpec;
         private final IConfigurationFactory confFactory;
         private final HDFSInputSplitProvider inputSplitProvider;
-        private final String inputPaths;
+        private final String[] inputPaths;
         private final int partition;
         private final String name;
 
         public DataLoadOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec,
-                HDFSInputSplitProvider inputSplitProvider, String inputPaths, IConfigurationFactory confFactory,
+                HDFSInputSplitProvider inputSplitProvider, String[] inputPaths, IConfigurationFactory confFactory,
                 int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
@@ -141,10 +138,11 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
             state.setRunFileWriter(runFileWriter);
             runFileWriter.open();
 
+            IMRUContext context = new IMRUContext(fileCtx, name);
             if (inputSplitProvider == null) {
                 try {
-                    InputStream in = new FileInputStream(inputPaths.split(",")[partition]);
-                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(fileCtx);
+                    InputStream in = new FileInputStream(inputPaths[partition]);
+                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
                     dataLoader.parse(in, runFileWriter);
                     in.close();
                 } catch (IOException e) {
@@ -157,7 +155,7 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 Path path = split.getPath();
                 try {
                     InputStream in = HDFSUtils.open(dfs, conf, path);
-                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(fileCtx);
+                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
                     dataLoader.parse(in, runFileWriter);
                     in.close();
                 } catch (IOException e) {
@@ -201,7 +199,7 @@ public class DataLoadOperatorDescriptor extends AbstractSingleActivityOperatorDe
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplitProvider, inputPaths, confFactory, partition,
-                "update " + partition + "/" + nPartitions);
+                this.getDisplayName() + partition);
     }
 
 }

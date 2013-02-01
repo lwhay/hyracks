@@ -29,6 +29,7 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.MapOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.UpdateOperatorDescriptor;
@@ -73,13 +74,13 @@ public class GenericAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         JobSpecification spec = new JobSpecification();
         // Create operators
         // File reading and writing
-        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPaths,
+        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPathCommaSeparated,
                 confFactory.createConfiguration());
         List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
 
         // IMRU computation
         // We will have one Map operator per input file.
-        IOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, imruSpec, modelInPath, confFactory, roundNum,
+        IMRUOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, imruSpec, modelInPath, confFactory, roundNum,
                 "map");
         // For repeatability of the partition assignments, seed the source of
         // randomness using the job id.
@@ -93,7 +94,7 @@ public class GenericAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         PartitionConstraintHelper.addPartitionCountConstraint(spec, updateOperator, 1);
 
         // One level of reducers (ala Hadoop)
-        IOperatorDescriptor reduceOperator = new ReduceOperatorDescriptor(spec, imruSpec, "reduce");
+        IOperatorDescriptor reduceOperator = new ReduceOperatorDescriptor(spec, imruSpec, "generic reducer");
         PartitionConstraintHelper.addPartitionCountConstraint(spec, reduceOperator, reducerCount);
 
         // Set up the local combiners (machine-local reducers)

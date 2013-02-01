@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.imru.example.bgd.job;
 
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUTupleParserFactory;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
@@ -28,7 +29,6 @@ public class BGDJobSpecification implements IIMRUJobSpecification<LinearModel> {
     private static final long serialVersionUID = 1L;
     private final int numFeatures;
 
-
     public BGDJobSpecification(int numFeatures) {
         this.numFeatures = numFeatures;
     }
@@ -39,7 +39,7 @@ public class BGDJobSpecification implements IIMRUJobSpecification<LinearModel> {
     }
 
     @Override
-    public ITupleParserFactory getTupleParserFactory() {
+    public IIMRUTupleParserFactory getTupleParserFactory() {
         return new LibsvmExampleTupleParserFactory(numFeatures);
     }
 

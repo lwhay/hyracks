@@ -35,7 +35,9 @@ import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IModel;
+import edu.uci.ics.hyracks.imru.util.R;
 
 public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T extends Serializable> implements
         IIMRUJob2<Model> {
@@ -71,12 +73,13 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
 
             public Data read() throws Exception {
                 int length = reader.readInt();
+                if (length == 0)
+                    throw new Exception("map read 0");
                 byte[] bs = new byte[length];
                 int len = reader.read(bs);
                 if (len != length)
                     throw new Exception("read half");
-                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
-                        .getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 return (Data) appContext.deserialize(bs);
             }
 
@@ -100,30 +103,30 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
         try {
             T reduceResult;
             T firstResult = job.map(ctx, dataInterator, model);
-            if (!dataInterator.hasNext()) {
+//            if (!dataInterator.hasNext()) {
                 reduceResult = firstResult;
-            } else {
-                final ASyncIO<T> io = new ASyncIO<T>();
-                Future<T> future = threadPool.submit(new Callable<T>() {
-                    @Override
-                    public T call() {
-                        Iterator<T> input = io.getInput();
-                        try {
-                            return job.reduce(ctx, input);
-                        } catch (HyracksDataException e) {
-                            e.printStackTrace();
-                        }
-                        return null;
-                    }
-                });
-                io.add(firstResult);
-                while (dataInterator.hasNext()) {
-                    T result = job.map(ctx, dataInterator, model);
-                    io.add(result);
-                }
-                io.close();
-                reduceResult = future.get();
-            }
+//            } else {
+//                final ASyncIO<T> io = new ASyncIO<T>();
+//                Future<T> future = threadPool.submit(new Callable<T>() {
+//                    @Override
+//                    public T call() {
+//                        Iterator<T> input = io.getInput();
+//                        try {
+//                            return job.reduce(ctx, input);
+//                        } catch (HyracksDataException e) {
+//                            e.printStackTrace();
+//                        }
+//                        return null;
+//                    }
+//                });
+//                io.add(firstResult);
+//                while (dataInterator.hasNext()) {
+//                    T result = job.map(ctx, dataInterator, model);
+//                    io.add(result);
+//                }
+//                io.close();
+//                reduceResult = future.get();
+//            }
             byte[] objectData = JavaSerializationUtils.serialize(reduceResult);
             output.write(objectData);
             output.close();
@@ -141,7 +144,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
     }
 
     @Override
-    public void reduce(final IMRUContext ctx, final Iterator<byte[]> input, OutputStream output)
+    public void reduce(final IMRUReduceContext ctx, final Iterator<byte[]> input, OutputStream output)
             throws IMRUDataException {
         Iterator<T> iterator = new Iterator<T>() {
             @Override
@@ -158,8 +161,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
-                        .getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);
                 } catch (Exception e) {
@@ -201,8 +203,7 @@ public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T ext
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext()
-                        .getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx.getJobletContext().getApplicationContext();
                 try {
                     return (T) appContext.deserialize(objectData);
                 } catch (Exception e) {

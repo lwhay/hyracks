@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.dataflow.DataLoadOperatorDescriptor;
+import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
@@ -38,7 +39,8 @@ import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
  */
 public abstract class AbstractIMRUJobFactory implements IJobFactory {
 
-    final String inputPaths;
+    final String inputPathCommaSeparated;
+    final String[] inputPaths;
     final ConfigurationFactory confFactory;
 
     /**
@@ -50,7 +52,8 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
      *            The HDFS configuration to use.
      */
     public AbstractIMRUJobFactory(String inputPaths, ConfigurationFactory confFactory) {
-        this.inputPaths = inputPaths;
+        this.inputPathCommaSeparated = inputPaths;
+        this.inputPaths= inputPaths.split(",");
         this.confFactory = confFactory;
     }
 
@@ -59,11 +62,11 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
     public JobSpecification generateDataLoadJob(IIMRUJobSpecification model, UUID id) throws HyracksException {
         JobSpecification spec = new JobSpecification();
 
-        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPaths,
+        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPathCommaSeparated,
                 confFactory.createConfiguration());
         List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
 
-        IOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, inputPaths,
+        IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, inputPaths,
                 confFactory);
         // For repeatability of the partition assignments, seed the
         // source of

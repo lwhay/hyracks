@@ -70,10 +70,11 @@ public class ReduceAggregationTreeFactory {
         }
         Integer[] levelNodeCounts = aggregationTreeNodeCounts(producerOpCount, fanIn);
         int numLevels = levelNodeCounts.length;
-        IOperatorDescriptor[] aggregatorOperators = new IOperatorDescriptor[numLevels];
+        ReduceOperatorDescriptor[] aggregatorOperators = new ReduceOperatorDescriptor[numLevels];
         for (int level = 0; level < numLevels; level++) {
-            aggregatorOperators[level] = new ReduceOperatorDescriptor(spec, imruSpec, "tree");
-            aggregatorOperators[level].setDisplayName("ReduceOperatorDescriptor(level " + level + ")");
+            aggregatorOperators[level] = new ReduceOperatorDescriptor(spec, imruSpec, "NAryReducerL" + level+"_");
+            aggregatorOperators[level].level = level;
+            //            aggregatorOperators[level].setDisplayName("ReduceOperatorDescriptor(level " + level + ")");
             PartitionConstraintHelper.addPartitionCountConstraint(spec, aggregatorOperators[level],
                     levelNodeCounts[levelNodeCounts.length - 1 - level]);
         }

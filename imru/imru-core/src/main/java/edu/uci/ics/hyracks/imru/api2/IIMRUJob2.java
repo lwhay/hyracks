@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 
 /**
  * Low level IMRU job interface. Data passed through
@@ -56,7 +57,7 @@ public interface IIMRUJob2<Model> extends Serializable {
     /**
      * Combine multiple raw frames to one raw frame
      */
-    public void reduce(IMRUContext ctx, Iterator<byte[]> input, OutputStream output) throws IMRUDataException;
+    public void reduce(IMRUReduceContext ctx, Iterator<byte[]> input, OutputStream output) throws IMRUDataException;
 
     /**
      * update the model using combined raw frames

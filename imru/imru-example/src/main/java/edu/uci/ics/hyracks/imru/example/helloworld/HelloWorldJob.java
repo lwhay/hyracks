@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api2.DataWriter;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
@@ -56,7 +57,7 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
         String line = reader.readLine();
         reader.close();
         for (String s : line.split(" ")) {
-            System.out.println(ctx.getOperatorName()+": " + s);
+            System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + s);
             output.addData(new HelloWorldData(s));
         }
     }
@@ -70,8 +71,8 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
         HelloWorldResult result = new HelloWorldResult();
         while (input.hasNext()) {
             String word = input.next().word;
-            result.length += word.length();
-            System.out.println(ctx.getOperatorName()+": " + word + " -> " + result.length);
+            result.sentence += word;
+            System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + word + " -> " + result.sentence);
         }
         return result;
     }
@@ -80,18 +81,22 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
      * Combine multiple results to one result
      */
     @Override
-    public HelloWorldResult reduce(IMRUContext ctx, Iterator<HelloWorldResult> input)
-            throws IMRUDataException {
+    public HelloWorldResult reduce(IMRUContext ctx, Iterator<HelloWorldResult> input) throws IMRUDataException {
         HelloWorldResult combined = new HelloWorldResult();
         StringBuilder sb = new StringBuilder();
+        combined.sentence = "(";
         while (input.hasNext()) {
             HelloWorldResult result = input.next();
-            sb.append(result.length + "+");
-            combined.length += result.length;
+            if (sb.length() > 0)
+                sb.append("+");
+            sb.append(result.sentence);
+            combined.sentence += result.sentence;
         }
-        if (sb.length() > 0)
-            sb.deleteCharAt(sb.length() - 1);
-        System.out.println(ctx.getOperatorName()+": " + sb + " -> " + combined.length);
+        combined.sentence += ")_" + ctx.getNodeId();
+        IMRUReduceContext reduceContext = (IMRUReduceContext) ctx;
+        System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + "-"
+                + (reduceContext.isLocalReducer() ? "L" : reduceContext.getReducerLevel()) + ": " + sb + " -> "
+                + combined.sentence);
         return combined;
     }
 
@@ -102,13 +107,13 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
     public void update(IMRUContext ctx, Iterator<HelloWorldResult> input, HelloWorldModel model)
             throws IMRUDataException {
         StringBuilder sb = new StringBuilder();
-        int oldLength = model.totalLength;
+        sb.append("(" + model.sentence + ")");
         while (input.hasNext()) {
             HelloWorldResult result = input.next();
-            sb.append("+" + result.length);
-            model.totalLength += result.length;
+            sb.append("+" + result.sentence);
+            model.sentence += result.sentence;
         }
-        System.out.println(ctx.getOperatorName()+": " + oldLength + sb + " -> " + model.totalLength);
+        System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + sb + " -> " + model.sentence);
         model.roundsRemaining--;
     }
 

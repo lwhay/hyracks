@@ -27,6 +27,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
@@ -42,7 +43,7 @@ public class BGDReduceFunctionFactory implements IReduceFunctionFactory {
     }
 
     @Override
-    public IReduceFunction createReduceFunction(final IMRUContext ctx) {
+    public IReduceFunction createReduceFunction(final IMRUReduceContext ctx) {
         return new IOneByOneReduceFunction() {
 
             private IFrameWriter writer;

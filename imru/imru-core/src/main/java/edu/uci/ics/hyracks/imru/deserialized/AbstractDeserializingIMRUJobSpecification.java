@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
@@ -109,9 +110,8 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IM
     @Override
     public final IReduceFunctionFactory getReduceFunctionFactory() {
         return new IReduceFunctionFactory() {
-
             @Override
-            public IReduceFunction createReduceFunction(final IMRUContext ctx) {
+            public IReduceFunction createReduceFunction(final IMRUReduceContext ctx) {
                 return new IReassemblingReduceFunction() {
 
                     private IFrameWriter writer;

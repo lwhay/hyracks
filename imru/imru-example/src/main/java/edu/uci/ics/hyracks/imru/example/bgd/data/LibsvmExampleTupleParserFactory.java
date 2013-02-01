@@ -33,8 +33,10 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
+import edu.uci.ics.hyracks.imru.api.IIMRUTupleParserFactory;
+import edu.uci.ics.hyracks.imru.api.IMRUContext;
 
-public class LibsvmExampleTupleParserFactory implements ITupleParserFactory {
+public class LibsvmExampleTupleParserFactory implements IIMRUTupleParserFactory {
     private static final long serialVersionUID = 1L;
     final int featureLength;
     private static Logger LOG = Logger.getLogger(LibsvmExampleTupleParserFactory.class.getName());
@@ -44,7 +46,7 @@ public class LibsvmExampleTupleParserFactory implements ITupleParserFactory {
     }
 
     @Override
-    public ITupleParser createTupleParser(final IHyracksTaskContext ctx) {
+    public ITupleParser createTupleParser(final IMRUContext ctx) {
         return new ITupleParser() {
 
             @Override
