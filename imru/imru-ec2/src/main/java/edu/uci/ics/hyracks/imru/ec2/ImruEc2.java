@@ -15,13 +15,14 @@
 package edu.uci.ics.hyracks.imru.ec2;
 
 import java.io.File;
+import java.io.IOException;
 
 import com.amazonaws.services.ec2.model.Instance;
 
 import edu.uci.ics.hyracks.imru.util.R;
 
 /**
- * Automatically deployment of EC2 cluster
+ * Automatically deployment of EC2 cluster sample code
  * 
  * @author wangrui
  */
@@ -30,8 +31,8 @@ public class ImruEc2 {
     File imruRoot;
     HyracksEC2Cluster cluster;
 
-    public ImruEc2(File credentialsFile, File pemDir, String keyName, File imruRoot) throws Exception {
-        cluster = new HyracksEC2Cluster(credentialsFile, pemDir, keyName, IMRU_PREFIX);
+    public ImruEc2(File credentialsFile, File privateKey, File imruRoot) throws Exception {
+        cluster = new HyracksEC2Cluster(credentialsFile, privateKey, IMRU_PREFIX);
         this.imruRoot = imruRoot;
         //         startStopTest();
         cluster.createSecurityGroup();
@@ -59,15 +60,21 @@ public class ImruEc2 {
 
     public static void main(String[] args) throws Exception {
         File home = new File(System.getProperty("user.home"));
-        File pemDir = home;
         File credentialsFile = new File(home, "AwsCredentials.properties");
+        if (!credentialsFile.exists())
+            throw new IOException(
+                    credentialsFile.getAbsolutePath()
+                            + " doesn't exist.\r\n"
+                            + "Insert your AWS Credentials from http://aws.amazon.com/security-credentials to a file with content\r\naccessKey=xx\r\n"
+                            + "secretKey=xx");
+
         File imruRoot = new File(home, "fullstack_imru");
         String keyName = "firstTestByRui";
-        File pemFile = new File(pemDir, keyName + ".pem");
-        if (!pemFile.exists())
+        File privateKey = new File(home, keyName + ".pem");
+        if (!privateKey.exists())
             throw new Error("Key pair needed. Please create "
-                    + "a key pair in https://console.aws.amazon.com/ec2/ and download it to "
-                    + pemDir.getAbsolutePath());
-        ImruEc2 imru = new ImruEc2(credentialsFile, pemDir, keyName, imruRoot);
+                    + "a key pair in https://console.aws.amazon.com/ec2/ and download it to " + home.getAbsolutePath()
+                    + "/");
+        ImruEc2 imru = new ImruEc2(credentialsFile, privateKey, imruRoot);
     }
 }

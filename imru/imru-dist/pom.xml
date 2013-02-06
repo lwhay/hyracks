@@ -44,6 +44,22 @@
 						</configuration>
 					</execution>
 					<execution>
+						<id>copy-imru-conf</id>
+						<!-- here the phase you need -->
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>target/appassembler/conf</outputDirectory>
+							<resources>
+								<resource>
+									<directory>../imru-core/src/main/resources/conf</directory>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+					<execution>
 						<id>copy-imru-scripts</id>
 						<!-- here the phase you need -->
 						<phase>package</phase>
@@ -98,14 +114,46 @@
 					</execution>
 				</executions>
 			</plugin>
+		      <plugin>
+			<groupId>org.codehaus.mojo</groupId>
+			<artifactId>appassembler-maven-plugin</artifactId>
+			<executions>
+			  <execution>
+			    <configuration>
+			      <programs>
+				<program>
+				  <mainClass>edu.uci.ics.hyracks.imru.ec2.ImruEc2Cmd</mainClass>
+				  <name>hyracksEc2</name>
+				</program>
+			      </programs>
+			      <repositoryLayout>flat</repositoryLayout>
+			      <repositoryName>lib</repositoryName>
+			    </configuration>
+			    <phase>package</phase>
+			    <goals>
+			      <goal>assemble</goal>
+			    </goals>
+			  </execution>
+			</executions>
+		      </plugin>
 		</plugins>
 	</build>
 	<dependencies>
+		<dependency>
+			<groupId>args4j</groupId>
+			<artifactId>args4j</artifactId>
+			<version>2.0.12</version>
+		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.hyracks</groupId>
 			<artifactId>imru-core</artifactId>
 			<version>0.2.3-SNAPSHOT</version>
 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.hyracks</groupId>
+			<artifactId>imru-ec2</artifactId>
+			<version>0.2.3-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.hyracks.examples</groupId>

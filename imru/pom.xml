@@ -95,8 +95,8 @@
 
   <modules>
     <module>imru-core</module>
-    <module>imru-dist</module>
     <module>imru-ec2</module>
+    <module>imru-dist</module>
     <module>imru-example</module>
   </modules>
 </project>

@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.imru.util.R;
  * @author wangrui
  */
 public class HyracksEC2Cluster {
+    public static final String FULLSTACK_IMRU_IMAGE_ID = "ami-8937a0e0";
     public static int MAX_COUNT = 3;
     public static final String HYRACKS_SECURITY_GROUP = "Hyracks-security-group";
     EC2Wrapper ec2;
@@ -52,11 +53,13 @@ public class HyracksEC2Cluster {
     String machineType = "t1.micro";
     // ubuntu image: ami-3d4ff254
     // fullstack_imru: ami-8937a0e0
-    String imageId = "ami-8937a0e0";
+    String imageId = FULLSTACK_IMRU_IMAGE_ID;
 
-    public HyracksEC2Cluster(File credentialsFile, File pemDir, String keyName, String instancePrefix) throws Exception {
-        this.ec2 = new EC2Wrapper(credentialsFile, pemDir);
-        this.keyName = keyName;
+    public HyracksEC2Cluster(File credentialsFile, File privateKey, String instancePrefix) throws Exception {
+        this.ec2 = new EC2Wrapper(credentialsFile, privateKey.getParentFile());
+        this.keyName = privateKey.getName();
+        if (this.keyName.indexOf('.') > 0)
+            this.keyName = this.keyName.substring(0, this.keyName.lastIndexOf('.'));
         this.instancePrefix = instancePrefix;
         refresh();
     }
@@ -220,6 +223,9 @@ public class HyracksEC2Cluster {
     }
 
     public void addInstances(int count) {
+        if (count > MAX_COUNT)
+            throw new Error("For safety reason, please modify " + this.getClass().getName() + ".MAX_COUNT first");
+
         //        ec2.setEndpoint("ec2.us-east-1.amazonaws.com");
 
         RunInstancesRequest runInstancesRequest = new RunInstancesRequest().withInstanceType(machineType).withImageId(
@@ -284,12 +290,37 @@ public class HyracksEC2Cluster {
 
     public void printNodeStatus() {
         refresh();
-        R.np("Hyracks EC2 Nodes:");
-        for (HyracksEC2Node node : nodes)
-            R.np("NC" + node.nodeId + ": " + node.instance.getState().getName());
+        R.np("Hyracks EC2 Nodes (" + instancePrefix + "):");
+        int pending = 0;
+        int running = 0;
+        int shutting = 0;
+        int stopping = 0;
+        int stopped = 0;
+        for (HyracksEC2Node node : nodes) {
+            //pending, running, shutting-down, terminated, stopping, stopped
+            String state = node.instance.getState().getName();
+            R.np("NC" + node.nodeId + ": " + state);
+            if ("pending".equals(state))
+                pending++;
+            if ("running".equals(state))
+                running++;
+            if ("shutting".equals(state))
+                shutting++;
+            if ("stopping".equals(state))
+                stopping++;
+            if ("stopped".equals(state))
+                stopped++;
+        }
+        R.np("pending: " + pending);
+        R.np("running: " + running);
+        R.np("shutting-down: " + shutting);
+        R.np("stopping: " + stopping);
+        R.np("stopped: " + stopped);
     }
 
     public String getAdminURL() {
+        if (controller == null)
+            return null;
         return "http://" + controller.instance.getPublicDnsName() + ":16001/adminconsole/";
     }
 

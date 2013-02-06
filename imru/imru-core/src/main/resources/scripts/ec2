@@ -1,0 +1,12 @@
+#!/bin/sh
+
+. conf/ec2.properties
+
+bin/hyracksEc2 \
+ -credentials-file $CREDENTIALS_FILE \
+ -key-file $KEY_FILE \
+ -full-stack-root $FULL_STACK_ROOT \
+ -cluster-prefix $CLUTER_PREFIX \
+ -max-instances $MAXIMUM_INSTANCES \
+ -cmd "$@"
+

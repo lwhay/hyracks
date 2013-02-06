@@ -119,6 +119,7 @@ public class HyracksEC2Node {
     public void stopAll() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
+            ssh.execute("cd /home/ubuntu/fullstack_imru/imru/imru-dist/target/appassembler");
             ssh.execute("bin/stopcc.sh");
             ssh.execute("bin/stopnc.sh");
         } finally {
