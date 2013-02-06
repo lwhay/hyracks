@@ -30,7 +30,6 @@
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/commons-lang3-3.1.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/commons-logging-1.1.1.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/commons-net-1.4.1.jar"/>
-	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/httpclient-4.1-alpha2.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/httpcore-4.1-beta1.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-net-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/hyracks-storage-am-btree-0.2.3-SNAPSHOT.jar"/>
@@ -48,6 +47,7 @@
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/jetty-webapp-8.0.0.RC0.jar"/>
 	<classpathentry kind="lib" path="imru-example/target/appassembler/lib/jetty-xml-8.0.0.RC0.jar"/>
 	<classpathentry kind="lib" path="imru-ec2/target/appassembler/lib/jsch-0.1.49.jar"/>
-	<classpathentry kind="lib" path="imru-ec2/target/appassembler/lib/aws-java-sdk-1.3.27.jar"/>
+	<classpathentry kind="lib" path="imru-ec2/target/appassembler/lib/aws-java-sdk-1.3.27.jar" sourcepath="/home/wangrui/a/otherCode/aws-java-sdk-1.3.27/lib/aws-java-sdk-1.3.27-sources.jar"/>
+	<classpathentry kind="lib" path="imru-ec2/target/appassembler/lib/httpclient-4.1.1.jar"/>
 	<classpathentry kind="output" path="imru-example/target/classes"/>
 </classpath>

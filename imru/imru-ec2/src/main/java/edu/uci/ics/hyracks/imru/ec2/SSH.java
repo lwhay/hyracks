@@ -46,7 +46,7 @@ public class SSH implements Runnable {
         }
 
         public boolean promptYesNo(String str) {
-            R.p(str + "yes");
+            //                        R.p(str + "yes");
             return true;
         }
 
@@ -77,7 +77,7 @@ public class SSH implements Runnable {
     ChannelShell shell;
     ChannelSftp ftp;
     PrintStream out;
-    boolean exitFlag = false;
+    private boolean exitFlag = false;
 
     public SSH(String user, String ip, int port, File pemFile) throws Exception {
         if (pemFile != null)
@@ -134,7 +134,7 @@ public class SSH implements Runnable {
 
     String cmd = null;
     String result = null;
-    boolean executed = false;
+    private boolean executed = false;
     StringBuilder input;
     public static int timeout = 0;
 
@@ -167,12 +167,21 @@ public class SSH implements Runnable {
     }
 
     static String formatLine(String line) {
-        for (int i = line.length() - 1; i > 0; i--) {
-            if (line.charAt(i) == 0x1B) {
-                return line.substring(i + 1);
+        StringBuilder sb = new StringBuilder();
+        boolean escaping = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == 0x1B) {
+                //http://www2.gar.no/glinkj/help/cmds/ansa.htm
+                //http://vt100.net/docs/vt510-rm/SGR
+                escaping = true;
+            } else if (escaping && (c == 'm'||c=='K')) {
+                escaping = false;
+            } else if (!escaping) {
+                sb.append(line.charAt(i));
             }
         }
-        return line;
+        return sb.toString();
     }
 
     public String readLineNoWait(InputStream in) throws Exception {
@@ -201,8 +210,11 @@ public class SSH implements Runnable {
                     continue;
                 }
                 line = formatLine(line);
-                if (input != null)
-                    input.append(line);
+                if (input != null) {
+                    synchronized (input) {
+                        input.append(line);
+                    }
+                }
                 if (line.endsWith("$ ") || line.endsWith("# ")) {
                     R.np(line);
                     if (executed) {
@@ -221,9 +233,7 @@ public class SSH implements Runnable {
                     out.flush();
                     R.sleep(50);
                 } else {
-                    if (line.endsWith("\n"))
-                        line = line.substring(0, line.length() - 1);
-                    R.np(line);
+                    System.out.print(line);
                 }
             }
         } catch (Exception e) {
