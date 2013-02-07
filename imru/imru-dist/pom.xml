@@ -44,38 +44,6 @@
 						</configuration>
 					</execution>
 					<execution>
-						<id>copy-imru-conf</id>
-						<!-- here the phase you need -->
-						<phase>package</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>target/appassembler/conf</outputDirectory>
-							<resources>
-								<resource>
-									<directory>../imru-core/src/main/resources/conf</directory>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-					<execution>
-						<id>copy-imru-scripts</id>
-						<!-- here the phase you need -->
-						<phase>package</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>target/appassembler/bin</outputDirectory>
-							<resources>
-								<resource>
-									<directory>../imru-core/src/main/resources/scripts</directory>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-					<execution>
 						<id>copy-examples</id>
 						<phase>package</phase>
 						<goals>
@@ -139,11 +107,6 @@
 		</plugins>
 	</build>
 	<dependencies>
-		<dependency>
-			<groupId>args4j</groupId>
-			<artifactId>args4j</artifactId>
-			<version>2.0.12</version>
-		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.hyracks</groupId>
 			<artifactId>imru-core</artifactId>

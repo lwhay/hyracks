@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.imru.ec2;
+package edu.uci.ics.hyracks.ec2;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,12 +22,10 @@ import java.util.Arrays;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import edu.uci.ics.hyracks.imru.util.R;
-
 /**
  * @author wangrui
  */
-public class ImruEc2Cmd {
+public class HyracksEc2Cmd {
     public static class Options {
         @Option(name = "-credentials-file", usage = "http://aws.amazon.com/security-credentials", required = true)
         public String credentialsFile;
@@ -59,7 +57,7 @@ public class ImruEc2Cmd {
     File imruRoot;
     HyracksEC2Cluster cluster;
 
-    public ImruEc2Cmd(String[] args) throws Exception {
+    public HyracksEc2Cmd(String[] args) throws Exception {
         int count = 0;
         for (int i = args.length - 1; i > 0; i--) {
             if ("-cmd".equals(args[i])) {
@@ -98,7 +96,6 @@ public class ImruEc2Cmd {
             cluster.printNodeStatus();
             R.np("Admin URL: " + cluster.getAdminURL());
         } else if ("install".equalsIgnoreCase(options.cmd)) {
-            cluster.createSecurityGroup();
             cluster.install(imruRoot);
         } else if ("startInstances".equalsIgnoreCase(options.cmd) || "sti".equalsIgnoreCase(options.cmd)) {
             cluster.startInstances();
@@ -166,6 +163,6 @@ public class ImruEc2Cmd {
                     "-cluster-prefix", "IMRU-auto-deploy-", //
                     "-max-instances", "3", "-cmd", "status", "2" };
         }
-        new ImruEc2Cmd(args);
+        new HyracksEc2Cmd(args);
     }
 }

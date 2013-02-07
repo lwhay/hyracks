@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.imru.ec2;
+package edu.uci.ics.hyracks.ec2;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -31,8 +31,6 @@ import com.jcraft.jsch.SftpATTRS;
 import com.jcraft.jsch.SftpException;
 import com.jcraft.jsch.UIKeyboardInteractive;
 import com.jcraft.jsch.UserInfo;
-
-import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * Wrapper of jsch

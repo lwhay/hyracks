@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.imru.ec2;
+package edu.uci.ics.hyracks.ec2;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -37,8 +37,6 @@ import com.amazonaws.services.ec2.model.IpPermission;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.SecurityGroup;
 import com.amazonaws.services.ec2.model.Tag;
-
-import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * @author wangrui
@@ -77,6 +75,8 @@ public class EC2Wrapper {
             grantAccessToLocalMachine(instance);
             if (!remoteDir.endsWith("/"))
                 remoteDir += "/";
+            if (localDir.isDirectory())
+                ssh.execute("if test ! \"(\" -e '" + remoteDir + "' \")\";then mkdir -p '" + remoteDir + "';fi;");
             R.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/", "ubuntu@"
                     + instance.getPublicDnsName() + ":" + remoteDir);
         } else {

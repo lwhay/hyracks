@@ -116,5 +116,6 @@
     <module>hyracks-hadoop-compat</module>
     <!--module>hyracks-yarn</module-->
     <module>hyracks-maven-plugins</module>
+    <module>hyracks-ec2</module>
   </modules>
 </project>

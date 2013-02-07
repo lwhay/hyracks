@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.imru.ec2;
+package edu.uci.ics.hyracks.ec2;
 
 import java.io.File;
 import java.util.Arrays;
@@ -35,13 +35,11 @@ import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 import com.amazonaws.services.ec2.model.TerminateInstancesResult;
 
-import edu.uci.ics.hyracks.imru.util.R;
-
 /**
  * @author wangrui
  */
 public class HyracksEC2Cluster {
-    public static final String FULLSTACK_IMRU_IMAGE_ID = "ami-8937a0e0";
+    public static final String FULLSTACK_IMRU_IMAGE_ID = "ami-b0e771d9";
     public static int MAX_COUNT = 3;
     public static final String HYRACKS_SECURITY_GROUP = "Hyracks-security-group";
     EC2Wrapper ec2;
@@ -52,7 +50,7 @@ public class HyracksEC2Cluster {
     HyracksEC2Node[] nodes;
     String machineType = "t1.micro";
     // ubuntu image: ami-3d4ff254
-    // fullstack_imru: ami-8937a0e0
+    // fullstack_imru: ami-b0e771d9
     String imageId = FULLSTACK_IMRU_IMAGE_ID;
 
     public HyracksEC2Cluster(File credentialsFile, File privateKey, String instancePrefix) throws Exception {
@@ -87,7 +85,7 @@ public class HyracksEC2Cluster {
             HyracksEC2Node node = new HyracksEC2Node(this);
             String name = ec2.getName(instance);
             if (!name.startsWith(instancePrefix))
-                throw new Error("not a IMRU instance");
+                throw new Error("not a instance belong to this cluster");
             node.nodeId = Integer.parseInt(name.substring(instancePrefix.length()));
             node.instance = instance;
             if (node.nodeId == 0)
@@ -226,6 +224,7 @@ public class HyracksEC2Cluster {
         if (count > MAX_COUNT)
             throw new Error("For safety reason, please modify " + this.getClass().getName() + ".MAX_COUNT first");
 
+        createSecurityGroup();
         //        ec2.setEndpoint("ec2.us-east-1.amazonaws.com");
 
         RunInstancesRequest runInstancesRequest = new RunInstancesRequest().withInstanceType(machineType).withImageId(

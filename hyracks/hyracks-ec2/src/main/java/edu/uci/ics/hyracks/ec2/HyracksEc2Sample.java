@@ -12,26 +12,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.imru.ec2;
+package edu.uci.ics.hyracks.ec2;
 
 import java.io.File;
 import java.io.IOException;
 
 import com.amazonaws.services.ec2.model.Instance;
 
-import edu.uci.ics.hyracks.imru.util.R;
-
 /**
  * Automatically deployment of EC2 cluster sample code
  * 
  * @author wangrui
  */
-public class ImruEc2 {
+public class HyracksEc2Sample {
     public static final String IMRU_PREFIX = "IMRU-auto-deploy-";
     File imruRoot;
     HyracksEC2Cluster cluster;
 
-    public ImruEc2(File credentialsFile, File privateKey, File imruRoot) throws Exception {
+    public HyracksEc2Sample(File credentialsFile, File privateKey, File imruRoot) throws Exception {
         cluster = new HyracksEC2Cluster(credentialsFile, privateKey, IMRU_PREFIX);
         this.imruRoot = imruRoot;
         //         startStopTest();
@@ -75,6 +73,6 @@ public class ImruEc2 {
             throw new Error("Key pair needed. Please create "
                     + "a key pair in https://console.aws.amazon.com/ec2/ and download it to " + home.getAbsolutePath()
                     + "/");
-        ImruEc2 imru = new ImruEc2(credentialsFile, privateKey, imruRoot);
+        HyracksEc2Sample imru = new HyracksEc2Sample(credentialsFile, privateKey, imruRoot);
     }
 }
