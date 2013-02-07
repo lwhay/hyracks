@@ -582,7 +582,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         }
     }
 
-    public List<Integer> getSpilledRunsSizeInTuples() throws HyracksDataException {
+    public List<Integer> getSpilledRunsSizeInRawTuples() throws HyracksDataException {
         return spilledPartRunSizesInTuples;
     }
 
