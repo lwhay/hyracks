@@ -29,6 +29,10 @@
 			    <configuration>
 			      <programs>
 				<program>
+				  <mainClass>edu.uci.ics.hyracks.control.nc.NCDriver</mainClass>
+				  <name>hyracksnc</name>
+				</program>
+				<program>
 				  <mainClass>edu.uci.ics.hyracks.ec2.HyracksEc2Cmd</mainClass>
 				  <name>hyracksEc2</name>
 				</program>
@@ -89,6 +93,13 @@
      </resources>
   </build>
   <dependencies>
+		<dependency>
+			<groupId>edu.uci.ics.hyracks</groupId>
+			<artifactId>hyracks-server</artifactId>
+			<version>0.2.3-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>compile</scope>
+		</dependency>
 		<dependency>
 			<groupId>args4j</groupId>
 			<artifactId>args4j</artifactId>
