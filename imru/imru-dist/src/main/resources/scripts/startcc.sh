@@ -1,21 +1,23 @@
 #!/bin/bash
 
 CUR_DIR=$(cd $(dirname "$0"); pwd)
-HYRACKS_EC2_APPASSEMBLER=$(cd $(dirname "$CUR_DIR"); pwd)
+APPASSEMBLER_DIR=$(cd $(dirname "$CUR_DIR"); pwd)
+CCHOST_NAME=`cat ${APPASSEMBLER_DIR}/conf/master`
 
 hostname
 
 #Import cluster properties
-. $HYRACKS_EC2_APPASSEMBLER/conf/cluster.properties
+. $APPASSEMBLER_DIR/conf/cluster.properties
 
 #Get the IP address of the cc
-CCHOST=$1
+CCHOST=`$CUR_DIR/getip.sh`
 
 if test -z $CCTMP_DIR
 then
 	echo "Can't load cluster.properties"
 	exit
 fi
+
 
 #Remove the temp dir
 rm -rf $CCTMP_DIR

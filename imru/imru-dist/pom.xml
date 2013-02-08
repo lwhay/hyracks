@@ -23,10 +23,56 @@
 					<target>1.6</target>
 				</configuration>
 			</plugin>
+		      <plugin>
+			<groupId>org.codehaus.mojo</groupId>
+			<artifactId>appassembler-maven-plugin</artifactId>
+			<executions>
+			  <execution>
+			    <configuration>
+			      <programs>
+				<program>
+				  <mainClass>edu.uci.ics.hyracks.control.cc.CCDriver</mainClass>
+				  <name>hyrackscc</name>
+				</program>
+				<program>
+				  <mainClass>edu.uci.ics.hyracks.control.nc.NCDriver</mainClass>
+				  <name>hyracksnc</name>
+				</program>
+				<program>
+				  <mainClass>org.apache.hadoop.util.RunJar</mainClass>
+				  <name>imru</name>
+				</program>
+			      </programs>
+			      <repositoryLayout>flat</repositoryLayout>
+			      <repositoryName>lib</repositoryName>
+			    </configuration>
+			    <phase>package</phase>
+			    <goals>
+			      <goal>assemble</goal>
+			    </goals>
+			  </execution>
+			</executions>
+		      </plugin>
 			<plugin>
 				<artifactId>maven-resources-plugin</artifactId>
 				<version>2.5</version>
 				<executions>
+					<execution>
+						<id>copy-conf</id>
+						<!-- here the phase you need -->
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>target/appassembler/conf</outputDirectory>
+							<resources>
+								<resource>
+									<directory>src/main/resources/conf</directory>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
 					<execution>
 						<id>copy-scripts</id>
 						<!-- here the phase you need -->
@@ -35,10 +81,10 @@
 							<goal>copy-resources</goal>
 						</goals>
 						<configuration>
-							<outputDirectory>target/appassembler</outputDirectory>
+							<outputDirectory>target/appassembler/bin</outputDirectory>
 							<resources>
 								<resource>
-									<directory>../../pregelix/pregelix-core/target/appassembler</directory>
+									<directory>src/main/resources/scripts</directory>
 								</resource>
 							</resources>
 						</configuration>
@@ -82,28 +128,6 @@
 					</execution>
 				</executions>
 			</plugin>
-		      <plugin>
-			<groupId>org.codehaus.mojo</groupId>
-			<artifactId>appassembler-maven-plugin</artifactId>
-			<executions>
-			  <execution>
-			    <configuration>
-			      <programs>
-				<program>
-				  <mainClass>edu.uci.ics.hyracks.imru.ec2.ImruEc2Cmd</mainClass>
-				  <name>hyracksEc2</name>
-				</program>
-			      </programs>
-			      <repositoryLayout>flat</repositoryLayout>
-			      <repositoryName>lib</repositoryName>
-			    </configuration>
-			    <phase>package</phase>
-			    <goals>
-			      <goal>assemble</goal>
-			    </goals>
-			  </execution>
-			</executions>
-		      </plugin>
 		</plugins>
 	</build>
 	<dependencies>
@@ -118,5 +142,95 @@
 			<artifactId>imru-example</artifactId>
 			<version>0.2.3-SNAPSHOT</version>
 		</dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-control-cc</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-control-nc</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-server</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-control-common</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-net</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-api</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-ipc</artifactId>
+            <version>0.2.3-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>8.0.0.RC0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-webapp</artifactId>
+            <version>8.0.0.RC0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.wicket</groupId>
+            <artifactId>wicket-core</artifactId>
+            <version>1.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jcl</artifactId>
+            <version>1.6.3</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.uci.ics.dcache</groupId>
+            <artifactId>dcache-client</artifactId>
+            <version>0.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>1.4</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20090211</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.1-alpha2</version>
+        </dependency>
+        <dependency>
+            <groupId>args4j</groupId>
+            <artifactId>args4j</artifactId>
+            <version>2.0.12</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.1</version>
+        </dependency>
 	</dependencies>
 </project>
