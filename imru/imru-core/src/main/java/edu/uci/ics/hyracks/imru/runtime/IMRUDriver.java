@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Schedules iterative map reduce update jobs.
@@ -277,6 +278,9 @@ public class IMRUDriver<Model extends IModel> {
     private void writeModelToFile(IModel model, Path modelPath) throws IOException {
         // Serialize the model so it can be read during the next
         // iteration.
+        
+        Rt.p(modelPath.toString());
+        
         OutputStream fileOutput;
         if (conf == null) {
             File file=new File(modelPath.toString());

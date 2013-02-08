@@ -386,9 +386,22 @@ public class HyracksEC2Cluster {
         }
     }
 
+    public void uploadData(String[] localAndremote) throws Exception {
+        String[] local = new String[localAndremote.length];
+        String[] remote = new String[localAndremote.length];
+        for (int i = 0; i < local.length; i++) {
+            String[] ss = localAndremote[i].split("\t");
+            local[i] = ss[0];
+            remote[i] = ss[1];
+        }
+        uploadData(local, remote);
+    }
+
     public void uploadData(String[] local, String[] remote) throws Exception {
         if (local.length != remote.length)
             throw new IOException("local.length!=remote.length");
+        Vector<String> nodeNames = new Vector<String>();
+        Hashtable<String, Vector<String>> hashtable = new Hashtable<String, Vector<String>>();
         for (int i = 0; i < local.length; i++) {
             String localPath = local[i];
             String remotePath = remote[i];
@@ -397,7 +410,24 @@ public class HyracksEC2Cluster {
                 throw new IOException("Please specify remote location in the <node>:<path> format. " + remotePath);
             String nodeName = remotePath.substring(0, t);
             remotePath = remotePath.substring(t + 1);
+            Vector<String> v = hashtable.get(nodeName);
+            if (v == null) {
+                v = new Vector<String>();
+                nodeNames.add(nodeName);
+                hashtable.put(nodeName, v);
+            }
+            v.add(localPath);
+            v.add(remotePath);
+        }
+        for (String nodeName : nodeNames) {
             HyracksEC2Node node = nodeNameHash.get(nodeName);
+            Vector<String> v = hashtable.get(nodeName);
+            String[] localPath = new String[v.size() / 2];
+            String[] remotePath = new String[v.size() / 2];
+            for (int i = 0; i < localPath.length; i++) {
+                localPath[i] = v.get(i + i);
+                remotePath[i] = v.get(i + i + 1);
+            }
             node.uploadData(localPath, remotePath);
         }
     }
@@ -413,14 +443,35 @@ public class HyracksEC2Cluster {
         }
     }
 
-    public void printLogs(int id) throws Exception {
+    public void printLogs(int id,int lines) throws Exception {
         if (id < 0) {
             for (HyracksEC2Node node : nodes)
-                node.printLogs();
+                node.printLogs(lines);
         } else {
             HyracksEC2Node node = nodeIdHash.get(id);
             if (node != null)
-                node.printLogs();
+                node.printLogs(lines);
         }
+    }
+
+    public void printOutputs(int id) throws Exception {
+        if (id < 0) {
+            for (HyracksEC2Node node : nodes)
+                node.printOutputs();
+        } else {
+            HyracksEC2Node node = nodeIdHash.get(id);
+            if (node != null)
+                node.printOutputs();
+        }
+    }
+
+    public void listDir(String path) throws Exception {
+        for (HyracksEC2Node node : nodes)
+            node.listDir(path);
+    }
+
+    public void rmrDir(String path) throws Exception {
+        for (HyracksEC2Node node : nodes)
+            node.rmrDir(path);
     }
 }

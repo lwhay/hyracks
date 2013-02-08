@@ -33,23 +33,25 @@ public class ImruEC2 {
         cluster.startHyrackCluster();
     }
 
-    public String getSuggestedLocations(String[] localPath) {
+    public String getSuggestedLocations(String[] localPath, String folder) {
         String[] nodeNames = cluster.getNodeNames();
         String[] remotePath = new String[localPath.length];
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < localPath.length; i++) {
-            remotePath[i] = nodeNames[i % nodeNames.length] + ":/home/ubuntu/data/hello" + i + ".txt";
+            remotePath[i] = nodeNames[i % nodeNames.length] + ":/home/ubuntu/data/" + folder + "/"
+                    + new File(localPath[i]).getName();
             path.append(remotePath[i] + ",");
         }
         return path.toString();
     }
 
-    public String uploadData(String[] localPath) throws Exception {
+    public String uploadData(String[] localPath, String folder) throws Exception {
         String[] nodeNames = cluster.getNodeNames();
         String[] remotePath = new String[localPath.length];
         StringBuilder path = new StringBuilder();
         for (int i = 0; i < localPath.length; i++) {
-            remotePath[i] = nodeNames[i % nodeNames.length] + ":/home/ubuntu/data/hello" + i + ".txt";
+            remotePath[i] = nodeNames[i % nodeNames.length] + ":/home/ubuntu/data/" + folder + "/"
+                    + new File(localPath[i]).getName();
             path.append(remotePath[i] + ",");
         }
         cluster.uploadData(localPath, remotePath);
@@ -58,7 +60,7 @@ public class ImruEC2 {
 
     public <M extends IModel, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
             String appName, String paths) throws Exception {
-        cluster.printLogs(-1);
+//        cluster.printLogs(-1);
         String clusterIp = cluster.getClusterControllerPublicDnsName();
         Rt.p("Admin URL: " + cluster.getAdminURL());
         String cmdline = "";

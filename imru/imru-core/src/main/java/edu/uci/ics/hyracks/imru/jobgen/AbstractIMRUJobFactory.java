@@ -68,8 +68,7 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
         HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPathCommaSeparated, conf);
         List<IMRUFileSplit> inputSplits = inputSplitProvider.getInputSplits();
 
-        IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, inputPaths,
-                confFactory);
+        IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, confFactory);
         // For repeatability of the partition assignments, seed the
         // source of
         // randomness using the job id.

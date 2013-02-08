@@ -74,11 +74,13 @@ public class HyracksEC2Node {
         }
     }
 
-    public void uploadData(String local, String remote) throws Exception {
+    public void uploadData(String[] local, String[] remote) throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
-            Rt.p("rync " + local + " to " + name + ":" + remote);
-            cluster.ec2.rsync(instance, ssh, new File(local), remote);
+            for (int i = 0; i < local.length; i++) {
+                Rt.p("rync " + local[i] + " to " + name + ":" + remote[i]);
+                cluster.ec2.rsync(instance, ssh, new File(local[i]), remote[i]);
+            }
         } finally {
             ssh.close();
         }
@@ -188,16 +190,45 @@ public class HyracksEC2Node {
         }
     }
 
-    public void printLogs() throws Exception {
+    public void printLogs(int lines) throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
             if (nodeId == 0) {
                 Rt.np("CC log:");
-                ssh.cat("/tmp/t1/logs/cc.log");
+                ssh.execute("tail -n " + lines + " /tmp/t1/logs/cc.log");
             }
             Rt.np(name + " log:");
-            ssh.cat("/tmp/t2/logs/" + name + ".log");
-            ssh.cat(HYRACKS_PATH + "/nohup.out");
+            ssh.execute("tail -n " + lines + " /tmp/t2/logs/" + name + ".log");
+        } finally {
+            ssh.close();
+        }
+    }
+
+    public void printOutputs() throws Exception {
+        SSH ssh = cluster.ec2.ssh(instance);
+        try {
+            Rt.np(name + " output:");
+            ssh.execute("tail -n 50 " + HYRACKS_PATH + "/nohup.out");
+        } finally {
+            ssh.close();
+        }
+    }
+
+    public void listDir(String path) throws Exception {
+        SSH ssh = cluster.ec2.ssh(instance);
+        try {
+            Rt.np(name + ":" + path);
+            ssh.execute("ll " + path);
+        } finally {
+            ssh.close();
+        }
+    }
+
+    public void rmrDir(String path) throws Exception {
+        SSH ssh = cluster.ec2.ssh(instance);
+        try {
+            Rt.np(name + ":" + path);
+            ssh.execute("rm -R " + path);
         } finally {
             ssh.close();
         }

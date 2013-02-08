@@ -16,7 +16,8 @@ public class HelloWorldEC2 {
         String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data/helloworld";
         boolean setupClusterFirst = true;
         boolean uploadData = true;
-//        setupClusterFirst=false;
+        setupClusterFirst = false;
+        uploadData = false;
         int n = 52;
         n = 5;
         String[] localPaths = new String[n];
@@ -27,9 +28,9 @@ public class HelloWorldEC2 {
             ec2.setup(hyracksEc2Root, 2, "t1.micro");
         String path;
         if (uploadData)
-            path = ec2.uploadData(localPaths);
+            path = ec2.uploadData(localPaths, "helloworld");
         else
-            path = ec2.getSuggestedLocations(localPaths);
+            path = ec2.getSuggestedLocations(localPaths, "helloworld");
         HelloWorldModel finalModel = ec2.run(new HelloWorldJob(), "helloworld", path);
         System.out.println("FinalModel: " + finalModel.sentence);
         System.exit(0);

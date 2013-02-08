@@ -64,11 +64,14 @@ public class HyracksEc2Cmd {
     HyracksEC2Cluster cluster;
 
     public HyracksEc2Cmd(String[] args) throws Exception {
-        int arg = -1;
+        String arg = null;
+        String arg2 = null;
         for (int i = args.length - 1; i > 0; i--) {
             if ("-cmd".equals(args[i])) {
                 if (i + 2 < args.length)
-                    arg = Integer.parseInt(args[i + 2]);
+                    arg = args[i + 2];
+                if (i + 3 < args.length)
+                    arg2 = args[i + 3];
                 args = Arrays.copyOf(args, i + 2);
                 break;
             }
@@ -112,16 +115,27 @@ public class HyracksEc2Cmd {
         } else if ("terminateInstances".equalsIgnoreCase(options.cmd) || "termi".equalsIgnoreCase(options.cmd)) {
             cluster.terminateInstances();
         } else if ("setInstanceCount".equalsIgnoreCase(options.cmd) || "sic".equalsIgnoreCase(options.cmd)) {
-            cluster.setTotalInstances(arg);
+            cluster.setTotalInstances(Integer.parseInt(arg));
         } else if ("addInstances".equalsIgnoreCase(options.cmd) || "addi".equalsIgnoreCase(options.cmd)) {
-            cluster.addInstances(arg);
+            cluster.addInstances(Integer.parseInt(arg));
         } else if ("startHyracks".equalsIgnoreCase(options.cmd) || "sth".equalsIgnoreCase(options.cmd)) {
             cluster.startHyrackCluster();
             Rt.np("Admin URL: " + cluster.getAdminURL());
         } else if ("stopHyracks".equalsIgnoreCase(options.cmd) || "sph".equalsIgnoreCase(options.cmd)) {
             cluster.stopHyrackCluster();
         } else if ("logs".equals(options.cmd)) {
-            cluster.printLogs(arg);
+            cluster.printLogs(arg == null ? -1 : Integer.parseInt(arg), arg2 == null ? 50 : Integer.parseInt(arg2));
+        } else if ("processes".equals(options.cmd)) {
+            cluster.printProcesses(arg == null ? -1 : Integer.parseInt(arg));
+        } else if ("out".equals(options.cmd)) {
+            cluster.printOutputs(arg == null ? -1 : Integer.parseInt(arg));
+        } else if ("ls".equals(options.cmd)) {
+            cluster.listDir(arg);
+        } else if ("rmr".equals(options.cmd)) {
+            cluster.rmrDir(arg);
+        } else if ("upload".equals(options.cmd)) {
+            String[] ss = Rt.readFile(new File(arg)).split("\r?\n");
+            cluster.uploadData(ss);
         } else {
             System.out.println("Unknown command: " + options.cmd);
             printUsage(false);
@@ -148,8 +162,16 @@ public class HyracksEc2Cmd {
         p.println(" sph|stopHyracks              - stop hyracks on all instances");
         p.println(" spi|stopInstances            - stop all instances");
         p.println(" termi|terminateInstances     - terminate all instances");
-        p.println(" logs                         - show hyracks logs on all instances");
-        p.println(" logs <id>                    - show hyracks logs of instance <id>");
+        p.println(" upload <data_desc_file>      - upload data specified in the file");
+        p.println(" ls <path>                    - list directory of all instances");
+        p.println(" rmr <path>                   - remove directory recursively of all instances");
+        p.println(" logs [id] [lines]            - show hyracks logs");
+        p.println(" out [id]                     - show hyracks console output");
+        p.println(" processes [id]               - show hyracks process information");
+        p.println();
+        p.println("data_desc_file format:");
+        p.println("  each line describe one data file in the following format");
+        p.println("  <local_path>[TAB]<nodeName>:<remote_path>");
     }
 
     public static void main(String[] args) throws Exception {

@@ -43,7 +43,7 @@ public class HyracksEc2Sample {
         cluster.sshTest();
         cluster.install(imruRoot);
         cluster.startHyrackCluster();
-        cluster.printLogs(-1);
+        cluster.printLogs(-1,50);
         Rt.np("Admin URL: " + cluster.getAdminURL());
     }
 

@@ -473,10 +473,12 @@ public class Client<Model extends IModel> {
         } catch (Exception e) {
             e.printStackTrace();
             try {
+                Rt.p("Remove application " + options.app);
                 hcc.destroyApplication(options.app);
             } catch (Exception e1) {
                 e1.printStackTrace();
             }
+            Rt.p("Upload application " + options.app);
             hcc.createApplication(options.app, harFile);
         }
         timer.cancel();

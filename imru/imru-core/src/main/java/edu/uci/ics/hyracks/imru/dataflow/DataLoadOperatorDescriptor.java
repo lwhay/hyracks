@@ -50,6 +50,7 @@ import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.state.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Parses input data from files in HDFS and caches it on the local
@@ -65,7 +66,6 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
     private static final long serialVersionUID = 1L;
 
     protected final HDFSInputSplitProvider inputSplitProvider;
-    protected final String[] inputPaths;
 
     /**
      * Create a new MapOperatorDescriptor.
@@ -80,10 +80,9 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
      *            A Hadoop configuration, used for HDFS.
      */
     public DataLoadOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec,
-            HDFSInputSplitProvider inputSplitProvider, String[] inputPaths, IConfigurationFactory confFactory) {
+            HDFSInputSplitProvider inputSplitProvider, IConfigurationFactory confFactory) {
         super(spec, 0, 0, "parse", imruSpec, confFactory);
         this.inputSplitProvider = inputSplitProvider;
-        this.inputPaths = inputPaths;
     }
 
     private static class DataLoadOperatorNodePushable extends AbstractOperatorNodePushable {
@@ -93,17 +92,14 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
         private final IIMRUJobSpecification<?> imruSpec;
         private final IConfigurationFactory confFactory;
         private final HDFSInputSplitProvider inputSplitProvider;
-        private final String[] inputPaths;
         private final int partition;
         private final String name;
 
         public DataLoadOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec,
-                HDFSInputSplitProvider inputSplitProvider, String[] inputPaths, IConfigurationFactory confFactory,
-                int partition, String name) {
+                HDFSInputSplitProvider inputSplitProvider, IConfigurationFactory confFactory, int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.confFactory = confFactory;
-            this.inputPaths = inputPaths;
             this.inputSplitProvider = inputSplitProvider;
             this.partition = partition;
             this.name = name;
@@ -139,6 +135,7 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
                 in.close();
             } catch (IOException e) {
                 fail();
+                Rt.p(context.getNodeId()+" "+split);
                 throw new HyracksDataException(e);
             }
             runFileWriter.close();
@@ -176,7 +173,7 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplitProvider, inputPaths, confFactory, partition,
+        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplitProvider, confFactory, partition,
                 this.getDisplayName() + partition);
     }
 

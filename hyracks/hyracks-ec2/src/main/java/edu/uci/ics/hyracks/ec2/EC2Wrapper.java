@@ -77,16 +77,18 @@ public class EC2Wrapper {
         String rsync = "/usr/bin/rsync";
         if (new File(rsync).exists()) {
             grantAccessToLocalMachine(instance);
-            if (!remoteDir.endsWith("/"))
-                remoteDir += "/";
-            if (localDir.isDirectory())
+            if (localDir.isDirectory()) {
+                if (!remoteDir.endsWith("/"))
+                    remoteDir += "/";
                 ssh.execute("if test ! \"(\" -e '" + remoteDir + "' \")\";then mkdir -p '" + remoteDir + "';fi;");
-            else {
+                Rt.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/",
+                        "ubuntu@" + instance.getPublicDnsName() + ":" + remoteDir);
+            } else {
                 String s = new File(remoteDir).getParent();
                 ssh.execute("if test ! \"(\" -e '" + s + "' \")\";then mkdir -p '" + s + "';fi;");
+                Rt.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath(),
+                        "ubuntu@" + instance.getPublicDnsName() + ":" + remoteDir);
             }
-            Rt.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/",
-                    "ubuntu@" + instance.getPublicDnsName() + ":" + remoteDir);
         } else {
             System.err.println("WARNING: Please install rsync to speed up synchronization");
             ssh.upload(localDir, remoteDir);

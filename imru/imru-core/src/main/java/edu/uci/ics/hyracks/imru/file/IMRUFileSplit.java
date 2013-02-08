@@ -75,4 +75,9 @@ public class IMRUFileSplit {
             return split.getInputStream(confFactory);
         }
     }
+
+    @Override
+    public String toString() {
+        return path != null ? path : split.toString();
+    }
 }
