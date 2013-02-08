@@ -1,5 +1,14 @@
 hostname
-. conf/cluster.properties
+
+CUR_DIR=$(cd $(dirname "$0"); pwd)
+HYRACKS_EC2_APPASSEMBLER=$(cd $(dirname "$CUR_DIR"); pwd)
+. $HYRACKS_EC2_APPASSEMBLER/conf/cluster.properties
+
+if test -z $IO_DIRS
+then
+	echo "Can't load cluster.properties"
+	exit
+fi
 
 #Kill process
 PID=`ps -ef|grep ${USER}|grep java|grep 'Dapp.name=hyracksnc'|awk '{print $2}'`

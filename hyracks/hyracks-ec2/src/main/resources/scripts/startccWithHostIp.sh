@@ -1,9 +1,12 @@
 #!/bin/bash
 
+CUR_DIR=$(cd $(dirname "$0"); pwd)
+HYRACKS_EC2_APPASSEMBLER=$(cd $(dirname "$CUR_DIR"); pwd)
+
 hostname
 
 #Import cluster properties
-. conf/cluster.properties
+. $HYRACKS_EC2_APPASSEMBLER/conf/cluster.properties
 
 #Get the IP address of the cc
 CCHOST=$1
@@ -21,5 +24,5 @@ export JAVA_HOME=$JAVA_HOME
 export JAVA_OPTS=$CCJAVA_OPTS
 
 #Launch hyracks cc script
-chmod -R 755 $HYRACKS_HOME
-$HYRACKS_HOME/hyracks-server/target/appassembler/bin/hyrackscc -client-net-ip-address $CCHOST -cluster-net-ip-address $CCHOST -client-net-port $CC_CLIENTPORT -cluster-net-port $CC_CLUSTERPORT -max-heartbeat-lapse-periods 999999 -default-max-job-attempts 0 -job-history-size 3 &> $CCLOGS_DIR/cc.log &
+chmod u+x $CUR_DIR/hyrackscc
+$CUR_DIR/hyrackscc -client-net-ip-address $CCHOST -cluster-net-ip-address $CCHOST -client-net-port $CC_CLIENTPORT -cluster-net-port $CC_CLUSTERPORT -max-heartbeat-lapse-periods 999999 -default-max-job-attempts 0 -job-history-size 3 &> $CCLOGS_DIR/cc.log &

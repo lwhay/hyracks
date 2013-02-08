@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Vector;
@@ -39,19 +40,23 @@ import com.amazonaws.services.ec2.model.TerminateInstancesResult;
  * @author wangrui
  */
 public class HyracksEC2Cluster {
-    public static final String FULLSTACK_IMRU_IMAGE_ID = "ami-b0e771d9";
+    public static final String FULLSTACK_IMRU_IMAGE_ID = "ami-5eb02637";
     public static int MAX_COUNT = 3;
-    public static final String HYRACKS_SECURITY_GROUP = "Hyracks-security-group";
+    public static final String HYRACKS_SECURITY_GROUP = "hyracks-security-group";
+    public static final String OPENED_PORTS = "22,1099,3099,16001";
     EC2Wrapper ec2;
     String keyName;
     String instancePrefix;
     String securityGroup = HYRACKS_SECURITY_GROUP;
+    String openPorts = OPENED_PORTS;
+
     HyracksEC2Node controller;
     HyracksEC2Node[] nodes;
     String machineType = "t1.micro";
     // ubuntu image: ami-3d4ff254
-    // fullstack_imru: ami-b0e771d9
+    // hyracks-ec2: ami-5eb02637
     String imageId = FULLSTACK_IMRU_IMAGE_ID;
+    Hashtable<Integer, HyracksEC2Node> nodeHash = new Hashtable<Integer, HyracksEC2Node>();
 
     public HyracksEC2Cluster(File credentialsFile, File privateKey, String instancePrefix) throws Exception {
         this.ec2 = new EC2Wrapper(credentialsFile, privateKey.getParentFile());
@@ -78,6 +83,22 @@ public class HyracksEC2Cluster {
         this.imageId = imageId;
     }
 
+    public String getSecurityGroup() {
+        return securityGroup;
+    }
+
+    public void setSecurityGroup(String securityGroup) {
+        this.securityGroup = securityGroup;
+    }
+
+    public String getOpenPorts() {
+        return openPorts;
+    }
+
+    public void setOpenPorts(String openPorts) {
+        this.openPorts = openPorts;
+    }
+
     public void refresh() {
         Vector<HyracksEC2Node> v = new Vector<HyracksEC2Node>();
         HyracksEC2Node controller = null;
@@ -101,11 +122,17 @@ public class HyracksEC2Cluster {
         });
         this.controller = controller;
         this.nodes = nodes;
+        for (HyracksEC2Node node : nodes) {
+            nodeHash.put(node.nodeId, node);
+        }
     }
 
     public void createSecurityGroup() {
-        int[] ports = { 22, 1099, 3099, 16001 };
-        ec2.createSecurityGroup(securityGroup, "Hyracks Security Group", ports);
+        String[] ss= openPorts.split(",");
+        int[] is=new int[ss.length];
+        for (int i=0;i<is.length;i++)
+            is[i]=Integer.parseInt(ss[i].trim());
+        ec2.createSecurityGroup(securityGroup, "Hyracks Security Group", is);
     }
 
     /**
@@ -149,9 +176,9 @@ public class HyracksEC2Cluster {
         }
     }
 
-    public void install(File imruRoot) throws Exception {
+    public void install(File hyracksEc2Root) throws Exception {
         for (HyracksEC2Node node : nodes)
-            node.install(imruRoot);
+            node.install(hyracksEc2Root);
     }
 
     public void setTotalInstances(int count) throws Exception {
@@ -221,7 +248,7 @@ public class HyracksEC2Cluster {
     }
 
     public void addInstances(int count) {
-        if (count > MAX_COUNT)
+        if (nodes.length + count > MAX_COUNT)
             throw new Error("For safety reason, please modify " + this.getClass().getName() + ".MAX_COUNT first");
 
         createSecurityGroup();
@@ -338,8 +365,14 @@ public class HyracksEC2Cluster {
         }
     }
 
-    public void printLogs() throws Exception {
-        for (HyracksEC2Node node : nodes)
-            node.showLogs();
+    public void printLogs(int id) throws Exception {
+        if (id < 0) {
+            for (HyracksEC2Node node : nodes)
+                node.printLogs();
+        } else {
+            HyracksEC2Node node = nodeHash.get(id);
+            if (node != null)
+                node.printLogs();
+        }
     }
 }

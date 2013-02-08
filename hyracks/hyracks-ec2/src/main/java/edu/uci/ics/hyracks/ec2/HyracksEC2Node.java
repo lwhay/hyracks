@@ -27,6 +27,7 @@ import com.amazonaws.services.ec2.model.TerminateInstancesResult;
  * @author wangrui
  */
 public class HyracksEC2Node {
+    public static final String HYRACKS_PATH = "/home/ubuntu/hyracks-ec2";
     HyracksEC2Cluster cluster;
     int nodeId;
     Instance instance;
@@ -35,25 +36,22 @@ public class HyracksEC2Node {
         this.cluster = cluster;
     }
 
-    public void install(File imruRoot) throws Exception {
+    public void install(File hyracksEc2Root) throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
-            R.p("rync Hyracks to " + instance.getTags());
+            R.p("rync hyracks-ec2 to NC" + nodeId);
             //            ssh.execute("sudo apt-get update");
             //            ssh.execute("sudo apt-get install openjdk-7-jre");
-            cluster.ec2.rsync(instance, ssh, new File(imruRoot, "hyracks/hyracks-server/target/appassembler"),
-                    "/home/ubuntu/fullstack_imru/hyracks/hyracks-server/target/appassembler");
-            cluster.ec2.rsync(instance, ssh, new File(imruRoot, "hyracks/hyracks-ec2/target/appassembler"),
-                    "/home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            cluster.ec2.rsync(instance, ssh, hyracksEc2Root, HYRACKS_PATH);
             //            cluster.ec2.rsync(instance, ssh, new File(imruRoot, "hyracks/hyracks-ec2/target/appassembler"),
             //                    "/home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
             //            cluster.ec2.rsync(instance, ssh, new File(imruRoot, "imru/imru-example/data"),
             //                    "/home/ubuntu/fullstack_imru/imru/imru-example/data");
-            ssh.execute("chmod -R 755 /home/ubuntu/fullstack_imru/hyracks/hyracks-server/target/appassembler/bin/*");
-            ssh.execute("chmod -R 755 /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler/bin/*");
+            ssh.execute("chmod -R u+x " + HYRACKS_PATH + "/bin/*");
+            //            ssh.execute("chmod -R 755 /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler/bin/*");
             //            ssh.execute("chmod -R 755 /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler/bin/*");
             //            ec2.rsync(instance, ssh, hadoopRoot, "/home/ubuntu/hadoop-0.20.2");
-            ssh.execute("chmod -R 755 /home/ubuntu/hadoop-0.20.2/bin/*");
+            //            ssh.execute("chmod -R 755 /home/ubuntu/hadoop-0.20.2/bin/*");
         } finally {
             ssh.close();
         }
@@ -68,7 +66,7 @@ public class HyracksEC2Node {
                 return;
             }
             R.p("starting CC");
-            ssh.execute("cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            ssh.execute("cd " + HYRACKS_PATH);
             ssh.execute("nohup bin/startccWithHostIp.sh " + instance.getPrivateIpAddress());
             //        ec2.ssh(instance, "cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler;"
             //                + "bin/startccWithHostIp.sh " + instance.getPrivateIpAddress());
@@ -86,7 +84,7 @@ public class HyracksEC2Node {
                 return;
             }
             R.p("starting NC" + nodeId);
-            ssh.execute("cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            ssh.execute("cd " + HYRACKS_PATH);
             ssh.execute("nohup bin/startncWithHostIpAndNodeId.sh " + cluster.controller.instance.getPrivateIpAddress()
                     + " " + instance.getPrivateIpAddress() + " NC" + nodeId);
             //        ec2.ssh(instance, "cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler;"
@@ -100,7 +98,7 @@ public class HyracksEC2Node {
     public void stopCC() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
-            ssh.execute("cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            ssh.execute("cd " + HYRACKS_PATH);
             ssh.execute("bin/stopcc.sh");
         } finally {
             ssh.close();
@@ -110,7 +108,7 @@ public class HyracksEC2Node {
     public void stopNC() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
-            ssh.execute("cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            ssh.execute("cd " + HYRACKS_PATH);
             ssh.execute("bin/stopnc.sh");
         } finally {
             ssh.close();
@@ -120,7 +118,7 @@ public class HyracksEC2Node {
     public void stopAll() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
-            ssh.execute("cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
+            ssh.execute("cd " + HYRACKS_PATH);
             ssh.execute("bin/stopcc.sh");
             ssh.execute("bin/stopnc.sh");
         } finally {
@@ -149,7 +147,7 @@ public class HyracksEC2Node {
         R.p(result);
     }
 
-    public void showLogs() throws Exception {
+    public void printLogs() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
             R.p("NC" + nodeId + " log:");
@@ -159,6 +157,7 @@ public class HyracksEC2Node {
             }
             ssh.execute("ps -ef|grep hyracksnc|grep java", true);
             ssh.execute("cat /tmp/t2/logs/*.log");
+            ssh.execute("cat " + HYRACKS_PATH + "/nohup.out");
         } finally {
             ssh.close();
         }

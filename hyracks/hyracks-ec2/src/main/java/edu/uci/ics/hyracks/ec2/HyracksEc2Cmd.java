@@ -33,7 +33,7 @@ public class HyracksEc2Cmd {
         @Option(name = "-key-file", usage = "Key pair in https://console.aws.amazon.com/ec2/", required = true)
         public String keyFile;
 
-        @Option(name = "-full-stack-root", usage = "local directory of svn co https://hyracks.googlecode.com/svn/branches/fullstack_imru", required = true)
+        @Option(name = "-hyracks-ec2-root", usage = "local directory of hyracks/hyracks-ec2/target/appassembler", required = true)
         public String root;
 
         @Option(name = "-cluster-prefix", usage = "Unique prefix of each instance name belong to this cluster", required = true)
@@ -45,6 +45,12 @@ public class HyracksEc2Cmd {
         @Option(name = "-image-id", usage = "image used to start instance")
         public String imageId = HyracksEC2Cluster.FULLSTACK_IMRU_IMAGE_ID;
 
+        @Option(name = "-security-group", usage = "security group of new instance")
+        public String securityGroup = HyracksEC2Cluster.HYRACKS_SECURITY_GROUP;
+
+        @Option(name = "-opened-tcp-ports", usage = "opened tcp ports")
+        public String openedPorts = HyracksEC2Cluster.OPENED_PORTS;
+
         @Option(name = "-max-instances", usage = "Maximum instances allowed")
         public int maxInstances = 5;
 
@@ -54,15 +60,15 @@ public class HyracksEc2Cmd {
 
     Options options = new Options();
     CmdLineParser parser = new CmdLineParser(options);
-    File imruRoot;
+    File hyracksEc2Root;
     HyracksEC2Cluster cluster;
 
     public HyracksEc2Cmd(String[] args) throws Exception {
-        int count = 0;
+        int arg = -1;
         for (int i = args.length - 1; i > 0; i--) {
             if ("-cmd".equals(args[i])) {
                 if (i + 2 < args.length)
-                    count = Integer.parseInt(args[i + 2]);
+                    arg = Integer.parseInt(args[i + 2]);
                 args = Arrays.copyOf(args, i + 2);
                 break;
             }
@@ -91,12 +97,14 @@ public class HyracksEc2Cmd {
         cluster = new HyracksEC2Cluster(credentialsFile, privateKey, options.clusterPrefix);
         cluster.setMachineType(options.instanceType);
         cluster.setImageId(options.imageId);
-        this.imruRoot = new File(options.root);
+        cluster.setSecurityGroup(options.securityGroup);
+        cluster.setOpenPorts(options.openedPorts);
+        this.hyracksEc2Root = new File(options.root);
         if ("status".equalsIgnoreCase(options.cmd) || "s".equalsIgnoreCase(options.cmd)) {
             cluster.printNodeStatus();
             R.np("Admin URL: " + cluster.getAdminURL());
         } else if ("install".equalsIgnoreCase(options.cmd)) {
-            cluster.install(imruRoot);
+            cluster.install(hyracksEc2Root);
         } else if ("startInstances".equalsIgnoreCase(options.cmd) || "sti".equalsIgnoreCase(options.cmd)) {
             cluster.startInstances();
         } else if ("stopInstances".equalsIgnoreCase(options.cmd) || "spi".equalsIgnoreCase(options.cmd)) {
@@ -104,15 +112,16 @@ public class HyracksEc2Cmd {
         } else if ("terminateInstances".equalsIgnoreCase(options.cmd) || "termi".equalsIgnoreCase(options.cmd)) {
             cluster.terminateInstances();
         } else if ("setInstanceCount".equalsIgnoreCase(options.cmd) || "sic".equalsIgnoreCase(options.cmd)) {
-            cluster.setTotalInstances(count);
+            cluster.setTotalInstances(arg);
         } else if ("addInstances".equalsIgnoreCase(options.cmd) || "addi".equalsIgnoreCase(options.cmd)) {
-            cluster.addInstances(count);
+            cluster.addInstances(arg);
         } else if ("startHyracks".equalsIgnoreCase(options.cmd) || "sth".equalsIgnoreCase(options.cmd)) {
             cluster.startHyrackCluster();
+            R.np("Admin URL: " + cluster.getAdminURL());
         } else if ("stopHyracks".equalsIgnoreCase(options.cmd) || "sph".equalsIgnoreCase(options.cmd)) {
             cluster.stopHyrackCluster();
         } else if ("logs".equals(options.cmd)) {
-            cluster.printLogs();
+            cluster.printLogs(arg);
         } else {
             System.out.println("Unknown command: " + options.cmd);
             printUsage(false);
@@ -125,6 +134,8 @@ public class HyracksEc2Cmd {
         if (showOptions) {
             p.println("Options: ");
             parser.printUsage(System.out);
+        } else {
+            p.println("Usage: ./ec2 <command> <argument>");
         }
         p.println();
         p.println("Available commands: ");
@@ -138,6 +149,7 @@ public class HyracksEc2Cmd {
         p.println(" spi|stopInstances            - stop all instances");
         p.println(" termi|terminateInstances     - terminate all instances");
         p.println(" logs                         - show hyracks logs on all instances");
+        p.println(" logs <id>                    - show hyracks logs of instance <id>");
     }
 
     public static void main(String[] args) throws Exception {

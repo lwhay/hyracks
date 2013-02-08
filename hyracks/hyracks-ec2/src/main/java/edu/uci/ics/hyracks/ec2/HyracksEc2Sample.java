@@ -43,7 +43,7 @@ public class HyracksEc2Sample {
         cluster.sshTest();
         cluster.install(imruRoot);
         cluster.startHyrackCluster();
-        cluster.printLogs();
+        cluster.printLogs(-1);
         R.np("Admin URL: " + cluster.getAdminURL());
     }
 
@@ -66,13 +66,13 @@ public class HyracksEc2Sample {
                             + "Insert your AWS Credentials from http://aws.amazon.com/security-credentials to a file with content\r\naccessKey=xx\r\n"
                             + "secretKey=xx");
 
-        File imruRoot = new File(home, "fullstack_imru");
+        File hyracksEc2Root = new File(home, "fullstack_imru/hyracks/hyracks-ec2/target/appassembler");
         String keyName = "firstTestByRui";
         File privateKey = new File(home, keyName + ".pem");
         if (!privateKey.exists())
             throw new Error("Key pair needed. Please create "
                     + "a key pair in https://console.aws.amazon.com/ec2/ and download it to " + home.getAbsolutePath()
                     + "/");
-        HyracksEc2Sample imru = new HyracksEc2Sample(credentialsFile, privateKey, imruRoot);
+        HyracksEc2Sample imru = new HyracksEc2Sample(credentialsFile, privateKey, hyracksEc2Root);
     }
 }

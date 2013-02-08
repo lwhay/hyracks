@@ -80,6 +80,7 @@ public class EC2Wrapper {
             R.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/", "ubuntu@"
                     + instance.getPublicDnsName() + ":" + remoteDir);
         } else {
+            System.err.println("WARNING: Please install rsync to speed up synchronization");
             ssh.upload(localDir, remoteDir);
         }
     }
@@ -135,7 +136,7 @@ public class EC2Wrapper {
         DescribeSecurityGroupsResult result = ec2.describeSecurityGroups();
         SecurityGroup imruGroup = null;
         for (SecurityGroup group : result.getSecurityGroups()) {
-            if (groupName.equals(group.getGroupName())) {
+            if (groupName.equalsIgnoreCase(group.getGroupName())) {
                 imruGroup = group;
             }
         }
@@ -152,16 +153,20 @@ public class EC2Wrapper {
             }
         }
         HashSet<Integer> opened = new HashSet<Integer>();
+        HashSet<Integer> opened2 = new HashSet<Integer>();
         for (IpPermission p : imruGroup.getIpPermissions()) {
             opened.add(p.getToPort());
+            opened2.add(p.getToPort());
         }
         String ipAddr = "0.0.0.0/0";
         ArrayList<String> ipRanges = new ArrayList<String>();
         ipRanges.add(ipAddr);
         ArrayList<IpPermission> ipPermissions = new ArrayList<IpPermission>();
         for (int port : ports) {
-            if (opened.contains(port))
+            if (opened.contains(port)) {
+                opened2.remove(port);
                 continue;
+            }
             R.p("add " + port + " to " + groupName);
             IpPermission ipPermission = new IpPermission();
             ipPermission.setIpProtocol("tcp");
@@ -174,6 +179,9 @@ public class EC2Wrapper {
             AuthorizeSecurityGroupIngressRequest ingressRequest = new AuthorizeSecurityGroupIngressRequest(groupName,
                     ipPermissions);
             ec2.authorizeSecurityGroupIngress(ingressRequest);
+        }
+        if (opened2.size() > 0) {
+            R.p("TODO: Need to remove these port: " + opened2);
         }
     }
 
@@ -195,7 +203,7 @@ public class EC2Wrapper {
                         contains = true;
                 }
                 if (!contains) {
-                    R.p("adding local public key to " + instance.getPublicDnsName());
+                    R.p("adding local public key to " + instance.getPublicDnsName() + " for rsync");
                     ssh.put("/tmp/~imru_auto_pubkey.tmp", new ByteArrayInputStream((pubKey + "\n").getBytes()));
                     ssh.execute("cat /tmp/~imru_auto_pubkey.tmp >> ~/.ssh/authorized_keys");
                     ssh.execute("rm /tmp/~imru_auto_pubkey.tmp");
