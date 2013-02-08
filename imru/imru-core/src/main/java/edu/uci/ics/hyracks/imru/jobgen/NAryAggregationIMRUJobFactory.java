@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputSplit;
 
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
@@ -32,6 +33,7 @@ import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.MapOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.UpdateOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
+import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 
@@ -72,9 +74,9 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         JobSpecification spec = new JobSpecification();
         // Create operators
         // File reading and writing
-        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(
-                inputPathCommaSeparated, confFactory.createConfiguration());
-        List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
+        Configuration conf = confFactory.createConfiguration();
+        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPathCommaSeparated, conf);
+        List<IMRUFileSplit> inputSplits = inputSplitProvider.getInputSplits();
 
         // IMRU Computation
         // We will have one Map operator per input file.
@@ -84,7 +86,7 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         // randomness using the job id.
         Random random = new Random(id.getLeastSignificantBits());
         final String[] mapOperatorLocations = ClusterConfig.setLocationConstraint(spec, mapOperator, inputSplits,
-                inputPaths, random);
+                random);
 
         // Environment updating
         IMRUOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, modelInPath, confFactory,

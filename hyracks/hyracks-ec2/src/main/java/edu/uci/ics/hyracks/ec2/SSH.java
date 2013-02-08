@@ -96,6 +96,22 @@ public class SSH implements Runnable {
         return ftp.get(path);
     }
 
+    public void cat(String path) throws SftpException, IOException {
+        try {
+            InputStream in = ftp.get(path);
+            byte[] bs = new byte[1024];
+            while (true) {
+                int len = in.read(bs);
+                if (len < 0)
+                    break;
+                System.out.print(new String(bs, 0, len));
+            }
+            in.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void upload(File localDir, String remoteDir) throws SftpException, IOException {
         if (localDir.isDirectory()) {
             execute("mkdir -p " + remoteDir);
@@ -110,10 +126,10 @@ public class SSH implements Runnable {
             }
             if (attr == null || localDir.lastModified() > attr.getMTime() * 1000L
                     || attr.getSize() != localDir.length()) {
-                R.np("uploading " + localDir);
+                Rt.np("uploading " + localDir);
                 ftp.put(localDir.getAbsolutePath(), remoteDir);
             } else {
-                R.np("skip " + localDir);
+                Rt.np("skip " + localDir);
             }
         }
     }
@@ -149,7 +165,7 @@ public class SSH implements Runnable {
         this.cmd = cmd;
         long start = System.currentTimeMillis();
         while (result == null) {
-            R.sleep(50);
+            Rt.sleep(50);
             if (timeout > 0) {
                 if (System.currentTimeMillis() > start + timeout) {
                     out.write(3);
@@ -173,7 +189,7 @@ public class SSH implements Runnable {
                 //http://www2.gar.no/glinkj/help/cmds/ansa.htm
                 //http://vt100.net/docs/vt510-rm/SGR
                 escaping = true;
-            } else if (escaping && (c == 'm'||c=='K')) {
+            } else if (escaping && (c == 'm' || c == 'K')) {
                 escaping = false;
             } else if (!escaping) {
                 sb.append(line.charAt(i));
@@ -214,14 +230,14 @@ public class SSH implements Runnable {
                     }
                 }
                 if (line.endsWith("$ ") || line.endsWith("# ")) {
-                    R.np(line);
+                    Rt.np(line);
                     if (executed) {
                         executed = false;
                         result = "";
                     }
                     // R.np("wait cmd");
                     while (!exitFlag && cmd == null)
-                        R.sleep(50);
+                        Rt.sleep(50);
                     if (exitFlag)
                         return;
                     executed = true;
@@ -229,7 +245,7 @@ public class SSH implements Runnable {
                     out.println(cmd);
                     cmd = null;
                     out.flush();
-                    R.sleep(50);
+                    Rt.sleep(50);
                 } else {
                     System.out.print(line);
                 }

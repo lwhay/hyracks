@@ -20,7 +20,7 @@ import java.io.Serializable;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class DataWriter<Data extends Serializable> {
     TupleWriter tupleWriter;

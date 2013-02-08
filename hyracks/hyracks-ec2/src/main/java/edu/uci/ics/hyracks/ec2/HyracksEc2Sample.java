@@ -25,7 +25,7 @@ import com.amazonaws.services.ec2.model.Instance;
  * @author wangrui
  */
 public class HyracksEc2Sample {
-    public static final String IMRU_PREFIX = "IMRU-auto-deploy-";
+    public static final String IMRU_PREFIX = "hyracks-auto-deploy-";
     File imruRoot;
     HyracksEC2Cluster cluster;
 
@@ -36,7 +36,7 @@ public class HyracksEc2Sample {
         cluster.createSecurityGroup();
         cluster.setTotalInstances(2);
         cluster.printNodeStatus();
-        if (cluster.getTotalPendingMachines() > 0) {
+        if (cluster.getTotalMachines("pending") > 0) {
             cluster.waitForInstanceStart();
             cluster.printNodeStatus();
         }
@@ -44,7 +44,7 @@ public class HyracksEc2Sample {
         cluster.install(imruRoot);
         cluster.startHyrackCluster();
         cluster.printLogs(-1);
-        R.np("Admin URL: " + cluster.getAdminURL());
+        Rt.np("Admin URL: " + cluster.getAdminURL());
     }
 
     void startStopTest() throws Exception {

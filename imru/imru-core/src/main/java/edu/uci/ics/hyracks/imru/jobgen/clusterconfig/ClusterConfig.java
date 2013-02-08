@@ -42,6 +42,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
+import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 
 public class ClusterConfig {
 
@@ -93,17 +94,21 @@ public class ClusterConfig {
      * @throws HyracksException
      */
     public static String[] setLocationConstraint(JobSpecification spec, IMRUOperatorDescriptor operator,
-            List<InputSplit> splits, String[] inputPaths, Random random) throws HyracksException {
+            List<IMRUFileSplit> splits, Random random) throws HyracksException {
         if (NCs == null)
             loadClusterConfig();
-        if (splits == null) {
-            int partitionCount = inputPaths.length;
+        if (splits.size() == 0)
+            return new String[0];
+
+        if (!splits.get(0).isOnHDFS()) {
+            int partitionCount = splits.size();
             String[] partitionLocations = new String[partitionCount];
             for (int partition = 0; partition < partitionCount; partition++) {
                 int pos = partition % NCs.length;
-                int t = inputPaths[partition].indexOf(":");
+                String path = splits.get(partition).getPath();
+                int t = path.indexOf(":");
                 if (t > 0)
-                    partitionLocations[partition] = inputPaths[partition].substring(0, t);
+                    partitionLocations[partition] = path.substring(0, t);
                 else
                     partitionLocations[partition] = NCs[pos];
             }
@@ -158,8 +163,6 @@ public class ClusterConfig {
 
                 }
             } catch (IOException e) {
-                throw new HyracksException(e);
-            } catch (InterruptedException e) {
                 throw new HyracksException(e);
             }
         }

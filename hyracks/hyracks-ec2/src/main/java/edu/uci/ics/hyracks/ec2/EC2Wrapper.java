@@ -52,6 +52,10 @@ public class EC2Wrapper {
         ec2 = new AmazonEC2Client(credentials);
     }
 
+    public void reload() {
+        ec2 = new AmazonEC2Client(credentials);
+    }
+
     public File getPemFile(Instance instance) throws IOException {
         File pemFile = new File(pemDir, instance.getKeyName() + ".pem");
         if (!pemFile.exists())
@@ -65,8 +69,8 @@ public class EC2Wrapper {
     }
 
     public String ssh(Instance instance, String cmd) throws Exception {
-        return R.runAndShowCommand("ssh", "-i", this.getPemFile(instance).getAbsolutePath(), instance
-                .getPublicDnsName(), "-l", "ubuntu", cmd);
+        return Rt.runAndShowCommand("ssh", "-i", this.getPemFile(instance).getAbsolutePath(),
+                instance.getPublicDnsName(), "-l", "ubuntu", cmd);
     }
 
     public void rsync(Instance instance, SSH ssh, File localDir, String remoteDir) throws Exception {
@@ -77,8 +81,12 @@ public class EC2Wrapper {
                 remoteDir += "/";
             if (localDir.isDirectory())
                 ssh.execute("if test ! \"(\" -e '" + remoteDir + "' \")\";then mkdir -p '" + remoteDir + "';fi;");
-            R.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/", "ubuntu@"
-                    + instance.getPublicDnsName() + ":" + remoteDir);
+            else {
+                String s = new File(remoteDir).getParent();
+                ssh.execute("if test ! \"(\" -e '" + s + "' \")\";then mkdir -p '" + s + "';fi;");
+            }
+            Rt.runAndShowCommand(rsync, "-vrultzCc", localDir.getAbsolutePath() + "/",
+                    "ubuntu@" + instance.getPublicDnsName() + ":" + remoteDir);
         } else {
             System.err.println("WARNING: Please install rsync to speed up synchronization");
             ssh.upload(localDir, remoteDir);
@@ -141,7 +149,7 @@ public class EC2Wrapper {
             }
         }
         if (imruGroup == null) {
-            R.p("creating security group " + groupName);
+            Rt.p("creating security group " + groupName);
             CreateSecurityGroupRequest securityGroupRequest = new CreateSecurityGroupRequest(groupName, desc);
             ec2.createSecurityGroup(securityGroupRequest);
         }
@@ -167,7 +175,7 @@ public class EC2Wrapper {
                 opened2.remove(port);
                 continue;
             }
-            R.p("add " + port + " to " + groupName);
+            Rt.p("add " + port + " to " + groupName);
             IpPermission ipPermission = new IpPermission();
             ipPermission.setIpProtocol("tcp");
             ipPermission.setFromPort(port);
@@ -181,7 +189,7 @@ public class EC2Wrapper {
             ec2.authorizeSecurityGroupIngress(ingressRequest);
         }
         if (opened2.size() > 0) {
-            R.p("TODO: Need to remove these port: " + opened2);
+            Rt.p("TODO: Need to remove these port: " + opened2);
         }
     }
 
@@ -192,9 +200,9 @@ public class EC2Wrapper {
             accessibleInstances.add(instance.getInstanceId());
             SSH ssh = ssh(instance);
             try {
-                String authorizedKeys = new String(R.read(ssh.get("/home/ubuntu/.ssh/authorized_keys")));
+                String authorizedKeys = new String(Rt.read(ssh.get("/home/ubuntu/.ssh/authorized_keys")));
                 //                R.p(authorizedKeys);
-                String pubKey = R.readFile(new File(System.getProperty("user.home") + "/.ssh/id_rsa.pub")).trim();
+                String pubKey = Rt.readFile(new File(System.getProperty("user.home") + "/.ssh/id_rsa.pub")).trim();
                 boolean contains = false;
                 for (String s : authorizedKeys.split("\r?\n")) {
                     //                    R.p(s);
@@ -203,7 +211,7 @@ public class EC2Wrapper {
                         contains = true;
                 }
                 if (!contains) {
-                    R.p("adding local public key to " + instance.getPublicDnsName() + " for rsync");
+                    Rt.p("adding local public key to " + instance.getPublicDnsName() + " for rsync");
                     ssh.put("/tmp/~imru_auto_pubkey.tmp", new ByteArrayInputStream((pubKey + "\n").getBytes()));
                     ssh.execute("cat /tmp/~imru_auto_pubkey.tmp >> ~/.ssh/authorized_keys");
                     ssh.execute("rm /tmp/~imru_auto_pubkey.tmp");

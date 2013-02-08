@@ -58,11 +58,17 @@ public class HelloWorld {
         if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
         else {
-            cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
             int n = 52;
             n = 5;
-            for (int i = 1; i < n; i++)
-                cmdline += ",NC"+(i%totalNodes)+":" + exampleData + "/hello" + i + ".txt";
+            if (debugging) {
+                cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
+                for (int i = 1; i < n; i++)
+                    cmdline += ",NC" + (i % totalNodes) + ":" + exampleData + "/hello" + i + ".txt";
+            } else {
+                cmdline += " -example-paths " + exampleData + "/hello0.txt";
+                for (int i = 1; i < n; i++)
+                    cmdline += "," + exampleData + "/hello" + i + ".txt";
+            }
         }
         // aggregation
         //        cmdline += " -agg-tree-type nary -fan-in 2";
@@ -82,7 +88,7 @@ public class HelloWorld {
     public static void main(String[] args) throws Exception {
         if (args.length == 0)
             //                        args = defaultArgs(false);
-            args = defaultArgs(true);
+            args = defaultArgs(false);
 
         HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
         System.out.println("FinalModel: " + finalModel.sentence);

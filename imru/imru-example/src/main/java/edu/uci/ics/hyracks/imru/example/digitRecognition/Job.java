@@ -31,7 +31,7 @@ import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api2.TupleReader;
 import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 import edu.uci.ics.hyracks.imru.example.utils.CreateHar;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Core IMRU application specific code. The dataflow is
@@ -62,7 +62,7 @@ public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
     @Override
     public void parse(IMRUContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
         try {
-            R.p("parse data");
+            Rt.p("parse data");
             ZipInputStream zip = new ZipInputStream(input);
             byte[][][] images = null;
             byte[] labels = null;
@@ -170,7 +170,7 @@ public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
             }
         }
         model.errorRate = (double) (total - correct) / total;
-        R.p("error rate: " + model.errorRate + "\tloss:" + loss + "\tweightChange: " + weightChange);
+        Rt.p("error rate: " + model.errorRate + "\tloss:" + loss + "\tweightChange: " + weightChange);
         model.learningRate *= model.learningRateDecrease;
         model.roundsRemaining--;
     }

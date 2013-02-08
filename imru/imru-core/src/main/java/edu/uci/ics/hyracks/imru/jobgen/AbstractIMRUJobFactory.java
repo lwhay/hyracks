@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputSplit;
 
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
@@ -30,6 +31,7 @@ import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.dataflow.DataLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
+import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 
@@ -53,7 +55,7 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
      */
     public AbstractIMRUJobFactory(String inputPaths, ConfigurationFactory confFactory) {
         this.inputPathCommaSeparated = inputPaths;
-        this.inputPaths= inputPaths.split(",");
+        this.inputPaths = inputPaths.split(",");
         this.confFactory = confFactory;
     }
 
@@ -62,9 +64,9 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
     public JobSpecification generateDataLoadJob(IIMRUJobSpecification model, UUID id) throws HyracksException {
         JobSpecification spec = new JobSpecification();
 
-        HDFSInputSplitProvider inputSplitProvider = confFactory == null ? null : new HDFSInputSplitProvider(inputPathCommaSeparated,
-                confFactory.createConfiguration());
-        List<InputSplit> inputSplits = inputSplitProvider == null ? null : inputSplitProvider.getInputSplits();
+        Configuration conf = confFactory == null ? null : confFactory.createConfiguration();
+        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPathCommaSeparated, conf);
+        List<IMRUFileSplit> inputSplits = inputSplitProvider.getInputSplits();
 
         IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec, model, inputSplitProvider, inputPaths,
                 confFactory);
@@ -72,7 +74,7 @@ public abstract class AbstractIMRUJobFactory implements IJobFactory {
         // source of
         // randomness using the job id.
         Random random = new Random(id.getLeastSignificantBits());
-        ClusterConfig.setLocationConstraint(spec, dataLoad, inputSplits, inputPaths, random);
+        ClusterConfig.setLocationConstraint(spec, dataLoad, inputSplits, random);
         spec.addRoot(dataLoad);
 
         return spec;

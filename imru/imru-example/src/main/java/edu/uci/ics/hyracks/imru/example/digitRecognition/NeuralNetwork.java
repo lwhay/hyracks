@@ -18,7 +18,7 @@ package edu.uci.ics.hyracks.imru.example.digitRecognition;
 import java.util.Arrays;
 
 import edu.uci.ics.hyracks.imru.api.IModel;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * IMRU model which will be used in map() and updated in update()
@@ -81,12 +81,12 @@ public class NeuralNetwork implements IModel {
                 totalConnections += n.fromIndex.length;
                 t2 += n.fromIndex.length;
             }
-            R.p("layer n=%d w=%d c=%,d", layer.ns.length, layer.weights.length,
+            Rt.p("layer n=%d w=%d c=%,d", layer.ns.length, layer.weights.length,
                     t2);
         }
-        R.p("totalConnections=%,d", totalConnections);
-        R.p("totalNeurons=%,d", totalNeurons);
-        R.p("totalWeight=" + totalWeight);
+        Rt.p("totalConnections=%,d", totalConnections);
+        Rt.p("totalNeurons=%,d", totalNeurons);
+        Rt.p("totalWeight=" + totalWeight);
     }
 
     public boolean train(NNResult result, byte[][] image, int label) {

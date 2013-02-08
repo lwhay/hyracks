@@ -102,7 +102,7 @@ public class HyracksEc2Cmd {
         this.hyracksEc2Root = new File(options.root);
         if ("status".equalsIgnoreCase(options.cmd) || "s".equalsIgnoreCase(options.cmd)) {
             cluster.printNodeStatus();
-            R.np("Admin URL: " + cluster.getAdminURL());
+            Rt.np("Admin URL: " + cluster.getAdminURL());
         } else if ("install".equalsIgnoreCase(options.cmd)) {
             cluster.install(hyracksEc2Root);
         } else if ("startInstances".equalsIgnoreCase(options.cmd) || "sti".equalsIgnoreCase(options.cmd)) {
@@ -117,7 +117,7 @@ public class HyracksEc2Cmd {
             cluster.addInstances(arg);
         } else if ("startHyracks".equalsIgnoreCase(options.cmd) || "sth".equalsIgnoreCase(options.cmd)) {
             cluster.startHyrackCluster();
-            R.np("Admin URL: " + cluster.getAdminURL());
+            Rt.np("Admin URL: " + cluster.getAdminURL());
         } else if ("stopHyracks".equalsIgnoreCase(options.cmd) || "sph".equalsIgnoreCase(options.cmd)) {
             cluster.stopHyrackCluster();
         } else if ("logs".equals(options.cmd)) {

@@ -46,6 +46,7 @@ import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
 import edu.uci.ics.hyracks.imru.file.HDFSUtils;
+import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.state.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
@@ -111,16 +112,6 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
 
         @Override
         public void initialize() throws HyracksDataException {
-            Configuration conf = confFactory == null ? null : confFactory.createConfiguration();
-            FileSystem dfs = null;
-            try {
-                if (conf != null)
-                    dfs = FileSystem.get(conf);
-            } catch (IOException e) {
-                fail();
-                throw new HyracksDataException(e);
-            }
-
             // Load the examples.
             MapTaskState state = (MapTaskState) IterationUtils.getIterationState(ctx, partition);
             if (state != null) {
@@ -139,32 +130,16 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
             runFileWriter.open();
 
             IMRUContext context = new IMRUContext(fileCtx, name);
-            if (inputSplitProvider == null) {
-                try {
-                    String path = inputPaths[partition];
-                    if (path.indexOf(':') > 0)
-                        path = path.substring(path.indexOf(':') + 1);
-                    InputStream in = new FileInputStream(path);
-                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
-                    dataLoader.parse(in, runFileWriter);
-                    in.close();
-                } catch (IOException e) {
-                    fail();
-                    throw new HyracksDataException(e);
-                }
-            } else {
-                List<InputSplit> inputSplits = inputSplitProvider.getInputSplits();
-                final FileSplit split = (FileSplit) inputSplits.get(partition);
-                Path path = split.getPath();
-                try {
-                    InputStream in = HDFSUtils.open(dfs, conf, path);
-                    ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
-                    dataLoader.parse(in, runFileWriter);
-                    in.close();
-                } catch (IOException e) {
-                    fail();
-                    throw new HyracksDataException(e);
-                }
+            List<IMRUFileSplit> inputSplits = inputSplitProvider.getInputSplits();
+            final IMRUFileSplit split = inputSplits.get(partition);
+            try {
+                InputStream in = split.getInputStream(confFactory);
+                ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
+                dataLoader.parse(in, runFileWriter);
+                in.close();
+            } catch (IOException e) {
+                fail();
+                throw new HyracksDataException(e);
             }
             runFileWriter.close();
             LOG.info("Cached input data file " + runFileWriter.getFileReference().getFile().getAbsolutePath() + " is "

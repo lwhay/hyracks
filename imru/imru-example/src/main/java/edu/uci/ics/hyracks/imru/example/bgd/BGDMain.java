@@ -87,6 +87,7 @@ public class BGDMain {
 
     /**
      * old example, not supported now
+     * 
      * @param args
      * @throws Exception
      */
@@ -103,73 +104,56 @@ public class BGDMain {
                         + " -model-file /tmp/__imru.txt"//
                         + " -cluster-conf imru/imru-core/src/main/resources/conf/cluster.conf"//
                         + " -example-paths /input/data.txt").split(" ");
-//                Client.startCC("localhost", 1099, 3099);
-//                ImruTest.startNC1("nc1", "localhost", 1099);
-//                ImruTest.startNC2("nc2", "localhost", 1099);
-//                ImruTest.createApp("bgd", new File(
-//                        "imru/imru-example/src/main/resources/bootstrap.zip"));
+                //                Client.startCC("localhost", 1099, 3099);
+                //                ImruTest.startNC1("nc1", "localhost", 1099);
+                //                ImruTest.startNC2("nc2", "localhost", 1099);
+                //                ImruTest.createApp("bgd", new File(
+                //                        "imru/imru-example/src/main/resources/bootstrap.zip"));
             }
             Options options = new Options();
             CmdLineParser parser = new CmdLineParser(options);
             parser.parseArgument(args);
 
-            HyracksConnection hcc = new HyracksConnection(options.host,
-                    options.port);
+            HyracksConnection hcc = new HyracksConnection(options.host, options.port);
 
             if (!new File(options.hadoopConfPath).exists()) {
                 System.err.println("Hadoop conf path does not exist!");
                 System.exit(-1);
             }
             // Hadoop configuration
-            Configuration conf = new Configuration();
-            conf
-                    .addResource(new Path(options.hadoopConfPath
-                            + "/core-site.xml"));
-            conf.addResource(new Path(options.hadoopConfPath
-                    + "/mapred-site.xml"));
-            conf
-                    .addResource(new Path(options.hadoopConfPath
-                            + "/hdfs-site.xml"));
 
+            ConfigurationFactory confFactory = new ConfigurationFactory(options.hadoopConfPath);
+            Configuration conf = confFactory.createConfiguration();
             FileSystem dfs = FileSystem.get(conf);
-            dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"),
-                    new Path("/input/data.txt"));
+            dfs.copyFromLocalFile(new Path("/data/imru/test/data.txt"), new Path("/input/data.txt"));
 
             // Hyracks cluster configuration
             ClusterConfig.setConfPath(options.clusterConfPath);
-            ConfigurationFactory confFactory = new ConfigurationFactory(conf);
 
             IJobFactory jobFactory;
 
             if (options.aggTreeType.equals("none")) {
-                jobFactory = new NoAggregationIMRUJobFactory(
-                        options.examplePaths, confFactory);
+                jobFactory = new NoAggregationIMRUJobFactory(options.examplePaths, confFactory);
             } else if (options.aggTreeType.equals("generic")) {
                 if (options.aggCount < 1) {
                     throw new IllegalArgumentException(
                             "Must specify a nonnegative aggregator count using the -agg-count option");
                 }
-                jobFactory = new GenericAggregationIMRUJobFactory(
-                        options.examplePaths, confFactory, options.aggCount);
+                jobFactory = new GenericAggregationIMRUJobFactory(options.examplePaths, confFactory, options.aggCount);
             } else if (options.aggTreeType.equals("nary")) {
                 if (options.fanIn < 1) {
-                    throw new IllegalArgumentException(
-                            "Must specify nonnegative -fan-in");
+                    throw new IllegalArgumentException("Must specify nonnegative -fan-in");
                 }
-                jobFactory = new NAryAggregationIMRUJobFactory(
-                        options.examplePaths, confFactory, options.fanIn);
+                jobFactory = new NAryAggregationIMRUJobFactory(options.examplePaths, confFactory, options.fanIn);
             } else {
-                throw new IllegalArgumentException(
-                        "Invalid aggregation tree type");
+                throw new IllegalArgumentException("Invalid aggregation tree type");
             }
 
-            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(
-                    8000);
+            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(8000);
             LinearModel initalModel = new LinearModel(8000, options.numRounds);
 
-            IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc,
-                    imruSpec, initalModel, jobFactory, conf, options.tempPath,
-                    options.app);
+            IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc, imruSpec, initalModel, jobFactory, conf,
+                    options.tempPath, options.app);
 
             JobStatus status = driver.run();
             if (status == JobStatus.FAILURE) {
@@ -178,13 +162,10 @@ public class BGDMain {
             }
             int iterationCount = driver.getIterationCount();
             LinearModel finalModel = driver.getModel();
-            System.out.println("Terminated after " + iterationCount
-                    + " iterations");
-            System.out
-                    .println("Final model [0] " + finalModel.weights.array[0]);
+            System.out.println("Terminated after " + iterationCount + " iterations");
+            System.out.println("Final model [0] " + finalModel.weights.array[0]);
             System.out.println("Final loss was " + finalModel.loss);
-            PrintWriter writer = new PrintWriter(new FileOutputStream(
-                    options.modelFilename));
+            PrintWriter writer = new PrintWriter(new FileOutputStream(options.modelFilename));
             for (float x : finalModel.weights.array) {
                 writer.println("" + x);
             }

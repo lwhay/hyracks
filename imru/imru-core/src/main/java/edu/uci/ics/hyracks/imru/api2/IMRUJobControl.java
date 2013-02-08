@@ -34,7 +34,6 @@ import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 
 public class IMRUJobControl<Model extends IModel> {
     public HyracksConnection hcc;
-    public Configuration conf;
     public ConfigurationFactory confFactory;
     IJobFactory jobFactory;
     IMRUDriver<Model> driver;
@@ -55,11 +54,9 @@ public class IMRUJobControl<Model extends IModel> {
         else
             ClusterConfig.setConfPath(clusterConfPath);
         if (hadoopConfPath != null) {
-            conf = new Configuration();
-            conf.addResource(new Path(hadoopConfPath + "/core-site.xml"));
-            conf.addResource(new Path(hadoopConfPath + "/mapred-site.xml"));
-            conf.addResource(new Path(hadoopConfPath + "/hdfs-site.xml"));
-            confFactory = new ConfigurationFactory(conf);
+            confFactory = new ConfigurationFactory(hadoopConfPath);
+        } else {
+            confFactory = new ConfigurationFactory();
         }
     }
 
@@ -93,7 +90,8 @@ public class IMRUJobControl<Model extends IModel> {
      */
     public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel, String tempPath, String app)
             throws Exception {
-        driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory, conf, tempPath, app);
+        driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory, confFactory.createConfiguration(), tempPath,
+                app);
         driver.modelFileName = modelFileName;
         driver.saveIntermediateModels = saveIntermediateModels;
         driver.useExistingModels = useExistingModels;

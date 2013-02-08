@@ -45,7 +45,7 @@ import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunctionFactory;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Implement a IMRUJobSpecification interface using

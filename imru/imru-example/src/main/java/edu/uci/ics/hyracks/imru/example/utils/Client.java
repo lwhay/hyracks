@@ -57,7 +57,7 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * This class wraps IMRU common functions.
@@ -143,7 +143,8 @@ public class Client<Model extends IModel> {
         //        public int numRounds = 5;
     }
 
-    public static final int FRAME_SIZE = 65536;
+    public static String IMRU_PREFIX = "hyracks-auto-deploy-";
+    public static int FRAME_SIZE = 65536;
 
     private ClusterControllerService cc;
     private Vector<NodeControllerService> ncs = new Vector<NodeControllerService>();
@@ -224,7 +225,7 @@ public class Client<Model extends IModel> {
         control.useExistingModels = options.useExistingModels;
         control.connect(options.host, options.port, options.hadoopConfPath, options.clusterConfPath);
         hcc = control.hcc;
-        conf = control.conf;
+        conf = control.confFactory.createConfiguration();
         // set aggregation type
         if (options.aggTreeType == null) {
             Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
@@ -239,7 +240,7 @@ public class Client<Model extends IModel> {
         } else if (options.aggTreeType.equals("nary")) {
             Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
             if (map.size() < 3) {
-                R.p("Change to generic aggregation because there are only " + map.size() + " nodes");
+                Rt.p("Change to generic aggregation because there are only " + map.size() + " nodes");
                 control.selectGenericAggregation(options.examplePaths, options.fanIn);
             } else {
                 control.selectNAryAggregation(options.examplePaths, options.fanIn);
@@ -455,13 +456,13 @@ public class Client<Model extends IModel> {
     public void uploadApp() throws Exception {
         final File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
-        CreateHar.createHar(harFile);
+        CreateHar.createHar(harFile, options.hadoopConfPath != null);
         out.close();
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                R.p("Uploading harFile "
+                Rt.p("Uploading harFile "
                         + harFile.length()
                         + ". If there is not respond for a while, please check nc logs, there might be ClassNotFoundException.");
 

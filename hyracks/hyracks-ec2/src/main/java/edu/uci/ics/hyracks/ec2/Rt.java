@@ -30,7 +30,7 @@ import java.util.Date;
  * @author wangrui
  *
  */
-public class R {
+public class Rt {
     public static void p(Object object) {
         p((String) ("" + object), new Object[0]);
     }
@@ -43,7 +43,7 @@ public class R {
         StackTraceElement[] elements = Thread.currentThread().getStackTrace();
         StackTraceElement e2 = elements[2];
         for (int i = 1; i < elements.length; i++) {
-            if (!R.class.getName().equals(elements[i].getClassName())) {
+            if (!Rt.class.getName().equals(elements[i].getClassName())) {
                 e2 = elements[i];
                 break;
             }

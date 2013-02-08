@@ -24,10 +24,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.eclipse.jetty.util.log.Log;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
@@ -136,15 +132,7 @@ public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDes
                 if (context.modelAge < roundNum) {
                     try {
                         long start = System.currentTimeMillis();
-                        InputStream fileInput;
-                        if (confFactory == null) {
-                            fileInput = new FileInputStream(new File(envInPath));
-                        } else {
-                            Configuration conf = confFactory.createConfiguration();
-                            FileSystem dfs;
-                            dfs = FileSystem.get(conf);
-                            fileInput = dfs.open(new Path(envInPath));
-                        }
+                        InputStream fileInput = confFactory.getInputStream(envInPath);
                         ObjectInputStream input = new ObjectInputStream(fileInput);
                         model = (Model) input.readObject();
                         context.model = model;
@@ -246,9 +234,8 @@ public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDes
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum, this
-                .getDisplayName()
-                + partition);
+        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum,
+                this.getDisplayName() + partition);
     }
 
 }

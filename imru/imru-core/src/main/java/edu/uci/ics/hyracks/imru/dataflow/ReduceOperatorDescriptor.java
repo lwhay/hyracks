@@ -36,7 +36,7 @@ import edu.uci.ics.hyracks.imru.api.IOneByOneReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
-import edu.uci.ics.hyracks.imru.util.R;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Evaluates the reduce function in an iterative map reduce update job.

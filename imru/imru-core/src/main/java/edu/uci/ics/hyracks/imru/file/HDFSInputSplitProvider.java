@@ -36,13 +36,10 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 /**
  * Provides a list of InputSplits.
  * <p>
- * This class is necessary because InputSplit is not Serializable.
- * When InputSplit is serialized and deserialized, its locations are
- * lost and getLocations() will return an empty array (this is also
- * the case in Hadoop).
+ * This class is necessary because InputSplit is not Serializable. When InputSplit is serialized and deserialized, its locations are lost and getLocations() will return an empty array (this is also the case in Hadoop).
  * <p>
  * This class is thread-safe.
- *
+ * 
  * @author Josh Rosen
  */
 public class HDFSInputSplitProvider implements Serializable {
@@ -51,11 +48,11 @@ public class HDFSInputSplitProvider implements Serializable {
     /** The serialized InputSplits. */
     private byte[] data;
     private final int numSplits;
-    private transient List<InputSplit> splits = null;
+    private transient List<IMRUFileSplit> splits = null;
 
     /**
      * Construct a new InputSplitProvider.
-     *
+     * 
      * @param inputPaths
      *            A comma-separated list of input paths.
      * @param conf
@@ -63,20 +60,24 @@ public class HDFSInputSplitProvider implements Serializable {
      */
     public HDFSInputSplitProvider(String inputPaths, Configuration conf) {
         try {
-            // Use a dummy input format to create a list of
-            // InputSplits for the
-            // input files.
-            Job dummyJob = new Job(conf);
-            TextInputFormat.addInputPaths(dummyJob, inputPaths);
-            // Disable splitting of files:
-            TextInputFormat.setMinInputSplitSize(dummyJob, Long.MAX_VALUE);
-            splits = new TextInputFormat().getSplits(dummyJob);
+            if (conf == null) {
+                String[] ss = inputPaths.split(",");
+                splits = IMRUFileSplit.get(ss);
+            } else {
+                // Use a dummy input format to create a list of
+                // InputSplits for the
+                // input files.
+                Job dummyJob = new Job(conf);
+                TextInputFormat.addInputPaths(dummyJob, inputPaths);
+                // Disable splitting of files:
+                TextInputFormat.setMinInputSplitSize(dummyJob, Long.MAX_VALUE);
+                splits = HDFSSplit.get(new TextInputFormat().getSplits(dummyJob));
+            }
             numSplits = splits.size();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutput output = new DataOutputStream(baos);
-            for (InputSplit split : splits) {
-                ((FileSplit) split).write(output);
-            }
+            for (IMRUFileSplit split : splits)
+                split.write(output);
             data = baos.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException(e);
@@ -86,19 +87,18 @@ public class HDFSInputSplitProvider implements Serializable {
     /**
      * @return The list of InputSplits.
      */
-    public List<InputSplit> getInputSplits() {
+    public List<IMRUFileSplit> getInputSplits() {
         return splits;
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         // Reconstruct the splits array after deserialization.
-        splits = new ArrayList<InputSplit>(numSplits);
+        splits = new ArrayList<IMRUFileSplit>(numSplits);
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
         DataInput input = new DataInputStream(bais);
         for (int i = 0; i < numSplits; i++) {
-            FileSplit split = new FileSplit(null, 0, 0, null);
-            split.readFields(input);
+            IMRUFileSplit split = new IMRUFileSplit(input);
             splits.add(split);
         }
     }
