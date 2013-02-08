@@ -19,6 +19,7 @@ if [ "$PID" == "" ]; then
 fi
 
 echo $PID
+echo kill -9 $PID
 kill -9 $PID
 
 #Clean up I/O working dir

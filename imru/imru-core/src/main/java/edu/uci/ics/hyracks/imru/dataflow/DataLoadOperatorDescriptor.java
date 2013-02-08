@@ -141,7 +141,10 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
             IMRUContext context = new IMRUContext(fileCtx, name);
             if (inputSplitProvider == null) {
                 try {
-                    InputStream in = new FileInputStream(inputPaths[partition]);
+                    String path = inputPaths[partition];
+                    if (path.indexOf(':') > 0)
+                        path = path.substring(path.indexOf(':') + 1);
+                    InputStream in = new FileInputStream(path);
                     ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
                     dataLoader.parse(in, runFileWriter);
                     in.close();

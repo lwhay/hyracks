@@ -101,7 +101,11 @@ public class ClusterConfig {
             String[] partitionLocations = new String[partitionCount];
             for (int partition = 0; partition < partitionCount; partition++) {
                 int pos = partition % NCs.length;
-                partitionLocations[partition] = NCs[pos];
+                int t = inputPaths[partition].indexOf(":");
+                if (t > 0)
+                    partitionLocations[partition] = inputPaths[partition].substring(0, t);
+                else
+                    partitionLocations[partition] = NCs[pos];
             }
 
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);

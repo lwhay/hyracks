@@ -37,8 +37,8 @@ public class KMeans {
             cmdline += "-host " + Client.getLocalIp();
         }
 
-        boolean useHDFS = true;
-        if (System.getProperty("local")!=null)
+        boolean useHDFS = false;
+        if (System.getProperty("local") != null)
             useHDFS = false;
         String home = System.getProperty("user.home");
         String exampleData = home + "/fullstack_imru/imru/imru-example/data";

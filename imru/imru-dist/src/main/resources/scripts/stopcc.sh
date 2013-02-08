@@ -13,6 +13,7 @@ fi
 #Kill process
 PID=`ps -ef|grep ${USER}|grep java|grep hyracks|awk '{print $2}'`
 echo $PID
+echo kill -9 $PID
 kill -9 $PID
 
 #Clean up CC temp dir

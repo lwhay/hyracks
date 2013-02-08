@@ -26,6 +26,9 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.Vector;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -40,6 +43,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
 import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -53,6 +57,7 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.util.R;
 
 /**
  * This class wraps IMRU common functions.
@@ -119,10 +124,10 @@ public class Client<Model extends IModel> {
         @Option(name = "-using-existing-model", usage = "Use existing model if possible")
         public boolean useExistingModels;
 
-        @Option(name = "-example-paths", usage = "HDFS path to hold input data")
+        @Option(name = "-example-paths", usage = "HDFS path to hold input data. Or local file in the format of [nodeId]:<path>")
         public String examplePaths = "/input/data.txt";
 
-        @Option(name = "-agg-tree-type", usage = "The aggregation tree type (none, nary, or generic)", required = true)
+        @Option(name = "-agg-tree-type", usage = "The aggregation tree type (none, nary, or generic)")
         public String aggTreeType;
 
         @Option(name = "-agg-count", usage = "The number of aggregators to use, if using an aggregation tree")
@@ -221,12 +226,24 @@ public class Client<Model extends IModel> {
         hcc = control.hcc;
         conf = control.conf;
         // set aggregation type
-        if (options.aggTreeType.equals("none")) {
+        if (options.aggTreeType == null) {
+            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
+            if (map.size() < 3)
+                control.selectNoAggregation(options.examplePaths);
+            else
+                control.selectNAryAggregation(options.examplePaths, 2);
+        } else if (options.aggTreeType.equals("none")) {
             control.selectNoAggregation(options.examplePaths);
         } else if (options.aggTreeType.equals("generic")) {
             control.selectGenericAggregation(options.examplePaths, options.aggCount);
         } else if (options.aggTreeType.equals("nary")) {
-            control.selectNAryAggregation(options.examplePaths, options.fanIn);
+            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
+            if (map.size() < 3) {
+                R.p("Change to generic aggregation because there are only " + map.size() + " nodes");
+                control.selectGenericAggregation(options.examplePaths, options.fanIn);
+            } else {
+                control.selectNAryAggregation(options.examplePaths, options.fanIn);
+            }
         } else {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
@@ -292,7 +309,7 @@ public class Client<Model extends IModel> {
     public void startClusterAndNodes() throws Exception {
         startCC(options.host, options.clusterPort, options.port);
         for (int i = 0; i < options.numOfNodes; i++)
-            startNC1("nc" + i, options.host, options.clusterPort);
+            startNC("NC" + i, options.host, options.clusterPort);
     }
 
     /**
@@ -325,7 +342,7 @@ public class Client<Model extends IModel> {
      * @param clusterNetPort
      * @throws Exception
      */
-    public void startNC1(String NC1_ID, String host, int clusterNetPort) throws Exception {
+    public void startNC(String NC1_ID, String host, int clusterNetPort) throws Exception {
         NCConfig ncConfig1 = new NCConfig();
         ncConfig1.ccHost = host;
         ncConfig1.clusterNetIPAddress = host;
@@ -436,17 +453,33 @@ public class Client<Model extends IModel> {
      * @throws Exception
      */
     public void uploadApp() throws Exception {
-        File harFile = File.createTempFile("imru_app", ".zip");
+        final File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
         CreateHar.createHar(harFile);
-        //        System.out.println("Upload "+ appName+" "+ harFile.getAbsolutePath());
         out.close();
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                R.p("Uploading harFile "
+                        + harFile.length()
+                        + ". If there is not respond for a while, please check nc logs, there might be ClassNotFoundException.");
+
+            }
+        }, 2000);
         try {
             hcc.createApplication(options.app, harFile);
         } catch (Exception e) {
             e.printStackTrace();
+            try {
+                hcc.destroyApplication(options.app);
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+            hcc.createApplication(options.app, harFile);
         }
-        //        harFile.delete();
+        timer.cancel();
+        harFile.delete();
     }
 
     /**

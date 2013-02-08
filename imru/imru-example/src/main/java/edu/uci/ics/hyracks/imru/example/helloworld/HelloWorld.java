@@ -27,6 +27,7 @@ public class HelloWorld {
         // if no argument is given, the following code
         // create default arguments to run the example
         String cmdline = "";
+        int totalNodes = 3;
         if (debugging) {
             // debugging mode, everything run in one process
             cmdline += " -debug";
@@ -34,7 +35,7 @@ public class HelloWorld {
             cmdline += " -disable-logging";
             // hostname of cluster controller
             cmdline += " -host localhost";
-            cmdline += " -debugNodes 16";
+            cmdline += " -debugNodes " + totalNodes;
         } else {
             // hostname of cluster controller
             cmdline += "-host " + Client.getLocalIp();
@@ -57,13 +58,15 @@ public class HelloWorld {
         if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
         else {
-            cmdline += " -example-paths " + exampleData + "/hello0.txt";
-            for (int i = 1; i < 52; i++)
-                cmdline += "," + exampleData + "/hello" + i + ".txt";
+            cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
+            int n = 52;
+            n = 5;
+            for (int i = 1; i < n; i++)
+                cmdline += ",NC"+(i%totalNodes)+":" + exampleData + "/hello" + i + ".txt";
         }
         // aggregation
-        cmdline += " -agg-tree-type nary -fan-in 2";
-        // cmdline += " -agg-tree-type generic -agg-count 10";
+        //        cmdline += " -agg-tree-type nary -fan-in 2";
+        //         cmdline += " -agg-tree-type generic -agg-count 1";
         // cmdline += " -agg-tree-type none";
 
         // don't save intermediate models
@@ -78,7 +81,7 @@ public class HelloWorld {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0)
-            //            args = defaultArgs(false);
+            //                        args = defaultArgs(false);
             args = defaultArgs(true);
 
         HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
