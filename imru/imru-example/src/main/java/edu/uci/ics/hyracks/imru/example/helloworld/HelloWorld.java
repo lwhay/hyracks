@@ -27,7 +27,7 @@ public class HelloWorld {
         // if no argument is given, the following code
         // create default arguments to run the example
         String cmdline = "";
-        int totalNodes = 3;
+        int totalNodes = 5;
         if (debugging) {
             // debugging mode, everything run in one process
             cmdline += " -debug";
@@ -59,7 +59,7 @@ public class HelloWorld {
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
         else {
             int n = 52;
-            n = 5;
+            n = 6;
             if (debugging) {
                 cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
                 for (int i = 1; i < n; i++)
@@ -72,12 +72,13 @@ public class HelloWorld {
         }
         // aggregation
         //        cmdline += " -agg-tree-type nary -fan-in 2";
-        //         cmdline += " -agg-tree-type generic -agg-count 1";
+                 cmdline += " -agg-tree-type generic -agg-count 1";
         // cmdline += " -agg-tree-type none";
 
         // don't save intermediate models
         cmdline += " -abondon-intermediate-models";
         // write to the same file
+//        cmdline += " -model-file-name helloworld${NODE_ID}";
         cmdline += " -model-file-name helloworld";
 
         cmdline = cmdline.trim();
@@ -87,8 +88,8 @@ public class HelloWorld {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0)
-            //                        args = defaultArgs(false);
-            args = defaultArgs(false);
+            //            args = defaultArgs(false);
+            args = defaultArgs(true);
 
         String finalModel = Client.run(new HelloWorldJob(), args);
         System.out.println("FinalModel: " + finalModel);

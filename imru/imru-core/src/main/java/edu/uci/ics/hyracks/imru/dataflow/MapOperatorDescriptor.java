@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.eclipse.jetty.util.log.Log;
 
@@ -129,19 +130,21 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
             // shared across all MapOperator partitions.
             INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
             IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+            IMRUContext imruContext = new IMRUContext(ctx, name);
             Model model;
             synchronized (context.envLock) {
                 if (context.modelAge < roundNum) {
                     try {
                         long start = System.currentTimeMillis();
-                        if (!confFactory.exists(envInPath)) {
+                        String path = envInPath.replaceAll(Pattern.quote("${NODE_ID}"), imruContext.getNodeId());
+                        if (!confFactory.exists(path)) {
                             model = imruSpec.initModel();
-                            OutputStream out = confFactory.getOutputStream(envInPath);
+                            OutputStream out = confFactory.getOutputStream(path);
                             ObjectOutputStream output = new ObjectOutputStream(out);
                             output.writeObject(model);
                             output.close();
                         }
-                        InputStream fileInput = confFactory.getInputStream(envInPath);
+                        InputStream fileInput = confFactory.getInputStream(path);
                         ObjectInputStream input = new ObjectInputStream(fileInput);
                         model = (Model) input.readObject();
                         context.model = model;
@@ -189,8 +192,8 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
             reader.open();
             final ByteBuffer inputFrame = fileCtx.allocateFrame();
             ChunkFrameHelper chunkFrameHelper = new ChunkFrameHelper(ctx);
+            imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
             IMapFunctionFactory<Model> factory = imruSpec.getMapFunctionFactory();
-            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
             if (factory.useAPI2()) {
                 Iterator<ByteBuffer> input = new Iterator<ByteBuffer>() {
                     boolean read = false;

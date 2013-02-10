@@ -90,7 +90,7 @@ public class NAryAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
 
         // Environment updating
         IMRUOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, modelInPath, confFactory,
-                modelOutPath);
+                modelOutPath,false);
         PartitionConstraintHelper.addPartitionCountConstraint(spec, updateOperator, 1);
 
         // Reduce aggregation tree.

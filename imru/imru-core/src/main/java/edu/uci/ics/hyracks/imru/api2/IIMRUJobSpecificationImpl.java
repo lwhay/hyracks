@@ -228,7 +228,7 @@ public class IIMRUJobSpecificationImpl<Model extends Serializable> implements II
     }
 
     @SuppressWarnings("unchecked")
-    private static byte[] deserializeFromChunks(IMRUContext ctx, List<ByteBuffer> chunks) throws HyracksDataException {
+    public static byte[] deserializeFromChunks(IMRUContext ctx, List<ByteBuffer> chunks) throws HyracksDataException {
         int size = chunks.get(0).getInt(0);
         byte objectData[] = new byte[size];
         ByteBuffer objectDataByteBuffer = ByteBuffer.wrap(objectData);
@@ -246,7 +246,7 @@ public class IIMRUJobSpecificationImpl<Model extends Serializable> implements II
         return objectData;
     }
 
-    private static void serializeToFrames(IMRUContext ctx, IFrameWriter writer, byte[] objectData)
+    public static void serializeToFrames(IMRUContext ctx, IFrameWriter writer, byte[] objectData)
             throws HyracksDataException {
         ByteBuffer frame = ctx.allocateFrame();
         int position = 0;

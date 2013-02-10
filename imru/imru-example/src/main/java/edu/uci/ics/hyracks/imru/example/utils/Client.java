@@ -543,20 +543,25 @@ public class Client<Model extends Serializable> {
             String[] args, String overrideAppName) throws Exception {
         // create a client object, which handles everything
         Client<M> client = new Client<M>(args);
+        try {
 
-        if (overrideAppName != null)
-            client.options.app = overrideAppName;
-        client.init();
+            if (overrideAppName != null)
+                client.options.app = overrideAppName;
+            client.init();
 
-        // run job
-        JobStatus status = client.run(job);
-        if (status == JobStatus.FAILURE) {
-            System.err.println("Job failed; see CC and NC logs");
-            System.exit(-1);
+            // run job
+            JobStatus status = client.run(job);
+            if (status == JobStatus.FAILURE) {
+                System.err.println("Job failed; see CC and NC logs");
+                System.exit(-1);
+            }
+            // System.out.println("Terminated after "
+            // + client.control.getIterationCount() + " iterations");
+
+            return client.getModel();
+        } finally {
+            if (client.options.debug)
+                System.exit(0);
         }
-        // System.out.println("Terminated after "
-        // + client.control.getIterationCount() + " iterations");
-
-        return client.getModel();
     }
 }

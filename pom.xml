@@ -67,6 +67,5 @@
     <module>hyracks</module>
     <module>algebricks</module>
     <module>pregelix</module>
-    <module>imru</module>
   </modules>
 </project>

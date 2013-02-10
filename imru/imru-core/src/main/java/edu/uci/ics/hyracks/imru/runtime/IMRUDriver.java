@@ -27,6 +27,7 @@ import java.io.Serializable;
 import java.util.EnumSet;
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -211,6 +212,12 @@ public class IMRUDriver<Model extends Serializable> {
         return hcc.getJobStatus(jobId);
     }
 
+    Path explain(Path path) {
+        String s = path.toString();
+        s = s.replaceAll(Pattern.quote("${NODE_ID}"), "local");
+        return new Path(s);
+    }
+
     /**
      * Run the dataflow for a single IMRU iteration.
      * 
@@ -233,6 +240,7 @@ public class IMRUDriver<Model extends Serializable> {
     }
 
     private boolean exists(Path path) throws IOException {
+        path = explain(path);
         if (conf == null)
             return new File(path.toString()).exists();
         FileSystem dfs = FileSystem.get(conf);
@@ -251,6 +259,8 @@ public class IMRUDriver<Model extends Serializable> {
     private Model readModelFromFile(Path modelPath) throws IOException, ClassNotFoundException {
         // Deserialize the environment so it can be passed to
         // shouldTerminate().
+        modelPath = explain(modelPath);
+
         InputStream fileInput;
         if (conf == null) {
             fileInput = new FileInputStream(modelPath.toString());
@@ -278,12 +288,13 @@ public class IMRUDriver<Model extends Serializable> {
     private void writeModelToFile(Serializable model, Path modelPath) throws IOException {
         // Serialize the model so it can be read during the next
         // iteration.
-        
-        Rt.p(modelPath.toString());
-        
+
+        modelPath = explain(modelPath);
+        //        Rt.p(modelPath.toString());
+
         OutputStream fileOutput;
         if (conf == null) {
-            File file=new File(modelPath.toString());
+            File file = new File(modelPath.toString());
             if (!file.getParentFile().exists())
                 file.getParentFile().mkdirs();
             fileOutput = new FileOutputStream(file);

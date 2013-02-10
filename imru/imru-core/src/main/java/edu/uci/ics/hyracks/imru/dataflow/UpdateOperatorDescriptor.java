@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -39,8 +40,11 @@ import org.apache.hadoop.fs.Path;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
@@ -48,6 +52,7 @@ import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IOneByOneUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
+import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
@@ -65,9 +70,11 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
 
     private static final long serialVersionUID = 1L;
     private static Logger LOG = Logger.getLogger(UpdateOperatorDescriptor.class.getName());
+    private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[1]);
 
     private final String envInPath;
     private final String envOutPath;
+    boolean hasOutput;
 
     /**
      * Create a new UpdateOperatorDescriptor.
@@ -85,10 +92,13 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
      *            to.
      */
     public UpdateOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String modelInPath,
-            IConfigurationFactory confFactory, String envOutPath) {
-        super(spec, 1, 0, "update", imruSpec, confFactory);
+            IConfigurationFactory confFactory, String envOutPath, boolean hasOutput) {
+        super(spec, 1, hasOutput ? 1 : 0, "update", imruSpec, confFactory);
         this.envInPath = modelInPath;
         this.envOutPath = envOutPath;
+        this.hasOutput = hasOutput;
+        if (hasOutput)
+            recordDescriptors[0] = dummyRecordDescriptor;
     }
 
     private static class UpdateOperatorNodePushable<Model extends Serializable> extends
@@ -105,16 +115,20 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
         private Configuration conf;
         private Model model;
         private final String name;
+        IMRUContext imruContext;
+        boolean hasOutput;
 
         public UpdateOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
-                String modelPath, IConfigurationFactory confFactory, String outPath, String name) {
+                String modelPath, IConfigurationFactory confFactory, String outPath, String name, boolean hasOutput) {
             this.imruSpec = imruSpec;
             this.modelPath = modelPath;
             this.outPath = outPath;
             this.confFactory = confFactory;
             this.name = name;
+            this.hasOutput = hasOutput;
             this.chunkFrameHelper = new ChunkFrameHelper(ctx);
             this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
+            imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
         }
 
         @SuppressWarnings("unchecked")
@@ -125,11 +139,12 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
             // Load the model
             try {
                 InputStream fileInput;
+                String path2 = modelPath.replaceAll(Pattern.quote("${NODE_ID}"), imruContext.getNodeId());
                 if (conf == null) {
-                    fileInput = new FileInputStream(modelPath);
+                    fileInput = new FileInputStream(path2);
                 } else {
                     FileSystem dfs = FileSystem.get(conf);
-                    fileInput = dfs.open(new Path(modelPath));
+                    fileInput = dfs.open(new Path(path2));
                 }
 
                 ObjectInputStream input = new ObjectInputStream(fileInput);
@@ -140,7 +155,6 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
             } catch (ClassNotFoundException e) {
                 throw new HyracksDataException(e);
             }
-            IMRUContext imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
             updateFunction = imruSpec.getUpdateFunctionFactory().createUpdateFunction(imruContext, model);
             updateFunction.open();
         }
@@ -168,30 +182,37 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
 
         @Override
         public void close() throws HyracksDataException {
-            updateFunction.close();
-            // Serialize the model so it can be sent back to the
-            // driver program.
-            long start = System.currentTimeMillis();
             try {
+                updateFunction.close();
+                if (hasOutput) {
+                    byte[] objectData = JavaSerializationUtils.serialize(model);
+                    IIMRUJobSpecificationImpl.serializeToFrames(imruContext, writer, objectData);
+                }
+                // Serialize the model so it can be sent back to the
+                // driver program.
+                long start = System.currentTimeMillis();
+
+                String path2 = outPath.replaceAll(Pattern.quote("${NODE_ID}"), imruContext.getNodeId());
                 OutputStream fileOutput;
                 if (conf == null) {
-                    File file = new File(outPath);
+                    File file = new File(path2);
                     fileOutput = new FileOutputStream(file);
                 } else {
                     FileSystem dfs = FileSystem.get(conf);
-                    Path path = new Path(outPath);
+                    Path path = new Path(path2);
                     fileOutput = dfs.create(path, true);
                 }
 
                 ObjectOutputStream output = new ObjectOutputStream(fileOutput);
                 output.writeObject(model);
                 output.close();
+
+                long end = System.currentTimeMillis();
+                LOG.info("Wrote updated model to HDFS " + (end - start) + " milliseconds");
+                MemoryStatsLogger.logHeapStats(LOG, "Update: Deinitializing Update");
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }
-            long end = System.currentTimeMillis();
-            LOG.info("Wrote updated model to HDFS " + (end - start) + " milliseconds");
-            MemoryStatsLogger.logHeapStats(LOG, "Update: Deinitializing Update");
         }
 
         private void enqueueChunk(ByteBuffer chunk, int senderPartition) {
@@ -207,9 +228,8 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, envOutPath, this
-                .getDisplayName()
-                + partition);
+        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, envOutPath,
+                this.getDisplayName() + partition, hasOutput);
     }
 
 }

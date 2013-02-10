@@ -90,9 +90,10 @@ public class GenericAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         final String[] mapOperatorLocations = ClusterConfig.setLocationConstraint(spec, mapOperator, inputSplits,
                 random);
 
+        boolean expand = false;
         // Update operator
         IOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, imruSpec, modelInPath, confFactory,
-                modelOutPath);
+                modelOutPath, expand);
         PartitionConstraintHelper.addPartitionCountConstraint(spec, updateOperator, 1);
 
         // One level of reducers (ala Hadoop)
@@ -108,6 +109,10 @@ public class GenericAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         // Connect things together
         IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(spec);
         spec.connect(reduceUpdateConn, reduceOperator, 0, updateOperator, 0);
+
+        if (expand)
+            ExpandTreeFactory.buildExpandTree(spec, updateOperator, 0, 2, mapOperatorLocations, imruSpec, modelInPath,
+                    confFactory, modelOutPath);
 
         spec.addRoot(updateOperator);
         return spec;

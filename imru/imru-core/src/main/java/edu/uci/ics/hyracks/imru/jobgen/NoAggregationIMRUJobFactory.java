@@ -77,7 +77,7 @@ public class NoAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
 
         // Environment updating
         IOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(spec, model, envInPath, confFactory,
-                envOutPath);
+                envOutPath, false);
         PartitionConstraintHelper.addPartitionCountConstraint(spec, updateOperator, 1);
 
         // Connect things together
