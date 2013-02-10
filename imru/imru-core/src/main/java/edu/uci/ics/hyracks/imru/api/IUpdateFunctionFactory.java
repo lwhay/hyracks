@@ -15,6 +15,8 @@
 
 package edu.uci.ics.hyracks.imru.api;
 
-public interface IUpdateFunctionFactory<Model extends IModel> {
+import java.io.Serializable;
+
+public interface IUpdateFunctionFactory<Model extends Serializable> {
     IUpdateFunction createUpdateFunction(IMRUContext ctx, Model model);
 }

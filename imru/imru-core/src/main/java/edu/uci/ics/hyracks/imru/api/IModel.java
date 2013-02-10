@@ -20,6 +20,6 @@ import java.io.Serializable;
 /**
  * The model used to persist state between iterations.
  */
-public interface IModel extends Serializable {
-
-}
+//public interface IModel extends Serializable {
+//
+//}

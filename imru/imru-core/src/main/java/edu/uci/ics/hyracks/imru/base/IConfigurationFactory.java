@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.imru.base;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 
 import org.apache.hadoop.conf.Configuration;
@@ -36,4 +37,8 @@ public interface IConfigurationFactory extends Serializable {
     public Configuration createConfiguration() throws HyracksDataException;
 
     public InputStream getInputStream(String path) throws IOException;
+
+    public OutputStream getOutputStream(String path) throws IOException;
+
+    public boolean exists(String path) throws IOException;
 }

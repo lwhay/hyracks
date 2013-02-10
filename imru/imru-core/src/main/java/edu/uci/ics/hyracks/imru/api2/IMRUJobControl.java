@@ -23,7 +23,6 @@ import org.apache.hadoop.fs.Path;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.GenericAggregationIMRUJobFactory;
@@ -32,7 +31,7 @@ import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 
-public class IMRUJobControl<Model extends IModel> {
+public class IMRUJobControl<Model extends Serializable> {
     public HyracksConnection hcc;
     public ConfigurationFactory confFactory;
     IJobFactory jobFactory;

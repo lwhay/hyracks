@@ -15,7 +15,9 @@
 
 package edu.uci.ics.hyracks.imru.api;
 
-public interface IMapFunctionFactory<Model extends IModel> {
+import java.io.Serializable;
+
+public interface IMapFunctionFactory<Model extends Serializable> {
     boolean useAPI2();
     IMapFunction createMapFunction(IMRUContext ctx, int cachedDataFrameSize, Model model);
     IMapFunction2 createMapFunction2(IMRUContext ctx, int cachedDataFrameSize, Model model);

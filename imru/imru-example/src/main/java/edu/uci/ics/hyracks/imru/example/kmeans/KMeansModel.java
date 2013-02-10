@@ -15,12 +15,12 @@
 
 package edu.uci.ics.hyracks.imru.example.kmeans;
 
-import edu.uci.ics.hyracks.imru.api.IModel;
+import java.io.Serializable;
 
 /**
  * IMRU model which will be used in map() and updated in update()
  */
-public class KMeansModel implements IModel {
+public class KMeansModel implements Serializable {
     Centroid[] centroids;
     public int roundsRemaining = 20;
     public double lastDistanceSum=0;

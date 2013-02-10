@@ -15,6 +15,7 @@
  */
 package edu.uci.ics.hyracks.imru.runtime.bootstrap;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,7 +28,6 @@ import edu.uci.ics.hyracks.api.io.IWorkspaceFileFactory;
 import edu.uci.ics.hyracks.api.resources.IDeallocatable;
 import edu.uci.ics.hyracks.control.nc.io.IOManager;
 import edu.uci.ics.hyracks.control.nc.resources.DefaultDeallocatableRegistry;
-import edu.uci.ics.hyracks.imru.api.IModel;
 
 /**
  * Provides context that is shared between all operators in the IMRU
@@ -57,7 +57,7 @@ public class IMRURuntimeContext implements IWorkspaceFileFactory {
      * the same machine; only one Map task loads the model from HDFS,
      * and the others use the shared copy.
      */
-    public IModel model = null;
+    public Serializable model = null;
     /**
      * The round that the current global model was loaded in.
      */

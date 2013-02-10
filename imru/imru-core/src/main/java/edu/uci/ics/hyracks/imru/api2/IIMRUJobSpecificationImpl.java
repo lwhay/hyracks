@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.imru.api2;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
@@ -38,7 +39,6 @@ import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
@@ -54,13 +54,18 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * @author wangrui
  * @param <Model>
  */
-public class IIMRUJobSpecificationImpl<Model extends IModel> implements IIMRUJobSpecification<Model> {
+public class IIMRUJobSpecificationImpl<Model extends Serializable> implements IIMRUJobSpecification<Model> {
     private static final int BYTES_IN_INT = 4;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
     IIMRUJob2<Model> job2;
 
     public IIMRUJobSpecificationImpl(IIMRUJob2<Model> job2) {
         this.job2 = job2;
+    }
+    
+     @Override
+    public Model initModel() {
+        return job2.initModel();
     }
 
     @Override

@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -44,7 +45,6 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api.IOneByOneUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
@@ -61,7 +61,7 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
  * @param <Model>
  *            Josh Rosen
  */
-public class UpdateOperatorDescriptor<Model extends IModel> extends IMRUOperatorDescriptor<Model> {
+public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOperatorDescriptor<Model> {
 
     private static final long serialVersionUID = 1L;
     private static Logger LOG = Logger.getLogger(UpdateOperatorDescriptor.class.getName());
@@ -91,7 +91,7 @@ public class UpdateOperatorDescriptor<Model extends IModel> extends IMRUOperator
         this.envOutPath = envOutPath;
     }
 
-    private static class UpdateOperatorNodePushable<Model extends IModel> extends
+    private static class UpdateOperatorNodePushable<Model extends Serializable> extends
             AbstractUnaryInputSinkOperatorNodePushable {
 
         private final IIMRUJobSpecification<Model> imruSpec;

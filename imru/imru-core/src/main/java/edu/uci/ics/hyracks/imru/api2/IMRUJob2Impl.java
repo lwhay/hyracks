@@ -36,10 +36,9 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
-public class IMRUJob2Impl<Model extends IModel, Data extends Serializable, T extends Serializable> implements
+public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable, T extends Serializable> implements
         IIMRUJob2<Model> {
     int fieldCount = 1;
     IIMRUJob<Model, Data, T> job;

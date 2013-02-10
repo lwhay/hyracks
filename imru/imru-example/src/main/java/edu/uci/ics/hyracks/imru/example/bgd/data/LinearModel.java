@@ -15,9 +15,9 @@
 
 package edu.uci.ics.hyracks.imru.example.bgd.data;
 
-import edu.uci.ics.hyracks.imru.api.IModel;
+import java.io.Serializable;
 
-public class LinearModel implements IModel {
+public class LinearModel implements Serializable {
 
     private static final long serialVersionUID = 1L;
     public final int numFeatures;

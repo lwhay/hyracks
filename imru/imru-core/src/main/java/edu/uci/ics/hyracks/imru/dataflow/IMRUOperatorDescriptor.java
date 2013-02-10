@@ -1,12 +1,13 @@
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.Serializable;
+
 import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 
-abstract public class IMRUOperatorDescriptor<Model extends IModel> extends AbstractSingleActivityOperatorDescriptor {
+abstract public class IMRUOperatorDescriptor<Model extends Serializable> extends AbstractSingleActivityOperatorDescriptor {
     protected final IIMRUJobSpecification<Model> imruSpec;
     protected final IConfigurationFactory confFactory;
 

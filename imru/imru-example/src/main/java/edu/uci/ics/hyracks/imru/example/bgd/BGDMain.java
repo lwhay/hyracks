@@ -149,8 +149,8 @@ public class BGDMain {
                 throw new IllegalArgumentException("Invalid aggregation tree type");
             }
 
-            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(8000);
             LinearModel initalModel = new LinearModel(8000, options.numRounds);
+            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(initalModel, 8000);
 
             IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc, imruSpec, initalModel, jobFactory, conf,
                     options.tempPath, options.app);

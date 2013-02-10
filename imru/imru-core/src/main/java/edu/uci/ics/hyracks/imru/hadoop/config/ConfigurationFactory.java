@@ -16,8 +16,10 @@ package edu.uci.ics.hyracks.imru.hadoop.config;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -45,7 +47,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
      * @param conf
      */
     public ConfigurationFactory(String hadoopConfPath) {
-        this.hadoopConfPath=hadoopConfPath;
+        this.hadoopConfPath = hadoopConfPath;
         hasConf = hadoopConfPath != null;
     }
 
@@ -56,6 +58,26 @@ public class ConfigurationFactory implements IConfigurationFactory {
             Configuration conf = createConfiguration();
             FileSystem dfs = FileSystem.get(conf);
             return dfs.open(new Path(path));
+        }
+    }
+
+    public OutputStream getOutputStream(String path) throws IOException {
+        if (!hasConf) {
+            return new FileOutputStream(new File(path));
+        } else {
+            Configuration conf = createConfiguration();
+            FileSystem dfs = FileSystem.get(conf);
+            return dfs.create(new Path(path), true);
+        }
+    }
+
+    public boolean exists(String path) throws IOException {
+        if (!hasConf) {
+            return new File(path).exists();
+        } else {
+            Configuration conf = createConfiguration();
+            FileSystem dfs = FileSystem.get(conf);
+            return dfs.exists(new Path(path));
         }
     }
 

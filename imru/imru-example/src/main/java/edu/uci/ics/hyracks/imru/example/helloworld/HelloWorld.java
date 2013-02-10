@@ -90,8 +90,8 @@ public class HelloWorld {
             //                        args = defaultArgs(false);
             args = defaultArgs(false);
 
-        HelloWorldModel finalModel = Client.run(new HelloWorldJob(), args);
-        System.out.println("FinalModel: " + finalModel.sentence);
+        String finalModel = Client.run(new HelloWorldJob(), args);
+        System.out.println("FinalModel: " + finalModel);
         System.exit(0);
     }
 }

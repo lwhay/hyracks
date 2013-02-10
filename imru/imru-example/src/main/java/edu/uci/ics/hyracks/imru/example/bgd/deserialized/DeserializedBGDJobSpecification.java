@@ -27,7 +27,8 @@ import edu.uci.ics.hyracks.imru.example.bgd.data.LibsvmExampleTupleParserFactory
 import edu.uci.ics.hyracks.imru.example.bgd.data.LinearModel;
 import edu.uci.ics.hyracks.imru.example.bgd.deserialized.DeserializedBGDJobSpecification.LossGradient;
 
-public class DeserializedBGDJobSpecification extends AbstractDeserializingIMRUJobSpecification<LinearModel, LossGradient>{
+public class DeserializedBGDJobSpecification extends
+        AbstractDeserializingIMRUJobSpecification<LinearModel, LossGradient> {
 
     public static class LossGradient implements Serializable {
         float loss;
@@ -36,8 +37,16 @@ public class DeserializedBGDJobSpecification extends AbstractDeserializingIMRUJo
 
     private final int numFeatures;
 
-    public DeserializedBGDJobSpecification(int numFeatures) {
+    LinearModel model;
+
+    public DeserializedBGDJobSpecification(LinearModel model, int numFeatures) {
         this.numFeatures = numFeatures;
+        this.model = model;
+    }
+
+    @Override
+    public LinearModel initModel() {
+        return model;
     }
 
     @Override
@@ -54,7 +63,6 @@ public class DeserializedBGDJobSpecification extends AbstractDeserializingIMRUJo
     public boolean shouldTerminate(LinearModel model) {
         return model.roundsRemaining == 0;
     }
-
 
     @Override
     public IDeserializedMapFunctionFactory<LossGradient, LinearModel> getDeserializedMapFunctionFactory() {

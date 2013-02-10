@@ -15,9 +15,9 @@
 
 package edu.uci.ics.hyracks.imru.example.digitRecognition;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -26,7 +26,7 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * @author wangrui
  * 
  */
-public class NeuralNetwork implements IModel {
+public class NeuralNetwork implements Serializable {
 //    public static final long serialVersionUID=10000;
     public static final double scaleUp = 1.7159;
     public static final double scaleDown = 0.66666667;

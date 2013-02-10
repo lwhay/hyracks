@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.Serializable;
 
 import edu.uci.ics.hyracks.ec2.HyracksEC2Cluster;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
@@ -58,7 +57,7 @@ public class ImruEC2 {
         return path.toString();
     }
 
-    public <M extends IModel, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
+    public <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
             String appName, String paths) throws Exception {
 //        cluster.printLogs(-1);
         String clusterIp = cluster.getClusterControllerPublicDnsName();

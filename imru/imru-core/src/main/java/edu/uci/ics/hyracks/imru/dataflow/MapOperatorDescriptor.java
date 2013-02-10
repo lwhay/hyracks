@@ -20,6 +20,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.logging.Logger;
@@ -43,7 +46,6 @@ import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
@@ -60,7 +62,7 @@ import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
  *            persisted between iterations.
  * @author Josh Rosen
  */
-public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDescriptor<Model> {
+public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOperatorDescriptor<Model> {
 
     private static Logger LOG = Logger.getLogger(MapOperatorDescriptor.class.getName());
 
@@ -92,7 +94,7 @@ public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDes
         this.roundNum = roundNum;
     }
 
-    private static class MapOperatorNodePushable<Model extends IModel> extends
+    private static class MapOperatorNodePushable<Model extends Serializable> extends
             AbstractUnaryOutputSourceOperatorNodePushable {
 
         private final IHyracksTaskContext ctx;
@@ -132,6 +134,13 @@ public class MapOperatorDescriptor<Model extends IModel> extends IMRUOperatorDes
                 if (context.modelAge < roundNum) {
                     try {
                         long start = System.currentTimeMillis();
+                        if (!confFactory.exists(envInPath)) {
+                            model = imruSpec.initModel();
+                            OutputStream out = confFactory.getOutputStream(envInPath);
+                            ObjectOutputStream output = new ObjectOutputStream(out);
+                            output.writeObject(model);
+                            output.close();
+                        }
                         InputStream fileInput = confFactory.getInputStream(envInPath);
                         ObjectInputStream input = new ObjectInputStream(fileInput);
                         model = (Model) input.readObject();

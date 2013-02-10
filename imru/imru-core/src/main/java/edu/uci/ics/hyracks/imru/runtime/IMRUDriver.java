@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.util.EnumSet;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -39,7 +40,6 @@ import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
@@ -51,7 +51,7 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  *            persisted between iterations.
  * @author Josh Rosen
  */
-public class IMRUDriver<Model extends IModel> {
+public class IMRUDriver<Model extends Serializable> {
     private final static Logger LOGGER = Logger.getLogger(IMRUDriver.class.getName());
     private final IIMRUJobSpecification<Model> imruSpec;
     private Model model;
@@ -275,7 +275,7 @@ public class IMRUDriver<Model extends IModel> {
      *            The DFS file to write the updated model to.
      * @throws IOException
      */
-    private void writeModelToFile(IModel model, Path modelPath) throws IOException {
+    private void writeModelToFile(Serializable model, Path modelPath) throws IOException {
         // Serialize the model so it can be read during the next
         // iteration.
         

@@ -31,13 +31,13 @@ import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
  * Core IMRU application specific code.
  * The dataflow is parse->map->reduce->update
  */
-public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, HelloWorldResult> {
+public class HelloWorldJob implements IIMRUJob<String, String, String> {
     /**
      * Return initial model
      */
     @Override
-    public HelloWorldModel initModel() {
-        return new HelloWorldModel();
+    public String initModel() {
+        return "";
     }
 
     /**
@@ -52,13 +52,13 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
      * Parse input data and output data objects
      */
     @Override
-    public void parse(IMRUContext ctx, InputStream input, DataWriter<HelloWorldData> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input, DataWriter<String> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
         String line = reader.readLine();
         reader.close();
         for (String s : line.split(" ")) {
             System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + s);
-            output.addData(new HelloWorldData(s));
+            output.addData(new String(s));
         }
     }
 
@@ -66,13 +66,12 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
      * For a list of data objects, return one result
      */
     @Override
-    public HelloWorldResult map(IMRUContext ctx, Iterator<HelloWorldData> input, HelloWorldModel model)
-            throws IOException {
-        HelloWorldResult result = new HelloWorldResult();
+    public String map(IMRUContext ctx, Iterator<String> input, String model) throws IOException {
+        String result = "";
         while (input.hasNext()) {
-            String word = input.next().word;
-            result.sentence += word;
-            System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + word + " -> " + result.sentence);
+            String word = input.next();
+            result += word;
+            System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + word + " -> " + result);
         }
         return result;
     }
@@ -81,22 +80,22 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
      * Combine multiple results to one result
      */
     @Override
-    public HelloWorldResult reduce(IMRUContext ctx, Iterator<HelloWorldResult> input) throws IMRUDataException {
-        HelloWorldResult combined = new HelloWorldResult();
+    public String reduce(IMRUContext ctx, Iterator<String> input) throws IMRUDataException {
+        String combined = new String();
         StringBuilder sb = new StringBuilder();
-        combined.sentence = "(";
+        combined = "(";
         while (input.hasNext()) {
-            HelloWorldResult result = input.next();
+            String result = input.next();
             if (sb.length() > 0)
                 sb.append("+");
-            sb.append(result.sentence);
-            combined.sentence += result.sentence;
+            sb.append(result);
+            combined += result;
         }
-        combined.sentence += ")_" + ctx.getNodeId();
+        combined += ")_" + ctx.getNodeId();
         IMRUReduceContext reduceContext = (IMRUReduceContext) ctx;
         System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + "-"
                 + (reduceContext.isLocalReducer() ? "L" : reduceContext.getReducerLevel()) + ": " + sb + " -> "
-                + combined.sentence);
+                + combined);
         return combined;
     }
 
@@ -104,24 +103,22 @@ public class HelloWorldJob implements IIMRUJob<HelloWorldModel, HelloWorldData, 
      * update the model using combined result
      */
     @Override
-    public void update(IMRUContext ctx, Iterator<HelloWorldResult> input, HelloWorldModel model)
-            throws IMRUDataException {
+    public void update(IMRUContext ctx, Iterator<String> input, String model) throws IMRUDataException {
         StringBuilder sb = new StringBuilder();
-        sb.append("(" + model.sentence + ")");
+        sb.append("(" + model + ")");
         while (input.hasNext()) {
-            HelloWorldResult result = input.next();
-            sb.append("+" + result.sentence);
-            model.sentence += result.sentence;
+            String result = input.next();
+            sb.append("+" + result);
+            model += result;
         }
-        System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + sb + " -> " + model.sentence);
-        model.roundsRemaining--;
+        System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + sb + " -> " + model);
     }
 
     /**
      * Return true to exit loop
      */
     @Override
-    public boolean shouldTerminate(HelloWorldModel model) {
-        return model.roundsRemaining == 0;
+    public boolean shouldTerminate(String model) {
+        return true;
     }
 }

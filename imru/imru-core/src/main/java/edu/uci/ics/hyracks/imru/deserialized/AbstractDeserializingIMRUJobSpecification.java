@@ -32,7 +32,6 @@ import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.api.IMapFunction;
 import edu.uci.ics.hyracks.imru.api.IMapFunction2;
 import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
-import edu.uci.ics.hyracks.imru.api.IModel;
 import edu.uci.ics.hyracks.imru.api.IReassemblingReduceFunction;
 import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
 import edu.uci.ics.hyracks.imru.api.IReduceFunction;
@@ -52,7 +51,7 @@ import edu.uci.ics.hyracks.imru.api.IUpdateFunctionFactory;
  *            serializable.
  * @author Josh Rosen
  */
-public abstract class AbstractDeserializingIMRUJobSpecification<Model extends IModel, T extends Serializable>
+public abstract class AbstractDeserializingIMRUJobSpecification<Model extends Serializable, T extends Serializable>
         implements IIMRUJobSpecification<Model>, IDeserializingIMRUJobSpecification<T, Model> {
 
     private static final long serialVersionUID = 1L;

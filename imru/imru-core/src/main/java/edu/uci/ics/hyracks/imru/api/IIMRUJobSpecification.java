@@ -21,7 +21,7 @@ import java.util.Iterator;
 
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
-public interface IIMRUJobSpecification<Model extends IModel> extends Serializable {
+public interface IIMRUJobSpecification<Model extends Serializable> extends Serializable {
     /* Data Loading */
     /**
      * Returns the size of cached data frames.
@@ -34,6 +34,7 @@ public interface IIMRUJobSpecification<Model extends IModel> extends Serializabl
      */
     int getCachedDataFrameSize();
 
+    Model initModel(); 
     /**
      * @return A tuple parser factory for parsing the input records.
      */

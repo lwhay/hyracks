@@ -28,9 +28,16 @@ public class BGDJobSpecification implements IIMRUJobSpecification<LinearModel> {
 
     private static final long serialVersionUID = 1L;
     private final int numFeatures;
+    LinearModel model;
 
-    public BGDJobSpecification(int numFeatures) {
+    public BGDJobSpecification(LinearModel model, int numFeatures) {
         this.numFeatures = numFeatures;
+        this.model = model;
+    }
+
+    @Override
+    public LinearModel initModel() {
+        return model;
     }
 
     @Override
