@@ -16,26 +16,100 @@
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
+import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class TupleReader extends DataInputStream {
     Iterator<ByteBuffer> input;
-    FrameTupleAccessor accessor;
+    IFrameTupleAccessor accessor;
     ByteBufferInputStream in;
     int tupleId;
     int tupleCount;
 
-    public TupleReader(Iterator<ByteBuffer> input, FrameTupleAccessor accessor, ByteBufferInputStream in) {
+    public TupleReader(ByteBuffer input, int frameSize, int fieldCount) {
+        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(
+                new ISerializerDeserializer[fieldCount])),
+                new ByteBufferInputStream());
+    }
+
+    public TupleReader(Iterator<ByteBuffer> input, int frameSize, int fieldCount) {
+        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(
+                new ISerializerDeserializer[fieldCount])),
+                new ByteBufferInputStream());
+    }
+
+    public TupleReader(Iterator<ByteBuffer> input, FrameTupleAccessor accessor,
+            ByteBufferInputStream in) {
         super(in);
         this.input = input;
         this.accessor = accessor;
         this.in = in;
         tupleId = 0;
         tupleCount = 0;
+    }
+
+    public TupleReader(final ByteBuffer input, FrameTupleAccessor accessor,
+            ByteBufferInputStream in) {
+        super(in);
+        this.input = new Iterator<ByteBuffer>() {
+            boolean first = true;
+
+            @Override
+            public void remove() {
+            }
+
+            public ByteBuffer next() {
+                if (first) {
+                    first = false;
+                    return input;
+                }
+                return null;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return first;
+            }
+        };
+        this.accessor = accessor;
+        this.in = in;
+        tupleId = 0;
+        tupleCount = 0;
+    }
+
+    public TupleReader(IFrameTupleAccessor accessor, int tupleId) {
+        this(accessor, new ByteBufferInputStream(), tupleId);
+    }
+
+    public TupleReader(IFrameTupleAccessor accessor, ByteBufferInputStream in,
+            int tupleId) {
+        super(in);
+        this.input = new Iterator<ByteBuffer>() {
+            @Override
+            public void remove() {
+            }
+
+            public ByteBuffer next() {
+                return null;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return false;
+            }
+        };
+        this.accessor = accessor;
+        this.in = in;
+        this.tupleId = tupleId;
+        tupleCount = accessor.getTupleCount();
     }
 
     public boolean hasNextTuple() {
@@ -59,10 +133,22 @@ public class TupleReader extends DataInputStream {
     }
 
     public void seekToField(int fieldId) {
-        int startOffset = accessor.getFieldSlotsLength() + accessor.getTupleStartOffset(tupleId)
+        int startOffset = accessor.getFieldSlotsLength()
+                + accessor.getTupleStartOffset(tupleId)
                 + accessor.getFieldStartOffset(tupleId, fieldId);
-        // R.printHex(0, accessor.getBuffer().array(), startOffset, 256);
-        // R.p("offset " + startOffset);
+        //        Rt.p(accessor.getBuffer().array().length);
         in.setByteBuffer(accessor.getBuffer(), startOffset);
+    }
+
+    public String readString() throws IOException {
+        int len = readInt();
+        char[] cs = new char[len];
+        for (int i = 0; i < len; i++)
+            cs[i] = readChar();
+        return new String(cs);
+    }
+
+    public int getFieldLength(int fieldId) {
+        return accessor.getFieldLength(tupleId, fieldId);
     }
 }

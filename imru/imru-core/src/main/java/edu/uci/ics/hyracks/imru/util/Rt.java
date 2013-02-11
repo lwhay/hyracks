@@ -25,6 +25,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class Rt {
+    public static boolean showTime = false;
+
     public static void p(Object object) {
         p((String) ("" + object), new Object[0]);
     }
@@ -43,7 +45,9 @@ public class Rt {
             }
         }
         String line = "(" + e2.getFileName() + ":" + e2.getLineNumber() + ")";
-        String info = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + " " + line;
+        String info = (showTime ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                .format(new Date()) + " " : "")
+                + line;
         synchronized (System.out) {
             System.out.println(info + ": " + String.format(format, args));
         }
@@ -74,13 +78,20 @@ public class Rt {
         return new String(read(new FileInputStream(file)));
     }
 
+    public static void write(File file, byte[] bs) throws IOException {
+        FileOutputStream fileOutputStream = new FileOutputStream(file);
+        fileOutputStream.write(bs);
+        fileOutputStream.close();
+    }
+
     public static void append(File file, String s) throws IOException {
         FileOutputStream fileOutputStream = new FileOutputStream(file, true);
         fileOutputStream.write(s.getBytes());
         fileOutputStream.close();
     }
 
-    public static void showInputStream(final InputStream is, final StringBuilder sb) {
+    public static void showInputStream(final InputStream is,
+            final StringBuilder sb) {
         new Thread() {
             @Override
             public void run() {
@@ -125,7 +136,8 @@ public class Rt {
         return runAndShowCommand(cmd, null);
     }
 
-    public static String runAndShowCommand(String cmd, File dir) throws IOException {
+    public static String runAndShowCommand(String cmd, File dir)
+            throws IOException {
         Process process = Runtime.getRuntime().exec(cmd, null, dir);
         StringBuilder sb = new StringBuilder();
         showInputStream(process.getInputStream(), sb);
@@ -134,6 +146,53 @@ public class Rt {
             process.waitFor();
         } catch (InterruptedException e) {
             e.printStackTrace();
+        }
+        return sb.toString();
+    }
+
+    public static String getHex(long address, byte[] bs, int offset,
+            int length, boolean simple) {
+        if (length > bs.length - offset)
+            length = bs.length - offset;
+        int col = 16;
+        int row = (length - 1) / col + 1;
+        int len = 0;
+        for (long t = address; t > 0; t >>= 4) {
+            len++;
+        }
+        len++;
+        StringBuilder sb = new StringBuilder();
+        for (int y = 0; y < row; y++) {
+            if (simple)
+                sb.append(String.format("%04x ", address + y * col));
+            else
+                sb.append(String.format("%" + len + "x:  ", address + y * col));
+            for (int x = 0; x < col; x++) {
+                if (!simple && x > 0 && x % 4 == 0)
+                    sb.append("- ");
+                int index = y * col + x;
+                if (index < length)
+                    sb.append(String.format("%02X ", bs[offset + index]));
+                else
+                    sb.append("   ");
+            }
+            if (!simple) {
+                sb.append(" ");
+                for (int x = 0; x < col; x++) {
+                    // if (x > 0 && x % 4 == 0)
+                    // System.out.print(" - ");
+                    char c;
+                    int index = y * col + x;
+                    if (index < length)
+                        c = (char) bs[offset + index];
+                    else
+                        c = ' ';
+                    if (c < 32 || c >= 127)
+                        c = '.';
+                    sb.append(c);
+                }
+            }
+            sb.append("\n");
         }
         return sb.toString();
     }

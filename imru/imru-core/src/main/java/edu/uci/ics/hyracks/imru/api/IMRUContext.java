@@ -14,6 +14,10 @@ public class IMRUContext {
     private String nodeId;
     private IHyracksTaskContext ctx;
 
+    public IMRUContext(IHyracksTaskContext ctx) {
+        this(ctx, null);
+    }
+
     public IMRUContext(IHyracksTaskContext ctx, String operatorName) {
         this.ctx = ctx;
         this.operatorName = operatorName;
