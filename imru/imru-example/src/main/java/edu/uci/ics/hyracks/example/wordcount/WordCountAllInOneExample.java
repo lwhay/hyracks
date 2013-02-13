@@ -103,7 +103,7 @@ public class WordCountAllInOneExample {
         }
     }
 
-    private static FileSplit[] parseFileSplits(String fileSplits) {
+    public static FileSplit[] parseFileSplits(String fileSplits) {
         String[] splits = fileSplits.split(",");
         FileSplit[] fSplits = new FileSplit[splits.length];
         for (int i = 0; i < splits.length; ++i) {
@@ -115,7 +115,7 @@ public class WordCountAllInOneExample {
         return fSplits;
     }
 
-    private static void createPartitionConstraint(JobSpecification spec,
+    public static void createPartitionConstraint(JobSpecification spec,
             IOperatorDescriptor op, FileSplit[] splits) {
         String[] parts = new String[splits.length];
         for (int i = 0; i < splits.length; i++)
@@ -124,7 +124,7 @@ public class WordCountAllInOneExample {
                 .addAbsoluteLocationConstraint(spec, op, parts);
     }
 
-    private static JobSpecification createJob(final FileSplit[] inSplits,
+    public static JobSpecification createJob(final FileSplit[] inSplits,
             final FileSplit[] outSplits) {
         JobSpecification spec = new JobSpecification();
         spec.setFrameSize(256);
@@ -180,7 +180,7 @@ public class WordCountAllInOneExample {
 
             @Override
             public void contributeActivities(IActivityGraphBuilder builder) {
-                IActivity ha = new AbstractActivityNode(new ActivityId(odId,
+                IActivity hashActivity = new AbstractActivityNode(new ActivityId(odId,
                         HASH_BUILD_ACTIVITY_ID)) {
                     @Override
                     public IOperatorNodePushable createPushRuntime(
@@ -239,7 +239,7 @@ public class WordCountAllInOneExample {
                         };
                     }
                 };
-                IActivity oa = new AbstractActivityNode(new ActivityId(odId,
+                IActivity outputActivity = new AbstractActivityNode(new ActivityId(odId,
                         OUTPUT_ACTIVITY_ID)) {
                     @Override
                     public IOperatorNodePushable createPushRuntime(
@@ -281,11 +281,11 @@ public class WordCountAllInOneExample {
                         };
                     }
                 };
-                builder.addActivity(this, ha);
-                builder.addActivity(this, oa);
-                builder.addSourceEdge(0, ha, 0);
-                builder.addTargetEdge(0, oa, 0);
-                builder.addBlockingEdge(ha, oa);
+                builder.addActivity(this, hashActivity);
+                builder.addActivity(this, outputActivity);
+                builder.addSourceEdge(0, hashActivity, 0);
+                builder.addTargetEdge(0, outputActivity, 0);
+                builder.addBlockingEdge(hashActivity, outputActivity);
             }
         };
 
@@ -386,8 +386,8 @@ public class WordCountAllInOneExample {
     public static void main(String[] args) throws Exception {
         //start cluster controller
         CCConfig ccConfig = new CCConfig();
-        ccConfig.clientNetIpAddress = "localhost";
-        ccConfig.clusterNetIpAddress = "localhost";
+        ccConfig.clientNetIpAddress = "127.0.0.1";
+        ccConfig.clusterNetIpAddress = "127.0.0.1";
         ccConfig.clusterNetPort = 1099;
         ccConfig.clientNetPort = 3099;
         ccConfig.defaultMaxJobAttempts = 0;
@@ -399,9 +399,9 @@ public class WordCountAllInOneExample {
 
         for (int i = 0; i < 2; i++) {
             NCConfig config = new NCConfig();
-            config.ccHost = "localhost";
-            config.clusterNetIPAddress = "localhost";
+            config.ccHost = "127.0.0.1";
             config.ccPort = 1099;
+            config.clusterNetIPAddress = "127.0.0.1";
             config.dataIPAddress = "127.0.0.1";
             config.nodeId = "NC" + i;
             NodeControllerService nc = new NodeControllerService(config);

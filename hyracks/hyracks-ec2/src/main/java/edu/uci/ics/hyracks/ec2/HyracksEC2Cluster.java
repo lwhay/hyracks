@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.ec2;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -38,6 +39,8 @@ import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 import com.amazonaws.services.ec2.model.TerminateInstancesResult;
 
+import edu.uci.ics.hyracks.api.client.HyracksConnection;
+
 /**
  * @author wangrui
  */
@@ -46,6 +49,7 @@ public class HyracksEC2Cluster {
     public static int MAX_COUNT = 3;
     public static final String HYRACKS_SECURITY_GROUP = "hyracks-security-group";
     public static final String OPENED_PORTS = "22,1099,3099,16001";
+    public static String NODE_NAME_PREFIX = "hyracks-auto-deploy-";
     EC2Wrapper ec2;
     String keyName;
     String instancePrefix;
@@ -60,6 +64,10 @@ public class HyracksEC2Cluster {
     String imageId = FULLSTACK_IMRU_IMAGE_ID;
     Hashtable<Integer, HyracksEC2Node> nodeIdHash = new Hashtable<Integer, HyracksEC2Node>();
     Hashtable<String, HyracksEC2Node> nodeNameHash = new Hashtable<String, HyracksEC2Node>();
+
+    public HyracksEC2Cluster(File credentialsFile, File privateKeyFile) throws Exception {
+        this(credentialsFile, privateKeyFile, NODE_NAME_PREFIX);
+    }
 
     public HyracksEC2Cluster(File credentialsFile, File privateKeyFile, String instancePrefix) throws Exception {
         if (!credentialsFile.exists())
@@ -432,6 +440,46 @@ public class HyracksEC2Cluster {
         }
     }
 
+    public SSH ssh(int nodeId) throws Exception {
+        HyracksEC2Node node = nodeIdHash.get(nodeId);
+        if (node == null)
+            throw new Exception("Can't find node " + nodeId);
+        return node.ssh();
+    }
+
+    public String getControllerPublicDnsName() {
+        return controller.instance.getPublicDnsName();
+    }
+
+    public String getNodePublicDnsName(int nodeId) throws IOException {
+        HyracksEC2Node node = nodeIdHash.get(nodeId);
+        if (node == null)
+            throw new IOException("Can't find node " + nodeId);
+        return node.instance.getPublicDnsName();
+    }
+
+    public void write(int nodeId, String path, byte[] data) throws Exception {
+        SSH ssh = ssh(nodeId);
+        try {
+            ssh.put(path, new ByteArrayInputStream(data));
+        } finally {
+            ssh.close();
+        }
+    }
+
+    public byte[] read(int nodeId, String path) throws Exception {
+        SSH ssh = ssh(nodeId);
+        try {
+            return Rt.read(ssh.get(path));
+        } finally {
+            ssh.close();
+        }
+    }
+
+    public HyracksConnection getHyracksConnection() throws Exception {
+        return new HyracksConnection(controller.instance.getPublicDnsName(), 3099);
+    }
+
     public void printProcesses(int id) throws Exception {
         if (id < 0) {
             for (HyracksEC2Node node : nodes)
@@ -443,7 +491,7 @@ public class HyracksEC2Cluster {
         }
     }
 
-    public void printLogs(int id,int lines) throws Exception {
+    public void printLogs(int id, int lines) throws Exception {
         if (id < 0) {
             for (HyracksEC2Node node : nodes)
                 node.printLogs(lines);

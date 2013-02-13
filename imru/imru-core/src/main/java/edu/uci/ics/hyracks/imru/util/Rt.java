@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -150,6 +151,9 @@ public class Rt {
         return sb.toString();
     }
 
+    public static void p(ByteBuffer buffer) {
+        Rt.p(Rt.getHex(0, buffer.array(), 0, 256, false));
+    }
     public static String getHex(long address, byte[] bs, int offset,
             int length, boolean simple) {
         if (length > bs.length - offset)

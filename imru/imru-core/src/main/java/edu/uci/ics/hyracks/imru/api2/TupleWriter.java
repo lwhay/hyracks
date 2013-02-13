@@ -34,6 +34,17 @@ public class TupleWriter implements DataOutput {
     FrameTupleAppender appender;
     ArrayTupleBuilder tb;
 
+    public TupleWriter(IHyracksTaskContext ctx, ByteBuffer frame, int nFields) {
+        this.frame = frame;
+        appender = new FrameTupleAppender(ctx.getFrameSize());
+        appender.reset(frame, true);
+        tb = new ArrayTupleBuilder(nFields);
+        dos = tb.getDataOutput();
+        // create a new frame
+        appender.reset(frame, true);
+        tb.reset();
+    }
+
     public TupleWriter(IMRUContext ctx, FrameWriter writer, int nFields) {
         this.writer = writer;
         frame = ctx.allocateFrame();
@@ -68,21 +79,19 @@ public class TupleWriter implements DataOutput {
      * @throws HyracksDataException
      */
     public void finishFrame() throws HyracksDataException {
-        writer.writeFrame(frame);
+        if (writer != null)
+            writer.writeFrame(frame);
         appender.reset(frame, true);
     }
 
     public void finishTuple() throws HyracksDataException {
-        if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0,
-                tb.getSize())) {
+        if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
             writer.writeFrame(frame);
             appender.reset(frame, true);
-            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0,
-                    tb.getSize())) {
+            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 // LOG.severe("Example too large to fit in frame: " +
                 // line);
-                throw new HyracksDataException(
-                        "Example too large to fit in frame");
+                throw new HyracksDataException("Example too large to fit in frame");
             }
         }
         tb.reset();

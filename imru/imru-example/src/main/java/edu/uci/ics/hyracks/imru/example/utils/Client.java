@@ -453,9 +453,13 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public void uploadApp() throws Exception {
+        uploadApp(hcc, options.app, options.hadoopConfPath != null);
+    }
+
+    public static void uploadApp(IHyracksClientConnection hcc, String appName, boolean includeHadoop) throws Exception {
         final File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
-        CreateHar.createHar(harFile, options.hadoopConfPath != null);
+        CreateHar.createHar(harFile, includeHadoop);
         out.close();
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
@@ -468,17 +472,17 @@ public class Client<Model extends Serializable> {
             }
         }, 2000);
         try {
-            hcc.createApplication(options.app, harFile);
+            hcc.createApplication(appName, harFile);
         } catch (Exception e) {
             e.printStackTrace();
             try {
-                Rt.p("Remove application " + options.app);
-                hcc.destroyApplication(options.app);
+                Rt.p("Remove application " + appName);
+                hcc.destroyApplication(appName);
             } catch (Exception e1) {
                 e1.printStackTrace();
             }
-            Rt.p("Upload application " + options.app);
-            hcc.createApplication(options.app, harFile);
+            Rt.p("Upload application " + appName);
+            hcc.createApplication(appName, harFile);
         }
         timer.cancel();
         harFile.delete();

@@ -110,9 +110,9 @@ public class GenericAggregationIMRUJobFactory extends AbstractIMRUJobFactory {
         IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(spec);
         spec.connect(reduceUpdateConn, reduceOperator, 0, updateOperator, 0);
 
-        if (expand)
-            ExpandTreeFactory.buildExpandTree(spec, updateOperator, 0, 2, mapOperatorLocations, imruSpec, modelInPath,
-                    confFactory, modelOutPath);
+//        if (expand)
+//            ExpandTreeFactory.buildExpandTree(spec, updateOperator, 0, 2, mapOperatorLocations, imruSpec, modelInPath,
+//                    confFactory, modelOutPath);
 
         spec.addRoot(updateOperator);
         return spec;

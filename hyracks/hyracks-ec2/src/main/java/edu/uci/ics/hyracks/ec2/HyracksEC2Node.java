@@ -34,7 +34,8 @@ public class HyracksEC2Node {
     String name;
     Instance instance;
 
-    public HyracksEC2Node(HyracksEC2Cluster cluster, int nodeId, Instance instance) {
+    public HyracksEC2Node(HyracksEC2Cluster cluster, int nodeId,
+            Instance instance) {
         this.cluster = cluster;
         this.nodeId = nodeId;
         this.instance = instance;
@@ -86,6 +87,10 @@ public class HyracksEC2Node {
         }
     }
 
+    public SSH ssh() throws Exception {
+        return cluster.ec2.ssh(instance);
+    }
+
     public void startCC() throws Exception {
         SSH ssh = cluster.ec2.ssh(instance);
         try {
@@ -96,7 +101,8 @@ public class HyracksEC2Node {
             }
             Rt.p("starting CC");
             ssh.execute("cd " + HYRACKS_PATH);
-            ssh.execute("nohup bin/startccWithHostIp.sh " + instance.getPrivateIpAddress());
+            ssh.execute("nohup bin/startccWithHostIp.sh "
+                    + instance.getPrivateIpAddress());
             //        ec2.ssh(instance, "cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler;"
             //                + "bin/startccWithHostIp.sh " + instance.getPrivateIpAddress());
         } finally {
@@ -114,8 +120,9 @@ public class HyracksEC2Node {
             }
             Rt.p("starting " + name);
             ssh.execute("cd " + HYRACKS_PATH);
-            ssh.execute("nohup bin/startncWithHostIpAndNodeId.sh " + cluster.controller.instance.getPrivateIpAddress()
-                    + " " + instance.getPrivateIpAddress() + " " + name);
+            ssh.execute("nohup bin/startncWithHostIpAndNodeId.sh "
+                    + cluster.controller.instance.getPrivateIpAddress() + " "
+                    + instance.getPrivateIpAddress() + " " + name);
             //        ec2.ssh(instance, "cd /home/ubuntu/fullstack_imru/hyracks/hyracks-ec2/target/appassembler;"
             //                + "bin/startncWithHostIpAndNodeId.sh " + clusterControllerInstance.getPrivateIpAddress() + " "
             //                + instance.getPrivateIpAddress() + " " + nodeId);
@@ -158,9 +165,10 @@ public class HyracksEC2Node {
     public void stopInstance() {
         Vector<String> instanceIds = new Vector<String>();
         instanceIds.add(instance.getInstanceId());
-        StopInstancesRequest stopInstancesRequest = new StopInstancesRequest().withForce(false).withInstanceIds(
-                instanceIds);
-        StopInstancesResult result = cluster.ec2.ec2.stopInstances(stopInstancesRequest);
+        StopInstancesRequest stopInstancesRequest = new StopInstancesRequest()
+                .withForce(false).withInstanceIds(instanceIds);
+        StopInstancesResult result = cluster.ec2.ec2
+                .stopInstances(stopInstancesRequest);
         Rt.p(result);
     }
 
@@ -172,7 +180,8 @@ public class HyracksEC2Node {
         instanceIds.add(instance.getInstanceId());
         TerminateInstancesRequest terminateInstancesRequest = new TerminateInstancesRequest()
                 .withInstanceIds(instanceIds);
-        TerminateInstancesResult result = cluster.ec2.ec2.terminateInstances(terminateInstancesRequest);
+        TerminateInstancesResult result = cluster.ec2.ec2
+                .terminateInstances(terminateInstancesRequest);
         Rt.p(result);
     }
 

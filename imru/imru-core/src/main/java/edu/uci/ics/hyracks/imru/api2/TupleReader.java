@@ -34,20 +34,23 @@ public class TupleReader extends DataInputStream {
     int tupleId;
     int tupleCount;
 
+    public TupleReader(ByteBuffer input, int fieldCount) {
+        this(input,
+                new FrameTupleAccessor(input.limit(), new RecordDescriptor(new ISerializerDeserializer[fieldCount])),
+                new ByteBufferInputStream());
+    }
+
     public TupleReader(ByteBuffer input, int frameSize, int fieldCount) {
-        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(
-                new ISerializerDeserializer[fieldCount])),
+        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(new ISerializerDeserializer[fieldCount])),
                 new ByteBufferInputStream());
     }
 
     public TupleReader(Iterator<ByteBuffer> input, int frameSize, int fieldCount) {
-        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(
-                new ISerializerDeserializer[fieldCount])),
+        this(input, new FrameTupleAccessor(frameSize, new RecordDescriptor(new ISerializerDeserializer[fieldCount])),
                 new ByteBufferInputStream());
     }
 
-    public TupleReader(Iterator<ByteBuffer> input, FrameTupleAccessor accessor,
-            ByteBufferInputStream in) {
+    public TupleReader(Iterator<ByteBuffer> input, FrameTupleAccessor accessor, ByteBufferInputStream in) {
         super(in);
         this.input = input;
         this.accessor = accessor;
@@ -56,8 +59,7 @@ public class TupleReader extends DataInputStream {
         tupleCount = 0;
     }
 
-    public TupleReader(final ByteBuffer input, FrameTupleAccessor accessor,
-            ByteBufferInputStream in) {
+    public TupleReader(final ByteBuffer input, FrameTupleAccessor accessor, ByteBufferInputStream in) {
         super(in);
         this.input = new Iterator<ByteBuffer>() {
             boolean first = true;
@@ -89,8 +91,7 @@ public class TupleReader extends DataInputStream {
         this(accessor, new ByteBufferInputStream(), tupleId);
     }
 
-    public TupleReader(IFrameTupleAccessor accessor, ByteBufferInputStream in,
-            int tupleId) {
+    public TupleReader(IFrameTupleAccessor accessor, ByteBufferInputStream in, int tupleId) {
         super(in);
         this.input = new Iterator<ByteBuffer>() {
             @Override
@@ -133,10 +134,10 @@ public class TupleReader extends DataInputStream {
     }
 
     public void seekToField(int fieldId) {
-        int startOffset = accessor.getFieldSlotsLength()
-                + accessor.getTupleStartOffset(tupleId)
+        int startOffset = accessor.getFieldSlotsLength() + accessor.getTupleStartOffset(tupleId)
                 + accessor.getFieldStartOffset(tupleId, fieldId);
-        //        Rt.p(accessor.getBuffer().array().length);
+//        Rt.p(accessor.getFieldSlotsLength() +" "+ accessor.getTupleStartOffset(tupleId)
+//                +" "+ accessor.getFieldStartOffset(tupleId, fieldId));
         in.setByteBuffer(accessor.getBuffer(), startOffset);
     }
 
