@@ -31,7 +31,7 @@ public class HelloWorldEC2 {
             path = ec2.uploadData(localPaths, "helloworld");
         else
             path = ec2.getSuggestedLocations(localPaths, "helloworld");
-        String finalModel = ec2.run(new HelloWorldJob(), "helloworld", path);
+        String finalModel = ec2.run(new HelloWorldJob(),"helloworld", path, "");
         System.out.println("FinalModel: " + finalModel);
         System.exit(0);
     }

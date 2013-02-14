@@ -46,9 +46,7 @@ public class Rt {
             }
         }
         String line = "(" + e2.getFileName() + ":" + e2.getLineNumber() + ")";
-        String info = (showTime ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                .format(new Date()) + " " : "")
-                + line;
+        String info = (showTime ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + " " : "") + line;
         synchronized (System.out) {
             System.out.println(info + ": " + String.format(format, args));
         }
@@ -62,6 +60,20 @@ public class Rt {
         }
     }
 
+    public static boolean bytesEquals(byte[] bs1, byte[] bs2) {
+        if (bs1.length != bs2.length)
+            return false;
+        return bytesEquals(bs1, bs2, bs1.length);
+    }
+
+    public static boolean bytesEquals(byte[] bs1, byte[] bs2, int len) {
+        for (int i = 0; i < len; i++) {
+            if (bs1[i] != bs2[i])
+                return false;
+        }
+        return true;
+    }
+
     public static byte[] read(InputStream inputStream) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         byte[] buf = new byte[1024];
@@ -73,6 +85,20 @@ public class Rt {
         }
         inputStream.close();
         return outputStream.toByteArray();
+    }
+
+    public static byte[] readFileByte(File file) throws IOException {
+        FileInputStream fileInputStream = new FileInputStream(file);
+        byte[] buf = new byte[(int) file.length()];
+        int start = 0;
+        while (start < buf.length) {
+            int len = fileInputStream.read(buf, start, buf.length - start);
+            if (len < 0)
+                break;
+            start += len;
+        }
+        fileInputStream.close();
+        return buf;
     }
 
     public static String readFile(File file) throws IOException {
@@ -91,8 +117,7 @@ public class Rt {
         fileOutputStream.close();
     }
 
-    public static void showInputStream(final InputStream is,
-            final StringBuilder sb) {
+    public static void showInputStream(final InputStream is, final StringBuilder sb) {
         new Thread() {
             @Override
             public void run() {
@@ -137,8 +162,7 @@ public class Rt {
         return runAndShowCommand(cmd, null);
     }
 
-    public static String runAndShowCommand(String cmd, File dir)
-            throws IOException {
+    public static String runAndShowCommand(String cmd, File dir) throws IOException {
         Process process = Runtime.getRuntime().exec(cmd, null, dir);
         StringBuilder sb = new StringBuilder();
         showInputStream(process.getInputStream(), sb);
@@ -154,8 +178,12 @@ public class Rt {
     public static void p(ByteBuffer buffer) {
         Rt.p(Rt.getHex(0, buffer.array(), 0, 256, false));
     }
-    public static String getHex(long address, byte[] bs, int offset,
-            int length, boolean simple) {
+
+    public static void p(byte[] bs) {
+        Rt.p(Rt.getHex(0, bs, 0, bs.length, false));
+    }
+
+    public static String getHex(long address, byte[] bs, int offset, int length, boolean simple) {
         if (length > bs.length - offset)
             length = bs.length - offset;
         int col = 16;

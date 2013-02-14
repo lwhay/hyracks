@@ -39,7 +39,7 @@ public interface IIMRUJob<Model extends Serializable, Data extends Serializable,
     /**
      * Return initial model
      */
-    public Model initModel();
+//    public Model initModel();
 
     /**
      * Frame size must be large enough to store at least one tuple
@@ -64,7 +64,7 @@ public interface IIMRUJob<Model extends Serializable, Data extends Serializable,
     /**
      * update the model using combined result
      */
-    public void update(IMRUContext ctx, Iterator<IntermediateResult> input, Model model) throws IMRUDataException;
+    public Model update(IMRUContext ctx, Iterator<IntermediateResult> input, Model model) throws IMRUDataException;
 
     /**
      * Return true to exit loop

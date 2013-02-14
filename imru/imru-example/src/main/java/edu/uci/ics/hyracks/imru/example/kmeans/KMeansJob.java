@@ -28,19 +28,9 @@ import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
 
 public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroids> {
     int k;
-    KMeansModel initModel;
 
-    public KMeansJob(int k, KMeansModel initModel) {
+    public KMeansJob(int k) {
         this.k = k;
-        this.initModel = initModel;
-    }
-
-    /**
-     * Return initial model
-     */
-    @Override
-    public KMeansModel initModel() {
-        return initModel;
     }
 
     /**
@@ -116,7 +106,7 @@ public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroi
      * update the model using combined result
      */
     @Override
-    public void update(IMRUContext ctx, Iterator<KMeansCentroids> input, KMeansModel model) throws IMRUDataException {
+    public KMeansModel update(IMRUContext ctx, Iterator<KMeansCentroids> input, KMeansModel model) throws IMRUDataException {
         KMeansCentroids combined = reduce(ctx, input);
         boolean changed = false;
         for (int i = 0; i < k; i++)
@@ -126,6 +116,7 @@ public class KMeansJob implements IIMRUJob<KMeansModel, DataPoint, KMeansCentroi
         if (!changed)
             model.roundsRemaining = 0;
         System.out.println("Model: " + model);
+        return model;
     }
 
     /**

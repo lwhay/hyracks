@@ -39,16 +39,6 @@ public class RandomSelectJob implements IIMRUJob<KMeansModel, DataPoint, KMeansS
     }
 
     /**
-     * Return initial model
-     */
-    @Override
-    public KMeansModel initModel() {
-        KMeansModel initModel = new KMeansModel(k);
-        initModel.roundsRemaining = 1;
-        return initModel;
-    }
-
-    /**
      * Frame size must be large enough to store at least one tuple
      */
     @Override
@@ -80,8 +70,7 @@ public class RandomSelectJob implements IIMRUJob<KMeansModel, DataPoint, KMeansS
     }
 
     @Override
-    public KMeansStartingPoints map(IMRUContext ctx, Iterator<DataPoint> input, KMeansModel model)
-            throws IOException {
+    public KMeansStartingPoints map(IMRUContext ctx, Iterator<DataPoint> input, KMeansModel model) throws IOException {
         KMeansStartingPoints startingPoints = new KMeansStartingPoints(k);
         while (input.hasNext()) {
             DataPoint dataPoint = input.next();
@@ -96,8 +85,7 @@ public class RandomSelectJob implements IIMRUJob<KMeansModel, DataPoint, KMeansS
      * Combine multiple results to one result
      */
     @Override
-    public KMeansStartingPoints reduce(IMRUContext ctx, Iterator<KMeansStartingPoints> input)
-            throws IMRUDataException {
+    public KMeansStartingPoints reduce(IMRUContext ctx, Iterator<KMeansStartingPoints> input) throws IMRUDataException {
         KMeansStartingPoints startingPoints = null;
         while (input.hasNext()) {
             KMeansStartingPoints result = input.next();
@@ -114,13 +102,14 @@ public class RandomSelectJob implements IIMRUJob<KMeansModel, DataPoint, KMeansS
      * update the model using combined result
      */
     @Override
-    public void update(IMRUContext ctx, Iterator<KMeansStartingPoints> input, KMeansModel model)
+    public KMeansModel update(IMRUContext ctx, Iterator<KMeansStartingPoints> input, KMeansModel model)
             throws IMRUDataException {
         KMeansStartingPoints obj = reduce(ctx, input);
         KMeansStartingPoints startingPoints = (KMeansStartingPoints) obj;
         for (int i = 0; i < k; i++)
             model.centroids[i].set(startingPoints.ps[i]);
         model.roundsRemaining--;
+        return model;
     }
 
     /**

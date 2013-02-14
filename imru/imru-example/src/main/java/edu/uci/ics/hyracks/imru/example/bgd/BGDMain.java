@@ -33,11 +33,10 @@ import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.example.bgd.data.LinearModel;
 import edu.uci.ics.hyracks.imru.example.bgd.deserialized.DeserializedBGDJobSpecification;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
-import edu.uci.ics.hyracks.imru.jobgen.GenericAggregationIMRUJobFactory;
-import edu.uci.ics.hyracks.imru.jobgen.NAryAggregationIMRUJobFactory;
-import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
+import edu.uci.ics.hyracks.imru.jobgen.IMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 
 /**
  * Generic main class for running Hyracks IMRU jobs.
@@ -115,6 +114,7 @@ public class BGDMain {
             parser.parseArgument(args);
 
             HyracksConnection hcc = new HyracksConnection(options.host, options.port);
+            IMRUConnection imruConnection = new IMRUConnection(options.host, 3288);
 
             if (!new File(options.hadoopConfPath).exists()) {
                 System.err.println("Hadoop conf path does not exist!");
@@ -130,30 +130,14 @@ public class BGDMain {
             // Hyracks cluster configuration
             ClusterConfig.setConfPath(options.clusterConfPath);
 
-            IJobFactory jobFactory;
-
-            if (options.aggTreeType.equals("none")) {
-                jobFactory = new NoAggregationIMRUJobFactory(options.examplePaths, confFactory);
-            } else if (options.aggTreeType.equals("generic")) {
-                if (options.aggCount < 1) {
-                    throw new IllegalArgumentException(
-                            "Must specify a nonnegative aggregator count using the -agg-count option");
-                }
-                jobFactory = new GenericAggregationIMRUJobFactory(options.examplePaths, confFactory, options.aggCount);
-            } else if (options.aggTreeType.equals("nary")) {
-                if (options.fanIn < 1) {
-                    throw new IllegalArgumentException("Must specify nonnegative -fan-in");
-                }
-                jobFactory = new NAryAggregationIMRUJobFactory(options.examplePaths, confFactory, options.fanIn);
-            } else {
-                throw new IllegalArgumentException("Invalid aggregation tree type");
-            }
+            IJobFactory jobFactory = new IMRUJobFactory(imruConnection, options.examplePaths, confFactory,
+                    options.aggTreeType, options.fanIn, options.aggCount);
 
             LinearModel initalModel = new LinearModel(8000, options.numRounds);
-            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(initalModel, 8000);
+            DeserializedBGDJobSpecification imruSpec = new DeserializedBGDJobSpecification(8000);
 
-            IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc, imruSpec, initalModel, jobFactory, conf,
-                    options.tempPath, options.app);
+            IMRUDriver<LinearModel> driver = new IMRUDriver<LinearModel>(hcc, imruConnection, imruSpec, initalModel,
+                    jobFactory, conf, options.app);
 
             JobStatus status = driver.run();
             if (status == JobStatus.FAILURE) {

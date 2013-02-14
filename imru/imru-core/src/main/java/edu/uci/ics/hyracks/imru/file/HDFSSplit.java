@@ -4,6 +4,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Vector;
 
@@ -22,26 +23,24 @@ import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
  * 
  * @author wangrui
  */
-public class HDFSSplit {
-    FileSplit split;
+public class HDFSSplit implements Serializable {
+    String path;
+    String[] locations;
 
-    public HDFSSplit(InputSplit split) {
-        this.split = (FileSplit) split;
+    public HDFSSplit(InputSplit split) throws IOException, InterruptedException {
+        this.path = split.toString();
+        this.locations = split.getLocations();
     }
 
-    public HDFSSplit(DataInput input) throws IOException {
-        split.readFields(input);
-    }
-
-    public void write(DataOutput output) throws IOException {
-        split.write(output);
+    public HDFSSplit(String path) throws IOException {
+        this.path=path;
     }
 
     public String[] getLocations() throws IOException {
-        return split.getLocations();
+        return locations;
     }
 
-    public static List<IMRUFileSplit> get(List<InputSplit> splits) {
+    public static List<IMRUFileSplit> get(List<InputSplit> splits) throws IOException, InterruptedException {
         Vector<IMRUFileSplit> list = new Vector<IMRUFileSplit>(splits.size());
         for (InputSplit split : splits) {
             list.add(new IMRUFileSplit(new HDFSSplit(split)));
@@ -50,7 +49,7 @@ public class HDFSSplit {
     }
 
     public InputStream getInputStream(IConfigurationFactory confFactory) throws IOException {
-        Path path = split.getPath();
+        Path path = new Path(this.path);
         Configuration conf = confFactory.createConfiguration();
         FileSystem dfs = FileSystem.get(conf);
         return HDFSUtils.open(dfs, conf, path);

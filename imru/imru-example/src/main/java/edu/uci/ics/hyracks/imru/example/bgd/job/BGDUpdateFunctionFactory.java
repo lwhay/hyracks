@@ -65,13 +65,15 @@ public class BGDUpdateFunctionFactory implements IUpdateFunctionFactory<LinearMo
             @Override
             public void update(ByteBuffer chunk) throws HyracksDataException {
                 if (!readLoss) {
-                    accessor = new FrameTupleAccessor(ctx.getFrameSize(), RecordDescriptorUtils.getDummyRecordDescriptor(1));
+                    accessor = new FrameTupleAccessor(ctx.getFrameSize(),
+                            RecordDescriptorUtils.getDummyRecordDescriptor(1));
                     accessor.reset(chunk);
                     loss += FloatPointable.getFloat(
                             chunk.array(),
                             accessor.getTupleStartOffset(0) + accessor.getFieldSlotsLength()
                                     + accessor.getFieldStartOffset(0, 0));
-                    accessor = new FrameTupleAccessor(ctx.getFrameSize(), RecordDescriptorUtils.getDummyRecordDescriptor(2));
+                    accessor = new FrameTupleAccessor(ctx.getFrameSize(),
+                            RecordDescriptorUtils.getDummyRecordDescriptor(2));
                     readLoss = true;
                 } else {
                     accessor.reset(chunk);
@@ -80,6 +82,11 @@ public class BGDUpdateFunctionFactory implements IUpdateFunctionFactory<LinearMo
                         gradientAcc.accumulate(gradientFragment);
                     }
                 }
+            }
+
+            @Override
+            public Object getUpdateModel() {
+                return model;
             }
         };
     }

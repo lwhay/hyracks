@@ -58,8 +58,8 @@ public class ImruEC2 {
     }
 
     public <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
-            String appName, String paths) throws Exception {
-//        cluster.printLogs(-1);
+            String appName, String paths, M initialModel) throws Exception {
+        //        cluster.printLogs(-1);
         String clusterIp = cluster.getClusterControllerPublicDnsName();
         Rt.p("Admin URL: " + cluster.getAdminURL());
         String cmdline = "";
@@ -68,11 +68,10 @@ public class ImruEC2 {
         cmdline += " -app " + appName;
         cmdline += " -temp-path /tmp/imru_" + appName;
         cmdline += " -example-paths " + paths;
-        cmdline += " -abondon-intermediate-models";
         cmdline += " -model-file-name helloworld";
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         String[] args = cmdline.split(" ");
-        return Client.run(job, args);
+        return Client.run(job, initialModel, args);
     }
 }

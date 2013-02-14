@@ -32,16 +32,9 @@ import edu.uci.ics.hyracks.imru.api2.TupleWriter;
 
 public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     int features;
-    int rounds;
 
-    public BGDJob(int features, int rounds) {
+    public BGDJob(int features) {
         this.features = features;
-        this.rounds = rounds;
-    }
-
-    @Override
-    public LinearModel initModel() {
-        return new LinearModel(features, rounds);
     }
 
     @Override
@@ -134,7 +127,7 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public void update(IMRUContext ctx, Iterator<LossGradient> input, LinearModel model) throws IMRUDataException {
+    public LinearModel update(IMRUContext ctx, Iterator<LossGradient> input, LinearModel model) throws IMRUDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();
@@ -153,6 +146,7 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
         }
         model.stepSize *= 0.9;
         model.roundsRemaining--;
+        return model;
     }
 
     public static double norm(float[] vec) {

@@ -25,6 +25,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.EnumSet;
+import java.util.Random;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -40,8 +41,10 @@ import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
+import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -57,16 +60,15 @@ public class IMRUDriver<Model extends Serializable> {
     private final IIMRUJobSpecification<Model> imruSpec;
     private Model model;
     private final IHyracksClientConnection hcc;
+    private final IMRUConnection imruConnection;
     private final IJobFactory jobFactory;
     private final Configuration conf;
-    private final String tempPath;
     private final String app;
     private final UUID id;
 
     private int iterationCount;
     public String modelFileName;
-    public boolean saveIntermediateModels = true;
-    public boolean useExistingModels = false;
+    public String localIntermediateModelPath;
 
     /**
      * Construct a new IMRUDriver.
@@ -87,24 +89,28 @@ public class IMRUDriver<Model extends Serializable> {
      * @param app
      *            The application name to use when running the jobs.
      */
-    public IMRUDriver(IHyracksClientConnection hcc, IIMRUJobSpecification<Model> imruSpec, Model initialModel,
-            IJobFactory jobFactory, Configuration conf, String tempPath, String app) {
+    public IMRUDriver(IHyracksClientConnection hcc, IMRUConnection imruConnection,
+            IIMRUJobSpecification<Model> imruSpec, Model initialModel, IJobFactory jobFactory, Configuration conf,
+            String app) {
         this.imruSpec = imruSpec;
         this.model = initialModel;
         this.hcc = hcc;
+        this.imruConnection = imruConnection;
         this.jobFactory = jobFactory;
         this.conf = conf;
-        this.tempPath = tempPath;
         this.app = app;
-        id = UUID.randomUUID();
+        id = jobFactory.getId();
         iterationCount = 0;
     }
 
     public String getModelName() {
+        String s;
         if (modelFileName != null)
-            return modelFileName;
+            s = modelFileName;
         else
-            return "IMRU-" + id;
+            s = "IMRU-" + id;
+        s = s.replaceAll(Pattern.quote("${NODE_ID}"), "CC");
+        return s;
     }
 
     /**
@@ -118,24 +124,15 @@ public class IMRUDriver<Model extends Serializable> {
         iterationCount = 0;
         // The path containing the model to be used as input for a
         // round.
-        Path modelInPath;
         // The path containing the updated model written by the
         // Update operator.
-        Path modelOutPath;
 
         // For the first round, the initial model is written by the
         // driver.
-        if (saveIntermediateModels)
-            writeModelToFile(model, new Path(tempPath, getModelName() + "-iter" + 0));
-        else {
-            Path path = new Path(tempPath, getModelName());
-            if (useExistingModels) {
-                if (!exists(path))
-                    writeModelToFile(model, path);
-            } else {
-                writeModelToFile(model, path);
-            }
-        }
+        if (localIntermediateModelPath!=null)
+            writeModelToFile(model, new File(localIntermediateModelPath, getModelName() + "-iter" + 0));
+
+        imruConnection.uploadModel(this.getModelName(), model);
 
         // Data load
         LOGGER.info("Starting data load");
@@ -151,17 +148,10 @@ public class IMRUDriver<Model extends Serializable> {
         // Iterations
         do {
             iterationCount++;
-            if (saveIntermediateModels) {
-                modelOutPath = new Path(tempPath, getModelName() + "-iter" + iterationCount);
-                modelInPath = new Path(tempPath, getModelName() + "-iter" + (iterationCount - 1));
-            } else {
-                modelOutPath = new Path(tempPath, getModelName());
-                modelInPath = new Path(tempPath, getModelName());
-            }
 
             LOGGER.info("Starting round " + iterationCount);
             long start = System.currentTimeMillis();
-            status = runIMRUIteration(modelInPath.toString(), modelOutPath.toString(), iterationCount);
+            status = runIMRUIteration(modelFileName, iterationCount);
             long end = System.currentTimeMillis();
             LOGGER.info("Finished round " + iterationCount + " in " + (end - start) + " milliseconds");
 
@@ -169,7 +159,10 @@ public class IMRUDriver<Model extends Serializable> {
                 LOGGER.severe("Failed during iteration " + iterationCount);
                 return JobStatus.FAILURE;
             }
-            model = readModelFromFile(modelOutPath);
+            model = (Model) imruConnection.downloadModel(this.getModelName());
+            if (localIntermediateModelPath!=null)
+                writeModelToFile(model, new File(localIntermediateModelPath, getModelName() + "-iter" + iterationCount));
+
             // TODO: clean up temporary files
         } while (!imruSpec.shouldTerminate(model));
         return JobStatus.TERMINATED;
@@ -203,7 +196,9 @@ public class IMRUDriver<Model extends Serializable> {
      * @throws Exception
      */
     private JobStatus runDataLoad() throws Exception {
-        JobSpecification job = jobFactory.generateDataLoadJob(imruSpec, id);
+        JobSpecification job = jobFactory.generateDataLoadJob(imruSpec);
+        //        byte[] bs=JavaSerializationUtils.serialize(job);
+        //        Rt.p("Dataload job size: "+bs.length);
         JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
         //        JobId jobId = hcc.createJob(app, job);
@@ -212,10 +207,10 @@ public class IMRUDriver<Model extends Serializable> {
         return hcc.getJobStatus(jobId);
     }
 
-    Path explain(Path path) {
+    File explain(File path) {
         String s = path.toString();
         s = s.replaceAll(Pattern.quote("${NODE_ID}"), "local");
-        return new Path(s);
+        return new File(s);
     }
 
     /**
@@ -230,50 +225,25 @@ public class IMRUDriver<Model extends Serializable> {
      * @return The JobStatus of the job after completion or failure.
      * @throws Exception
      */
-    private JobStatus runIMRUIteration(String envInPath, String envOutPath, int iterationNum) throws Exception {
-        JobSpecification job = jobFactory.generateJob(imruSpec, id, iterationNum, envInPath, envOutPath);
+    private JobStatus runIMRUIteration(String modelName, int iterationNum) throws Exception {
+        JobSpecification spreadjob = jobFactory.generateModelSpreadJob(modelName, iterationNum);
+        //        byte[] bs=JavaSerializationUtils.serialize(job);
+        //      Rt.p("IMRU job size: "+bs.length);
+        JobId spreadjobId = hcc.startJob(app, spreadjob, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        //        JobId jobId = hcc.createJob(app, job);
+        //        hcc.start(jobId);
+        hcc.waitForCompletion(spreadjobId);
+        if (hcc.getJobStatus(spreadjobId) == JobStatus.FAILURE)
+            return JobStatus.FAILURE;
+
+        JobSpecification job = jobFactory.generateJob(imruSpec, iterationNum, modelName);
+        //        byte[] bs=JavaSerializationUtils.serialize(job);
+        //      Rt.p("IMRU job size: "+bs.length);
         JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
         hcc.waitForCompletion(jobId);
         return hcc.getJobStatus(jobId);
-    }
-
-    private boolean exists(Path path) throws IOException {
-        path = explain(path);
-        if (conf == null)
-            return new File(path.toString()).exists();
-        FileSystem dfs = FileSystem.get(conf);
-        return dfs.exists(path);
-    }
-
-    /**
-     * Read the updated model from a file.
-     * 
-     * @param modelPath
-     *            The DFS file containing the updated model.
-     * @return The updated model.
-     * @throws IOException
-     * @throws ClassNotFoundException
-     */
-    private Model readModelFromFile(Path modelPath) throws IOException, ClassNotFoundException {
-        // Deserialize the environment so it can be passed to
-        // shouldTerminate().
-        modelPath = explain(modelPath);
-
-        InputStream fileInput;
-        if (conf == null) {
-            fileInput = new FileInputStream(modelPath.toString());
-        } else {
-            FileSystem dfs = FileSystem.get(conf);
-            fileInput = dfs.open(modelPath);
-        }
-
-        ObjectInputStream input = new ObjectInputStream(fileInput);
-        @SuppressWarnings("unchecked")
-        Model newModel = (Model) input.readObject();
-        input.close();
-        return newModel;
     }
 
     /**
@@ -285,27 +255,16 @@ public class IMRUDriver<Model extends Serializable> {
      *            The DFS file to write the updated model to.
      * @throws IOException
      */
-    private void writeModelToFile(Serializable model, Path modelPath) throws IOException {
-        // Serialize the model so it can be read during the next
-        // iteration.
-
+    private void writeModelToFile(Serializable model, File modelPath) throws IOException {
         modelPath = explain(modelPath);
-        //        Rt.p(modelPath.toString());
-
         OutputStream fileOutput;
-        if (conf == null) {
-            File file = new File(modelPath.toString());
-            if (!file.getParentFile().exists())
-                file.getParentFile().mkdirs();
-            fileOutput = new FileOutputStream(file);
-        } else {
-            FileSystem dfs = FileSystem.get(conf);
-            fileOutput = dfs.create(modelPath, true);
-        }
+        File file = new File(modelPath.toString());
+        if (!file.getParentFile().exists())
+            file.getParentFile().mkdirs();
+        fileOutput = new FileOutputStream(file);
 
         ObjectOutputStream output = new ObjectOutputStream(fileOutput);
         output.writeObject(model);
         output.close();
     }
-
 }

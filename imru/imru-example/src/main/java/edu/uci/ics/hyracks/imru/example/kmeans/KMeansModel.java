@@ -25,7 +25,8 @@ public class KMeansModel implements Serializable {
     public int roundsRemaining = 20;
     public double lastDistanceSum=0;
 
-    public KMeansModel(int k) {
+    public KMeansModel(int k,int roundsRemaining) {
+        this.roundsRemaining=roundsRemaining;
         centroids = new Centroid[k];
         for (int i = 0; i < k; i++)
             centroids[i] = new Centroid();

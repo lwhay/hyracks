@@ -15,9 +15,15 @@
 
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.imru.example.utils.Client;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Upload helloworld example to a cluster and run it.
@@ -49,11 +55,10 @@ public class HelloWorld {
         // hadoop config path
         if (useHDFS)
             cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
-        // HDFS path to hold intermediate models
-        if (useHDFS)
-            cmdline += " -temp-path /helloworld";
-        else
-            cmdline += " -temp-path /tmp/imru_helloworld";
+        // Path on local machine to save intermediate models
+//        cmdline += " -save-intermediate-models /tmp/cache/models";
+        // Path on cluster controller to hold models
+        cmdline += " -cc-temp-path /tmp/cache/cc";
         // HDFS path of input data
         if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
@@ -72,14 +77,12 @@ public class HelloWorld {
         }
         // aggregation
         //        cmdline += " -agg-tree-type nary -fan-in 2";
-                 cmdline += " -agg-tree-type generic -agg-count 1";
+        cmdline += " -agg-tree-type generic -agg-count 1";
         // cmdline += " -agg-tree-type none";
 
-        // don't save intermediate models
-        cmdline += " -abondon-intermediate-models";
         // write to the same file
-//        cmdline += " -model-file-name helloworld${NODE_ID}";
         cmdline += " -model-file-name helloworld";
+        //        cmdline += " -model-file-name helloworld";
 
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
@@ -91,7 +94,7 @@ public class HelloWorld {
             //            args = defaultArgs(false);
             args = defaultArgs(true);
 
-        String finalModel = Client.run(new HelloWorldJob(), args);
+        String finalModel = Client.run(new HelloWorldJob(), "", args);
         System.out.println("FinalModel: " + finalModel);
         System.exit(0);
     }

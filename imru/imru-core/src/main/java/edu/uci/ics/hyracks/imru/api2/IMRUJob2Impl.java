@@ -53,10 +53,10 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
         return job.getCachedDataFrameSize();
     }
 
-    @Override
-    public Model initModel() {
-        return job.initModel();
-    }
+//    @Override
+//    public Model initModel() {
+//        return job.initModel();
+//    }
 
     @Override
     public void map(final IMRUContext ctx, Iterator<ByteBuffer> input, Model model, OutputStream output,
@@ -186,7 +186,7 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
     }
 
     @Override
-    public void update(final IMRUContext ctx, final Iterator<byte[]> input, Model model) throws IMRUDataException {
+    public Model update(final IMRUContext ctx, final Iterator<byte[]> input, Model model) throws IMRUDataException {
         Iterator<T> iterator = new Iterator<T>() {
             @Override
             public void remove() {
@@ -211,6 +211,6 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
                 return null;
             }
         };
-        job.update(ctx, iterator, model);
+        return job.update(ctx, iterator, model);
     }
 }

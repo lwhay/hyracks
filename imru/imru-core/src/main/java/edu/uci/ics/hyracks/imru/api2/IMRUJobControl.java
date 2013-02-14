@@ -16,32 +16,35 @@
 package edu.uci.ics.hyracks.imru.api2;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
-import edu.uci.ics.hyracks.imru.jobgen.GenericAggregationIMRUJobFactory;
-import edu.uci.ics.hyracks.imru.jobgen.NAryAggregationIMRUJobFactory;
-import edu.uci.ics.hyracks.imru.jobgen.NoAggregationIMRUJobFactory;
+import edu.uci.ics.hyracks.imru.jobgen.IMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 
 public class IMRUJobControl<Model extends Serializable> {
     public HyracksConnection hcc;
+    public IMRUConnection imruConnection;
     public ConfigurationFactory confFactory;
     IJobFactory jobFactory;
     IMRUDriver<Model> driver;
-    public boolean saveIntermediateModels = true;
+    public String localIntermediateModelPath;
     public String modelFileName;
-    public boolean useExistingModels;
 
-    public void connect(String ccHost, int ccPort, String hadoopConfPath, String clusterConfPath) throws Exception {
+    public void connect(String ccHost, int ccPort, int imruPort, String hadoopConfPath, String clusterConfPath)
+            throws Exception {
         hcc = new HyracksConnection(ccHost, ccPort);
+        imruConnection = new IMRUConnection(ccHost, imruPort);
 
         if (hadoopConfPath != null && !new File(hadoopConfPath).exists()) {
             System.err.println("Hadoop conf path does not exist!");
@@ -59,22 +62,25 @@ public class IMRUJobControl<Model extends Serializable> {
         }
     }
 
-    public void selectNoAggregation(String examplePaths) {
-        jobFactory = new NoAggregationIMRUJobFactory(examplePaths, confFactory);
+    public void selectNoAggregation(String examplePaths) throws IOException, InterruptedException {
+        jobFactory = new IMRUJobFactory(imruConnection, examplePaths, confFactory, IMRUJobFactory.AGGREGATION.NONE, 0,
+                0);
     }
 
-    public void selectGenericAggregation(String examplePaths, int aggCount) {
+    public void selectGenericAggregation(String examplePaths, int aggCount) throws IOException, InterruptedException {
         if (aggCount < 1)
             throw new IllegalArgumentException(
                     "Must specify a nonnegative aggregator count using the -agg-count option");
-        jobFactory = new GenericAggregationIMRUJobFactory(examplePaths, confFactory, aggCount);
+        jobFactory = new IMRUJobFactory(imruConnection, examplePaths, confFactory, IMRUJobFactory.AGGREGATION.GENERIC,
+                0, aggCount);
     }
 
-    public void selectNAryAggregation(String examplePaths, int fanIn) {
+    public void selectNAryAggregation(String examplePaths, int fanIn) throws IOException, InterruptedException {
         if (fanIn < 1) {
             throw new IllegalArgumentException("Must specify nonnegative -fan-in");
         }
-        jobFactory = new NAryAggregationIMRUJobFactory(examplePaths, confFactory, fanIn);
+        jobFactory = new IMRUJobFactory(imruConnection, examplePaths, confFactory, IMRUJobFactory.AGGREGATION.NARY,
+                fanIn, 0);
     }
 
     /**
@@ -82,18 +88,16 @@ public class IMRUJobControl<Model extends Serializable> {
      * 
      * @param job
      * @param initialModel
-     * @param tempPath
      * @param app
      * @return
      * @throws Exception
      */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel, String tempPath, String app)
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel, String app)
             throws Exception {
-        driver = new IMRUDriver<Model>(hcc, job, initialModel, jobFactory, confFactory.createConfiguration(), tempPath,
-                app);
+        driver = new IMRUDriver<Model>(hcc, imruConnection, job, initialModel, jobFactory,
+                confFactory.createConfiguration(), app);
         driver.modelFileName = modelFileName;
-        driver.saveIntermediateModels = saveIntermediateModels;
-        driver.useExistingModels = useExistingModels;
+        driver.localIntermediateModelPath = localIntermediateModelPath;
         return driver.run();
     }
 
@@ -106,10 +110,10 @@ public class IMRUJobControl<Model extends Serializable> {
      * @return
      * @throws Exception
      */
-    public JobStatus run(IIMRUJob2<Model> job2, String tempPath, String app) throws Exception {
-        Model initialModel = job2.initModel();
+    public JobStatus run(IIMRUJob2<Model> job2, Model initialModel, String app) throws Exception {
+        //        Model initialModel = job2.initModel();
         IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(job2);
-        return run(job, initialModel, tempPath, app);
+        return run(job, initialModel, app);
     }
 
     /**
@@ -122,8 +126,8 @@ public class IMRUJobControl<Model extends Serializable> {
      * @throws Exception
      */
     public <Data extends Serializable, T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job,
-            String tempPath, String app) throws Exception {
-        return run(new IMRUJob2Impl<Model, Data, T>(job), tempPath, app);
+            Model initialModel, String app) throws Exception {
+        return run(new IMRUJob2Impl<Model, Data, T>(job), initialModel, app);
     }
 
     /**

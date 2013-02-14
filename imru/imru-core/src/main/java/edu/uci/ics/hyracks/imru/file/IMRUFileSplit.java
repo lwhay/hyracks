@@ -5,12 +5,13 @@ import java.io.DataOutput;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Vector;
 
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 
-public class IMRUFileSplit {
+public class IMRUFileSplit implements Serializable {
     String path;
     HDFSSplit split;
 
@@ -43,13 +44,13 @@ public class IMRUFileSplit {
 
     public IMRUFileSplit(DataInput input) throws IOException {
         boolean hdfs = input.readBoolean();
+        int n = input.readInt();
+        char[] cs = new char[n];
+        for (int i = 0; i < n; i++)
+            cs[i] = input.readChar();
         if (hdfs) {
-            split = new HDFSSplit(input);
+            split = new HDFSSplit(new String(cs));
         } else {
-            int n = input.readInt();
-            char[] cs = new char[n];
-            for (int i = 0; i < n; i++)
-                cs[i] = input.readChar();
             path = new String(cs);
         }
     }
@@ -61,7 +62,8 @@ public class IMRUFileSplit {
             output.writeChars(path);
         } else {
             output.writeBoolean(true); //HDFS
-            split.write(output);
+            output.writeInt(split.path.length());
+            output.writeChars(split.path);
         }
     }
 

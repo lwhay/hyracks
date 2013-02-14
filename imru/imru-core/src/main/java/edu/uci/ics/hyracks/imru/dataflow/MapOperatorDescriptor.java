@@ -54,6 +54,7 @@ import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.state.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Evaluates the map function in an iterative map reduce update job.
@@ -70,7 +71,7 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
     private static final long serialVersionUID = 1L;
     private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[1]);
 
-    private final String envInPath;
+    //    private final String envInPath;
     private final int roundNum;
 
     /**
@@ -87,11 +88,10 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
      * @param roundNum
      *            The round number.
      */
-    public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String envInPath,
-            IConfigurationFactory confFactory, int roundNum, String name) {
-        super(spec, 0, 1, name, imruSpec, confFactory);
+    public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, 
+            int roundNum, String name) {
+        super(spec, 0, 1, name, imruSpec, null);
         recordDescriptors[0] = dummyRecordDescriptor;
-        this.envInPath = envInPath;
         this.roundNum = roundNum;
     }
 
@@ -101,18 +101,15 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
         private final IHyracksTaskContext ctx;
         private final IHyracksTaskContext fileCtx;
         private final IIMRUJobSpecification<Model> imruSpec;
-        private final String envInPath;
-        private final IConfigurationFactory confFactory;
+        //        private final String envInPath;
         private final int partition;
         private final int roundNum;
         private final String name;
 
         public MapOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
-                String envInPath, IConfigurationFactory confFactory, int partition, int roundNum, String name) {
+                 int partition, int roundNum, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
-            this.envInPath = envInPath;
-            this.confFactory = confFactory;
             this.partition = partition;
             this.roundNum = roundNum;
             this.name = name;
@@ -131,44 +128,37 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
             INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
             IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
             IMRUContext imruContext = new IMRUContext(ctx, name);
-            Model model;
+            Model model=(Model) context.model;
             synchronized (context.envLock) {
                 if (context.modelAge < roundNum) {
-                    try {
-                        long start = System.currentTimeMillis();
-                        String path = envInPath.replaceAll(Pattern.quote("${NODE_ID}"), imruContext.getNodeId());
-                        if (!confFactory.exists(path)) {
-                            model = imruSpec.initModel();
-                            OutputStream out = confFactory.getOutputStream(path);
-                            ObjectOutputStream output = new ObjectOutputStream(out);
-                            output.writeObject(model);
-                            output.close();
-                        }
-                        InputStream fileInput = confFactory.getInputStream(path);
-                        ObjectInputStream input = new ObjectInputStream(fileInput);
-                        model = (Model) input.readObject();
-                        context.model = model;
-                        context.modelAge = roundNum;
-                        input.close();
-                        long end = System.currentTimeMillis();
-                        long modelReadTime = (end - start);
-                        LOG.info("Read model " + envInPath + " in " + modelReadTime + " milliseconds");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        throw new HyracksDataException("Exception while reading model", e);
-                    } catch (ClassNotFoundException e) {
-                        e.printStackTrace();
-                        throw new HyracksDataException("Exception while deserializing model", e);
-                    }
-                } else {
-                    LOG.info("Used shared environment");
-                    model = (Model) context.model;
+                    //                    try {
+                    //                        long start = System.currentTimeMillis();
+                    ////                        String path = envInPath.replaceAll(Pattern.quote("${NODE_ID}"), imruContext.getNodeId());
+                    //                        InputStream fileInput = confFactory.getInputStream(path);
+                    //                        ObjectInputStream input = new ObjectInputStream(fileInput);
+                    //                        model = (Model) input.readObject();
+                    //                        context.model = model;
+                    //                        context.modelAge = roundNum;
+                    //                        input.close();
+                    //                        long end = System.currentTimeMillis();
+                    //                        long modelReadTime = (end - start);
+                    //                        LOG.info("Read model " + envInPath + " in " + modelReadTime + " milliseconds");
+                    //                    } catch (IOException e) {
+                    //                        e.printStackTrace();
+                    //                        throw new HyracksDataException("Exception while reading model", e);
+                    //                    } catch (ClassNotFoundException e) {
+                    //                        e.printStackTrace();
+                    //                        throw new HyracksDataException("Exception while deserializing model", e);
+                    //                    }
+                    throw new HyracksDataException("Model was not spread to " + imruContext.getNodeId());
                 }
             }
 
             // Load the examples.
             MapTaskState state = (MapTaskState) IterationUtils.getIterationState(ctx, partition);
             if (state == null) {
+                Rt.p("state=null");
+                System.exit(0);
                 throw new IllegalStateException("Input data was not cached");
             } else {
                 // Use the same state in the future iterations
@@ -246,7 +236,7 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new MapOperatorNodePushable<Model>(ctx, imruSpec, envInPath, confFactory, partition, roundNum,
+        return new MapOperatorNodePushable<Model>(ctx, imruSpec, partition, roundNum,
                 this.getDisplayName() + partition);
     }
 

@@ -41,7 +41,7 @@ public class BGD {
 
         int numRounds = 15;
         String modeFileName = "/tmp/__imru.txt";
-        LinearModel finalModel = Client.run(new BGDJob(8000, numRounds), args);
+        LinearModel finalModel = Client.run(new BGDJob(8000), new LinearModel(8000, numRounds), args);
         System.out.println("Final model [0] " + finalModel.weights.array[0]);
         System.out.println("Final loss was " + finalModel.loss);
         PrintWriter writer = new PrintWriter(new FileOutputStream(modeFileName));

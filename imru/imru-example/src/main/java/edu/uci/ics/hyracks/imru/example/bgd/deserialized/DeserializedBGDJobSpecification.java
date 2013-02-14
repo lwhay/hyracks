@@ -37,16 +37,9 @@ public class DeserializedBGDJobSpecification extends
 
     private final int numFeatures;
 
-    LinearModel model;
 
-    public DeserializedBGDJobSpecification(LinearModel model, int numFeatures) {
+    public DeserializedBGDJobSpecification(int numFeatures) {
         this.numFeatures = numFeatures;
-        this.model = model;
-    }
-
-    @Override
-    public LinearModel initModel() {
-        return model;
     }
 
     @Override

@@ -36,7 +36,7 @@ public interface IIMRUJob2<Model> extends Serializable {
     /**
      * Return initial model
      */
-    public Model initModel();
+//    public Model initModel();
 
     /**
      * Frame size must be large enough to store at least one tuple
@@ -60,9 +60,10 @@ public interface IIMRUJob2<Model> extends Serializable {
     public void reduce(IMRUReduceContext ctx, Iterator<byte[]> input, OutputStream output) throws IMRUDataException;
 
     /**
-     * update the model using combined raw frames
+     * update the model using combined raw frames.
+     * Return the same model object or return another object.
      */
-    public void update(IMRUContext ctx, Iterator<byte[]> input, Model model) throws IMRUDataException;
+    public Model update(IMRUContext ctx, Iterator<byte[]> input, Model model) throws IMRUDataException;
 
     /**
      * Return true to exit loop

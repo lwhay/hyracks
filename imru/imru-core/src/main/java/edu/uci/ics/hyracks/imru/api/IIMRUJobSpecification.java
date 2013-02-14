@@ -34,7 +34,7 @@ public interface IIMRUJobSpecification<Model extends Serializable> extends Seria
      */
     int getCachedDataFrameSize();
 
-    Model initModel(); 
+//    Model initModel(); 
     /**
      * @return A tuple parser factory for parsing the input records.
      */

@@ -52,6 +52,8 @@ public class CreateHar {
             for (File f : file.listFiles())
                 add(name.length() == 0 ? f.getName() : name + "/" + f.getName(), f, zip);
         } else if (name.length() > 0) {
+            if ("imru-deployment.properties".equals(name))
+                return;
             ZipEntry entry = new ZipEntry(name);
             entry.setTime(file.lastModified());
             zip.putNextEntry(entry);
@@ -81,18 +83,14 @@ public class CreateHar {
                 "jetty-servlet-8.0.0.RC0.jar", "jetty-security-8.0.0.RC0.jar", "wicket-core-1.5.2.jar",
                 "wicket-util-1.5.2.jar", "wicket-request-1.5.2.jar", "slf4j-api-1.6.1.jar", "slf4j-jcl-1.6.3.jar",
                 "dcache-client-0.0.1.jar", "jetty-client-8.0.0.M0.jar", "hyracks-net-0.2.3-SNAPSHOT.jar",
-                "httpclient-4.1.1.jar", "httpcore-4.1.jar", 
-                "hyracks-server-0.2.3-SNAPSHOT.jar",
-                "aws-java-sdk-1.3.27.jar",
-                "jackson-core-asl-1.8.9.jar",
-                "jackson-mapper-asl-1.8.9.jar",
-                "jsch-0.1.49.jar",
-        };
+                "httpclient-4.1.1.jar", "httpcore-4.1.jar", "hyracks-server-0.2.3-SNAPSHOT.jar",
+                "aws-java-sdk-1.3.27.jar", "jackson-core-asl-1.8.9.jar", "jackson-mapper-asl-1.8.9.jar",
+                "jsch-0.1.49.jar", };
         for (String s : ss)
             ignoredJars.add(s);
     }
 
-    public static void createHar(File harFile, boolean withHadoopJar) throws IOException {
+    public static void createHar(File harFile, boolean withHadoopJar, int imruPort, String tempDir) throws IOException {
         ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(harFile));
         String p = CreateHar.class.getName().replace('.', '/') + ".class";
         String string = System.getProperty("java.class.path");
@@ -107,6 +105,19 @@ public class CreateHar {
                     ZipOutputStream zip2 = new ZipOutputStream(memory);
                     Rt.np("add " + dir.getAbsolutePath());
                     add("", dir, zip2);
+                    {
+                        //If cc is running in this process
+                        System.setProperty("imru.port", "" + imruPort);
+                        System.setProperty("imru.tempdir", tempDir);
+                        //If cc is running in another process
+                        ZipEntry entry = new ZipEntry("imru-deployment.properties");
+                        entry.setTime(System.currentTimeMillis());
+                        zip2.putNextEntry(entry);
+                        String text = "imru.port=" + imruPort + "\r\n";
+                        text += "imru.tempdir=" + tempDir + "\r\n";
+                        zip2.write(text.getBytes());
+                        zip2.closeEntry();
+                    }
                     zip2.finish();
                     ZipEntry entry = new ZipEntry("lib/imru-customer-code" + (userCodeId++) + ".jar");
                     entry.setTime(System.currentTimeMillis());

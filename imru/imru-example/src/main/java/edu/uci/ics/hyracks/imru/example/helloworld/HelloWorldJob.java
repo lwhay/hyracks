@@ -33,14 +33,6 @@ import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
  */
 public class HelloWorldJob implements IIMRUJob<String, String, String> {
     /**
-     * Return initial model
-     */
-    @Override
-    public String initModel() {
-        return "";
-    }
-
-    /**
      * Frame size must be large enough to store at least one data object
      */
     @Override
@@ -103,7 +95,7 @@ public class HelloWorldJob implements IIMRUJob<String, String, String> {
      * update the model using combined result
      */
     @Override
-    public void update(IMRUContext ctx, Iterator<String> input, String model) throws IMRUDataException {
+    public String update(IMRUContext ctx, Iterator<String> input, String model) throws IMRUDataException {
         StringBuilder sb = new StringBuilder();
         sb.append("(" + model + ")");
         while (input.hasNext()) {
@@ -112,6 +104,7 @@ public class HelloWorldJob implements IIMRUJob<String, String, String> {
             model += result;
         }
         System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + sb + " -> " + model);
+        return model;
     }
 
     /**

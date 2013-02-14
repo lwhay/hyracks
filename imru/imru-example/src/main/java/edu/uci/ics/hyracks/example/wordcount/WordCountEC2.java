@@ -22,7 +22,7 @@ public class WordCountEC2 {
         IHyracksClientConnection hcc = cluster.getHyracksConnection();
 
         //update application
-        Client.uploadApp(hcc, "text", false);
+        Client.uploadApp(hcc, "text", false, 3288, "/tmp/imruModels");
 
         try {
             cluster.write(0, "/tmp/a.txt", "0a 1b 1c".getBytes());

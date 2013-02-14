@@ -56,6 +56,7 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -102,6 +103,9 @@ public class Client<Model extends Serializable> {
         @Option(name = "-clusterport", usage = "Hyracks Cluster Controller Port (default: 3099)")
         public int clusterPort = 1099;
 
+        @Option(name = "-imru-port", usage = "IMRU web service port for uploading and downloading models. (default: 3288)")
+        public int imruPort = 3288;
+
         @Option(name = "-app", usage = "Hyracks Application name")
         public String app = "imru-examples";
 
@@ -111,17 +115,14 @@ public class Client<Model extends Serializable> {
         @Option(name = "-cluster-conf", usage = "Path to Hyracks cluster configuration")
         public String clusterConfPath = "conf/cluster.conf";
 
-        @Option(name = "-temp-path", usage = "HDFS path to hold temporary files", required = true)
-        public String tempPath;
+        @Option(name = "-cc-temp-path", usage = "Path on cluster controller to hold models")
+        public String ccTempPath = "/tmp/imru-cc-models";
 
-        @Option(name = "-abondon-intermediate-models", usage = "Don't save intermediate models to the temp directory")
-        public boolean abondonIntermediateModels;
+        @Option(name = "-save-intermediate-models", usage = "If specified, save intermediate models to this directory.")
+        public String localIntermediateModelPath;
 
         @Option(name = "-model-file-name", usage = "Name of the model file")
         public String modelFileNameHDFS;
-
-        @Option(name = "-using-existing-model", usage = "Use existing model if possible")
-        public boolean useExistingModels;
 
         @Option(name = "-example-paths", usage = "HDFS path to hold input data. Or local file in the format of [nodeId]:<path>")
         public String examplePaths = "/input/data.txt";
@@ -219,10 +220,9 @@ public class Client<Model extends Serializable> {
      */
     public void connect() throws Exception {
         this.control = new IMRUJobControl<Model>();
-        control.saveIntermediateModels = !options.abondonIntermediateModels;
+        control.localIntermediateModelPath = options.localIntermediateModelPath;
         control.modelFileName = options.modelFileNameHDFS;
-        control.useExistingModels = options.useExistingModels;
-        control.connect(options.host, options.port, options.hadoopConfPath, options.clusterConfPath);
+        control.connect(options.host, options.port, options.imruPort, options.hadoopConfPath, options.clusterConfPath);
         hcc = control.hcc;
         conf = control.confFactory.createConfiguration();
         // set aggregation type
@@ -255,9 +255,9 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public <Data extends Serializable, T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job)
-            throws Exception {
-        return control.run(job, options.tempPath, options.app);
+    public <Data extends Serializable, T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job,
+            Model initialModel) throws Exception {
+        return control.run(job, initialModel, options.app);
     }
 
     /**
@@ -265,8 +265,8 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public JobStatus run(IIMRUJob2<Model> job) throws Exception {
-        return control.run(job, options.tempPath, options.app);
+    public JobStatus run(IIMRUJob2<Model> job, Model initialModel) throws Exception {
+        return control.run(job, initialModel, options.app);
     }
 
     /**
@@ -275,7 +275,7 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel) throws Exception {
-        return control.run(job, initialModel, options.tempPath, options.app);
+        return control.run(job, initialModel, options.app);
     }
 
     /**
@@ -284,20 +284,6 @@ public class Client<Model extends Serializable> {
      */
     public FileSystem getHDFS() throws IOException {
         return FileSystem.get(conf);
-    }
-
-    /**
-     * Clear HDFS temp directory which holds intermediate models
-     * 
-     * @throws Exception
-     */
-    public void clearTempDirectory() throws Exception {
-        FileSystem dfs = getHDFS();
-        // remove old intermediate models
-        if (dfs.listStatus(new Path(options.tempPath)) != null)
-            for (FileStatus f : dfs.listStatus(new Path(options.tempPath)))
-                dfs.delete(f.getPath());
-        dfs.close();
     }
 
     /**
@@ -349,6 +335,9 @@ public class Client<Model extends Serializable> {
         ncConfig1.ccPort = clusterNetPort;
         ncConfig1.dataIPAddress = "127.0.0.1";
         ncConfig1.nodeId = NC1_ID;
+        File file = new File("/tmp/cache/tmp/" + NC1_ID);
+        file.mkdirs();
+        ncConfig1.ioDevices = file.getAbsolutePath();
         NodeControllerService nc = new NodeControllerService(ncConfig1);
         nc.start();
         ncs.add(nc);
@@ -453,13 +442,14 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public void uploadApp() throws Exception {
-        uploadApp(hcc, options.app, options.hadoopConfPath != null);
+        uploadApp(hcc, options.app, options.hadoopConfPath != null, options.imruPort, options.ccTempPath);
     }
 
-    public static void uploadApp(IHyracksClientConnection hcc, String appName, boolean includeHadoop) throws Exception {
+    public static void uploadApp(IHyracksClientConnection hcc, String appName, boolean includeHadoop, int imruPort,
+            String tempDir) throws Exception {
         final File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
-        CreateHar.createHar(harFile, includeHadoop);
+        CreateHar.createHar(harFile, includeHadoop, imruPort, tempDir);
         out.close();
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
@@ -534,8 +524,8 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
-            String[] args) throws Exception {
-        return run(job, args, null);
+            M initialModel, String[] args) throws Exception {
+        return run(job, initialModel, args, null);
     }
 
     /**
@@ -544,7 +534,7 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
-            String[] args, String overrideAppName) throws Exception {
+            M initialModel, String[] args, String overrideAppName) throws Exception {
         // create a client object, which handles everything
         Client<M> client = new Client<M>(args);
         try {
@@ -554,7 +544,7 @@ public class Client<Model extends Serializable> {
             client.init();
 
             // run job
-            JobStatus status = client.run(job);
+            JobStatus status = client.run(job, initialModel);
             if (status == JobStatus.FAILURE) {
                 System.err.println("Job failed; see CC and NC logs");
                 System.exit(-1);
@@ -564,8 +554,8 @@ public class Client<Model extends Serializable> {
 
             return client.getModel();
         } finally {
-            if (client.options.debug)
-                System.exit(0);
+            //            if (client.options.debug)
+            //                System.exit(0);
         }
     }
 }

@@ -29,9 +29,8 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractStateObject;
  * and map operators.
  */
 public class MapTaskState extends AbstractStateObject {
-
     private RunFileWriter out;
-
+    
     public MapTaskState(JobId jobId, TaskId taskId) {
         super(jobId, taskId);
     }

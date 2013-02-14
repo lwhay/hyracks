@@ -170,6 +170,11 @@ public abstract class AbstractDeserializingIMRUJobSpecification<Model extends Se
                         T object = deserializeFromChunks(ctx, chunks);
                         updateFunction.update(object);
                     }
+                    
+                     @Override
+                    public Object getUpdateModel() {
+                        return model;
+                    }
                 };
             }
         };

@@ -57,8 +57,9 @@ public class HDFSInputSplitProvider implements Serializable {
      *            A comma-separated list of input paths.
      * @param conf
      *            The configuration for connecting to HDFS.
+     * @throws InterruptedException 
      */
-    public HDFSInputSplitProvider(String inputPaths, Configuration conf) {
+    public HDFSInputSplitProvider(String inputPaths, Configuration conf) throws InterruptedException {
         try {
             if (conf == null) {
                 String[] ss = inputPaths.split(",");

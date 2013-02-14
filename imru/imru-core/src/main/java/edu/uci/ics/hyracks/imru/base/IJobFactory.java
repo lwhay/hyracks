@@ -20,6 +20,7 @@ import java.util.UUID;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 
 /**
  * Interface for factories for creating dataflows for IMRU data loading and iterations.
@@ -28,7 +29,7 @@ public interface IJobFactory {
 
     /**
      * Construct a JobSpecification for a single iteration of IMRU.
-     *
+     * 
      * @param model
      *            The IIMRUJobSpecification
      * @param id
@@ -43,12 +44,14 @@ public interface IJobFactory {
      * @throws HyracksException
      */
     @SuppressWarnings("rawtypes")
-    public JobSpecification generateJob(IIMRUJobSpecification model, UUID id, int roundNum, String modelInPath,
-            String modelOutPath) throws HyracksException;
+    public JobSpecification generateJob(IIMRUJobSpecification model, int roundNum, String modelPath)
+            throws HyracksException;
+
+    public JobSpecification generateModelSpreadJob(String modelPath, int roundNum);
 
     /**
      * Construct a JobSpecificiation for caching IMRU input records.
-     *
+     * 
      * @param model
      *            The IIMRUJobSpecification
      * @param id
@@ -57,6 +60,7 @@ public interface IJobFactory {
      * @throws HyracksException
      */
     @SuppressWarnings("rawtypes")
-    public JobSpecification generateDataLoadJob(IIMRUJobSpecification model, UUID id) throws HyracksException;
+    public JobSpecification generateDataLoadJob(IIMRUJobSpecification model) throws HyracksException;
 
+    public UUID getId();
 }

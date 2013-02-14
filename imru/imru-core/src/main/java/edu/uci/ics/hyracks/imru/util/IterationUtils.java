@@ -34,7 +34,7 @@ public class IterationUtils {
 
     public static IStateObject getIterationState(IHyracksTaskContext ctx, int partition) {
         JobId currentId = ctx.getJobletContext().getJobId();
-        JobId lastId = new JobId(currentId.getId() - 1);
+        JobId lastId = new JobId(currentId.getId() - 2);
         INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
         IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
         Map<StateKey, IStateObject> map = context.getAppStateStore();

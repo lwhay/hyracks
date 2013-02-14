@@ -50,10 +50,6 @@ public class KMeans {
         if (useHDFS)
             cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // HDFS path to hold intermediate models
-        if (useHDFS)
-            cmdline += " -temp-path /kmeans";
-        else
-            cmdline += " -temp-path /tmp/imru_kmeans";
         // HDFS path of input data
         if (useHDFS)
             cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
@@ -63,8 +59,6 @@ public class KMeans {
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
         cmdline += " -agg-count 1";
-        // don't save intermediate models on HDFS
-        cmdline += " -abondon-intermediate-models";
         // write to the same file
         cmdline += " -model-file-name kmeans";
         cmdline = cmdline.trim();
@@ -82,12 +76,12 @@ public class KMeans {
         KMeansModel bestModel = null;
         for (int modelId = 0; modelId < 20; modelId++) {
             System.out.println("trial " + modelId);
-            KMeansModel initModel = Client.run(new RandomSelectJob(k), args);
+            KMeansModel initModel = Client.run(new RandomSelectJob(k), new KMeansModel(k, 1),args);
             System.out.println("InitModel: " + initModel);
 
             initModel.roundsRemaining = 20;
 
-            KMeansModel finalModel = Client.run(new KMeansJob(k, initModel), args);
+            KMeansModel finalModel = Client.run(new KMeansJob(k), initModel,args);
             System.out.println("FinalModel: " + finalModel);
             System.out.println("DistanceSum: " + finalModel.lastDistanceSum);
             if (finalModel.lastDistanceSum < minDis) {

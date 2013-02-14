@@ -20,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -70,7 +71,11 @@ public class ClusterConfig {
      */
     public static List<String> getNCNames(String ipAddress) throws HyracksException {
         if (NCs == null) {
-            loadClusterConfig();
+            try {
+                loadClusterConfig();
+            } catch (IOException e) {
+                throw new HyracksException(e);
+            }
         }
         return ipToNcMapping.get(ipAddress);
     }
@@ -91,10 +96,11 @@ public class ClusterConfig {
      *            repeated across iterations, provided that the HDFS file
      *            locations don't change).
      * @return The assigned partition locations.
+     * @throws IOException
      * @throws HyracksException
      */
     public static String[] setLocationConstraint(JobSpecification spec, IMRUOperatorDescriptor operator,
-            List<IMRUFileSplit> splits, Random random) throws HyracksException {
+            List<IMRUFileSplit> splits, Random random) throws IOException {
         if (NCs == null)
             loadClusterConfig();
         if (splits.size() == 0)
@@ -112,9 +118,10 @@ public class ClusterConfig {
                 else
                     partitionLocations[partition] = NCs[pos];
             }
-
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
-            PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
+            if (operator != null) {
+                PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
+                PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
+            }
             return partitionLocations;
         }
         int partitionCount = splits.size();
@@ -122,48 +129,43 @@ public class ClusterConfig {
         int localAssignments = 0;
         int nonlocalAssignments = 0;
         for (int partition = 0; partition < partitionCount; partition++) {
-            try {
-                String[] localHosts = splits.get(partition).getLocations();
-                // Remove nondeterminism from the call to getLocations():
-                Collections.sort(Arrays.asList(localHosts));
-                Collections.shuffle(Arrays.asList(localHosts), random);
-                if (localHosts.length > 0) {
-                    LOG.info("Partition " + partition + " is local at " + localHosts.length + " hosts: "
-                            + StringUtils.join(localHosts, ", "));
-                    for (int host = 0; host < localHosts.length; host++) {
-                        InetAddress[] hostIps = InetAddress.getAllByName(localHosts[host]);
-                        for (InetAddress ip : hostIps) {
-                            if (ipToNcMapping.get(ip.getHostAddress()) != null) {
-                                List<String> ncs = ipToNcMapping.get(ip.getHostAddress());
-                                int pos = random.nextInt(ncs.size());
-                                partitionLocations[partition] = ncs.get(pos);
-                                LOG.info("Partition " + partition + " assigned to " + ncs.get(pos)
-                                        + ", where it is local.");
-                                localAssignments++;
-                                break;
-                            }
-                        }
-                        if (partitionLocations[partition] != null) {
+            String[] localHosts = splits.get(partition).getLocations();
+            // Remove nondeterminism from the call to getLocations():
+            Collections.sort(Arrays.asList(localHosts));
+            Collections.shuffle(Arrays.asList(localHosts), random);
+            if (localHosts.length > 0) {
+                LOG.info("Partition " + partition + " is local at " + localHosts.length + " hosts: "
+                        + StringUtils.join(localHosts, ", "));
+                for (int host = 0; host < localHosts.length; host++) {
+                    InetAddress[] hostIps = InetAddress.getAllByName(localHosts[host]);
+                    for (InetAddress ip : hostIps) {
+                        if (ipToNcMapping.get(ip.getHostAddress()) != null) {
+                            List<String> ncs = ipToNcMapping.get(ip.getHostAddress());
+                            int pos = random.nextInt(ncs.size());
+                            partitionLocations[partition] = ncs.get(pos);
+                            LOG.info("Partition " + partition + " assigned to " + ncs.get(pos) + ", where it is local.");
+                            localAssignments++;
                             break;
                         }
                     }
-                    if (partitionLocations[partition] == null) {
-                        int pos = random.nextInt(NCs.length);
-                        partitionLocations[partition] = NCs[pos];
-                        nonlocalAssignments++;
-                        LOG.info("Partition " + partition + " assigned to " + NCs[pos]
-                                + " because there is no NC where it is local.");
+                    if (partitionLocations[partition] != null) {
+                        break;
                     }
-                } else {
+                }
+                if (partitionLocations[partition] == null) {
                     int pos = random.nextInt(NCs.length);
                     partitionLocations[partition] = NCs[pos];
                     nonlocalAssignments++;
                     LOG.info("Partition " + partition + " assigned to " + NCs[pos]
-                            + " becasue getLocations() returned no locations.");
-
+                            + " because there is no NC where it is local.");
                 }
-            } catch (IOException e) {
-                throw new HyracksException(e);
+            } else {
+                int pos = random.nextInt(NCs.length);
+                partitionLocations[partition] = NCs[pos];
+                nonlocalAssignments++;
+                LOG.info("Partition " + partition + " assigned to " + NCs[pos]
+                        + " becasue getLocations() returned no locations.");
+
             }
         }
         if (LOG.isLoggable(Level.INFO)) {
@@ -181,10 +183,12 @@ public class ClusterConfig {
             }
         }
         double localityPercentage = ((1.0 * localAssignments) / (localAssignments + nonlocalAssignments)) * 100;
-        LOG.info(operator.getClass().getSimpleName() + ": " + localAssignments + " local; " + nonlocalAssignments
-                + " non-local; " + localityPercentage + "% locality");
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
-        PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
+        if (operator != null) {
+            LOG.info(operator.getClass().getSimpleName() + ": " + localAssignments + " local; " + nonlocalAssignments
+                    + " non-local; " + localityPercentage + "% locality");
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, operator, partitionLocations);
+            PartitionConstraintHelper.addPartitionCountConstraint(spec, operator, partitionCount);
+        }
         return partitionLocations;
     }
 
@@ -214,7 +218,7 @@ public class ClusterConfig {
         NCs = ncNames.toArray(new String[ncNames.size()]);
     }
 
-    private static void loadClusterConfig() throws HyracksException {
+    private static void loadClusterConfig() throws IOException {
         String line = "";
         ipToNcMapping = new HashMap<String, List<String>>();
         if (!new File(confPath).exists()) {
@@ -224,24 +228,20 @@ public class ClusterConfig {
             // NCs=new String[0];
             // return;
         }
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(confPath)));
-            List<String> ncNames = new ArrayList<String>();
-            while ((line = reader.readLine()) != null) {
-                String[] ncConfig = line.split(" ");
-                ncNames.add(ncConfig[1]);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(confPath)));
+        List<String> ncNames = new ArrayList<String>();
+        while ((line = reader.readLine()) != null) {
+            String[] ncConfig = line.split(" ");
+            ncNames.add(ncConfig[1]);
 
-                List<String> ncs = ipToNcMapping.get(ncConfig[0]);
-                if (ncs == null) {
-                    ncs = new ArrayList<String>();
-                    ipToNcMapping.put(ncConfig[0], ncs);
-                }
-                ncs.add(ncConfig[1]);
+            List<String> ncs = ipToNcMapping.get(ncConfig[0]);
+            if (ncs == null) {
+                ncs = new ArrayList<String>();
+                ipToNcMapping.put(ncConfig[0], ncs);
             }
-            reader.close();
-            NCs = ncNames.toArray(new String[0]);
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
+            ncs.add(ncConfig[1]);
         }
+        reader.close();
+        NCs = ncNames.toArray(new String[0]);
     }
 }

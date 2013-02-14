@@ -63,10 +63,10 @@ public class IIMRUJobSpecificationImpl<Model extends Serializable> implements II
         this.job2 = job2;
     }
     
-     @Override
-    public Model initModel() {
-        return job2.initModel();
-    }
+//     @Override
+//    public Model initModel() {
+//        return job2.initModel();
+//    }
 
     @Override
     public IIMRUTupleParserFactory getTupleParserFactory() {
@@ -189,6 +189,7 @@ public class IIMRUJobSpecificationImpl<Model extends Serializable> implements II
                 return new IReassemblingUpdateFunction() {
                     private ASyncIO<byte[]> io;
                     Future future;
+                    Model updatedModel;
 
                     @Override
                     public void open() throws HyracksDataException {
@@ -198,13 +199,17 @@ public class IIMRUJobSpecificationImpl<Model extends Serializable> implements II
                             public void run() {
                                 Iterator<byte[]> input = io.getInput();
                                 try {
-                                    job2.update(ctx, input, model);
+                                    updatedModel=job2.update(ctx, input, model);
                                 } catch (HyracksDataException e) {
                                     e.printStackTrace();
                                 }
                             }
                         });
-
+                    }
+                    
+                     @Override
+                    public Object getUpdateModel() {
+                        return updatedModel;
                     }
 
                     @Override

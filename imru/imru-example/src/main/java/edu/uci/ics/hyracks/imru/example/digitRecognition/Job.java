@@ -41,14 +41,6 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  */
 public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
     /**
-     * Return initial model
-     */
-    @Override
-    public NeuralNetwork initModel() {
-        return new NeuralNetwork();
-    }
-
-    /**
      * Frame size must be large enough to store at least one tuple
      */
     @Override
@@ -149,7 +141,7 @@ public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
      * update the model using combined result
      */
     @Override
-    public void update(IMRUContext ctx, Iterator<Result> input, NeuralNetwork model)
+    public NeuralNetwork update(IMRUContext ctx, Iterator<Result> input, NeuralNetwork model)
             throws IMRUDataException {
         int total = 0;
         int correct = 0;
@@ -173,6 +165,7 @@ public class Job implements IIMRUJob<NeuralNetwork, Data, Result> {
         Rt.p("error rate: " + model.errorRate + "\tloss:" + loss + "\tweightChange: " + weightChange);
         model.learningRate *= model.learningRateDecrease;
         model.roundsRemaining--;
+        return model;
     }
 
     /**
