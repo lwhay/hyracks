@@ -41,7 +41,7 @@ public class KMeans {
         if (System.getProperty("local") != null)
             useHDFS = false;
         String home = System.getProperty("user.home");
-        String exampleData = home + "/fullstack_imru/imru/imru-example/data";
+        String exampleData = home + "/fullstack_imru/imru/imru-example/data/kmeans";
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
@@ -49,12 +49,11 @@ public class KMeans {
         // hadoop config path
         if (useHDFS)
             cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
-        // HDFS path to hold intermediate models
-        // HDFS path of input data
+        // Input data
         if (useHDFS)
             cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
         else
-            cmdline += " -example-paths " + exampleData + "/kmeans.txt," + exampleData + "/kmeans2.txt";
+            cmdline += " -example-paths " + exampleData + "/kmeans0.txt," + exampleData + "/kmeans1.txt";
         // aggregation type
         cmdline += " -agg-tree-type generic";
         // aggregation parameter
@@ -74,7 +73,7 @@ public class KMeans {
 
         double minDis = Double.MAX_VALUE;
         KMeansModel bestModel = null;
-        for (int modelId = 0; modelId < 20; modelId++) {
+        for (int modelId = 0; modelId < 3; modelId++) {
             System.out.println("trial " + modelId);
             KMeansModel initModel = Client.run(new RandomSelectJob(k), new KMeansModel(k, 1),args);
             System.out.println("InitModel: " + initModel);

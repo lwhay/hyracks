@@ -2,9 +2,6 @@ package edu.uci.ics.hyracks.imru.example.helloworld;
 
 import java.io.File;
 
-import edu.uci.ics.hyracks.ec2.HyracksEC2Cluster;
-import edu.uci.ics.hyracks.ec2.Rt;
-import edu.uci.ics.hyracks.imru.example.utils.Client;
 import edu.uci.ics.hyracks.imru.example.utils.ImruEC2;
 
 public class HelloWorldEC2 {
@@ -18,10 +15,9 @@ public class HelloWorldEC2 {
         boolean uploadData = true;
         setupClusterFirst = false;
         uploadData = false;
-        int n = 52;
-        n = 5;
-        String[] localPaths = new String[n];
-        for (int i = 0; i < n; i++)
+        int dataSplits = 5;
+        String[] localPaths = new String[dataSplits];
+        for (int i = 0; i < dataSplits; i++)
             localPaths[i] = exampleData + "/hello" + i + ".txt";
         ImruEC2 ec2 = new ImruEC2(credentialsFile, privateKey);
         if (setupClusterFirst)
@@ -31,7 +27,7 @@ public class HelloWorldEC2 {
             path = ec2.uploadData(localPaths, "helloworld");
         else
             path = ec2.getSuggestedLocations(localPaths, "helloworld");
-        String finalModel = ec2.run(new HelloWorldJob(),"helloworld", path, "");
+        String finalModel = ec2.run(new HelloWorldJob(), "", "helloworld", path);
         System.out.println("FinalModel: " + finalModel);
         System.exit(0);
     }

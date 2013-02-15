@@ -175,7 +175,7 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
                 long start = System.currentTimeMillis();
                 imruConnection.uploadModel(modelName, model);
                 long end = System.currentTimeMillis();
-                Rt.p(model);
+//                Rt.p(model);
                 LOG.info("uploaded model to CC " + (end - start) + " milliseconds");
                 MemoryStatsLogger.logHeapStats(LOG, "Update: Deinitializing Update");
             } catch (IOException e) {

@@ -44,17 +44,18 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  */
 public class IMRUCCBootstrapImpl implements ICCBootstrap {
     private static final Logger LOGGER = Logger.getLogger(IMRUCCBootstrapImpl.class.getName());
-
-    private static final int DEFAULT_WEB_SERVER_PORT = 19001;
-
     private Server webServer;
     private ICCApplicationContext appCtx;
 
     @Override
     public void start() throws Exception {
         LOGGER.info("Starting IMRU model uploader/downloader");
-        setupWebServer();
-        webServer.start();
+        try {
+            setupWebServer();
+            webServer.start();
+        } catch (java.net.BindException e) {
+            Rt.p(e.getMessage());
+        }
     }
 
     @Override
@@ -77,12 +78,12 @@ public class IMRUCCBootstrapImpl implements ICCBootstrap {
         Properties p = new Properties();
         p.load(stream);
         stream.close();
-        String portStr=p.getProperty("imru.port");
-        if (System.getProperty("imru.port")!=null)
+        String portStr = p.getProperty("imru.port");
+        if (System.getProperty("imru.port") != null)
             portStr = System.getProperty("imru.port");
         port = Integer.parseInt(portStr);
         modelDir = p.getProperty("imru.tempdir");
-        if (System.getProperty("imru.tempdir")!=null)
+        if (System.getProperty("imru.tempdir") != null)
             modelDir = System.getProperty("imru.tempdir");
         webServer = new Server(port);
 

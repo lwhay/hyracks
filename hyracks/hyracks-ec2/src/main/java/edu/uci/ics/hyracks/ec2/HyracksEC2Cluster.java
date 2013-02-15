@@ -341,7 +341,8 @@ public class HyracksEC2Cluster {
         for (HyracksEC2Node node : nodes) {
             //pending, running, shutting-down, terminated, stopping, stopped
             String state = node.instance.getState().getName();
-            Rt.np(node.name + ": " + state);
+            Rt.np(node.name + ": " + state + " " + node.instance.getPrivateIpAddress() + " "
+                    + node.instance.getPublicDnsName());
             if ("pending".equals(state))
                 pending++;
             if ("running".equals(state))

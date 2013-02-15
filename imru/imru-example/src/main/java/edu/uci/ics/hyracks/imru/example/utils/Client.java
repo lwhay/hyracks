@@ -227,8 +227,9 @@ public class Client<Model extends Serializable> {
         conf = control.confFactory.createConfiguration();
         // set aggregation type
         if (options.aggTreeType == null) {
-            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
-            if (map.size() < 3)
+           int mappers= options.examplePaths.split(",").length;
+//            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
+            if (mappers < 3)
                 control.selectNoAggregation(options.examplePaths);
             else
                 control.selectNAryAggregation(options.examplePaths, 2);
