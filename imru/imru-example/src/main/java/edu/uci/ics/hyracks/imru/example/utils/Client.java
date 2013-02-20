@@ -56,7 +56,10 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
+import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeDriver;
+import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeJob;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -206,7 +209,8 @@ public class Client<Model extends Serializable> {
      *            a list of ip and node names
      * @throws IOException
      */
-    public static void generateClusterConfig(File file, String... args) throws IOException {
+    public static void generateClusterConfig(File file, String... args)
+            throws IOException {
         PrintStream ps = new PrintStream(file);
         for (int i = 0; i < args.length / 2; i++)
             ps.println(args[i * 2] + " " + args[i * 2 + 1]);
@@ -222,13 +226,14 @@ public class Client<Model extends Serializable> {
         this.control = new IMRUJobControl<Model>();
         control.localIntermediateModelPath = options.localIntermediateModelPath;
         control.modelFileName = options.modelFileNameHDFS;
-        control.connect(options.host, options.port, options.imruPort, options.hadoopConfPath, options.clusterConfPath);
+        control.connect(options.host, options.port, options.imruPort,
+                options.hadoopConfPath, options.clusterConfPath);
         hcc = control.hcc;
         conf = control.confFactory.createConfiguration();
         // set aggregation type
         if (options.aggTreeType == null) {
-           int mappers= options.examplePaths.split(",").length;
-//            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
+            int mappers = options.examplePaths.split(",").length;
+            //            Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
             if (mappers < 3)
                 control.selectNoAggregation(options.examplePaths);
             else
@@ -236,14 +241,18 @@ public class Client<Model extends Serializable> {
         } else if (options.aggTreeType.equals("none")) {
             control.selectNoAggregation(options.examplePaths);
         } else if (options.aggTreeType.equals("generic")) {
-            control.selectGenericAggregation(options.examplePaths, options.aggCount);
+            control.selectGenericAggregation(options.examplePaths,
+                    options.aggCount);
         } else if (options.aggTreeType.equals("nary")) {
             Map<String, NodeControllerInfo> map = hcc.getNodeControllerInfos();
             if (map.size() < 3) {
-                Rt.p("Change to generic aggregation because there are only " + map.size() + " nodes");
-                control.selectGenericAggregation(options.examplePaths, options.fanIn);
+                Rt.p("Change to generic aggregation because there are only "
+                        + map.size() + " nodes");
+                control.selectGenericAggregation(options.examplePaths,
+                        options.fanIn);
             } else {
-                control.selectNAryAggregation(options.examplePaths, options.fanIn);
+                control.selectNAryAggregation(options.examplePaths,
+                        options.fanIn);
             }
         } else {
             throw new IllegalArgumentException("Invalid aggregation tree type");
@@ -256,8 +265,8 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public <Data extends Serializable, T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job,
-            Model initialModel) throws Exception {
+    public <Data extends Serializable, T extends Serializable> JobStatus run(
+            IIMRUJob<Model, Data, T> job, Model initialModel) throws Exception {
         return control.run(job, initialModel, options.app);
     }
 
@@ -266,7 +275,8 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public JobStatus run(IIMRUJob2<Model> job, Model initialModel) throws Exception {
+    public JobStatus run(IIMRUJob2<Model> job, Model initialModel)
+            throws Exception {
         return control.run(job, initialModel, options.app);
     }
 
@@ -275,7 +285,8 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel) throws Exception {
+    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
+            Model initialModel) throws Exception {
         return control.run(job, initialModel, options.app);
     }
 
@@ -307,7 +318,8 @@ public class Client<Model extends Serializable> {
      * @param clientNetPort
      * @throws Exception
      */
-    public void startCC(String host, int clusterNetPort, int clientNetPort) throws Exception {
+    public void startCC(String host, int clusterNetPort, int clientNetPort)
+            throws Exception {
         CCConfig ccConfig = new CCConfig();
         ccConfig.clientNetIpAddress = host;
         ccConfig.clusterNetIpAddress = host;
@@ -329,7 +341,8 @@ public class Client<Model extends Serializable> {
      * @param clusterNetPort
      * @throws Exception
      */
-    public void startNC(String NC1_ID, String host, int clusterNetPort) throws Exception {
+    public void startNC(String NC1_ID, String host, int clusterNetPort)
+            throws Exception {
         NCConfig ncConfig1 = new NCConfig();
         ncConfig1.ccHost = host;
         ncConfig1.clusterNetIPAddress = host;
@@ -404,7 +417,8 @@ public class Client<Model extends Serializable> {
      */
     public void runJob(JobSpecification spec, String appName) throws Exception {
         spec.setFrameSize(FRAME_SIZE);
-        JobId jobId = hcc.startJob(appName, spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(appName, spec,
+                EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
     }
 
@@ -428,7 +442,8 @@ public class Client<Model extends Serializable> {
      * @param hdfsPath
      * @throws IOException
      */
-    public void copyFromLocalToHDFS(String localPath, String hdfsPath) throws IOException {
+    public void copyFromLocalToHDFS(String localPath, String hdfsPath)
+            throws IOException {
         FileSystem dfs = getHDFS();
         dfs.mkdirs(new Path(hdfsPath).getParent());
         System.out.println("copy " + localPath + " to " + hdfsPath);
@@ -443,11 +458,13 @@ public class Client<Model extends Serializable> {
      * @throws Exception
      */
     public void uploadApp() throws Exception {
-        uploadApp(hcc, options.app, options.hadoopConfPath != null, options.imruPort, options.ccTempPath);
+        uploadApp(hcc, options.app, options.hadoopConfPath != null,
+                options.imruPort, options.ccTempPath);
     }
 
-    public static void uploadApp(IHyracksClientConnection hcc, String appName, boolean includeHadoop, int imruPort,
-            String tempDir) throws Exception {
+    public static void uploadApp(IHyracksClientConnection hcc, String appName,
+            boolean includeHadoop, int imruPort, String tempDir)
+            throws Exception {
         final File harFile = File.createTempFile("imru_app", ".zip");
         FileOutputStream out = new FileOutputStream(harFile);
         CreateHar.createHar(harFile, includeHadoop, imruPort, tempDir);
@@ -524,8 +541,9 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
-            M initialModel, String[] args) throws Exception {
+    public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(
+            IIMRUJob<M, D, R> job, M initialModel, String[] args)
+            throws Exception {
         return run(job, initialModel, args, null);
     }
 
@@ -534,8 +552,9 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(IIMRUJob<M, D, R> job,
-            M initialModel, String[] args, String overrideAppName) throws Exception {
+    public static <M extends Serializable, D extends Serializable, R extends Serializable> M run(
+            IIMRUJob<M, D, R> job, M initialModel, String[] args,
+            String overrideAppName) throws Exception {
         // create a client object, which handles everything
         Client<M> client = new Client<M>(args);
         try {
@@ -558,5 +577,45 @@ public class Client<Model extends Serializable> {
             //            if (client.options.debug)
             //                System.exit(0);
         }
+    }
+
+    /**
+     * run job
+     * 
+     * @throws Exception
+     */
+    public static <Model extends Serializable> Model run(
+            TrainMergeJob<Model> job, Model initialModel, String[] args)
+            throws Exception {
+        return run(job, initialModel, args, null);
+    }
+
+    /**
+     * run job
+     * 
+     * @throws Exception
+     */
+    public static <Model extends Serializable> Model run(
+            TrainMergeJob<Model> job, Model initialModel, String[] args,
+            String overrideAppName) throws Exception {
+        // create a client object, which handles everything
+        Client<Model> client = new Client<Model>(args);
+
+        if (overrideAppName != null)
+            client.options.app = overrideAppName;
+        client.init();
+
+        TrainMergeDriver<Model> driver = new TrainMergeDriver<Model>(
+                client.hcc, client.control.imruConnection, job, initialModel,
+                client.options.examplePaths, client.control.confFactory,
+                client.options.app);
+        driver.modelFileName = client.options.modelFilename;
+        JobStatus status = driver.run();
+
+        if (status == JobStatus.FAILURE) {
+            System.err.println("Job failed; see CC and NC logs");
+            System.exit(-1);
+        }
+        return driver.getModel();
     }
 }

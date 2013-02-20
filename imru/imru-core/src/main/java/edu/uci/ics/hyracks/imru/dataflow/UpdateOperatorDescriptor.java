@@ -168,9 +168,7 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
             try {
                 updateFunction.close();
                 model = (Model) updateFunction.getUpdateModel();
-                INCApplicationContext appContext = imruContext.getJobletContext().getApplicationContext();
-                IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
-                context.model = model;
+                imruContext.setModel(model);
 
                 long start = System.currentTimeMillis();
                 imruConnection.uploadModel(modelName, model);

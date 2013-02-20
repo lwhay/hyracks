@@ -1,11 +1,15 @@
 package edu.uci.ics.hyracks.imru.file;
 
+import java.io.BufferedReader;
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
@@ -14,6 +18,7 @@ import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 public class IMRUFileSplit implements Serializable {
     String path;
     HDFSSplit split;
+    Hashtable<String, String> params;
 
     public IMRUFileSplit(String path) {
         this.path = path;
@@ -28,7 +33,31 @@ public class IMRUFileSplit implements Serializable {
     }
 
     public String getPath() {
+        int t = path.indexOf('?');
+        if (t > 0)
+            return path.substring(0, t);
         return path;
+    }
+
+    public String getParameter(String key) {
+        if (params == null) {
+            params = new Hashtable<String, String>();
+            int t = path.indexOf('?');
+            if (t < 0)
+                return null;
+            for (String s : path.substring(t + 1).split("&")) {
+                String[] kv = s.split("=", 2);
+                params.put(kv[0], kv[1]);
+            }
+        }
+        return params.get(key);
+    }
+
+    public boolean isDirectory() throws IOException {
+        if (path != null)
+            return new File(path).isDirectory();
+        else
+            return split.isDirectory();
     }
 
     public String[] getLocations() throws IOException {
@@ -67,15 +96,19 @@ public class IMRUFileSplit implements Serializable {
         }
     }
 
-    public InputStream getInputStream(IConfigurationFactory confFactory) throws IOException {
+    public InputStream getInputStream() throws IOException {
         if (path != null) {
             String path = this.path;
             if (path.indexOf(':') > 0)
                 path = path.substring(path.indexOf(':') + 1);
             return new FileInputStream(path);
         } else {
-            return split.getInputStream(confFactory);
+            return split.getInputStream();
         }
+    }
+
+    public BufferedReader getReader() throws IOException {
+        return new BufferedReader(new InputStreamReader(getInputStream()));
     }
 
     @Override

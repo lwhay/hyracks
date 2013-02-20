@@ -44,7 +44,7 @@ import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.SpreadConnectorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.SpreadOD;
 import edu.uci.ics.hyracks.imru.dataflow.UpdateOperatorDescriptor;
-import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
+import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
@@ -66,7 +66,7 @@ public class IMRUJobFactory implements IJobFactory {
     };
 
     final ConfigurationFactory confFactory;
-    List<IMRUFileSplit> inputSplits;
+    IMRUFileSplit[] inputSplits;
     String[] mapOperatorLocations;
     String[] mapNodesLocations;
     String modelNode; //on which node the model will be
@@ -112,9 +112,7 @@ public class IMRUJobFactory implements IJobFactory {
             AGGREGATION aggType, int fanIn, int reducerCount) throws IOException, InterruptedException {
         this.imruConnection = imruConnection;
         this.confFactory = confFactory;
-        Configuration conf = confFactory == null ? null : confFactory.createConfiguration();
-        HDFSInputSplitProvider inputSplitProvider = new HDFSInputSplitProvider(inputPaths, conf);
-        inputSplits = inputSplitProvider.getInputSplits();
+        inputSplits = IMRUInputSplitProvider.getInputSplits(inputPaths, confFactory);
         // For repeatability of the partition assignments, seed the
         // source of
         // randomness using the job id.
@@ -151,15 +149,29 @@ public class IMRUJobFactory implements IJobFactory {
     }
 
     public JobSpecification generateModelSpreadJob(String modelPath, int roundNum) {
+        return generateModelSpreadJob(mapNodesLocations, modelNode, imruConnection, modelPath, roundNum);
+    }
+
+    /**
+     * 
+     * @param mapNodesLocations The nodes which contains map operators
+     * @param initialNode The node which downloads model and start distributing
+     * @param imruConnection
+     * @param modelName
+     * @param modelAge
+     * @return
+     */
+    public static JobSpecification generateModelSpreadJob(String[] mapNodesLocations, String initialNode,
+            IMRUConnection imruConnection, String modelName, int modelAge) {
         JobSpecification job = new JobSpecification();
         //        job.setFrameSize(frameSize);
-        SpreadGraph graph = new SpreadGraph(mapNodesLocations, modelNode);
+        SpreadGraph graph = new SpreadGraph(mapNodesLocations, initialNode);
         //        graph.print();
         SpreadOD last = null;
         for (int i = 0; i < graph.levels.length; i++) {
             SpreadGraph.Level level = graph.levels[i];
             String[] locations = level.getLocationContraint();
-            SpreadOD op = new SpreadOD(job, graph.levels, i, modelPath, imruConnection, roundNum);
+            SpreadOD op = new SpreadOD(job, graph.levels, i, modelName, imruConnection, modelAge);
             if (i > 0)
                 job.connect(new SpreadConnectorDescriptor(job, graph.levels[i - 1], level), last, 0, op, 0);
             PartitionConstraintHelper.addAbsoluteLocationConstraint(job, op, locations);
@@ -180,8 +192,7 @@ public class IMRUJobFactory implements IJobFactory {
 
         // IMRU Computation
         // We will have one Map operator per input file.
-        IMRUOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, roundNum,
-                "map");
+        IMRUOperatorDescriptor mapOperator = new MapOperatorDescriptor(spec, model, roundNum, "map");
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, mapOperator, mapOperatorLocations);
 
         // Environment updating
@@ -210,7 +221,7 @@ public class IMRUJobFactory implements IJobFactory {
         } else if (aggType == AGGREGATION.NARY) {
             // Reduce aggregation tree.
             IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(spec);
-            ReduceAggregationTreeFactory.buildAggregationTree(spec, mapOperator, 0, inputSplits.size(), updateOperator,
+            ReduceAggregationTreeFactory.buildAggregationTree(spec, mapOperator, 0, inputSplits.length, updateOperator,
                     0, reduceUpdateConn, fanIn, true, mapOperatorLocations, model);
         }
 

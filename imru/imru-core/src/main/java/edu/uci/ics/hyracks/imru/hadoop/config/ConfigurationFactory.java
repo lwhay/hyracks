@@ -39,6 +39,7 @@ public class ConfigurationFactory implements IConfigurationFactory {
      * HDFS is not used
      */
     public ConfigurationFactory() {
+        hasConf = false;
     }
 
     /**
@@ -49,6 +50,10 @@ public class ConfigurationFactory implements IConfigurationFactory {
     public ConfigurationFactory(String hadoopConfPath) {
         this.hadoopConfPath = hadoopConfPath;
         hasConf = hadoopConfPath != null;
+    }
+
+    public boolean useHDFS() {
+        return hasConf;
     }
 
     public InputStream getInputStream(String path) throws IOException {

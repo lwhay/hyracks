@@ -1,18 +1,25 @@
 package edu.uci.ics.hyracks.imru.api;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.control.nc.Joblet;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 
+/**
+ * 
+ * @author Rui Wang
+ */
 public class IMRUContext {
     private String operatorName;
     private NodeControllerService nodeController;
 
     private String nodeId;
-    private IHyracksTaskContext ctx;
+    protected IHyracksTaskContext ctx;
 
     public IMRUContext(IHyracksTaskContext ctx) {
         this(ctx, null);
@@ -50,6 +57,26 @@ public class IMRUContext {
 
     public IHyracksJobletContext getJobletContext() {
         return ctx.getJobletContext();
+    }
+
+    /**
+     * Get the model shared in each node controller
+     * 
+     * @return
+     */
+    public Serializable getModel() {
+        INCApplicationContext appContext = getJobletContext().getApplicationContext();
+        IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+        return context.model;
+    }
+
+    /**
+     * Set the model shared in each node controller
+     */
+    public void setModel(Serializable model) {
+        INCApplicationContext appContext = getJobletContext().getApplicationContext();
+        IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+        context.model = model;
     }
 
     public IHyracksTaskContext getHyracksTaskContext() {

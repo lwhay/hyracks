@@ -26,7 +26,8 @@ import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 /**
  * High level IMRU job interface. Data passed through are objects.
  * 
- * @author wangrui
+ * @author Rui Wang
+ * 
  * @param <Model>
  *            data model
  * @param <Data>

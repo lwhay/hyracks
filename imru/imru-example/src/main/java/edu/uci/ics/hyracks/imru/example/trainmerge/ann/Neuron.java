@@ -13,13 +13,17 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.bgd.data;
+package edu.uci.ics.hyracks.imru.example.trainmerge.ann;
 
-import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
-import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import java.io.Serializable;
 
-public class RecordDescriptorUtils {
-    public static RecordDescriptor getDummyRecordDescriptor(int numFields) {
-        return new RecordDescriptor(new ISerializerDeserializer[numFields]);
-    }
+public class Neuron implements Serializable {
+	public int id;
+	public int biasIndex;
+	public int[] fromIndex;
+	public int[] weightIndex;
+	public void createConnections(int n) {
+		fromIndex = new int[n];
+		weightIndex = new int[n];
+	}
 }

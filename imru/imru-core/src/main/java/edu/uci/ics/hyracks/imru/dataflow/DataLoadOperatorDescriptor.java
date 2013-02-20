@@ -44,7 +44,7 @@ import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
-import edu.uci.ics.hyracks.imru.file.HDFSInputSplitProvider;
+import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
 import edu.uci.ics.hyracks.imru.file.HDFSUtils;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
@@ -65,7 +65,7 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
 
-    protected final List<IMRUFileSplit> inputSplits;
+    protected final IMRUFileSplit[] inputSplits;
 
     /**
      * Create a new MapOperatorDescriptor.
@@ -80,7 +80,7 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
      *            A Hadoop configuration, used for HDFS.
      */
     public DataLoadOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec,
-            List<IMRUFileSplit> inputSplits, IConfigurationFactory confFactory) {
+            IMRUFileSplit[] inputSplits, IConfigurationFactory confFactory) {
         super(spec, 0, 0, "parse", imruSpec, confFactory);
         this.inputSplits = inputSplits;
     }
@@ -91,12 +91,12 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
         private final IHyracksTaskContext fileCtx;
         private final IIMRUJobSpecification<?> imruSpec;
         private final IConfigurationFactory confFactory;
-        private final List<IMRUFileSplit> inputSplits;
+        private final IMRUFileSplit[] inputSplits;
         private final int partition;
         private final String name;
 
         public DataLoadOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec,
-                List<IMRUFileSplit> inputSplits, IConfigurationFactory confFactory, int partition, String name) {
+                IMRUFileSplit[] inputSplits, IConfigurationFactory confFactory, int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.confFactory = confFactory;
@@ -126,9 +126,9 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
             runFileWriter.open();
 
             IMRUContext context = new IMRUContext(fileCtx, name);
-            final IMRUFileSplit split = inputSplits.get(partition);
+            final IMRUFileSplit split = inputSplits[partition];
             try {
-                InputStream in = split.getInputStream(confFactory);
+                InputStream in = split.getInputStream();
                 ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
                 dataLoader.parse(in, runFileWriter);
                 in.close();

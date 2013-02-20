@@ -100,18 +100,18 @@ public class ClusterConfig {
      * @throws HyracksException
      */
     public static String[] setLocationConstraint(JobSpecification spec, IMRUOperatorDescriptor operator,
-            List<IMRUFileSplit> splits, Random random) throws IOException {
+            IMRUFileSplit[] splits, Random random) throws IOException {
         if (NCs == null)
             loadClusterConfig();
-        if (splits.size() == 0)
+        if (splits.length == 0)
             return new String[0];
 
-        if (!splits.get(0).isOnHDFS()) {
-            int partitionCount = splits.size();
+        if (!splits[0].isOnHDFS()) {
+            int partitionCount = splits.length;
             String[] partitionLocations = new String[partitionCount];
             for (int partition = 0; partition < partitionCount; partition++) {
                 int pos = partition % NCs.length;
-                String path = splits.get(partition).getPath();
+                String path = splits[partition].getPath();
                 int t = path.indexOf(":");
                 if (t > 0)
                     partitionLocations[partition] = path.substring(0, t);
@@ -124,12 +124,12 @@ public class ClusterConfig {
             }
             return partitionLocations;
         }
-        int partitionCount = splits.size();
+        int partitionCount = splits.length;
         String[] partitionLocations = new String[partitionCount];
         int localAssignments = 0;
         int nonlocalAssignments = 0;
         for (int partition = 0; partition < partitionCount; partition++) {
-            String[] localHosts = splits.get(partition).getLocations();
+            String[] localHosts = splits[partition].getLocations();
             // Remove nondeterminism from the call to getLocations():
             Collections.sort(Arrays.asList(localHosts));
             Collections.shuffle(Arrays.asList(localHosts), random);

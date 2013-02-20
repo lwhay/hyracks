@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.digitRecognition;
+package edu.uci.ics.hyracks.imru.example.trainmerge.ann;
 
 import java.util.Random;
 
