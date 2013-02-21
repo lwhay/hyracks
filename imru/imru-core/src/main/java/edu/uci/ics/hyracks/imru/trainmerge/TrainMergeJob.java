@@ -36,11 +36,12 @@ public interface TrainMergeJob<Model extends Serializable> extends Serializable 
      * train the model using the data.
      * After reading each data example, perform an update of the model.
      * After a sequence of updates of the model, send the model
-     * out to a random target node. The target node merge its own model
+     * out to a target node. The target node merge its own model
      * with this node.
      * If the last model sent out is m1, the current model sent out is m2,
      * and distance between m1 and m2 is d, then the maximum distance
      * between every two models in the cluster is bounded within 3d
+     * if each node select the target sequentially.
      * TODO: mathematical proof
      * 
      * @param context
@@ -49,12 +50,14 @@ public interface TrainMergeJob<Model extends Serializable> extends Serializable 
      *            A split of the data (file or directory)
      * @param model
      *            The model which will be updated simultaneously in train() and merge()
-     * @param totalNodes
-     *            total number of nodes available.
+     * @param curMergerId
+     *            the id of current node with respect to total number of nodes involved in the training.
+     * @param totalMergers
+     *            total number of nodes involved in the training.
      * @throws IOException
      */
     public void train(TrainMergeContext<Model> context, IMRUFileSplit input,
-            Model model, int totalNodes) throws IOException;
+            Model model, int curMergerId, int totalMergers) throws IOException;
 
     /**
      * Merge a received model with the current model.

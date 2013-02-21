@@ -56,6 +56,7 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.data.DataSpreadDriver;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeDriver;
@@ -617,5 +618,29 @@ public class Client<Model extends Serializable> {
             System.exit(-1);
         }
         return driver.getModel();
+    }
+
+    /**
+     * Spread data into specified nodes in $log_2 N$ time.
+     * 
+     * @throws Exception
+     */
+    public static void distributeData(File[] src, String[] targetNodes, String[] dest,
+            String[] args) throws Exception {
+        // create a client object, which handles everything
+        Client<Serializable> client = new Client<Serializable>(args);
+
+        client.init();
+
+        for (int i = 0; i < src.length; i++) {
+            DataSpreadDriver driver = new DataSpreadDriver(client.hcc,
+                    client.control.imruConnection, client.options.app, src[i],
+                    targetNodes, dest[i]);
+            JobStatus status = driver.run();
+            if (status == JobStatus.FAILURE) {
+                System.err.println("Job failed; see CC and NC logs");
+                System.exit(-1);
+            }
+        }
     }
 }

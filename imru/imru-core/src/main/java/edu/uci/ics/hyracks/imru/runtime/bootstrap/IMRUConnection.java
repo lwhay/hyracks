@@ -30,19 +30,24 @@ public class IMRUConnection implements Serializable {
         uploadData(name, JavaSerializationUtils.serialize(model));
     }
 
-    public Serializable downloadModel(String name) throws IOException, ClassNotFoundException {
+    public Serializable downloadModel(String name) throws IOException,
+            ClassNotFoundException {
         byte[] bs = downloadData(name);
-        return (Serializable) JavaSerializationUtils.deserialize(bs, this.getClass().getClassLoader());
+        return (Serializable) JavaSerializationUtils.deserialize(bs, this
+                .getClass().getClassLoader());
     }
 
     public void uploadData(String name, byte[] model) throws IOException {
-        URL url2 = new URL("http://" + host + ":" + port + "/put?key=" + URLEncoder.encode(downloadKey, "UTF-8")
-                + "&name=" + URLEncoder.encode(name, "UTF-8"));
-        HttpURLConnection connection = (HttpURLConnection) url2.openConnection();
+        URL url2 = new URL("http://" + host + ":" + port + "/put?key="
+                + URLEncoder.encode(downloadKey, "UTF-8") + "&name="
+                + URLEncoder.encode(name, "UTF-8"));
+        HttpURLConnection connection = (HttpURLConnection) url2
+                .openConnection();
         connection.setDoOutput(true);
         connection.setInstanceFollowRedirects(false);
         connection.setRequestMethod("POST");
-        connection.setRequestProperty("Content-Type", "application/octet-stream");
+        connection.setRequestProperty("Content-Type",
+                "application/octet-stream");
         connection.connect();
         OutputStream out = connection.getOutputStream();
         out.write(model);
@@ -54,12 +59,48 @@ public class IMRUConnection implements Serializable {
     }
 
     public byte[] downloadData(String name) throws IOException {
-        URL url2 = new URL("http://" + host + ":" + port + "/get?key=" + URLEncoder.encode(downloadKey, "UTF-8")
-                + "&name=" + URLEncoder.encode(name, "UTF-8"));
-        HttpURLConnection connection = (HttpURLConnection) url2.openConnection();
+        URL url2 = new URL("http://" + host + ":" + port + "/get?key="
+                + URLEncoder.encode(downloadKey, "UTF-8") + "&name="
+                + URLEncoder.encode(name, "UTF-8"));
+        HttpURLConnection connection = (HttpURLConnection) url2
+                .openConnection();
         connection.setInstanceFollowRedirects(false);
         connection.setRequestMethod("GET");
         connection.connect();
         return Rt.read(connection.getInputStream());
+    }
+
+    public void setStatus(String job, String status) throws IOException {
+        URL url2 = new URL("http://" + host + ":" + port
+                + "/setStatus?jobName=" + URLEncoder.encode(job, "UTF-8")
+                + "&status=" + URLEncoder.encode(status, "UTF-8"));
+        HttpURLConnection connection = (HttpURLConnection) url2
+                .openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestMethod("GET");
+        connection.connect();
+        Rt.read(connection.getInputStream());
+    }
+
+    public String getStatus(String job) throws IOException {
+        URL url2 = new URL("http://" + host + ":" + port
+                + "/getStatus?jobName=" + URLEncoder.encode(job, "UTF-8"));
+        HttpURLConnection connection = (HttpURLConnection) url2
+                .openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestMethod("GET");
+        connection.connect();
+        return new String(Rt.read(connection.getInputStream()));
+    }
+
+    public void finishJob(String job) throws IOException {
+        URL url2 = new URL("http://" + host + ":" + port
+                + "/finishJob?jobName=" + URLEncoder.encode(job, "UTF-8"));
+        HttpURLConnection connection = (HttpURLConnection) url2
+                .openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setRequestMethod("GET");
+        connection.connect();
+        Rt.read(connection.getInputStream());
     }
 }

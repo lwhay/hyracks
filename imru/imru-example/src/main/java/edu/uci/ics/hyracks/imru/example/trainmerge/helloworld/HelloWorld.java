@@ -15,15 +15,7 @@
 
 package edu.uci.ics.hyracks.imru.example.trainmerge.helloworld;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
-import org.kohsuke.args4j.Option;
-
 import edu.uci.ics.hyracks.imru.example.utils.Client;
-import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Upload helloworld example to a cluster and run it.
@@ -33,7 +25,7 @@ public class HelloWorld {
         // if no argument is given, the following code
         // create default arguments to run the example
         String cmdline = "";
-        int totalNodes = 5;
+        int totalNodes = 3;
         if (debugging) {
             // debugging mode, everything run in one process
             cmdline += " -debug";

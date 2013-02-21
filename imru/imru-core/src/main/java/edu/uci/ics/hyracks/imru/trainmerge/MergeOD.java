@@ -32,13 +32,15 @@ public class MergeOD<Model extends Serializable> extends
     IMRUConnection imruConnection;
     String modelName;
     TrainMergeJob<Model> trainMergejob;
+    String jobId;
 
     public MergeOD(JobSpecification spec, TrainMergeJob<Model> trainMergejob,
-            IMRUConnection imruConnection, String modelName) {
+            IMRUConnection imruConnection, String modelName, String jobId) {
         super(spec, 1, 0);
         this.imruConnection = imruConnection;
         this.modelName = modelName;
         this.trainMergejob = trainMergejob;
+        this.jobId = jobId;
     }
 
     @Override
@@ -71,8 +73,8 @@ public class MergeOD<Model extends Serializable> extends
                     long start = System.currentTimeMillis();
                     Model model = (Model) imruContext.getModel();
                     try {
-                        Rt.p("uploading model");
                         imruConnection.uploadModel(modelName, model);
+                        imruConnection.finishJob(jobId);
                     } catch (IOException e) {
                         throw new HyracksDataException(e);
                     }
@@ -148,13 +150,13 @@ public class MergeOD<Model extends Serializable> extends
         }
         try {
             TrainMergeContext<Model> context = new TrainMergeContext<Model>(
-                    ctx, "merge", null);
+                    ctx, "merge", null, partition, imruConnection, jobId);
             String nodeId = context.getNodeId();
             byte[] bs = deserializeFromChunks(ctx.getFrameSize(), queue);
             Model receivedModel = (Model) JavaSerializationUtils.deserialize(
                     bs, SpreadOD.class.getClassLoader());
             Model model = (Model) context.getModel();
-            model = trainMergejob.merge(context,model, receivedModel);
+            model = trainMergejob.merge(context, model, receivedModel);
             context.setModel(model);
         } catch (Exception e) {
             throw new HyracksDataException(e);

@@ -11,7 +11,6 @@ import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 
 /**
- * 
  * @author Rui Wang
  */
 public class IMRUContext {
@@ -65,8 +64,10 @@ public class IMRUContext {
      * @return
      */
     public Serializable getModel() {
-        INCApplicationContext appContext = getJobletContext().getApplicationContext();
-        IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+        INCApplicationContext appContext = getJobletContext()
+                .getApplicationContext();
+        IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                .getApplicationObject();
         return context.model;
     }
 
@@ -74,9 +75,23 @@ public class IMRUContext {
      * Set the model shared in each node controller
      */
     public void setModel(Serializable model) {
-        INCApplicationContext appContext = getJobletContext().getApplicationContext();
-        IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+        INCApplicationContext appContext = getJobletContext()
+                .getApplicationContext();
+        IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                .getApplicationObject();
         context.model = model;
+    }
+
+    /**
+     * Set the model shared in each node controller
+     */
+    public void setModel(Serializable model, int age) {
+        INCApplicationContext appContext = getJobletContext()
+                .getApplicationContext();
+        IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                .getApplicationObject();
+        context.model = model;
+        context.modelAge = age;
     }
 
     public IHyracksTaskContext getHyracksTaskContext() {

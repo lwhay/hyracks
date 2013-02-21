@@ -12,9 +12,9 @@ import edu.uci.ics.hyracks.imru.util.Rt;
 public class TrainJob implements TrainMergeJob<String> {
     @Override
     public void train(TrainMergeContext<String> context, IMRUFileSplit input,
-            String model, int totalNodes) throws IOException {
-        Random random = new Random();
+            String model, int curMergerId, int totalMergers) throws IOException {
         BufferedReader reader = input.getReader();
+        int targetMerger = curMergerId;
         for (String line = reader.readLine(); line != null; line = reader
                 .readLine()) {
             // Because model is a string in this example which 
@@ -26,8 +26,14 @@ public class TrainJob implements TrainMergeJob<String> {
                     + context.getNodeId() + ")";
             context.setModel(updatedModel);
             Rt.p(model + " -> " + updatedModel);
-            context.send(random.nextInt(totalNodes));
+            Rt.p(input.getPath() + " " + context.getNodeId() + " "
+                    + curMergerId);
+            targetMerger = (targetMerger + 1) % totalMergers;
+            if (targetMerger == curMergerId)
+                targetMerger = (targetMerger + 1) % totalMergers;
+            context.send(targetMerger);
         }
+        Rt.p("exit "+totalMergers);
     }
 
     @Override

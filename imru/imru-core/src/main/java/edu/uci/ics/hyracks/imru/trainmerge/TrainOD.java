@@ -20,6 +20,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -29,16 +30,23 @@ public class TrainOD<Model extends Serializable> extends
         AbstractSingleActivityOperatorDescriptor {
     protected final IMRUFileSplit[] inputSplits;
     TrainMergeJob<Model> trainMergejob;
-    int totalNodes;
+    int[] mergerIds;
+    int totalMerger;
+    IMRUConnection imruConnection;
+    String jobId;
 
     public TrainOD(JobSpecification spec, TrainMergeJob<Model> trainMergejob,
-            IMRUFileSplit[] inputSplits,int totalNodes) {
+            IMRUFileSplit[] inputSplits, int[] mergerIds, int totalMerger,
+            IMRUConnection imruConnection, String jobId) {
         super(spec, 0, 1);
         recordDescriptors[0] = new RecordDescriptor(
                 new ISerializerDeserializer[1]);
         this.inputSplits = inputSplits;
         this.trainMergejob = trainMergejob;
-        this. totalNodes= totalNodes;
+        this.mergerIds = mergerIds;
+        this.totalMerger = totalMerger;
+        this.imruConnection = imruConnection;
+        this.jobId = jobId;
     }
 
     @Override
@@ -74,11 +82,11 @@ public class TrainOD<Model extends Serializable> extends
         writer.open();
         try {
             TrainMergeContext<Model> context = new TrainMergeContext<Model>(
-                    ctx, "train", writer);
+                    ctx, "train", writer, partition, imruConnection, jobId);
             String nodeId = context.getNodeId();
             Model model = (Model) context.getModel();
             trainMergejob.train(context, inputSplits[partition], model,
-                    totalNodes);
+                    mergerIds[partition], totalMerger);
         } catch (IOException e) {
             writer.fail();
             throw new HyracksDataException(e);

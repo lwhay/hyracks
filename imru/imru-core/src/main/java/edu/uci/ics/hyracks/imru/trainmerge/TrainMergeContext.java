@@ -11,14 +11,34 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 
 public class TrainMergeContext<Model extends Serializable> extends IMRUContext {
     IFrameWriter writer;
+    private int curPartition;
+    IMRUConnection imruConnection;
+    String jobId;
 
     public TrainMergeContext(IHyracksTaskContext ctx, String operatorName,
-            IFrameWriter writer) {
+            IFrameWriter writer, int curPartition,
+            IMRUConnection imruConnection, String jobId) {
         super(ctx, operatorName);
         this.writer = writer;
+        this.curPartition = curPartition;
+        this.imruConnection = imruConnection;
+        this.jobId = jobId;
+    }
+
+    public int getCurPartition() {
+        return curPartition;
+    }
+
+    public void setJobStatus(String status) {
+        try {
+            imruConnection.setStatus(jobId, status);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static final int BYTES_IN_INT = 4;

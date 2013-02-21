@@ -33,9 +33,13 @@ public class IMRUFileSplit implements Serializable {
     }
 
     public String getPath() {
+        String path = this.path;
         int t = path.indexOf('?');
         if (t > 0)
-            return path.substring(0, t);
+            path = path.substring(0, t);
+        t = path.indexOf(':');
+        if (t > 0)
+            path = path.substring(t + 1);
         return path;
     }
 

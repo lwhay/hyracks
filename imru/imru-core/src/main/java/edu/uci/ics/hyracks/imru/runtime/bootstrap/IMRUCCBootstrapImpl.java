@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.Hashtable;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,9 +44,11 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * Cluster Controller.
  */
 public class IMRUCCBootstrapImpl implements ICCBootstrap {
-    private static final Logger LOGGER = Logger.getLogger(IMRUCCBootstrapImpl.class.getName());
+    private static final Logger LOGGER = Logger
+            .getLogger(IMRUCCBootstrapImpl.class.getName());
     private Server webServer;
     private ICCApplicationContext appCtx;
+    private Hashtable<String, String> jobStatus = new Hashtable<String, String>();
 
     @Override
     public void start() throws Exception {
@@ -74,7 +77,8 @@ public class IMRUCCBootstrapImpl implements ICCBootstrap {
     String modelDir;
 
     private void setupWebServer() throws Exception {
-        InputStream stream = this.getClass().getClassLoader().getResourceAsStream("imru-deployment.properties");
+        InputStream stream = this.getClass().getClassLoader()
+                .getResourceAsStream("imru-deployment.properties");
         Properties p = new Properties();
         p.load(stream);
         stream.close();
@@ -87,17 +91,19 @@ public class IMRUCCBootstrapImpl implements ICCBootstrap {
             modelDir = System.getProperty("imru.tempdir");
         webServer = new Server(port);
 
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        ServletContextHandler context = new ServletContextHandler(
+                ServletContextHandler.SESSIONS);
         context.setContextPath("/");
         webServer.setHandler(context);
         context.addServlet(new ServletHolder(new Servlet() {
             @Override
-            public void service(ServletRequest request, ServletResponse response) throws ServletException, IOException {
+            public void service(ServletRequest request, ServletResponse response)
+                    throws ServletException, IOException {
                 HttpServletRequest r = (HttpServletRequest) request;
                 String key = r.getParameter("key");
                 String name = r.getParameter("name");
                 LOGGER.info(r.getRequestURI() + " " + name);
-                if (name.contains("/"))
+                if (name != null && name.contains("/"))
                     throw new IOException(name);
                 if ("/put".equals(r.getRequestURI())) {
                     byte[] bs = Rt.read(r.getInputStream());
@@ -127,6 +133,24 @@ public class IMRUCCBootstrapImpl implements ICCBootstrap {
                     OutputStream pw = response.getOutputStream();
                     pw.write(bs);
                     pw.close();
+                } else if ("/setStatus".equals(r.getRequestURI())) {
+                    String jobName = request.getParameter("jobName");
+                    String status = request.getParameter("status");
+                    if (jobName != null && status != null)
+                        jobStatus.put(jobName, status);
+                } else if ("/getStatus".equals(r.getRequestURI())) {
+                    String jobName = request.getParameter("jobName");
+                    PrintWriter pw = response.getWriter();
+                    if (jobName != null) {
+                        String status = jobStatus.get(jobName);
+                        if (status != null)
+                            pw.print(status);
+                    }
+                    pw.close();
+                } else if ("/finishJob".equals(r.getRequestURI())) {
+                    String jobName = request.getParameter("jobName");
+                    if (jobName != null)
+                        jobStatus.remove(jobName);
                 }
             }
 

@@ -66,8 +66,8 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
 
     @Override
     public void train(TrainMergeContext<NeuralNetwork> context,
-            IMRUFileSplit input, NeuralNetwork model, int totalNodes)
-            throws IOException {
+            IMRUFileSplit input, NeuralNetwork model, int curMergerId,
+            int totalMergers) throws IOException {
         Random random = new Random();
         try {
             String path = input.getPath();
@@ -80,6 +80,7 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
             byte[][][] images = MNIST.readImages(new DataInputStream(
                     new FileInputStream(imageFile)), start, len);
             NNResult result = new NNResult(model.layers);
+            int targetMerger = curMergerId;
             for (int turnId = 0; turnId < turns; turnId++) {
                 int backpropagateSecondDervativesSamples = len / 100;
                 if (backpropagateSecondDervativesSamples < 1)
@@ -106,7 +107,7 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
                 long trainTime = 0;
                 long transferTime = 0;
                 int transferCount = 0;
-                //backpropagate time is 6ms
+                //backpropagate time is 3ms
                 //transfer time is 60ms
                 for (int i = 0; i < labels.length; i++) {
                     long startTime = System.nanoTime();
@@ -120,16 +121,24 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
                     trainTime += (System.nanoTime() - startTime);
                     if (i % transferThreshold == transferThreshold - 1) {
                         startTime = System.nanoTime();
-                        context.send(random.nextInt(totalNodes));
+                        targetMerger = (targetMerger + 1) % totalMergers;
+                        if (targetMerger == curMergerId)
+                            targetMerger = (targetMerger + 1) % totalMergers;
+                        context.send(targetMerger);
                         transferTime += (System.nanoTime() - startTime);
                         transferCount++;
                     }
                 }
                 model.errorRate = (double) (total - correct) * 100 / total;
-                Rt.p("error rate: %.2f loss=%f bpTime=%.2fms transferTime=%.2fms",
-                        model.errorRate, loss, (double) trainTime / 1000000
-                                / total, (double) transferTime / 1000000
-                                / transferCount);
+                if (context.getCurPartition() == 0) {
+                    String status = String
+                            .format("error rate: %.2f loss=%f bpTime=%.2fms transferTime=%.2fms",
+                                    model.errorRate, loss, (double) trainTime
+                                            / 1000000 / total,
+                                    (double) transferTime / 1000000
+                                            / transferCount);
+                    context.setJobStatus(status);
+                }
             }
         } catch (IOException e) {
             throw new IMRUDataException(e);

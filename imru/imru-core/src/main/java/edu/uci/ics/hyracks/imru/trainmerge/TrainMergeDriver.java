@@ -27,7 +27,10 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -95,10 +98,18 @@ public class TrainMergeDriver<Model extends Serializable> {
         JobSpecification job = new JobSpecification();
         //        job.setFrameSize(frameSize);
 
-        TrainOD map = new TrainOD(job, trainMergejob, inputSplits,
-                mergeLocations.length);
+        Hashtable<String, Integer> hash = new Hashtable<String, Integer>();
+        for (int i = 0; i < mergeLocations.length; i++)
+            hash.put(mergeLocations[i], i);
+        int[] mergerIds = new int[mapOperatorLocations.length];
+        for (int i = 0; i < mergerIds.length; i++) {
+            mergerIds[i] = hash.get(mapOperatorLocations[i]);
+        }
+
+        TrainOD map = new TrainOD(job, trainMergejob, inputSplits, mergerIds,
+                mergeLocations.length, imruConnection, id.toString());
         MergeOD fuse = new MergeOD(job, trainMergejob, imruConnection,
-                modelFileName);
+                modelFileName, id.toString());
         job.connect(new SpreadConnectorDescriptor(job, null, null), map, 0,
                 fuse, 0);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(job, map,
@@ -126,7 +137,7 @@ public class TrainMergeDriver<Model extends Serializable> {
         LOGGER.info("Distributing initial models");
         JobSpecification spreadjob = IMRUJobFactory.generateModelSpreadJob(
                 mergeOperatorLocations, mergeOperatorLocations[0],
-                imruConnection, modelFileName, 0);
+                imruConnection, modelFileName, 0, null);
         //        byte[] bs=JavaSerializationUtils.serialize(job);
         //      Rt.p("IMRU job size: "+bs.length);
         JobId spreadjobId = hcc.startJob(app, spreadjob,
@@ -142,7 +153,25 @@ public class TrainMergeDriver<Model extends Serializable> {
                 trainOperatorLocations, mergeOperatorLocations);
         JobId jobId = hcc.startJob(app, job,
                 EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            String lastStatus = null;
+
+            @Override
+            public void run() {
+                try {
+                    String status = imruConnection.getStatus(id.toString());
+                    if (status.length() > 0 && !status.equals(lastStatus)) {
+                        Rt.np("Status: " + status);
+                        lastStatus = status;
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, 5000, 5000);
         hcc.waitForCompletion(jobId);
+        timer.cancel();
         JobStatus status = hcc.getJobStatus(jobId);
         long loadEnd = System.currentTimeMillis();
         LOGGER.info("Finished training in " + (loadEnd - loadStart)
