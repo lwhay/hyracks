@@ -3,6 +3,7 @@ package edu.uci.ics.hyracks.imru.trainmerge;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -21,6 +22,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.data.MergedFrames;
 import edu.uci.ics.hyracks.imru.dataflow.SpreadOD;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
@@ -33,14 +35,17 @@ public class MergeOD<Model extends Serializable> extends
     String modelName;
     TrainMergeJob<Model> trainMergejob;
     String jobId;
+    int totalTrainPartitions;
 
     public MergeOD(JobSpecification spec, TrainMergeJob<Model> trainMergejob,
-            IMRUConnection imruConnection, String modelName, String jobId) {
+            IMRUConnection imruConnection, String modelName, String jobId,
+            int totalTrainPartitions) {
         super(spec, 1, 0);
         this.imruConnection = imruConnection;
         this.modelName = modelName;
         this.trainMergejob = trainMergejob;
         this.jobId = jobId;
+        this.totalTrainPartitions = totalTrainPartitions;
     }
 
     @Override
@@ -49,7 +54,7 @@ public class MergeOD<Model extends Serializable> extends
             IRecordDescriptorProvider recordDescProvider, final int partition,
             final int nPartitions) throws HyracksDataException {
         return new AbstractUnaryInputSinkOperatorNodePushable() {
-            LinkedList<ByteBuffer> queue = new LinkedList<ByteBuffer>();
+            Hashtable<Integer, LinkedList<ByteBuffer>> queue = new Hashtable<Integer, LinkedList<ByteBuffer>>();
 
             @Override
             public void open() throws HyracksDataException {
@@ -132,32 +137,21 @@ public class MergeOD<Model extends Serializable> extends
         }
     }
 
-    Random random = new Random();
-
     public void nextFrame(IHyracksTaskContext ctx, IFrameWriter writer,
-            int partition, ByteBuffer buffer, LinkedList<ByteBuffer> queue,
-            int nPartitions) throws HyracksDataException {
-        int frameSize = ctx.getFrameSize();
-        if (buffer != null) {
-            ByteBuffer frame = ctx.allocateFrame();
-            frame.put(buffer.array(), 0, frameSize);
-            queue.add(frame);
-            int size = buffer.getInt(4);
-            int position = buffer.getInt(8);
-            //            Rt.p(position + "/" + size);
-            if (position + frameSize - 12 < size)
-                return;
-        }
+            int partition, ByteBuffer buffer,
+            Hashtable<Integer, LinkedList<ByteBuffer>> hash, int nPartitions)
+            throws HyracksDataException {
+        MergedFrames frames = MergedFrames.nextFrame(ctx, buffer, hash);
+        if (frames == null)
+            return;
         try {
-            TrainMergeContext<Model> context = new TrainMergeContext<Model>(
-                    ctx, "merge", null, partition, imruConnection, jobId);
-            String nodeId = context.getNodeId();
-            byte[] bs = deserializeFromChunks(ctx.getFrameSize(), queue);
-            Model receivedModel = (Model) JavaSerializationUtils.deserialize(
-                    bs, SpreadOD.class.getClassLoader());
-            Model model = (Model) context.getModel();
-            model = trainMergejob.merge(context, model, receivedModel);
-            context.setModel(model);
+            TrainMergeContext context = new TrainMergeContext(ctx, "merge",
+                    null, partition, totalTrainPartitions + partition,
+                    partition, imruConnection, jobId);
+            Serializable receivedObject = (Serializable) JavaSerializationUtils
+                    .deserialize(frames.data, SpreadOD.class.getClassLoader());
+            trainMergejob.receive(context, frames.replyPartition,
+                    receivedObject);
         } catch (Exception e) {
             throw new HyracksDataException(e);
         } finally {

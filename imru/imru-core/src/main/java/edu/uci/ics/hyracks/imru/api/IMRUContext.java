@@ -58,6 +58,12 @@ public class IMRUContext {
         return ctx.getJobletContext();
     }
 
+    public IMRURuntimeContext getRuntimeContext() {
+        INCApplicationContext appContext = getJobletContext()
+                .getApplicationContext();
+        return (IMRURuntimeContext) appContext.getApplicationObject();
+    }
+
     /**
      * Get the model shared in each node controller
      * 

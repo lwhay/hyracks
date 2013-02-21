@@ -50,14 +50,14 @@ public interface TrainMergeJob<Model extends Serializable> extends Serializable 
      *            A split of the data (file or directory)
      * @param model
      *            The model which will be updated simultaneously in train() and merge()
-     * @param curMergerId
+     * @param curNodeId
      *            the id of current node with respect to total number of nodes involved in the training.
-     * @param totalMergers
+     * @param totalNodes
      *            total number of nodes involved in the training.
      * @throws IOException
      */
-    public void train(TrainMergeContext<Model> context, IMRUFileSplit input,
-            Model model, int curMergerId, int totalMergers) throws IOException;
+    public void process(TrainMergeContext context, IMRUFileSplit input,
+            Model model, int curNodeId, int totalNodes) throws IOException;
 
     /**
      * Merge a received model with the current model.
@@ -65,13 +65,11 @@ public interface TrainMergeJob<Model extends Serializable> extends Serializable 
      * 
      * @param context
      *            contains some useful functions
-     * @param model
-     *            The model on the current node
      * @param receivedModel
      *            The model sent from another node
      * @return Merged model, suggest to be the same object as model to save memory
      * @throws IOException
      */
-    public Model merge(TrainMergeContext<Model> context, Model model,
-            Model receivedModel) throws IOException;
+    public void receive(TrainMergeContext context, int sourceParition,
+            Serializable receivedObject) throws IOException;
 }

@@ -17,9 +17,11 @@ package edu.uci.ics.hyracks.imru.runtime.bootstrap;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.state.IStateObject;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -58,6 +60,12 @@ public class IMRURuntimeContext implements IWorkspaceFileFactory {
      * and the others use the shared copy.
      */
     public Serializable model = null;
+    
+    /**
+     * Output writer shared in each node in the train-merge interface. 
+     */
+    public Vector<IFrameWriter> writers=new Vector<IFrameWriter>();
+    
     /**
      * The round that the current global model was loaded in.
      */

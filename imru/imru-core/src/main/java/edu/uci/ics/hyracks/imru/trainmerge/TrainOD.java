@@ -80,17 +80,20 @@ public class TrainOD<Model extends Serializable> extends
                 return;
         }
         writer.open();
+        TrainMergeContext context = new TrainMergeContext(ctx,
+                "train", writer, partition,partition, mergerIds[partition],
+                imruConnection, jobId);
         try {
-            TrainMergeContext<Model> context = new TrainMergeContext<Model>(
-                    ctx, "train", writer, partition, imruConnection, jobId);
             String nodeId = context.getNodeId();
             Model model = (Model) context.getModel();
-            trainMergejob.train(context, inputSplits[partition], model,
+            context.getRuntimeContext().writers.add(writer);
+            trainMergejob.process(context, inputSplits[partition], model,
                     mergerIds[partition], totalMerger);
         } catch (IOException e) {
             writer.fail();
             throw new HyracksDataException(e);
         } finally {
+            context.getRuntimeContext().writers.remove(writer);
             writer.close();
         }
     }

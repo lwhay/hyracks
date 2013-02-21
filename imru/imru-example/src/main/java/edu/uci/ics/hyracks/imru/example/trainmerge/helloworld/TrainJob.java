@@ -2,7 +2,7 @@ package edu.uci.ics.hyracks.imru.example.trainmerge.helloworld;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Random;
+import java.io.Serializable;
 
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeContext;
@@ -10,37 +10,40 @@ import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeJob;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class TrainJob implements TrainMergeJob<String> {
+    int curNodeId = -1;
+
     @Override
-    public void train(TrainMergeContext<String> context, IMRUFileSplit input,
-            String model, int curMergerId, int totalMergers) throws IOException {
+    public void process(TrainMergeContext context, IMRUFileSplit input,
+            String model, int curNodeId, int totalNodes) throws IOException {
+        this.curNodeId = curNodeId;
         BufferedReader reader = input.getReader();
-        int targetMerger = curMergerId;
+        int targetNode = curNodeId;
         for (String line = reader.readLine(); line != null; line = reader
                 .readLine()) {
-            // Because model is a string in this example which 
-            // won't be updated automatically,
-            // so we need to retrieve it in each turn.
-            // But for a object model, there is no need to do this
-            model = (String) context.getModel();
-            String updatedModel = model + " " + line + "("
-                    + context.getNodeId() + ")";
-            context.setModel(updatedModel);
+            targetNode = (targetNode + 1) % totalNodes;
+            if (targetNode == curNodeId)
+                targetNode = (targetNode + 1) % totalNodes;
+            String updatedModel = line + "(" + curNodeId + "->" + targetNode
+                    + ")";
             Rt.p(model + " -> " + updatedModel);
-            Rt.p(input.getPath() + " " + context.getNodeId() + " "
-                    + curMergerId);
-            targetMerger = (targetMerger + 1) % totalMergers;
-            if (targetMerger == curMergerId)
-                targetMerger = (targetMerger + 1) % totalMergers;
-            context.send(targetMerger);
+            context.send(updatedModel, targetNode);
         }
-        Rt.p("exit "+totalMergers);
+        try {
+            Thread.sleep(500); //give some time to reply
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        context.setModel("end");
     }
 
     @Override
-    public String merge(TrainMergeContext<String> context, String model,
-            String receivedModel) throws IOException {
-        Rt.p("merge model (" + context.getNodeId() + "): " + model + " with "
-                + receivedModel);
-        return model + " " + receivedModel;
+    public void receive(TrainMergeContext context, int sourceParition,
+            Serializable receivedObject) throws IOException {
+        Rt.p("received at (" + curNodeId + "): " + receivedObject);
+        if (!receivedObject.toString().contains("reply")) {
+            if (!context.send(receivedObject + " reply (" + curNodeId + "->"
+                    + sourceParition + ")", sourceParition))
+                Rt.p("reply faild (all writer closed)");
+        }
     }
 };

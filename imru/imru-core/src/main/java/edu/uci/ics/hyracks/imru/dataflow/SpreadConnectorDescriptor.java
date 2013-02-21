@@ -32,6 +32,7 @@ import edu.uci.ics.hyracks.dataflow.std.collectors.NonDeterministicChannelReader
 import edu.uci.ics.hyracks.dataflow.std.collectors.NonDeterministicFrameReader;
 import edu.uci.ics.hyracks.dataflow.std.collectors.PartitionCollector;
 import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
+import edu.uci.ics.hyracks.imru.data.MergedFrames;
 import edu.uci.ics.hyracks.imru.jobgen.SpreadGraph;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
@@ -40,15 +41,18 @@ public class SpreadConnectorDescriptor extends AbstractMToNConnectorDescriptor {
     SpreadGraph.Level from;
     SpreadGraph.Level to;
 
-    public SpreadConnectorDescriptor(IConnectorDescriptorRegistry spec, SpreadGraph.Level from, SpreadGraph.Level to) {
+    public SpreadConnectorDescriptor(IConnectorDescriptorRegistry spec,
+            SpreadGraph.Level from, SpreadGraph.Level to) {
         super(spec);
         this.from = from;
         this.to = to;
     }
 
     @Override
-    public IFrameWriter createPartitioner(final IHyracksTaskContext ctx, RecordDescriptor recordDesc,
-            final IPartitionWriterFactory edwFactory, final int senderPartition, int nProducerPartitions,
+    public IFrameWriter createPartitioner(final IHyracksTaskContext ctx,
+            RecordDescriptor recordDesc,
+            final IPartitionWriterFactory edwFactory,
+            final int senderPartition, int nProducerPartitions,
             final int consumerPartitionCount) throws HyracksDataException {
         return new IFrameWriter() {
             private final IFrameWriter[] pWriters;
@@ -71,7 +75,8 @@ public class SpreadConnectorDescriptor extends AbstractMToNConnectorDescriptor {
                 }
             }
 
-            private void flushFrame(ByteBuffer buffer, IFrameWriter frameWriter) throws HyracksDataException {
+            private void flushFrame(ByteBuffer buffer, IFrameWriter frameWriter)
+                    throws HyracksDataException {
                 buffer.position(0);
                 buffer.limit(buffer.capacity());
                 frameWriter.nextFrame(buffer);
@@ -85,14 +90,15 @@ public class SpreadConnectorDescriptor extends AbstractMToNConnectorDescriptor {
             }
 
             @Override
-            public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-                int targetPartition = buffer.getInt(0);
+            public void nextFrame(ByteBuffer buffer)
+                    throws HyracksDataException {
+                int targetPartition = buffer.getInt(MergedFrames.TARGET_OFFSET);
                 flushFrame(buffer, pWriters[targetPartition]);
-//                if (from != null)
-                    //                    Rt.p("Level " + from.level + "->" + to.level + ": " + senderPartition + " "
-                    //                            + from.nodes.get(senderPartition) + "->" + targetPartition + " "
-                    //                            + to.nodes.get(targetPartition).name);
-//                    Rt.p(from.nodes.get(senderPartition) + "->" + to.nodes.get(targetPartition).name);
+                //                if (from != null)
+                //                    Rt.p("Level " + from.level + "->" + to.level + ": " + senderPartition + " "
+                //                            + from.nodes.get(senderPartition) + "->" + targetPartition + " "
+                //                            + to.nodes.get(targetPartition).name);
+                //                    Rt.p(from.nodes.get(senderPartition) + "->" + to.nodes.get(targetPartition).name);
             }
 
             @Override
@@ -105,13 +111,17 @@ public class SpreadConnectorDescriptor extends AbstractMToNConnectorDescriptor {
     }
 
     @Override
-    public IPartitionCollector createPartitionCollector(IHyracksTaskContext ctx, RecordDescriptor recordDesc,
-            int index, int nProducerPartitions, int nConsumerPartitions) throws HyracksDataException {
+    public IPartitionCollector createPartitionCollector(
+            IHyracksTaskContext ctx, RecordDescriptor recordDesc, int index,
+            int nProducerPartitions, int nConsumerPartitions)
+            throws HyracksDataException {
         BitSet expectedPartitions = new BitSet(nProducerPartitions);
         expectedPartitions.set(0, nProducerPartitions);
-        NonDeterministicChannelReader channelReader = new NonDeterministicChannelReader(nProducerPartitions,
-                expectedPartitions);
-        NonDeterministicFrameReader frameReader = new NonDeterministicFrameReader(channelReader);
-        return new PartitionCollector(ctx, getConnectorId(), index, expectedPartitions, frameReader, channelReader);
+        NonDeterministicChannelReader channelReader = new NonDeterministicChannelReader(
+                nProducerPartitions, expectedPartitions);
+        NonDeterministicFrameReader frameReader = new NonDeterministicFrameReader(
+                channelReader);
+        return new PartitionCollector(ctx, getConnectorId(), index,
+                expectedPartitions, frameReader, channelReader);
     }
 }

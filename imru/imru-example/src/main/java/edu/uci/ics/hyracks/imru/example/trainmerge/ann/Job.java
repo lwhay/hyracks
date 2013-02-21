@@ -15,32 +15,17 @@
 
 package edu.uci.ics.hyracks.imru.example.trainmerge.ann;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.zip.GZIPInputStream;
+import java.io.Serializable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.Iterator;
 import java.util.Random;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
-import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
-import edu.uci.ics.hyracks.imru.api2.TupleReader;
-import edu.uci.ics.hyracks.imru.api2.TupleWriter;
-import edu.uci.ics.hyracks.imru.example.utils.CreateHar;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeContext;
 import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeJob;
-import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Core IMRU application specific code. The dataflow is
@@ -65,9 +50,9 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
     }
 
     @Override
-    public void train(TrainMergeContext<NeuralNetwork> context,
-            IMRUFileSplit input, NeuralNetwork model, int curMergerId,
-            int totalMergers) throws IOException {
+    public void process(TrainMergeContext context, IMRUFileSplit input,
+            NeuralNetwork model, int curNodeId, int totalNodes)
+            throws IOException {
         Random random = new Random();
         try {
             String path = input.getPath();
@@ -80,7 +65,7 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
             byte[][][] images = MNIST.readImages(new DataInputStream(
                     new FileInputStream(imageFile)), start, len);
             NNResult result = new NNResult(model.layers);
-            int targetMerger = curMergerId;
+            int targetNode = curNodeId;
             for (int turnId = 0; turnId < turns; turnId++) {
                 int backpropagateSecondDervativesSamples = len / 100;
                 if (backpropagateSecondDervativesSamples < 1)
@@ -121,10 +106,10 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
                     trainTime += (System.nanoTime() - startTime);
                     if (i % transferThreshold == transferThreshold - 1) {
                         startTime = System.nanoTime();
-                        targetMerger = (targetMerger + 1) % totalMergers;
-                        if (targetMerger == curMergerId)
-                            targetMerger = (targetMerger + 1) % totalMergers;
-                        context.send(targetMerger);
+                        targetNode = (targetNode + 1) % totalNodes;
+                        if (targetNode == curNodeId)
+                            targetNode = (targetNode + 1) % totalNodes;
+                        context.send(model, targetNode);
                         transferTime += (System.nanoTime() - startTime);
                         transferCount++;
                     }
@@ -132,9 +117,9 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
                 model.errorRate = (double) (total - correct) * 100 / total;
                 if (context.getCurPartition() == 0) {
                     String status = String
-                            .format("error rate: %.2f loss=%f bpTime=%.2fms transferTime=%.2fms",
-                                    model.errorRate, loss, (double) trainTime
-                                            / 1000000 / total,
+                            .format("%d/%d error rate: %.2f loss=%f bpTime=%.2fms transferTime=%.2fms",
+                                    turnId, turns, model.errorRate, loss,
+                                    (double) trainTime / 1000000 / total,
                                     (double) transferTime / 1000000
                                             / transferCount);
                     context.setJobStatus(status);
@@ -146,14 +131,10 @@ public class Job implements TrainMergeJob<NeuralNetwork> {
     }
 
     @Override
-    public NeuralNetwork merge(TrainMergeContext<NeuralNetwork> context,
-            NeuralNetwork model, NeuralNetwork receivedModel)
-            throws IOException {
-        // merge time is below 0.15ms
-        //        long startTime = System.nanoTime();
-        model.merge(receivedModel);
-        //        long mergeTime = (System.nanoTime() - startTime);
-        //        Rt.p("mergeTime=%.2fms", (double) mergeTime / 1000000);
-        return model;
+    public void receive(TrainMergeContext context, int sourceParition,
+            Serializable receivedObject) throws IOException {
+        NeuralNetwork current = (NeuralNetwork) context.getModel();
+        NeuralNetwork received = (NeuralNetwork) receivedObject;
+        current.merge(received);
     }
 }

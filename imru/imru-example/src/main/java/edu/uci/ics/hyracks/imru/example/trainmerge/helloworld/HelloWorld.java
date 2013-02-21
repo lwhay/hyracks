@@ -66,7 +66,7 @@ public class HelloWorld {
             args = defaultArgs(debug);
 
         try {
-            String finalModel = Client.run(new TrainJob(), "", args);
+            String finalModel = Client.run(new TrainJob(), "start", args);
             System.out.println("FinalModel: " + finalModel);
         } catch (Throwable e) {
             e.printStackTrace();
