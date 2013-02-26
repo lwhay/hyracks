@@ -12,6 +12,7 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.BreakSelectIntoConjunctsRul
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ComplexJoinInferenceRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ConsolidateAssignsRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ConsolidateSelectsRule;
+import edu.uci.ics.hyracks.algebricks.rewriter.rules.ConvertAlgebricks2MapReduceRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.EliminateSubplanRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.EnforceStructuralPropertiesRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ExtractCommonOperatorsRule;
@@ -34,6 +35,7 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveRedundantProjectionRu
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveUnusedAssignAndAggregateRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.SetAlgebricksPhysicalOperatorsRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.SetExecutionModeRule;
+import edu.uci.ics.hyracks.algebricks.rewriter.rules.TagOperators2MappersOrReducers;
 
 public final class HiveRuleCollections {
 
@@ -107,6 +109,16 @@ public final class HiveRuleCollections {
         prepareJobGenRules.add(new LocalGroupByRule());
         prepareJobGenRules.add(new PushProjectIntoDataSourceScanRule());
         prepareJobGenRules.add(new ReinferAllTypesRule());
+    }
+    //required for the conversion to MR
+    public final static LinkedList<IAlgebraicRewriteRule> prepareForMapReduceJobGenRUleCollection = new LinkedList<IAlgebraicRewriteRule>();
+    static {
+        //this rule numbers the logical operators by super-nodes
+        prepareForMapReduceJobGenRUleCollection.add(new ConvertAlgebricks2MapReduceRule());
+        
+        //this rule maps the logical operators to mappers or reducers
+        prepareForMapReduceJobGenRUleCollection.add(new TagOperators2MappersOrReducers());
+        
     }
 
 }

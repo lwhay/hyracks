@@ -34,14 +34,14 @@ public class RuntimeFunctionTestSuite extends AbstractTestSuiteClass {
             if (isIgnored(qFile.getName(), ignores))
                 continue;
 
-            if (qFile.isFile()) {
-                String resultFileName = hiveExtToResExt(qFile.getName());
-                File rFile = new File(PATH_TO_RESULTS + resultFileName);
-                testSuite.addTest(new RuntimeFunctionTestCase(qFile, rFile));
-            }
-        }
-        return testSuite;
-    }
+			if (qFile.isFile() && qFile.getName().startsWith("q3")) {
+				String resultFileName = hiveExtToResExt(qFile.getName());
+				File rFile = new File(PATH_TO_RESULTS + resultFileName);
+				testSuite.addTest(new RuntimeFunctionTestCase(qFile, rFile));
+			}
+		}
+		return testSuite;
+	}
 
     private static String hiveExtToResExt(String fname) {
         int dot = fname.lastIndexOf('.');
