@@ -56,7 +56,7 @@ public class MultiFieldsAggregatorFactory implements IAggregatorDescriptorFactor
      */
     @Override
     public IAggregatorDescriptor createAggregator(IHyracksTaskContext ctx, RecordDescriptor inRecordDescriptor,
-            RecordDescriptor outRecordDescriptor, final int[] keyFields, final int[] keyFieldsInPartialResults)
+            final RecordDescriptor outRecordDescriptor, final int[] keyFields, final int[] keyFieldsInPartialResults)
             throws HyracksDataException {
 
         final IFieldAggregateDescriptor[] aggregators = new IFieldAggregateDescriptor[aggregatorFactories.length];
@@ -164,6 +164,34 @@ public class MultiFieldsAggregatorFactory implements IAggregatorDescriptorFactor
                         aggregators[i].aggregate(accessor, tIndex, null, 0, ((AggregateState[]) state.state)[i]);
                     }
                 }
+            }
+            
+            public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,
+                    AggregateState state) throws HyracksDataException {
+                if (data != null) {
+                    int fieldIndex = 0;
+                    for (int i = 0; i < aggregators.length; i++) {
+                        if (aggregators[i].needsBinaryState()) {
+                            int stateFieldOffset = (keys.length + fieldIndex == 0) ? 0 : getInt(data, offset
+                                    + (keys.length + fieldIndex - 1) * 4);
+                            aggregators[i].aggregate(accessor, tIndex, data,
+                                    offset + outRecordDescriptor.getFieldCount() * 4 + stateFieldOffset,
+                                    ((AggregateState[]) state.state)[i]);
+                            fieldIndex++;
+                        } else {
+                            aggregators[i].aggregate(accessor, tIndex, null, 0, ((AggregateState[]) state.state)[i]);
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < aggregators.length; i++) {
+                        aggregators[i].aggregate(accessor, tIndex, null, 0, ((AggregateState[]) state.state)[i]);
+                    }
+                }
+            }
+            
+            private int getInt(byte[] data, int offset) {
+                return ((data[offset] & 0xff) << 24) | ((data[offset + 1] & 0xff) << 16)
+                        | ((data[offset + 2] & 0xff) << 8) | (data[offset + 3] & 0xff);
             }
         };
     }

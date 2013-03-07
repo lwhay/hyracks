@@ -71,6 +71,20 @@ public interface IAggregatorDescriptor {
      */
     public void aggregate(IFrameTupleAccessor accessor, int tIndex, IFrameTupleAccessor stateAccessor,
             int stateTupleIndex, AggregateState state) throws HyracksDataException;
+    
+    /**
+     * Aggregate the value from the accessor with the state stored in the given bytes.
+     * 
+     * @param accessor
+     * @param tIndex
+     * @param data
+     * @param offset
+     * @param length
+     * @param state
+     * @throws HyracksDataException
+     */
+    public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,
+            AggregateState state) throws HyracksDataException;
 
     /**
      * Output the partial aggregation result.

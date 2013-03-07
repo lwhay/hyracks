@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.hybridhash;
+package edu.uci.ics.hyracks.dataflow.std.group.hybridhash.prepartitioning;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -39,15 +39,13 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperat
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortGroupHashTable;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortRunMerger;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashUtil;
 
 public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
 
     private static final double HYBRID_FALLBACK_THRESHOLD = 0.8;
-
-    // merge with fudge factor
-    private static final double ESTIMATOR_MAGNIFIER = 1.2;
 
     // input key fields
     private final int[] keyFields;
@@ -226,8 +224,8 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 userProvidedInputSizeInFrames = (int) Math.ceil(estimatedNumberOfUniqueKeys
                         * userProvidedRecordSizeInBytes / frameSize);
 
-                int topPartitions = getNumberOfPartitions(tableSize, framesLimit,
-                        (int) Math.ceil(userProvidedInputSizeInFrames * ESTIMATOR_MAGNIFIER), fudgeFactor);
+                int topPartitions = getNumberOfPartitions(tableSize, framesLimit, (long) userProvidedInputSizeInFrames,
+                        fudgeFactor);
 
                 topProcessor = new HybridHashGroupHashTable(ctx, framesLimit, tableSize, topPartitions, keyFields, 0,
                         comparators, tpcf, aggregatorFactory.createAggregator(ctx, inRecDesc, recordDescriptors[0],
@@ -268,7 +266,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
                 boolean checkFallback = true;
 
-                int numOfPartitions = getNumberOfPartitions(tableSize, framesLimit, (long)inputCardinality
+                int numOfPartitions = getNumberOfPartitions(tableSize, framesLimit, (long) inputCardinality
                         * userProvidedRecordSizeInBytes / frameSize, fudgeFactor);
 
                 HybridHashGroupHashTable processor = new HybridHashGroupHashTable(ctx, framesLimit, tableSize,

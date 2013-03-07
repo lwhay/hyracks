@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.hybridhash;
+package edu.uci.ics.hyracks.dataflow.std.group.hybridhash.prepartitioning;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -33,6 +33,8 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAccessorForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAppenderForGroupHashtable;
 import edu.uci.ics.hyracks.dataflow.std.structures.TuplePointer;
 
 public class HybridHashGroupHashTable implements IFrameWriter {

@@ -60,7 +60,7 @@ public class HybridHashSortGroupHashTable {
 
     protected final int[] keys, internalKeys;
 
-    private final IBinaryComparator[] comparators;
+    protected final IBinaryComparator[] comparators;
 
     protected final ITuplePartitionComputer tpc;
 
