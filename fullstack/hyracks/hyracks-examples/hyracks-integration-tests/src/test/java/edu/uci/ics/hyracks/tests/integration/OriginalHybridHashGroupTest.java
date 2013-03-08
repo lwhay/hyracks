@@ -68,15 +68,11 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
 
-    final int userProvidedInputSizeOfRawRecords = 6005;//571;
-    final int userProvidedInputSizeOfUniqueRecords = 1500;//000;
-    final boolean doInputAdjustment = true;
-    final boolean doPartitionTune = true;
+    final int userProvidedInputSizeOfRawRecords = 6005;
+    final int userProvidedInputSizeOfUniqueRecords = 1500;
 
     final int framesLimit = 6;
     final int tableSize = 4096;
-
-    final int[] testAlgorithms = new int[] { 0, 1, 2 };
 
     final double fudgeFactor = 1.2;
 
@@ -164,7 +160,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -175,7 +171,6 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
         spec.addRoot(printer);
         runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/singlekeysum.dat") },
                 outputRec);
-        //runTest(spec);
     }
 
     @Test
@@ -235,7 +230,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -304,7 +299,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyMinMaxStringHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyMinMaxStringOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -374,7 +369,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -447,7 +442,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 
@@ -518,7 +513,7 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
 
         spec.connect(conn2, grouper, 0, sorter, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumHybridHashSortTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxOriginalHybridHashTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
 

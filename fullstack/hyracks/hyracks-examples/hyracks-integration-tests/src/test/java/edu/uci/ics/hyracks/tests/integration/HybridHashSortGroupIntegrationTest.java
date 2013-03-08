@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningMergingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.DelimitedDataTupleParserFactory;
@@ -58,11 +59,15 @@ import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorF
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MinMaxStringFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 
 public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest {
 
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
+
+    final int framesLimit = 6;
+    final int tableSize = 4096;
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {
             UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -86,9 +91,8 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
             throws IOException {
 
         AbstractSingleActivityOperatorDescriptor printer = new PlainFileWriterOperatorDescriptor(spec,
-                new ConstantFileSplitProvider(new FileSplit[] {
-                        new FileSplit(NC1_ID, createTempFile().getAbsolutePath()),
-                        new FileSplit(NC2_ID, createTempFile().getAbsolutePath()) }), "\t");
+                new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC1_ID, createTempFile()
+                        .getAbsolutePath()) }), "\t");
 
         return printer;
     }
@@ -107,8 +111,6 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                 IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
-        int framesLimit = 64;
-        int tableSize = 1024 * 64;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
                 framesLimit, tableSize,
@@ -133,15 +135,33 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                                 .of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumHybridHashSortTest");
+        int[] storedKeys = new int[] { 0 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys,
+                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                .of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) });
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumOriginalHybridHashSortTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/singlekeysum.dat") },
+                outputRec);
     }
 
     @Test
@@ -158,11 +178,9 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                 IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
-        int frameLimits = 4;
-        int tableSize = 8;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
-                frameLimits, tableSize,
+                framesLimit, tableSize,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
                 new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
@@ -184,15 +202,34 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                                 .of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgHybridHashSortTest");
+        int[] storedKeys = new int[] { 0 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys,
+                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                .of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                true);
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgOriginalHybridHashTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/singlekeyavg.dat") },
+                outputRec);
     }
 
     @Test
@@ -209,11 +246,9 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
-        int frameLimits = 4;
-        int tableSize = 8;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
-                frameLimits, tableSize,
+                framesLimit, tableSize,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
                 new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
@@ -234,15 +269,35 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                                 .of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyMinMaxStringHybridHashSortTest");
+        int[] storedKeys = new int[] { 0 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys,
+                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
+                                .of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                true);
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec,
+                "singleKeyMinMaxStringOriginalHybridHashSortTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/singlekeymax.dat") },
+                outputRec);
     }
 
     @Test
@@ -260,11 +315,9 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
 
         int[] keyFields = new int[] { 8, 0 };
         int[] storedKeyFields = new int[] { 0, 1 };
-        int frameLimits = 4;
-        int tableSize = 8;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
-                frameLimits, tableSize, new IBinaryComparatorFactory[] {
+                framesLimit, tableSize, new IBinaryComparatorFactory[] {
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
@@ -287,15 +340,34 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumHybridHashSortTest");
+        int[] storedKeys = new int[] { 0, 1 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys, new IBinaryHashFunctionFactory[] {
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, true);
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumOriginalHybridHashSortTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/multikeysum.dat") },
+                outputRec);
     }
 
     @Test
@@ -314,11 +386,9 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
 
         int[] keyFields = new int[] { 8, 0 };
         int[] storedKeyFields = new int[] { 0, 1 };
-        int frameLimits = 4;
-        int tableSize = 8;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
-                frameLimits, tableSize, new IBinaryComparatorFactory[] {
+                framesLimit, tableSize, new IBinaryComparatorFactory[] {
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
@@ -343,15 +413,34 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyAvgHybridHashSortTest");
+        int[] storedKeys = new int[] { 0, 1 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys, new IBinaryHashFunctionFactory[] {
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, true);
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumOriginalHybridHashSortTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/multikeyavg.dat") },
+                outputRec);
     }
 
     @Test
@@ -369,11 +458,9 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
 
         int[] keyFields = new int[] { 8, 0 };
         int[] storedKeyFields = new int[] { 0, 1 };
-        int frameLimits = 4;
-        int tableSize = 8;
 
         HybridHashSortGroupOperatorDescriptor grouper = new HybridHashSortGroupOperatorDescriptor(spec, keyFields,
-                frameLimits, tableSize, new IBinaryComparatorFactory[] {
+                framesLimit, tableSize, new IBinaryComparatorFactory[] {
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
@@ -397,14 +484,33 @@ public class HybridHashSortGroupIntegrationTest extends AbstractIntegrationTest 
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxStringHybridHashSortTest");
+        int[] storedKeys = new int[] { 0, 1 };
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, storedKeys, null,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, outputRec);
 
-        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper, 0, printer, 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC1_ID);
+
+        IConnectorDescriptor conn2 = new MToNPartitioningMergingConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(storedKeys, new IBinaryHashFunctionFactory[] {
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), storedKeys,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, true);
+
+        spec.connect(conn2, grouper, 0, sorter, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxOriginalHybridHashSortTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn3, sorter, 0, printer, 0);
 
         spec.addRoot(printer);
-        runTest(spec);
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/multikeymax.dat") },
+                outputRec);
     }
 }
