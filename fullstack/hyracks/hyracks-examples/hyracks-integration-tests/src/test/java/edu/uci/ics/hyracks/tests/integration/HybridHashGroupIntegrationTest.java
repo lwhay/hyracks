@@ -63,15 +63,10 @@ import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.prepartitioning.HybridH
 
 public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
-    //new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
-
-            new FileReference(new File("/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl"))) });
+            new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
 
     final int userProvidedInputSizeOfRawRecords = 6000;
     final int userProvidedInputSizeOfUniqueRecords = 1750;
-
-    //final int userProvidedInputSizeOfRawRecords = 6005;
-    //final int userProvidedInputSizeOfUniqueRecords = 6000;
 
     final int framesLimit = 40;
 

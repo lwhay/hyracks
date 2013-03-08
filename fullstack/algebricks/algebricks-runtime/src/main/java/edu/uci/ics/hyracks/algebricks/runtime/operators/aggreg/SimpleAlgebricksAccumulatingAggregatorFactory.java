@@ -87,6 +87,20 @@ public class SimpleAlgebricksAccumulatingAggregatorFactory implements IAggregato
             }
 
             @Override
+            public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,
+                    AggregateState state) throws HyracksDataException {
+                IAggregateEvaluator[] agg = (IAggregateEvaluator[]) state.state;
+                ftr.reset(accessor, tIndex);
+                for (int i = 0; i < agg.length; i++) {
+                    try {
+                        agg[i].step(ftr);
+                    } catch (AlgebricksException e) {
+                        throw new HyracksDataException(e);
+                    }
+                }
+            }
+
+            @Override
             public void outputFinalResult(ArrayTupleBuilder tupleBuilder, IFrameTupleAccessor accessor, int tIndex,
                     AggregateState state) throws HyracksDataException {
                 IAggregateEvaluator[] agg = (IAggregateEvaluator[]) state.state;

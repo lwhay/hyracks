@@ -532,7 +532,7 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
     private int compare(FrameTupleAccessor accessor, int tupleStartOffset,
             FrameTupleAccessorForGroupHashtable hashAccessor, int hashTupleStartOffset) {
 
-        int[] ks = inputRecordState == 1 ? keys : internalKeys;
+        int[] ks = inputRecordState == 1 ? internalKeys : keys;
 
         comparsionCount++;
         int fStartOffset0 = accessor.getFieldSlotsLength() + tupleStartOffset;
@@ -548,7 +548,7 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
                     hashTupleStartOffset + (internalKeys[i] - 1) * 4);
             int fEnd1 = hashAccessor.getBuffer().getInt(hashTupleStartOffset + internalKeys[i] * 4);
             int fLen1 = fEnd1 - fStart1;
-
+            
             int c = comparators[i].compare(accessor.getBuffer().array(), fStart0 + fStartOffset0, fLen0, hashAccessor
                     .getBuffer().array(), fStart1 + fStartOffset1, fLen1);
             if (c != 0) {

@@ -203,6 +203,7 @@ public class OriginalHybridHashGroupOperatorDescriptor extends AbstractSingleAct
 
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                observedInputSizeInRawTuples += buffer.getInt(buffer.capacity() - 4);
                 topProcessor.nextFrame(buffer, true);
             }
 
@@ -322,7 +323,7 @@ public class OriginalHybridHashGroupOperatorDescriptor extends AbstractSingleAct
                 }
 
             }
-            
+
             /**
              * Fall back to hash-sort algorithm for the given run file.
              * 

@@ -68,8 +68,8 @@ public class OriginalHybridHashGroupTest extends AbstractIntegrationTest {
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
 
-    final int userProvidedInputSizeOfRawRecords = 6000000;//571;
-    final int userProvidedInputSizeOfUniqueRecords = 1750000;//000;
+    final int userProvidedInputSizeOfRawRecords = 6005;//571;
+    final int userProvidedInputSizeOfUniqueRecords = 1500;//000;
     final boolean doInputAdjustment = true;
     final boolean doPartitionTune = true;
 
