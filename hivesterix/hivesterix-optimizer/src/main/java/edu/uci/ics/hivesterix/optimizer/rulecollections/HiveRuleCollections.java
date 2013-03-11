@@ -1,11 +1,14 @@
 package edu.uci.ics.hivesterix.optimizer.rulecollections;
 
 import java.util.LinkedList;
+import java.util.List;
 
+import edu.uci.ics.hivesterix.optimizer.rules.ConvertAlgebricks2MapReduceRule;
 import edu.uci.ics.hivesterix.optimizer.rules.InsertProjectBeforeWriteRule;
 import edu.uci.ics.hivesterix.optimizer.rules.IntroduceEarlyProjectRule;
 import edu.uci.ics.hivesterix.optimizer.rules.LocalGroupByRule;
 import edu.uci.ics.hivesterix.optimizer.rules.RemoveRedundantSelectRule;
+import edu.uci.ics.hivesterix.optimizer.rules.TagOperators2MappersOrReducers;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.HeuristicOptimizer;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.BreakSelectIntoConjunctsRule;
