@@ -14,13 +14,17 @@
  */
 package edu.uci.ics.hyracks.tests.integration;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
@@ -30,6 +34,7 @@ import org.junit.rules.TemporaryFolder;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -37,6 +42,11 @@ import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
 import edu.uci.ics.hyracks.control.common.controllers.NCConfig;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.Integer64SerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 
 public abstract class AbstractIntegrationTest {
     private static final Logger LOGGER = Logger.getLogger(AbstractIntegrationTest.class.getName());
@@ -117,6 +127,110 @@ public abstract class AbstractIntegrationTest {
         }
         hcc.waitForCompletion(jobId);
         dumpOutputFiles();
+    }
+
+    /**
+     * Run the test specified in the job specification, and check the result by comparing the output files with the list
+     * of expected files.
+     * 
+     * @param spec
+     * @param expectedResults
+     * @throws Exception
+     */
+    protected void runTestAndCheckCorrectness(JobSpecification spec, File[] expectedResults,
+            RecordDescriptor fieldDescriptor) throws Exception {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(spec.toJSON().toString(2));
+        }
+        JobId jobId = hcc.startJob("test", spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(jobId.toString());
+        }
+        hcc.waitForCompletion(jobId);
+        String testMethod = Thread.currentThread().getStackTrace()[1].getMethodName();
+        if (outputFiles.size() != expectedResults.length) {
+            throw new Exception("Test \"" + testMethod + "\" Failed: the count of output files are not same: expect "
+                    + expectedResults.length + " but got " + outputFiles.size());
+        }
+        BufferedReader readerExpected, readerActual;
+        String expectedLine = null, actualLine = null;
+
+        for (int i = 0; i < expectedResults.length; i++) {
+            int lineNumber = 1;
+            readerExpected = new BufferedReader(new InputStreamReader(new FileInputStream(expectedResults[i])));
+            readerActual = new BufferedReader(new InputStreamReader(new FileInputStream(outputFiles.get(i))));
+            try {
+                expectedLine = readerExpected.readLine();
+                actualLine = readerActual.readLine();
+                while (expectedLine != null) {
+
+                    if (actualLine == null) {
+                        break;
+                    }
+                    if (!compareString(expectedLine, actualLine, fieldDescriptor)) {
+                        throw new Exception("Result for " + testMethod + " failed at line " + lineNumber + ":\n< "
+                                + expectedLine + "\n> " + actualLine + "\n");
+                    }
+                    lineNumber++;
+                    expectedLine = readerExpected.readLine();
+                    actualLine = readerActual.readLine();
+                }
+                if (expectedLine != null || actualLine != null) {
+                    throw new Exception("Result for " + testMethod + " failed at line " + lineNumber + ":\n< "
+                            + expectedLine + "\n> " + actualLine + "\n");
+                }
+            } finally {
+                readerExpected.close();
+                readerActual.close();
+            }
+        }
+    }
+
+    private static Pattern SPLIT_PATTERN = Pattern.compile("\t");
+
+    private static boolean compareString(String str1, String str2, RecordDescriptor fieldDecriptor) {
+        if (str1.equalsIgnoreCase(str2)) {
+            return true;
+        }
+
+        String[] fields1 = SPLIT_PATTERN.split(str1);
+        String[] fields2 = SPLIT_PATTERN.split(str2);
+        if (fields1.length != fields2.length) {
+            return false;
+        }
+
+        for (int i = 0; i < fields1.length; i++) {
+            if (fieldDecriptor.getFields()[i] instanceof IntegerSerializerDeserializer) {
+                if (Integer.valueOf(fields1[i]).equals(Integer.valueOf(fields2[i]))) {
+                    continue;
+                }
+            }
+            if (fieldDecriptor.getFields()[i] instanceof Integer64SerializerDeserializer) {
+                if (Long.valueOf(fields1[i]).equals(Long.valueOf(fields2[i]))) {
+                    continue;
+                }
+            }
+            if (fieldDecriptor.getFields()[i] instanceof FloatSerializerDeserializer) {
+                if (Float.valueOf(fields1[i]).equals(Float.valueOf(fields2[i]))) {
+                    continue;
+                }
+            }
+            if (fieldDecriptor.getFields()[i] instanceof DoubleSerializerDeserializer) {
+                if (Double.valueOf(fields1[i]).equals(Double.valueOf(fields2[i]))) {
+                    continue;
+                }
+            }
+            if (fields1[i].equalsIgnoreCase(fields2[i])) {
+                continue;
+            }
+            // special case: for min/max string length
+            if (fieldDecriptor.getFields()[i] instanceof UTF8StringSerializerDeserializer
+                    && fields1[i].length() == fields2[i].length()) {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     private void dumpOutputFiles() {

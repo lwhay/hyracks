@@ -25,7 +25,7 @@ public class SerializableAggregatorDescriptorFactory implements IAggregatorDescr
 
     @Override
     public IAggregatorDescriptor createAggregator(IHyracksTaskContext ctx, RecordDescriptor inRecordDescriptor,
-            RecordDescriptor outRecordDescriptor, int[] keyFields, final int[] keyFieldsInPartialResults)
+            final RecordDescriptor outRecordDescriptor, int[] keyFields, final int[] keyFieldsInPartialResults)
             throws HyracksDataException {
         final int[] keys = keyFields;
 
@@ -92,6 +92,27 @@ public class SerializableAggregatorDescriptorFactory implements IAggregatorDescr
                         throw new HyracksDataException(e);
                     }
                 }
+            }
+            
+            @Override
+            public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,
+                    AggregateState state) throws HyracksDataException {
+                ftr.reset(accessor, tIndex);
+                int fieldSlotLength = outRecordDescriptor.getFieldCount() * 4;
+                for (int i = 0; i < aggs.length; i++) {
+                    try {
+                        int stateFieldOffset = (keys.length + i == 0) ? 0 : getInt(data, offset
+                                + (keys.length + i - 1) * 4) + offset + fieldSlotLength;
+                        aggs[i].step(ftr, data, stateFieldOffset, stateFieldLength[i]);
+                    } catch (AlgebricksException e) {
+                        throw new HyracksDataException(e);
+                    }
+                }
+            }
+            
+            private int getInt(byte[] data, int offset) {
+                return ((data[offset] & 0xff) << 24) | ((data[offset + 1] & 0xff) << 16)
+                        | ((data[offset + 2] & 0xff) << 8) | (data[offset + 3] & 0xff);
             }
 
             @Override
