@@ -151,7 +151,7 @@ public class IMRUDriver<Model extends Serializable> {
 
             LOGGER.info("Starting round " + iterationCount);
             long start = System.currentTimeMillis();
-            status = runIMRUIteration(modelFileName, iterationCount);
+            status = runIMRUIteration(getModelName(), iterationCount);
             long end = System.currentTimeMillis();
             LOGGER.info("Finished round " + iterationCount + " in " + (end - start) + " milliseconds");
 

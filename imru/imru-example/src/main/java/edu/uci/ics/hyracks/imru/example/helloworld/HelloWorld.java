@@ -47,18 +47,20 @@ public class HelloWorld {
             cmdline += "-host " + Client.getLocalIp();
         }
         boolean useHDFS = false;
-        String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data/helloworld";
+        String exampleData = System.getProperty("user.home")
+                + "/fullstack_imru/imru/imru-example/data/helloworld";
         // port of cluster controller
         cmdline += " -port 3099";
         // application name
         cmdline += " -app helloworld";
         // hadoop config path
         if (useHDFS)
-            cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
+            cmdline += " -hadoop-conf " + System.getProperty("user.home")
+                    + "/hadoop-0.20.2/conf";
         // Path on local machine to save intermediate models
-//        cmdline += " -save-intermediate-models /tmp/cache/models";
+        //        cmdline += " -save-intermediate-models /tmp/cache/models";
         // Path on cluster controller to hold models
-        cmdline += " -cc-temp-path /tmp/cache/cc";
+        //        cmdline += " -cc-temp-path /tmp/cache/cc";
         // HDFS path of input data
         if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
@@ -68,7 +70,8 @@ public class HelloWorld {
             if (debugging) {
                 cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
                 for (int i = 1; i < n; i++)
-                    cmdline += ",NC" + (i % totalNodes) + ":" + exampleData + "/hello" + i + ".txt";
+                    cmdline += ",NC" + (i % totalNodes) + ":" + exampleData
+                            + "/hello" + i + ".txt";
             } else {
                 cmdline += " -example-paths " + exampleData + "/hello0.txt";
                 for (int i = 1; i < n; i++)
@@ -91,8 +94,7 @@ public class HelloWorld {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0)
-            //            args = defaultArgs(false);
-            args = defaultArgs(true);
+            args = defaultArgs(false);
 
         String finalModel = Client.run(new HelloWorldJob(), "", args);
         System.out.println("FinalModel: " + finalModel);

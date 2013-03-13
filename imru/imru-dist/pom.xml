@@ -254,5 +254,15 @@
 			<type>jar</type>
 			<scope>compile</scope>
 		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.hyracks</groupId>
+			<artifactId>imru-core</artifactId>
+			<version>0.2.3-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.hyracks.examples</groupId>
+			<artifactId>imru-example</artifactId>
+			<version>0.2.3-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 </project>
