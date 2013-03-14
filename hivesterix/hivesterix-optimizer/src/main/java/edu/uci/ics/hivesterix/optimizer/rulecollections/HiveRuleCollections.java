@@ -36,6 +36,7 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSelectIntoJoinRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ReinferAllTypesRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveRedundantProjectionRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveUnusedAssignAndAggregateRule;
+import edu.uci.ics.hyracks.algebricks.rewriter.rules.ReplaceInputOutputOperator;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.SetAlgebricksPhysicalOperatorsRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.SetExecutionModeRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.TagOperators2MappersOrReducers;
@@ -116,6 +117,13 @@ public final class HiveRuleCollections {
     //required for the conversion to MR
     public final static LinkedList<IAlgebraicRewriteRule> prepareForMapReduceJobGenRUleCollection = new LinkedList<IAlgebraicRewriteRule>();
     static {
+    	
+    	//this rule replaces the inputs and ouputs operators
+        //prepareForMapReduceJobGenRUleCollection.add(new ReplaceInputOutputOperator());
+      
+        //is that a way to flash the changes at the physical level, otherwise why would it be called twice two paragraphs above?
+        PHYSICAL_PLAN_REWRITES.add(new SetAlgebricksPhysicalOperatorsRule()); 
+        
         //this rule numbers the logical operators by super-nodes
         prepareForMapReduceJobGenRUleCollection.add(new ConvertAlgebricks2MapReduceRule());
         
