@@ -65,19 +65,11 @@ public class IMRUInputSplitProvider implements Serializable {
     public IMRUInputSplitProvider(String inputPaths,
             ConfigurationFactory confFactory) throws InterruptedException {
         try {
+            String[] ss = inputPaths.split(",");
             if (confFactory == null || !confFactory.useHDFS()) {
-                String[] ss = inputPaths.split(",");
                 splits = IMRUFileSplit.get(ss);
             } else {
-                // Use a dummy input format to create a list of
-                // InputSplits for the
-                // input files.
-                Job dummyJob = new Job(confFactory.createConfiguration());
-                TextInputFormat.addInputPaths(dummyJob, inputPaths);
-                // Disable splitting of files:
-                TextInputFormat.setMinInputSplitSize(dummyJob, Long.MAX_VALUE);
-                splits = HDFSSplit.get(confFactory,
-                        new TextInputFormat().getSplits(dummyJob));
+                splits = HDFSSplit.get(confFactory, ss);
             }
             numSplits = splits.size();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();

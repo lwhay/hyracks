@@ -38,6 +38,7 @@ public class KMeans {
         }
 
         boolean useHDFS = false;
+        useHDFS=true;
         if (System.getProperty("local") != null)
             useHDFS = false;
         String home = System.getProperty("user.home");
@@ -51,7 +52,7 @@ public class KMeans {
             cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
         // Input data
         if (useHDFS)
-            cmdline += " -example-paths /kmeans/input.txt,/kmeans/input2.txt";
+            cmdline += " -example-paths /kmeans/kmeans0.txt,/kmeans/kmeans1.txt";
         else
             cmdline += " -example-paths " + exampleData + "/kmeans0.txt," + exampleData + "/kmeans1.txt";
         // aggregation type
