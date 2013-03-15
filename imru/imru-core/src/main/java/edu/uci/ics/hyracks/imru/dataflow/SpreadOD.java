@@ -31,7 +31,6 @@ import edu.uci.ics.hyracks.imru.data.MergedFrames;
 import edu.uci.ics.hyracks.imru.jobgen.SpreadGraph;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
-import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeContext;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class SpreadOD extends AbstractSingleActivityOperatorDescriptor {

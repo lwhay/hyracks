@@ -59,8 +59,6 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
 import edu.uci.ics.hyracks.imru.data.DataSpreadDriver;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
-import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeDriver;
-import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeJob;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -152,7 +150,7 @@ public class Client<Model extends Serializable> {
 
     private ClusterControllerService cc;
     private Vector<NodeControllerService> ncs = new Vector<NodeControllerService>();
-    private IHyracksClientConnection hcc;
+    protected IHyracksClientConnection hcc;
 
     public IMRUJobControl<Model> control;
     public Options options = new Options();
@@ -578,46 +576,6 @@ public class Client<Model extends Serializable> {
             //            if (client.options.debug)
             //                System.exit(0);
         }
-    }
-
-    /**
-     * run job
-     * 
-     * @throws Exception
-     */
-    public static <Model extends Serializable> Model run(
-            TrainMergeJob<Model> job, Model initialModel, String[] args)
-            throws Exception {
-        return run(job, initialModel, args, null);
-    }
-
-    /**
-     * run job
-     * 
-     * @throws Exception
-     */
-    public static <Model extends Serializable> Model run(
-            TrainMergeJob<Model> job, Model initialModel, String[] args,
-            String overrideAppName) throws Exception {
-        // create a client object, which handles everything
-        Client<Model> client = new Client<Model>(args);
-
-        if (overrideAppName != null)
-            client.options.app = overrideAppName;
-        client.init();
-
-        TrainMergeDriver<Model> driver = new TrainMergeDriver<Model>(
-                client.hcc, client.control.imruConnection, job, initialModel,
-                client.options.examplePaths, client.control.confFactory,
-                client.options.app);
-        driver.modelFileName = client.options.modelFilename;
-        JobStatus status = driver.run();
-
-        if (status == JobStatus.FAILURE) {
-            System.err.println("Job failed; see CC and NC logs");
-            System.exit(-1);
-        }
-        return driver.getModel();
     }
 
     /**

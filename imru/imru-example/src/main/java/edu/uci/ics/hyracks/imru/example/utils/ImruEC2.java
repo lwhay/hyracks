@@ -11,7 +11,6 @@ import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
-import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeJob;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class ImruEC2 {
@@ -25,7 +24,7 @@ public class ImruEC2 {
                 IMRU_PREFIX);
     }
     
-    private void init() {
+    protected void init() {
         if (ccHostName == null) {
             ccHostName = cluster.getClusterControllerPublicDnsName();
             Rt.p("Admin URL: " + cluster.getAdminURL());
@@ -109,23 +108,6 @@ public class ImruEC2 {
 
     public <M extends Serializable, D extends Serializable, R extends Serializable> M run(
             IIMRUJob<M, D, R> job, M initialModel, String appName, String paths)
-            throws Exception {
-        //        cluster.printLogs(-1);
-        init();
-        String cmdline = "";
-        cmdline += "-host " + ccHostName;
-        cmdline += " -port 3099";
-        cmdline += " -app " + appName;
-        cmdline += " -example-paths " + paths;
-        cmdline += " -model-file-name helloworld";
-        cmdline = cmdline.trim();
-        System.out.println("Using command line: " + cmdline);
-        String[] args = cmdline.split(" ");
-        return Client.run(job, initialModel, args);
-    }
-
-    public <M extends Serializable, D extends Serializable, R extends Serializable> M run(
-            TrainMergeJob<M> job, M initialModel, String appName, String paths)
             throws Exception {
         //        cluster.printLogs(-1);
         init();

@@ -8,7 +8,6 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
-import edu.uci.ics.hyracks.imru.trainmerge.TrainMergeContext;
 
 public class MergedFrames {
     public static final int HEADER = 20;
