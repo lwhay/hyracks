@@ -53,8 +53,8 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodeP
 import edu.uci.ics.hyracks.imru.api.ASyncIO;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
+import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
@@ -98,8 +98,8 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
      */
     public UpdateOperatorDescriptor(JobSpecification spec,
             IIMRUJob2<Model> imruSpec, String modelName,
-            IConfigurationFactory confFactory, IMRUConnection imruConnection) {
-        super(spec, 1, 0, "update", imruSpec, confFactory);
+            IMRUConnection imruConnection) {
+        super(spec, 1, 0, "update", imruSpec);
         this.modelName = modelName;
         this.imruConnection = imruConnection;
         //            recordDescriptors[0] = dummyRecordDescriptor;
@@ -110,11 +110,11 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
 
         private final IIMRUJob2<Model> imruSpec;
         private final String modelName;
-        private final IConfigurationFactory confFactory;
+        //        private final ConfigurationFactory confFactory;
         private final ChunkFrameHelper chunkFrameHelper;
         private final List<List<ByteBuffer>> bufferedChunks;
 
-        private Configuration conf;
+        //        private Configuration conf;
         private Model model;
         private final String name;
         IMRUContext imruContext;
@@ -125,12 +125,11 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
         Model updatedModel;
 
         public UpdateOperatorNodePushable(IHyracksTaskContext ctx,
-                IIMRUJob2<Model> imruSpec, String modelName,
-                IConfigurationFactory confFactory, String name,
+                IIMRUJob2<Model> imruSpec, String modelName, String name,
                 IMRUConnection imruConnection) {
             this.imruSpec = imruSpec;
             this.modelName = modelName;
-            this.confFactory = confFactory;
+            //            this.confFactory = confFactory;
             this.name = name;
             this.imruConnection = imruConnection;
             this.chunkFrameHelper = new ChunkFrameHelper(ctx);
@@ -142,8 +141,8 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
         @Override
         public void open() throws HyracksDataException {
             MemoryStatsLogger.logHeapStats(LOG, "Update: Initializing Update");
-            conf = confFactory == null ? null : confFactory
-                    .createConfiguration();
+            //            conf = confFactory == null ? null : confFactory
+            //                    .createConfiguration();
             INCApplicationContext appContext = imruContext.getJobletContext()
                     .getApplicationContext();
             IMRURuntimeContext context = (IMRURuntimeContext) appContext
@@ -224,7 +223,7 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
             IRecordDescriptorProvider recordDescProvider, int partition,
             int nPartitions) throws HyracksDataException {
         return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, modelName,
-                confFactory, this.getDisplayName() + partition, imruConnection);
+                this.getDisplayName() + partition, imruConnection);
     }
 
 }

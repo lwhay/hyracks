@@ -45,7 +45,6 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
@@ -88,7 +87,7 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
      */
     public MapOperatorDescriptor(JobSpecification spec, IIMRUJob2<Model> imruSpec, 
             int roundNum, String name) {
-        super(spec, 0, 1, name, imruSpec, null);
+        super(spec, 0, 1, name, imruSpec);
         recordDescriptors[0] = dummyRecordDescriptor;
         this.roundNum = roundNum;
     }

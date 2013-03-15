@@ -20,17 +20,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
-import edu.uci.ics.hyracks.imru.util.SerDeUtils;
 
-public class ConfigurationFactory implements IConfigurationFactory {
+public class ConfigurationFactory implements Serializable {
     private static final long serialVersionUID = 1L;
     private boolean hasConf;
     private String hadoopConfPath;
@@ -86,7 +84,6 @@ public class ConfigurationFactory implements IConfigurationFactory {
         }
     }
 
-    @Override
     public Configuration createConfiguration() throws HyracksDataException {
         if (!hasConf)
             return null;

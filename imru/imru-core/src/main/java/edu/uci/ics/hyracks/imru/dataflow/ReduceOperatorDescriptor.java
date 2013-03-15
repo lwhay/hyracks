@@ -64,7 +64,7 @@ public class ReduceOperatorDescriptor extends IMRUOperatorDescriptor {
      */
     public ReduceOperatorDescriptor(JobSpecification spec,
             IIMRUJob2<?> imruSpec, String name) {
-        super(spec, 1, 1, name, imruSpec, null);
+        super(spec, 1, 1, name, imruSpec);
         this.imruSpec = imruSpec;
         recordDescriptors[0] = dummyRecordDescriptor;
     }

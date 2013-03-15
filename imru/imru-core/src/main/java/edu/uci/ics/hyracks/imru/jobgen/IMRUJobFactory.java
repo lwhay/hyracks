@@ -36,7 +36,6 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
-import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.dataflow.DataLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.MapOperatorDescriptor;
@@ -58,7 +57,7 @@ import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
  * 
  * @author Josh Rosen
  */
-public class IMRUJobFactory implements IJobFactory {
+public class IMRUJobFactory {
     public static enum AGGREGATION {
         NONE,
         GENERIC,
@@ -141,13 +140,21 @@ public class IMRUJobFactory implements IJobFactory {
         }
     }
 
-    @Override
     public UUID getId() {
         return id;
     }
 
+    /**
+     * Construct a JobSpecificiation for caching IMRU input records.
+     * 
+     * @param model
+     *            The IIMRUJobSpecification
+     * @param id
+     *            A UUID identifying the IMRU job that this iteration belongs to.
+     * @return A JobSpecification for caching the IMRU training examples.
+     * @throws HyracksException
+     */
     @SuppressWarnings("rawtypes")
-    @Override
     public JobSpecification generateDataLoadJob(IIMRUJob2 model)
             throws HyracksException {
         JobSpecification spec = new JobSpecification();
@@ -202,10 +209,25 @@ public class IMRUJobFactory implements IJobFactory {
         return job;
     }
 
+    /**
+     * Construct a JobSpecification for a single iteration of IMRU.
+     * 
+     * @param model
+     *            The IIMRUJobSpecification
+     * @param id
+     *            A UUID identifying the IMRU job that this iteration belongs to.
+     * @param roundNum
+     *            The round number.
+     * @param modelInPath
+     *            The HDFS path to read the current model from.
+     * @param modelOutPath
+     *            The HDFS path to write the updated model to.
+     * @return A JobSpecification for an iteration of IMRU.
+     * @throws HyracksException
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    @Override
-    public JobSpecification generateJob(IIMRUJob2 model,
-            int roundNum, String modelName) throws HyracksException {
+    public JobSpecification generateJob(IIMRUJob2 model, int roundNum,
+            String modelName) throws HyracksException {
 
         JobSpecification spec = new JobSpecification();
         // Create operators
@@ -220,7 +242,7 @@ public class IMRUJobFactory implements IJobFactory {
 
         // Environment updating
         IMRUOperatorDescriptor updateOperator = new UpdateOperatorDescriptor(
-                spec, model, modelName, confFactory, imruConnection);
+                spec, model, modelName, imruConnection);
         PartitionConstraintHelper.addPartitionCountConstraint(spec,
                 updateOperator, 1);
 

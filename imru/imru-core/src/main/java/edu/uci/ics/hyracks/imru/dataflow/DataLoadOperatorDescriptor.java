@@ -15,17 +15,10 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
+import java.io.Serializable;
 import java.util.logging.Logger;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -38,16 +31,12 @@ import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorNodePushable;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.imru.api.FrameWriter;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
-import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
-import edu.uci.ics.hyracks.imru.file.HDFSUtils;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
+import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.state.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
@@ -60,13 +49,14 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * 
  * @author Josh Rosen
  */
-public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
-
+public class DataLoadOperatorDescriptor extends
+        IMRUOperatorDescriptor<Serializable> {
     private static final Logger LOG = Logger
             .getLogger(MapOperatorDescriptor.class.getName());
 
     private static final long serialVersionUID = 1L;
 
+    protected final ConfigurationFactory confFactory;
     protected final IMRUFileSplit[] inputSplits;
 
     /**
@@ -82,10 +72,11 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
      *            A Hadoop configuration, used for HDFS.
      */
     public DataLoadOperatorDescriptor(JobSpecification spec,
-            IIMRUJob2<?> imruSpec, IMRUFileSplit[] inputSplits,
-            IConfigurationFactory confFactory) {
-        super(spec, 0, 0, "parse", imruSpec, confFactory);
+            IIMRUJob2<Serializable> imruSpec, IMRUFileSplit[] inputSplits,
+            ConfigurationFactory confFactory) {
+        super(spec, 0, 0, "parse", imruSpec);
         this.inputSplits = inputSplits;
+        this.confFactory = confFactory;
     }
 
     private static class DataLoadOperatorNodePushable extends
@@ -94,14 +85,14 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
         private final IHyracksTaskContext ctx;
         private final IHyracksTaskContext fileCtx;
         private final IIMRUJob2<?> imruSpec;
-        private final IConfigurationFactory confFactory;
+        private final ConfigurationFactory confFactory;
         private final IMRUFileSplit[] inputSplits;
         private final int partition;
         private final String name;
 
         public DataLoadOperatorNodePushable(IHyracksTaskContext ctx,
                 IIMRUJob2<?> imruSpec, IMRUFileSplit[] inputSplits,
-                IConfigurationFactory confFactory, int partition, String name) {
+                ConfigurationFactory confFactory, int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.confFactory = confFactory;

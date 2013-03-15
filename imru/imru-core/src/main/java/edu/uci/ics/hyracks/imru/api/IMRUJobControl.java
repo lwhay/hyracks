@@ -25,7 +25,6 @@ import org.apache.hadoop.fs.Path;
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.IMRUJobFactory;
 import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
@@ -36,7 +35,7 @@ public class IMRUJobControl<Model extends Serializable> {
     public HyracksConnection hcc;
     public IMRUConnection imruConnection;
     public ConfigurationFactory confFactory;
-    IJobFactory jobFactory;
+    IMRUJobFactory jobFactory;
     IMRUDriver<Model> driver;
     public String localIntermediateModelPath;
     public String modelFileName;

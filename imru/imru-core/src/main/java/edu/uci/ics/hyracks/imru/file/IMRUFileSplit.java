@@ -13,8 +13,6 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
-
 public class IMRUFileSplit implements Serializable {
     String path;
     HDFSSplit split;

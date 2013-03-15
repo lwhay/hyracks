@@ -16,7 +16,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
-import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
+import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 
 /**
  * Separate hadoop classes to avoid uploading
@@ -26,11 +26,11 @@ import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
  * @author wangrui
  */
 public class HDFSSplit implements Serializable {
-    IConfigurationFactory confFactory;
+    ConfigurationFactory confFactory;
     String path;
     String[] locations;
 
-    public HDFSSplit(IConfigurationFactory confFactory, String path)
+    public HDFSSplit(ConfigurationFactory confFactory, String path)
             throws IOException, InterruptedException {
         this.confFactory = confFactory;
         this.path = path;
@@ -59,7 +59,7 @@ public class HDFSSplit implements Serializable {
         return locations;
     }
 
-    public static List<IMRUFileSplit> get(IConfigurationFactory confFactory,
+    public static List<IMRUFileSplit> get(ConfigurationFactory confFactory,
             String[] splits) throws IOException, InterruptedException {
         Vector<IMRUFileSplit> list = new Vector<IMRUFileSplit>(splits.length);
         for (String split : splits)
