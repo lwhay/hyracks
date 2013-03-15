@@ -56,7 +56,8 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * @author Josh Rosen
  */
 public class IMRUDriver<Model extends Serializable> {
-    private final static Logger LOGGER = Logger.getLogger(IMRUDriver.class.getName());
+    private final static Logger LOGGER = Logger.getLogger(IMRUDriver.class
+            .getName());
     private final IIMRUJob2<Model> imruSpec;
     private Model model;
     private final IHyracksClientConnection hcc;
@@ -89,8 +90,9 @@ public class IMRUDriver<Model extends Serializable> {
      * @param app
      *            The application name to use when running the jobs.
      */
-    public IMRUDriver(IHyracksClientConnection hcc, IMRUConnection imruConnection,
-            IIMRUJob2<Model> imruSpec, Model initialModel, IMRUJobFactory jobFactory, Configuration conf,
+    public IMRUDriver(IHyracksClientConnection hcc,
+            IMRUConnection imruConnection, IIMRUJob2<Model> imruSpec,
+            Model initialModel, IMRUJobFactory jobFactory, Configuration conf,
             String app) {
         this.imruSpec = imruSpec;
         this.model = initialModel;
@@ -129,8 +131,9 @@ public class IMRUDriver<Model extends Serializable> {
 
         // For the first round, the initial model is written by the
         // driver.
-        if (localIntermediateModelPath!=null)
-            writeModelToFile(model, new File(localIntermediateModelPath, getModelName() + "-iter" + 0));
+        if (localIntermediateModelPath != null)
+            writeModelToFile(model, new File(localIntermediateModelPath,
+                    getModelName() + "-iter" + 0));
 
         imruConnection.uploadModel(this.getModelName(), model);
 
@@ -139,7 +142,8 @@ public class IMRUDriver<Model extends Serializable> {
         long loadStart = System.currentTimeMillis();
         JobStatus status = runDataLoad();
         long loadEnd = System.currentTimeMillis();
-        LOGGER.info("Finished data load in " + (loadEnd - loadStart) + " milliseconds");
+        LOGGER.info("Finished data load in " + (loadEnd - loadStart)
+                + " milliseconds");
         if (status == JobStatus.FAILURE) {
             LOGGER.severe("Failed during data load");
             return JobStatus.FAILURE;
@@ -153,15 +157,17 @@ public class IMRUDriver<Model extends Serializable> {
             long start = System.currentTimeMillis();
             status = runIMRUIteration(getModelName(), iterationCount);
             long end = System.currentTimeMillis();
-            LOGGER.info("Finished round " + iterationCount + " in " + (end - start) + " milliseconds");
+            LOGGER.info("Finished round " + iterationCount + " in "
+                    + (end - start) + " milliseconds");
 
             if (status == JobStatus.FAILURE) {
                 LOGGER.severe("Failed during iteration " + iterationCount);
                 return JobStatus.FAILURE;
             }
             model = (Model) imruConnection.downloadModel(this.getModelName());
-            if (localIntermediateModelPath!=null)
-                writeModelToFile(model, new File(localIntermediateModelPath, getModelName() + "-iter" + iterationCount));
+            if (localIntermediateModelPath != null)
+                writeModelToFile(model, new File(localIntermediateModelPath,
+                        getModelName() + "-iter" + iterationCount));
 
             // TODO: clean up temporary files
         } while (!imruSpec.shouldTerminate(model));
@@ -197,9 +203,10 @@ public class IMRUDriver<Model extends Serializable> {
      */
     private JobStatus runDataLoad() throws Exception {
         JobSpecification job = jobFactory.generateDataLoadJob(imruSpec);
-        //        byte[] bs=JavaSerializationUtils.serialize(job);
-        //        Rt.p("Dataload job size: "+bs.length);
-        JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        //                byte[] bs=JavaSerializationUtils.serialize(job);
+        //                Rt.p("Dataload job size: "+bs.length);
+        JobId jobId = hcc.startJob(app, job,
+                EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
@@ -225,21 +232,26 @@ public class IMRUDriver<Model extends Serializable> {
      * @return The JobStatus of the job after completion or failure.
      * @throws Exception
      */
-    private JobStatus runIMRUIteration(String modelName, int iterationNum) throws Exception {
-        JobSpecification spreadjob = jobFactory.generateModelSpreadJob(modelName, iterationNum);
-        //        byte[] bs=JavaSerializationUtils.serialize(job);
-        //      Rt.p("IMRU job size: "+bs.length);
-        JobId spreadjobId = hcc.startJob(app, spreadjob, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+    private JobStatus runIMRUIteration(String modelName, int iterationNum)
+            throws Exception {
+        JobSpecification spreadjob = jobFactory.generateModelSpreadJob(
+                modelName, iterationNum);
+        //                byte[] bs=JavaSerializationUtils.serialize(spreadjob);
+        //              Rt.p("IMRU job size: "+bs.length);
+        JobId spreadjobId = hcc.startJob(app, spreadjob,
+                EnumSet.of(JobFlag.PROFILE_RUNTIME));
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
         hcc.waitForCompletion(spreadjobId);
         if (hcc.getJobStatus(spreadjobId) == JobStatus.FAILURE)
             return JobStatus.FAILURE;
 
-        JobSpecification job = jobFactory.generateJob(imruSpec, iterationNum, modelName);
-        //        byte[] bs=JavaSerializationUtils.serialize(job);
-        //      Rt.p("IMRU job size: "+bs.length);
-        JobId jobId = hcc.startJob(app, job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        JobSpecification job = jobFactory.generateJob(imruSpec, iterationNum,
+                modelName);
+        //                byte[] bs=JavaSerializationUtils.serialize(job);
+        //              Rt.p("IMRU job size: "+bs.length);
+        JobId jobId = hcc.startJob(app, job,
+                EnumSet.of(JobFlag.PROFILE_RUNTIME));
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
         hcc.waitForCompletion(jobId);
@@ -255,7 +267,8 @@ public class IMRUDriver<Model extends Serializable> {
      *            The DFS file to write the updated model to.
      * @throws IOException
      */
-    private void writeModelToFile(Serializable model, File modelPath) throws IOException {
+    private void writeModelToFile(Serializable model, File modelPath)
+            throws IOException {
         modelPath = explain(modelPath);
         OutputStream fileOutput;
         File file = new File(modelPath.toString());

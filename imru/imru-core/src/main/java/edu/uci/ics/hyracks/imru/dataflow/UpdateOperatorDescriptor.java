@@ -15,14 +15,7 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -31,13 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -47,18 +33,14 @@ import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
-import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.ASyncIO;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
-import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
-import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Evaluates the update function in an iterative map reduce update
@@ -105,125 +87,113 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
         //            recordDescriptors[0] = dummyRecordDescriptor;
     }
 
-    private static class UpdateOperatorNodePushable<Model extends Serializable>
-            extends AbstractUnaryInputSinkOperatorNodePushable {
+    @Override
+    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
+            IRecordDescriptorProvider recordDescProvider, final int partition,
+            int nPartitions) throws HyracksDataException {
+        return new AbstractUnaryInputSinkOperatorNodePushable() {
+            private final ChunkFrameHelper chunkFrameHelper;
+            private final List<List<ByteBuffer>> bufferedChunks;
+            private Model model;
+            private final String name;
+            IMRUContext imruContext;
 
-        private final IIMRUJob2<Model> imruSpec;
-        private final String modelName;
-        //        private final ConfigurationFactory confFactory;
-        private final ChunkFrameHelper chunkFrameHelper;
-        private final List<List<ByteBuffer>> bufferedChunks;
+            private ASyncIO<byte[]> io;
+            Future future;
+            Model updatedModel;
 
-        //        private Configuration conf;
-        private Model model;
-        private final String name;
-        IMRUContext imruContext;
-        IMRUConnection imruConnection;
+            {
+                this.name = UpdateOperatorDescriptor.this.getDisplayName()
+                        + partition;
+                this.chunkFrameHelper = new ChunkFrameHelper(ctx);
+                this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
+                imruContext = new IMRUContext(chunkFrameHelper.getContext(),
+                        name);
+            }
 
-        private ASyncIO<byte[]> io;
-        Future future;
-        Model updatedModel;
+            @SuppressWarnings("unchecked")
+            @Override
+            public void open() throws HyracksDataException {
+                MemoryStatsLogger.logHeapStats(LOG,
+                        "Update: Initializing Update");
+                //            conf = confFactory == null ? null : confFactory
+                //                    .createConfiguration();
+                INCApplicationContext appContext = imruContext
+                        .getJobletContext().getApplicationContext();
+                IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                        .getApplicationObject();
+                model = (Model) context.model;
+                io = new ASyncIO<byte[]>();
+                future = IMRUSerialize.threadPool.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        Iterator<byte[]> input = io.getInput();
+                        try {
+                            updatedModel = imruSpec.update(imruContext, input,
+                                    model);
+                        } catch (HyracksDataException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
 
-        public UpdateOperatorNodePushable(IHyracksTaskContext ctx,
-                IIMRUJob2<Model> imruSpec, String modelName, String name,
-                IMRUConnection imruConnection) {
-            this.imruSpec = imruSpec;
-            this.modelName = modelName;
-            //            this.confFactory = confFactory;
-            this.name = name;
-            this.imruConnection = imruConnection;
-            this.chunkFrameHelper = new ChunkFrameHelper(ctx);
-            this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
-            imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
-        }
+            @Override
+            public void nextFrame(ByteBuffer encapsulatedChunk)
+                    throws HyracksDataException {
+                ByteBuffer chunk = chunkFrameHelper
+                        .extractChunk(encapsulatedChunk);
+                int senderPartition = chunkFrameHelper
+                        .getPartition(encapsulatedChunk);
+                boolean isLastChunk = chunkFrameHelper
+                        .isLastChunk(encapsulatedChunk);
+                enqueueChunk(chunk, senderPartition);
+                if (isLastChunk) {
+                    byte[] data = IMRUSerialize
+                            .deserializeFromChunks(imruContext,
+                                    bufferedChunks.remove(senderPartition));
+                    io.add(data);
+                }
+            }
 
-        @SuppressWarnings("unchecked")
-        @Override
-        public void open() throws HyracksDataException {
-            MemoryStatsLogger.logHeapStats(LOG, "Update: Initializing Update");
-            //            conf = confFactory == null ? null : confFactory
-            //                    .createConfiguration();
-            INCApplicationContext appContext = imruContext.getJobletContext()
-                    .getApplicationContext();
-            IMRURuntimeContext context = (IMRURuntimeContext) appContext
-                    .getApplicationObject();
-            model = (Model) context.model;
-            io = new ASyncIO<byte[]>();
-            future = IMRUSerialize.threadPool.submit(new Runnable() {
-                @Override
-                public void run() {
-                    Iterator<byte[]> input = io.getInput();
+            @Override
+            public void fail() throws HyracksDataException {
+            }
+
+            @Override
+            public void close() throws HyracksDataException {
+                try {
+                    io.close();
                     try {
-                        updatedModel = imruSpec.update(imruContext, input,
-                                model);
-                    } catch (HyracksDataException e) {
+                        future.get();
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
-                }
-            });
-        }
+                    model = (Model) updatedModel;
+                    imruContext.setModel(model);
 
-        @Override
-        public void nextFrame(ByteBuffer encapsulatedChunk)
-                throws HyracksDataException {
-            ByteBuffer chunk = chunkFrameHelper.extractChunk(encapsulatedChunk);
-            int senderPartition = chunkFrameHelper
-                    .getPartition(encapsulatedChunk);
-            boolean isLastChunk = chunkFrameHelper
-                    .isLastChunk(encapsulatedChunk);
-            enqueueChunk(chunk, senderPartition);
-            if (isLastChunk) {
-                byte[] data = IMRUSerialize.deserializeFromChunks(imruContext,
-                        bufferedChunks.remove(senderPartition));
-                io.add(data);
-            }
-        }
-
-        @Override
-        public void fail() throws HyracksDataException {
-        }
-
-        @Override
-        public void close() throws HyracksDataException {
-            try {
-                io.close();
-                try {
-                    future.get();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                model = (Model) updatedModel;
-                imruContext.setModel(model);
-
-                long start = System.currentTimeMillis();
-                imruConnection.uploadModel(modelName, model);
-                long end = System.currentTimeMillis();
-                //                Rt.p(model);
-                LOG.info("uploaded model to CC " + (end - start)
-                        + " milliseconds");
-                MemoryStatsLogger.logHeapStats(LOG,
-                        "Update: Deinitializing Update");
-            } catch (IOException e) {
-                throw new HyracksDataException(e);
-            }
-        }
-
-        private void enqueueChunk(ByteBuffer chunk, int senderPartition) {
-            if (bufferedChunks.size() <= senderPartition) {
-                for (int i = bufferedChunks.size(); i <= senderPartition; i++) {
-                    bufferedChunks.add(new LinkedList<ByteBuffer>());
+                    long start = System.currentTimeMillis();
+                    imruConnection.uploadModel(modelName, model);
+                    long end = System.currentTimeMillis();
+                    //                Rt.p(model);
+                    LOG.info("uploaded model to CC " + (end - start)
+                            + " milliseconds");
+                    MemoryStatsLogger.logHeapStats(LOG,
+                            "Update: Deinitializing Update");
+                } catch (IOException e) {
+                    throw new HyracksDataException(e);
                 }
             }
-            bufferedChunks.get(senderPartition).add(chunk);
-        }
-    }
 
-    @Override
-    public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition,
-            int nPartitions) throws HyracksDataException {
-        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, modelName,
-                this.getDisplayName() + partition, imruConnection);
+            private void enqueueChunk(ByteBuffer chunk, int senderPartition) {
+                if (bufferedChunks.size() <= senderPartition) {
+                    for (int i = bufferedChunks.size(); i <= senderPartition; i++) {
+                        bufferedChunks.add(new LinkedList<ByteBuffer>());
+                    }
+                }
+                bufferedChunks.get(senderPartition).add(chunk);
+            }
+        };
     }
 
 }

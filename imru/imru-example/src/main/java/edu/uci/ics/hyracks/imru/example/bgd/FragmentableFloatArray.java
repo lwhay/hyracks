@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.bgd2;
+package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.DataInputStream;
 import java.io.IOException;

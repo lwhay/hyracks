@@ -38,7 +38,6 @@ public class KMeans {
         }
 
         boolean useHDFS = false;
-        useHDFS=true;
         if (System.getProperty("local") != null)
             useHDFS = false;
         String home = System.getProperty("user.home");

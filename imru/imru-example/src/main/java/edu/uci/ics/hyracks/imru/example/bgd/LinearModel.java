@@ -13,16 +13,23 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.bgd2;
+package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.Serializable;
 
-public class LossGradient implements Serializable {
-    float loss;
-    float[] gradient;
+public class LinearModel implements Serializable {
 
-    public LossGradient(int numFeatures) {
-        loss = 0;
-        gradient = new float[numFeatures];
+    private static final long serialVersionUID = 1L;
+    public final int numFeatures;
+    public FragmentableFloatArray weights;
+    public float loss;
+    public float stepSize = 1.0f;
+    public float regularizationConstant = 0.5f;
+    public int roundsRemaining;
+
+    public LinearModel(int numFeatures, int numRounds) {
+        this.numFeatures = numFeatures;
+        this.weights = new FragmentableFloatArray(new float[numFeatures]);
+        this.roundsRemaining = numRounds;
     }
 }

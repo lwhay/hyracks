@@ -179,7 +179,7 @@ public class Client<Model extends Serializable> {
     }
 
     /**
-     * Return same ip as pregelix/pregelix-dist/target/appassembler/bin/getip.sh
+     * Return same ip as imru/imru-dist/target/appassembler/bin/getip.sh
      * 
      * @return
      * @throws Exception

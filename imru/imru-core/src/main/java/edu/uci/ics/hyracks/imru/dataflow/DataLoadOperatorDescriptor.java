@@ -60,7 +60,7 @@ public class DataLoadOperatorDescriptor extends
     protected final IMRUFileSplit[] inputSplits;
 
     /**
-     * Create a new MapOperatorDescriptor.
+     * Create a new DataLoadOperatorDescriptor.
      * 
      * @param spec
      *            The Hyracks job specification for the dataflow
@@ -79,105 +79,90 @@ public class DataLoadOperatorDescriptor extends
         this.confFactory = confFactory;
     }
 
-    private static class DataLoadOperatorNodePushable extends
-            AbstractOperatorNodePushable {
-
-        private final IHyracksTaskContext ctx;
-        private final IHyracksTaskContext fileCtx;
-        private final IIMRUJob2<?> imruSpec;
-        private final ConfigurationFactory confFactory;
-        private final IMRUFileSplit[] inputSplits;
-        private final int partition;
-        private final String name;
-
-        public DataLoadOperatorNodePushable(IHyracksTaskContext ctx,
-                IIMRUJob2<?> imruSpec, IMRUFileSplit[] inputSplits,
-                ConfigurationFactory confFactory, int partition, String name) {
-            this.ctx = ctx;
-            this.imruSpec = imruSpec;
-            this.confFactory = confFactory;
-            this.inputSplits = inputSplits;
-            this.partition = partition;
-            this.name = name;
-            fileCtx = new RunFileContext(ctx, imruSpec.getCachedDataFrameSize());
-        }
-
-        @Override
-        public void initialize() throws HyracksDataException {
-            // Load the examples.
-            MapTaskState state = (MapTaskState) IterationUtils
-                    .getIterationState(ctx, partition);
-            if (state != null) {
-                LOG.severe("Duplicate loading of input data.");
-                INCApplicationContext appContext = ctx.getJobletContext()
-                        .getApplicationContext();
-                IMRURuntimeContext context = (IMRURuntimeContext) appContext
-                        .getApplicationObject();
-                context.modelAge = 0;
-                //                throw new IllegalStateException("Duplicate loading of input data.");
-            }
-            long start = System.currentTimeMillis();
-            if (state == null)
-                state = new MapTaskState(ctx.getJobletContext().getJobId(), ctx
-                        .getTaskAttemptId().getTaskId());
-            FileReference file = ctx.createUnmanagedWorkspaceFile("IMRUInput");
-            RunFileWriter runFileWriter = new RunFileWriter(file,
-                    ctx.getIOManager());
-            state.setRunFileWriter(runFileWriter);
-            runFileWriter.open();
-
-            IMRUContext context = new IMRUContext(fileCtx, name);
-            final IMRUFileSplit split = inputSplits[partition];
-            try {
-                InputStream in = split.getInputStream();
-                imruSpec.parse(context, in, new FrameWriter(runFileWriter));
-                in.close();
-            } catch (IOException e) {
-                fail();
-                Rt.p(context.getNodeId() + " " + split);
-                throw new HyracksDataException(e);
-            }
-            runFileWriter.close();
-            LOG.info("Cached input data file "
-                    + runFileWriter.getFileReference().getFile()
-                            .getAbsolutePath() + " is "
-                    + runFileWriter.getFileSize() + " bytes");
-            long end = System.currentTimeMillis();
-            LOG.info("Parsed input data in " + (end - start) + " milliseconds");
-            IterationUtils.setIterationState(ctx, partition, state);
-        }
-
-        @Override
-        public void setOutputFrameWriter(int index, IFrameWriter writer,
-                RecordDescriptor recordDesc) {
-            throw new IllegalArgumentException();
-        }
-
-        @Override
-        public void deinitialize() throws HyracksDataException {
-        }
-
-        @Override
-        public int getInputArity() {
-            return 0;
-        }
-
-        @Override
-        public IFrameWriter getInputFrameWriter(int index) {
-            throw new IllegalStateException();
-        }
-
-        private void fail() throws HyracksDataException {
-        }
-
-    }
-
     @Override
-    public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition,
+    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
+            IRecordDescriptorProvider recordDescProvider, final int partition,
             int nPartitions) throws HyracksDataException {
-        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplits,
-                confFactory, partition, this.getDisplayName() + partition);
+        return new AbstractOperatorNodePushable() {
+            private final IHyracksTaskContext fileCtx;
+            private final String name;
+
+            {
+                fileCtx = new RunFileContext(ctx,
+                        imruSpec.getCachedDataFrameSize());
+                name = DataLoadOperatorDescriptor.this.getDisplayName() + partition;
+            }
+
+            @Override
+            public void initialize() throws HyracksDataException {
+                // Load the examples.
+                MapTaskState state = (MapTaskState) IterationUtils
+                        .getIterationState(ctx, partition);
+                if (state != null) {
+                    LOG.severe("Duplicate loading of input data.");
+                    INCApplicationContext appContext = ctx.getJobletContext()
+                            .getApplicationContext();
+                    IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                            .getApplicationObject();
+                    context.modelAge = 0;
+                    //                throw new IllegalStateException("Duplicate loading of input data.");
+                }
+                long start = System.currentTimeMillis();
+                if (state == null)
+                    state = new MapTaskState(ctx.getJobletContext().getJobId(),
+                            ctx.getTaskAttemptId().getTaskId());
+                FileReference file = ctx
+                        .createUnmanagedWorkspaceFile("IMRUInput");
+                RunFileWriter runFileWriter = new RunFileWriter(file,
+                        ctx.getIOManager());
+                state.setRunFileWriter(runFileWriter);
+                runFileWriter.open();
+
+                IMRUContext context = new IMRUContext(fileCtx, name);
+                final IMRUFileSplit split = inputSplits[partition];
+                try {
+                    InputStream in = split.getInputStream();
+                    imruSpec.parse(context, in, new FrameWriter(runFileWriter));
+                    in.close();
+                } catch (IOException e) {
+                    fail();
+                    Rt.p(context.getNodeId() + " " + split);
+                    throw new HyracksDataException(e);
+                }
+                runFileWriter.close();
+                LOG.info("Cached input data file "
+                        + runFileWriter.getFileReference().getFile()
+                                .getAbsolutePath() + " is "
+                        + runFileWriter.getFileSize() + " bytes");
+                long end = System.currentTimeMillis();
+                LOG.info("Parsed input data in " + (end - start)
+                        + " milliseconds");
+                IterationUtils.setIterationState(ctx, partition, state);
+            }
+
+            @Override
+            public void setOutputFrameWriter(int index, IFrameWriter writer,
+                    RecordDescriptor recordDesc) {
+                throw new IllegalArgumentException();
+            }
+
+            @Override
+            public void deinitialize() throws HyracksDataException {
+            }
+
+            @Override
+            public int getInputArity() {
+                return 0;
+            }
+
+            @Override
+            public IFrameWriter getInputFrameWriter(int index) {
+                throw new IllegalStateException();
+            }
+
+            private void fail() throws HyracksDataException {
+            }
+        };
     }
 
 }

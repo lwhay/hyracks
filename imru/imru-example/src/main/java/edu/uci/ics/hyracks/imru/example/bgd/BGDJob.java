@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.bgd2;
+package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -26,9 +26,6 @@ import edu.uci.ics.hyracks.imru.api.DataWriter;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMRUDataException;
-import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
-import edu.uci.ics.hyracks.imru.api.TupleReader;
-import edu.uci.ics.hyracks.imru.api.TupleWriter;
 
 public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     int features;
@@ -43,28 +40,14 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public void parse(IMRUContext ctx, InputStream input, DataWriter<Data> output) throws IOException {
+    public void parse(IMRUContext ctx, InputStream input,
+            DataWriter<Data> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        int activeFeatures = 0;
         Pattern whitespacePattern = Pattern.compile("\\s+");
         Pattern whitespacePattern2 = Pattern.compile(",|\\s+");
         Pattern labelFeaturePattern = Pattern.compile("[:=]");
-        String line;
-        boolean firstLine = true;
-        while (true) {
-            if (firstLine) {
-                long start = System.currentTimeMillis();
-                line = reader.readLine();
-                long end = System.currentTimeMillis();
-                // LOG.info("First call to reader.readLine() took " + (end -
-                // start) + " milliseconds");
-                firstLine = false;
-            } else {
-                line = reader.readLine();
-            }
-            if (line == null) {
-                break;
-            }
+        for (String line = reader.readLine(); line != null; line = reader
+                .readLine()) {
             String[] comps = whitespacePattern.split(line, 2);
 
             // Ignore leading plus sign
@@ -80,22 +63,24 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
                 String[] parts = labelFeaturePattern.split(kvs[i]);
                 data.fieldIds[i] = Integer.parseInt(parts[0]);
                 if (data.fieldIds[i] > features) {
-                    throw new IndexOutOfBoundsException("Feature index " + data.fieldIds[i]
-                            + " exceed the declared number of features (" + features + ")");
+                    throw new IndexOutOfBoundsException("Feature index "
+                            + data.fieldIds[i]
+                            + " exceed the declared number of features ("
+                            + features + ")");
                 }
                 // Ignore leading plus sign.
                 if (parts[1].charAt(0) == '+') {
                     parts[1] = parts[1].substring(1);
                 }
                 data.values[i] = Float.parseFloat(parts[1]);
-                activeFeatures++;
             }
             output.addData(data);
         }
     }
 
     @Override
-    public LossGradient map(IMRUContext ctx, Iterator<Data> input, LinearModel model) throws IOException {
+    public LossGradient map(IMRUContext ctx, Iterator<Data> input,
+            LinearModel model) throws IOException {
         LossGradient lossGradientMap = new LossGradient(model.numFeatures);
         while (input.hasNext()) {
             Data data = input.next();
@@ -103,13 +88,15 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
             float diff = (data.label - innerProduct);
             lossGradientMap.loss += diff * diff; // Use L2 loss
             // function.
-            data.computeGradient(model.weights, innerProduct, lossGradientMap.gradient);
+            data.computeGradient(model.weights, innerProduct,
+                    lossGradientMap.gradient);
         }
         return lossGradientMap;
     }
 
     @Override
-    public LossGradient reduce(IMRUContext ctx, Iterator<LossGradient> input) throws IMRUDataException {
+    public LossGradient reduce(IMRUContext ctx, Iterator<LossGradient> input)
+            throws IMRUDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();
@@ -127,7 +114,8 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     }
 
     @Override
-    public LinearModel update(IMRUContext ctx, Iterator<LossGradient> input, LinearModel model) throws IMRUDataException {
+    public LinearModel update(IMRUContext ctx, Iterator<LossGradient> input,
+            LinearModel model) throws IMRUDataException {
         LossGradient loss = new LossGradient(features);
         while (input.hasNext()) {
             LossGradient buf = input.next();
@@ -141,7 +129,8 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
         model.loss += model.regularizationConstant * norm(model.weights.array);
         // Update weights
         for (int i = 0; i < model.weights.length; i++) {
-            model.weights.array[i] = (model.weights.array[i] - loss.gradient[i] * model.stepSize)
+            model.weights.array[i] = (model.weights.array[i] - loss.gradient[i]
+                    * model.stepSize)
                     * (1.0f - model.stepSize * model.regularizationConstant);
         }
         model.stepSize *= 0.9;

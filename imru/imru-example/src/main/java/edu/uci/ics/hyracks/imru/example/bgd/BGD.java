@@ -13,12 +13,11 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.example.bgd2;
+package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
 
-import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
 /**

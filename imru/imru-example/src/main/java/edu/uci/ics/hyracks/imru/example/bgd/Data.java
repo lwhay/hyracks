@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.imru.example.bgd2;
+package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.IOException;
 import java.io.Serializable;

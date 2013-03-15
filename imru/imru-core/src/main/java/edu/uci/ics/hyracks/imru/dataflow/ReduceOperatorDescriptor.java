@@ -30,14 +30,11 @@ import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.imru.api.ASyncIO;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
-import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
-import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Evaluates the reduce function in an iterative map reduce update job.
@@ -69,105 +66,96 @@ public class ReduceOperatorDescriptor extends IMRUOperatorDescriptor {
         recordDescriptors[0] = dummyRecordDescriptor;
     }
 
-    private static class ReduceOperatorNodePushable extends
-            AbstractUnaryInputUnaryOutputOperatorNodePushable {
-        IMRUReduceContext imruContext;
-        private final IIMRUJob2<?> imruSpec;
-        private final ChunkFrameHelper chunkFrameHelper;
-        private final List<List<ByteBuffer>> bufferedChunks;
-        private final int partition;
-        public String name;
-        public boolean isLocal = false;
-        public int level = 0;
-        private ASyncIO<byte[]> io;
-        Future future;
+    @Override
+    public IOperatorNodePushable createPushRuntime(
+            final IHyracksTaskContext ctx,
+            IRecordDescriptorProvider recordDescProvider, final int partition,
+            int nPartitions) throws HyracksDataException {
+        return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
+            IMRUReduceContext imruContext;
+            private final ChunkFrameHelper chunkFrameHelper;
+            private final List<List<ByteBuffer>> bufferedChunks;
+            public String name;
+            private ASyncIO<byte[]> io;
+            Future future;
 
-        public ReduceOperatorNodePushable(IHyracksTaskContext ctx,
-                IIMRUJob2<?> imruSpec, int partition, String name,
-                boolean isLocal, int level) {
-            this.imruSpec = imruSpec;
-            this.name = name;
-            this.chunkFrameHelper = new ChunkFrameHelper(ctx);
-            this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
-            this.partition = partition;
-            this.isLocal = isLocal;
-            this.level = level;
-        }
+            {
+                this.name = ReduceOperatorDescriptor.this.getDisplayName()
+                        + partition;
+                this.chunkFrameHelper = new ChunkFrameHelper(ctx);
+                this.bufferedChunks = new ArrayList<List<ByteBuffer>>();
+            }
 
-        @Override
-        public void open() throws HyracksDataException {
-            writer.open();
-            imruContext = new IMRUReduceContext(chunkFrameHelper.getContext(),
-                    name, this.isLocal, this.level);
+            @Override
+            public void open() throws HyracksDataException {
+                writer.open();
+                imruContext = new IMRUReduceContext(
+                        chunkFrameHelper.getContext(), name, isLocal,
+                        level);
 
-            writer = chunkFrameHelper.wrapWriter(writer, partition);
-            io = new ASyncIO<byte[]>();
-            future = IMRUSerialize.threadPool.submit(new Runnable() {
-                @Override
-                public void run() {
-                    Iterator<byte[]> input = io.getInput();
-                    ByteArrayOutputStream out = new ByteArrayOutputStream();
-                    try {
-                        imruSpec.reduce(imruContext, input, out);
-                        byte[] objectData = out.toByteArray();
-                        IMRUSerialize.serializeToFrames(imruContext, writer,
-                                objectData);
-                    } catch (HyracksDataException e) {
-                        e.printStackTrace();
+                writer = chunkFrameHelper.wrapWriter(writer, partition);
+                io = new ASyncIO<byte[]>();
+                future = IMRUSerialize.threadPool.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        Iterator<byte[]> input = io.getInput();
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        try {
+                            imruSpec.reduce(imruContext, input, out);
+                            byte[] objectData = out.toByteArray();
+                            IMRUSerialize.serializeToFrames(imruContext,
+                                    writer, objectData);
+                        } catch (HyracksDataException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void nextFrame(ByteBuffer encapsulatedChunk)
+                    throws HyracksDataException {
+                ByteBuffer chunk = chunkFrameHelper
+                        .extractChunk(encapsulatedChunk);
+                int senderPartition = chunkFrameHelper
+                        .getPartition(encapsulatedChunk);
+                boolean isLastChunk = chunkFrameHelper
+                        .isLastChunk(encapsulatedChunk);
+                enqueueChunk(chunk, senderPartition);
+                if (isLastChunk) {
+                    byte[] data = IMRUSerialize
+                            .deserializeFromChunks(imruContext,
+                                    bufferedChunks.remove(senderPartition));
+                    io.add(data);
+                }
+            }
+
+            @Override
+            public void fail() throws HyracksDataException {
+                writer.fail();
+            }
+
+            @Override
+            public void close() throws HyracksDataException {
+                io.close();
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                writer.close();
+            }
+
+            private void enqueueChunk(ByteBuffer chunk, int senderPartition) {
+                if (bufferedChunks.size() <= senderPartition) {
+                    for (int i = bufferedChunks.size(); i <= senderPartition; i++) {
+                        bufferedChunks.add(new LinkedList<ByteBuffer>());
                     }
                 }
-            });
-        }
-
-        @Override
-        public void nextFrame(ByteBuffer encapsulatedChunk)
-                throws HyracksDataException {
-            ByteBuffer chunk = chunkFrameHelper.extractChunk(encapsulatedChunk);
-            int senderPartition = chunkFrameHelper
-                    .getPartition(encapsulatedChunk);
-            boolean isLastChunk = chunkFrameHelper
-                    .isLastChunk(encapsulatedChunk);
-            enqueueChunk(chunk, senderPartition);
-            if (isLastChunk) {
-                byte[] data = IMRUSerialize.deserializeFromChunks(imruContext,
-                        bufferedChunks.remove(senderPartition));
-                io.add(data);
+                bufferedChunks.get(senderPartition).add(chunk);
             }
-        }
 
-        @Override
-        public void fail() throws HyracksDataException {
-            writer.fail();
-        }
-
-        @Override
-        public void close() throws HyracksDataException {
-            io.close();
-            try {
-                future.get();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            writer.close();
-        }
-
-        private void enqueueChunk(ByteBuffer chunk, int senderPartition) {
-            if (bufferedChunks.size() <= senderPartition) {
-                for (int i = bufferedChunks.size(); i <= senderPartition; i++) {
-                    bufferedChunks.add(new LinkedList<ByteBuffer>());
-                }
-            }
-            bufferedChunks.get(senderPartition).add(chunk);
-        }
-
-    }
-
-    @Override
-    public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition,
-            int nPartitions) throws HyracksDataException {
-        return new ReduceOperatorNodePushable(ctx, imruSpec, partition,
-                this.getDisplayName() + partition, isLocal, level);
+        };
     }
 
 }
