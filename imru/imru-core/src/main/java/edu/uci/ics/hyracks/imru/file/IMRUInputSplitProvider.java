@@ -34,7 +34,6 @@ import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 
 /**
  * Provides a list of InputSplits.

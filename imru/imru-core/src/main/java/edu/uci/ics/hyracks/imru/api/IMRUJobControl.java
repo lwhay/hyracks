@@ -19,15 +19,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
-import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
+import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
+import edu.uci.ics.hyracks.imru.jobgen.ClusterConfig;
 import edu.uci.ics.hyracks.imru.jobgen.IMRUJobFactory;
-import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 

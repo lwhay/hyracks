@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.state;
+package edu.uci.ics.hyracks.imru.runtime.bootstrap;
 
 import java.io.DataInput;
 import java.io.DataOutput;

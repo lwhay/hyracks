@@ -5,7 +5,7 @@ import java.io.Serializable;
 import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
-import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
+import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 
 abstract public class IMRUOperatorDescriptor<Model extends Serializable>
         extends AbstractSingleActivityOperatorDescriptor {

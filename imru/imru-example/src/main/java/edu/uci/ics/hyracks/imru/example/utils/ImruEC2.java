@@ -10,7 +10,7 @@ import edu.uci.ics.hyracks.ec2.HyracksEC2Cluster;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
-import edu.uci.ics.hyracks.imru.jobgen.clusterconfig.ClusterConfig;
+import edu.uci.ics.hyracks.imru.jobgen.ClusterConfig;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 public class ImruEC2 {

@@ -48,7 +48,7 @@ import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
-import edu.uci.ics.hyracks.imru.state.MapTaskState;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
 import edu.uci.ics.hyracks.imru.util.Rt;

@@ -16,7 +16,6 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
-import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 
 /**
  * Separate hadoop classes to avoid uploading

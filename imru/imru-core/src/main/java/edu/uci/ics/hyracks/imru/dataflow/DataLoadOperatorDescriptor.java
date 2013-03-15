@@ -35,10 +35,10 @@ import edu.uci.ics.hyracks.imru.api.FrameWriter;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
+import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
-import edu.uci.ics.hyracks.imru.hadoop.config.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
-import edu.uci.ics.hyracks.imru.state.MapTaskState;
+import edu.uci.ics.hyracks.imru.runtime.bootstrap.MapTaskState;
 import edu.uci.ics.hyracks.imru.util.IterationUtils;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
