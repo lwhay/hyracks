@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.api2;
+package edu.uci.ics.hyracks.imru.api;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,8 +22,6 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
 
 /**
  * Low level IMRU job interface. Data passed through

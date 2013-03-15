@@ -22,13 +22,13 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.regex.Pattern;
 
+import edu.uci.ics.hyracks.imru.api.DataWriter;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.IMRUDataException;
 import edu.uci.ics.hyracks.imru.api.IMRUReduceContext;
-import edu.uci.ics.hyracks.imru.api2.DataWriter;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
-import edu.uci.ics.hyracks.imru.api2.IMRUDataException;
-import edu.uci.ics.hyracks.imru.api2.TupleReader;
-import edu.uci.ics.hyracks.imru.api2.TupleWriter;
+import edu.uci.ics.hyracks.imru.api.TupleReader;
+import edu.uci.ics.hyracks.imru.api.TupleWriter;
 
 public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     int features;

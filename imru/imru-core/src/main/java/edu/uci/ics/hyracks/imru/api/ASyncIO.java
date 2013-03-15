@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.api2;
+package edu.uci.ics.hyracks.imru.api;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;

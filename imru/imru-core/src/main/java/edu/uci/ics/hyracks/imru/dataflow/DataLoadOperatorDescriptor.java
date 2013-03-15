@@ -40,7 +40,8 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.FrameWriter;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
@@ -61,7 +62,8 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  */
 public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
 
-    private static final Logger LOG = Logger.getLogger(MapOperatorDescriptor.class.getName());
+    private static final Logger LOG = Logger
+            .getLogger(MapOperatorDescriptor.class.getName());
 
     private static final long serialVersionUID = 1L;
 
@@ -79,24 +81,27 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
      * @param confFactory
      *            A Hadoop configuration, used for HDFS.
      */
-    public DataLoadOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<?> imruSpec,
-            IMRUFileSplit[] inputSplits, IConfigurationFactory confFactory) {
+    public DataLoadOperatorDescriptor(JobSpecification spec,
+            IIMRUJob2<?> imruSpec, IMRUFileSplit[] inputSplits,
+            IConfigurationFactory confFactory) {
         super(spec, 0, 0, "parse", imruSpec, confFactory);
         this.inputSplits = inputSplits;
     }
 
-    private static class DataLoadOperatorNodePushable extends AbstractOperatorNodePushable {
+    private static class DataLoadOperatorNodePushable extends
+            AbstractOperatorNodePushable {
 
         private final IHyracksTaskContext ctx;
         private final IHyracksTaskContext fileCtx;
-        private final IIMRUJobSpecification<?> imruSpec;
+        private final IIMRUJob2<?> imruSpec;
         private final IConfigurationFactory confFactory;
         private final IMRUFileSplit[] inputSplits;
         private final int partition;
         private final String name;
 
-        public DataLoadOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<?> imruSpec,
-                IMRUFileSplit[] inputSplits, IConfigurationFactory confFactory, int partition, String name) {
+        public DataLoadOperatorNodePushable(IHyracksTaskContext ctx,
+                IIMRUJob2<?> imruSpec, IMRUFileSplit[] inputSplits,
+                IConfigurationFactory confFactory, int partition, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
             this.confFactory = confFactory;
@@ -109,19 +114,24 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
         @Override
         public void initialize() throws HyracksDataException {
             // Load the examples.
-            MapTaskState state = (MapTaskState) IterationUtils.getIterationState(ctx, partition);
+            MapTaskState state = (MapTaskState) IterationUtils
+                    .getIterationState(ctx, partition);
             if (state != null) {
                 LOG.severe("Duplicate loading of input data.");
-                INCApplicationContext appContext = ctx.getJobletContext().getApplicationContext();
-                IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+                INCApplicationContext appContext = ctx.getJobletContext()
+                        .getApplicationContext();
+                IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                        .getApplicationObject();
                 context.modelAge = 0;
                 //                throw new IllegalStateException("Duplicate loading of input data.");
             }
             long start = System.currentTimeMillis();
             if (state == null)
-                state = new MapTaskState(ctx.getJobletContext().getJobId(), ctx.getTaskAttemptId().getTaskId());
+                state = new MapTaskState(ctx.getJobletContext().getJobId(), ctx
+                        .getTaskAttemptId().getTaskId());
             FileReference file = ctx.createUnmanagedWorkspaceFile("IMRUInput");
-            RunFileWriter runFileWriter = new RunFileWriter(file, ctx.getIOManager());
+            RunFileWriter runFileWriter = new RunFileWriter(file,
+                    ctx.getIOManager());
             state.setRunFileWriter(runFileWriter);
             runFileWriter.open();
 
@@ -129,8 +139,7 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
             final IMRUFileSplit split = inputSplits[partition];
             try {
                 InputStream in = split.getInputStream();
-                ITupleParser dataLoader = imruSpec.getTupleParserFactory().createTupleParser(context);
-                dataLoader.parse(in, runFileWriter);
+                imruSpec.parse(context, in, new FrameWriter(runFileWriter));
                 in.close();
             } catch (IOException e) {
                 fail();
@@ -138,7 +147,9 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
                 throw new HyracksDataException(e);
             }
             runFileWriter.close();
-            LOG.info("Cached input data file " + runFileWriter.getFileReference().getFile().getAbsolutePath() + " is "
+            LOG.info("Cached input data file "
+                    + runFileWriter.getFileReference().getFile()
+                            .getAbsolutePath() + " is "
                     + runFileWriter.getFileSize() + " bytes");
             long end = System.currentTimeMillis();
             LOG.info("Parsed input data in " + (end - start) + " milliseconds");
@@ -146,7 +157,8 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
         }
 
         @Override
-        public void setOutputFrameWriter(int index, IFrameWriter writer, RecordDescriptor recordDesc) {
+        public void setOutputFrameWriter(int index, IFrameWriter writer,
+                RecordDescriptor recordDesc) {
             throw new IllegalArgumentException();
         }
 
@@ -171,9 +183,10 @@ public class DataLoadOperatorDescriptor extends IMRUOperatorDescriptor {
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplits, confFactory, partition,
-                this.getDisplayName() + partition);
+            IRecordDescriptorProvider recordDescProvider, int partition,
+            int nPartitions) throws HyracksDataException {
+        return new DataLoadOperatorNodePushable(ctx, imruSpec, inputSplits,
+                confFactory, partition, this.getDisplayName() + partition);
     }
 
 }

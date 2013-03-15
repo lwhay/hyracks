@@ -35,7 +35,7 @@ import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.dataflow.DataLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
@@ -148,7 +148,7 @@ public class IMRUJobFactory implements IJobFactory {
 
     @SuppressWarnings("rawtypes")
     @Override
-    public JobSpecification generateDataLoadJob(IIMRUJobSpecification model)
+    public JobSpecification generateDataLoadJob(IIMRUJob2 model)
             throws HyracksException {
         JobSpecification spec = new JobSpecification();
         IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec,
@@ -204,7 +204,7 @@ public class IMRUJobFactory implements IJobFactory {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public JobSpecification generateJob(IIMRUJobSpecification model,
+    public JobSpecification generateJob(IIMRUJob2 model,
             int roundNum, String modelName) throws HyracksException {
 
         JobSpecification spec = new JobSpecification();

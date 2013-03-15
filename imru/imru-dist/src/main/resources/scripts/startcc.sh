@@ -4,7 +4,7 @@ CUR_DIR=$(cd $(dirname "$0"); pwd)
 APPASSEMBLER_DIR=$(cd $(dirname "$CUR_DIR"); pwd)
 CCHOST_NAME=`cat ${APPASSEMBLER_DIR}/conf/master`
 
-hostname
+echo $(hostname)
 
 #Import cluster properties
 . $APPASSEMBLER_DIR/conf/cluster.properties

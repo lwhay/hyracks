@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -42,11 +43,8 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.api.IMapFunction;
-import edu.uci.ics.hyracks.imru.api.IMapFunction2;
-import edu.uci.ics.hyracks.imru.api.IMapFunctionFactory;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
@@ -88,7 +86,7 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
      * @param roundNum
      *            The round number.
      */
-    public MapOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, 
+    public MapOperatorDescriptor(JobSpecification spec, IIMRUJob2<Model> imruSpec, 
             int roundNum, String name) {
         super(spec, 0, 1, name, imruSpec, null);
         recordDescriptors[0] = dummyRecordDescriptor;
@@ -100,13 +98,13 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
 
         private final IHyracksTaskContext ctx;
         private final IHyracksTaskContext fileCtx;
-        private final IIMRUJobSpecification<Model> imruSpec;
+        private final IIMRUJob2<Model> imruSpec;
         //        private final String envInPath;
         private final int partition;
         private final int roundNum;
         private final String name;
 
-        public MapOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
+        public MapOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJob2<Model> imruSpec,
                  int partition, int roundNum, String name) {
             this.ctx = ctx;
             this.imruSpec = imruSpec;
@@ -183,8 +181,7 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
             final ByteBuffer inputFrame = fileCtx.allocateFrame();
             ChunkFrameHelper chunkFrameHelper = new ChunkFrameHelper(ctx);
             imruContext = new IMRUContext(chunkFrameHelper.getContext(), name);
-            IMapFunctionFactory<Model> factory = imruSpec.getMapFunctionFactory();
-            if (factory.useAPI2()) {
+            {
                 Iterator<ByteBuffer> input = new Iterator<ByteBuffer>() {
                     boolean read = false;
                     boolean hasData;
@@ -215,19 +212,11 @@ public class MapOperatorDescriptor<Model extends Serializable> extends IMRUOpera
                     }
                 };
                 writer = chunkFrameHelper.wrapWriter(writer, partition);
-                IMapFunction2 mapFunction = factory.createMapFunction2(imruContext, imruSpec.getCachedDataFrameSize(),
-                        model);
-                mapFunction.map(input, writer);
-            } else {
-                IMapFunction mapFunction = factory.createMapFunction(imruContext, imruSpec.getCachedDataFrameSize(),
-                        model);
-                writer = chunkFrameHelper.wrapWriter(writer, partition);
-                mapFunction.open();
-                mapFunction.setFrameWriter(writer);
-                while (reader.nextFrame(inputFrame)) {
-                    mapFunction.map(inputFrame);
-                }
-                mapFunction.close();
+                
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                imruSpec.map(imruContext, input, model, out, imruSpec.getCachedDataFrameSize());
+                byte[] objectData = out.toByteArray();
+                IMRUSerialize.serializeToFrames(imruContext, writer, objectData);
             }
             writer.close();
         }

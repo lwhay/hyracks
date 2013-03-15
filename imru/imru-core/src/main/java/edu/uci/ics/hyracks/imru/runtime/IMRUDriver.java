@@ -42,7 +42,7 @@ import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.base.IJobFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
@@ -57,7 +57,7 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  */
 public class IMRUDriver<Model extends Serializable> {
     private final static Logger LOGGER = Logger.getLogger(IMRUDriver.class.getName());
-    private final IIMRUJobSpecification<Model> imruSpec;
+    private final IIMRUJob2<Model> imruSpec;
     private Model model;
     private final IHyracksClientConnection hcc;
     private final IMRUConnection imruConnection;
@@ -76,7 +76,7 @@ public class IMRUDriver<Model extends Serializable> {
      * @param hcc
      *            A client connection to the cluster controller.
      * @param imruSpec
-     *            The IIMRUJobSpecification to use.
+     *            The IIMRUJob2 to use.
      * @param initialModel
      *            The initial global model.
      * @param jobFactory
@@ -90,7 +90,7 @@ public class IMRUDriver<Model extends Serializable> {
      *            The application name to use when running the jobs.
      */
     public IMRUDriver(IHyracksClientConnection hcc, IMRUConnection imruConnection,
-            IIMRUJobSpecification<Model> imruSpec, Model initialModel, IJobFactory jobFactory, Configuration conf,
+            IIMRUJob2<Model> imruSpec, Model initialModel, IJobFactory jobFactory, Configuration conf,
             String app) {
         this.imruSpec = imruSpec;
         this.model = initialModel;

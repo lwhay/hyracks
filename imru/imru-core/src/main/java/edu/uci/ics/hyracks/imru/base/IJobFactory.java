@@ -19,7 +19,7 @@ import java.util.UUID;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 
 /**
@@ -44,7 +44,7 @@ public interface IJobFactory {
      * @throws HyracksException
      */
     @SuppressWarnings("rawtypes")
-    public JobSpecification generateJob(IIMRUJobSpecification model, int roundNum, String modelPath)
+    public JobSpecification generateJob(IIMRUJob2 model, int roundNum, String modelPath)
             throws HyracksException;
 
     public JobSpecification generateModelSpreadJob(String modelPath, int roundNum);
@@ -60,7 +60,7 @@ public interface IJobFactory {
      * @throws HyracksException
      */
     @SuppressWarnings("rawtypes")
-    public JobSpecification generateDataLoadJob(IIMRUJobSpecification model) throws HyracksException;
+    public JobSpecification generateDataLoadJob(IIMRUJob2 model) throws HyracksException;
 
     public UUID getId();
 }

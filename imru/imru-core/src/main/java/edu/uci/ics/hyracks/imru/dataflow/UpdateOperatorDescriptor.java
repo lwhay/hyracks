@@ -26,8 +26,10 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -48,12 +50,9 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.ASyncIO;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
-import edu.uci.ics.hyracks.imru.api.IOneByOneUpdateFunction;
-import edu.uci.ics.hyracks.imru.api.IReassemblingUpdateFunction;
-import edu.uci.ics.hyracks.imru.api.IUpdateFunction;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
 import edu.uci.ics.hyracks.imru.base.IConfigurationFactory;
 import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
@@ -70,11 +69,14 @@ import edu.uci.ics.hyracks.imru.util.Rt;
  * @param <Model>
  *            Josh Rosen
  */
-public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOperatorDescriptor<Model> {
+public class UpdateOperatorDescriptor<Model extends Serializable> extends
+        IMRUOperatorDescriptor<Model> {
 
     private static final long serialVersionUID = 1L;
-    private static Logger LOG = Logger.getLogger(UpdateOperatorDescriptor.class.getName());
-    private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[1]);
+    private static Logger LOG = Logger.getLogger(UpdateOperatorDescriptor.class
+            .getName());
+    private static final RecordDescriptor dummyRecordDescriptor = new RecordDescriptor(
+            new ISerializerDeserializer[1]);
 
     private final String modelName;
     IMRUConnection imruConnection;
@@ -94,7 +96,8 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
      *            The HDFS path to serialize the updated environment
      *            to.
      */
-    public UpdateOperatorDescriptor(JobSpecification spec, IIMRUJobSpecification<Model> imruSpec, String modelName,
+    public UpdateOperatorDescriptor(JobSpecification spec,
+            IIMRUJob2<Model> imruSpec, String modelName,
             IConfigurationFactory confFactory, IMRUConnection imruConnection) {
         super(spec, 1, 0, "update", imruSpec, confFactory);
         this.modelName = modelName;
@@ -102,24 +105,29 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
         //            recordDescriptors[0] = dummyRecordDescriptor;
     }
 
-    private static class UpdateOperatorNodePushable<Model extends Serializable> extends
-            AbstractUnaryInputSinkOperatorNodePushable {
+    private static class UpdateOperatorNodePushable<Model extends Serializable>
+            extends AbstractUnaryInputSinkOperatorNodePushable {
 
-        private final IIMRUJobSpecification<Model> imruSpec;
+        private final IIMRUJob2<Model> imruSpec;
         private final String modelName;
         private final IConfigurationFactory confFactory;
         private final ChunkFrameHelper chunkFrameHelper;
         private final List<List<ByteBuffer>> bufferedChunks;
 
-        private IUpdateFunction updateFunction;
         private Configuration conf;
         private Model model;
         private final String name;
         IMRUContext imruContext;
         IMRUConnection imruConnection;
 
-        public UpdateOperatorNodePushable(IHyracksTaskContext ctx, IIMRUJobSpecification<Model> imruSpec,
-                String modelName, IConfigurationFactory confFactory, String name, IMRUConnection imruConnection) {
+        private ASyncIO<byte[]> io;
+        Future future;
+        Model updatedModel;
+
+        public UpdateOperatorNodePushable(IHyracksTaskContext ctx,
+                IIMRUJob2<Model> imruSpec, String modelName,
+                IConfigurationFactory confFactory, String name,
+                IMRUConnection imruConnection) {
             this.imruSpec = imruSpec;
             this.modelName = modelName;
             this.confFactory = confFactory;
@@ -134,28 +142,41 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
         @Override
         public void open() throws HyracksDataException {
             MemoryStatsLogger.logHeapStats(LOG, "Update: Initializing Update");
-            conf = confFactory == null ? null : confFactory.createConfiguration();
-            INCApplicationContext appContext = imruContext.getJobletContext().getApplicationContext();
-            IMRURuntimeContext context = (IMRURuntimeContext) appContext.getApplicationObject();
+            conf = confFactory == null ? null : confFactory
+                    .createConfiguration();
+            INCApplicationContext appContext = imruContext.getJobletContext()
+                    .getApplicationContext();
+            IMRURuntimeContext context = (IMRURuntimeContext) appContext
+                    .getApplicationObject();
             model = (Model) context.model;
-            updateFunction = imruSpec.getUpdateFunctionFactory().createUpdateFunction(imruContext, model);
-            updateFunction.open();
+            io = new ASyncIO<byte[]>();
+            future = IMRUSerialize.threadPool.submit(new Runnable() {
+                @Override
+                public void run() {
+                    Iterator<byte[]> input = io.getInput();
+                    try {
+                        updatedModel = imruSpec.update(imruContext, input,
+                                model);
+                    } catch (HyracksDataException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
         }
 
         @Override
-        public void nextFrame(ByteBuffer encapsulatedChunk) throws HyracksDataException {
+        public void nextFrame(ByteBuffer encapsulatedChunk)
+                throws HyracksDataException {
             ByteBuffer chunk = chunkFrameHelper.extractChunk(encapsulatedChunk);
-            if (updateFunction instanceof IOneByOneUpdateFunction) {
-                ((IOneByOneUpdateFunction) updateFunction).update(chunk);
-            } else if (updateFunction instanceof IReassemblingUpdateFunction) {
-                int senderPartition = chunkFrameHelper.getPartition(encapsulatedChunk);
-                boolean isLastChunk = chunkFrameHelper.isLastChunk(encapsulatedChunk);
-                enqueueChunk(chunk, senderPartition);
-                if (isLastChunk) {
-                    ((IReassemblingUpdateFunction) updateFunction).update(bufferedChunks.remove(senderPartition));
-                }
-            } else {
-                throw new HyracksDataException("Unknown IUpdateFunction interface");
+            int senderPartition = chunkFrameHelper
+                    .getPartition(encapsulatedChunk);
+            boolean isLastChunk = chunkFrameHelper
+                    .isLastChunk(encapsulatedChunk);
+            enqueueChunk(chunk, senderPartition);
+            if (isLastChunk) {
+                byte[] data = IMRUSerialize.deserializeFromChunks(imruContext,
+                        bufferedChunks.remove(senderPartition));
+                io.add(data);
             }
         }
 
@@ -166,16 +187,23 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
         @Override
         public void close() throws HyracksDataException {
             try {
-                updateFunction.close();
-                model = (Model) updateFunction.getUpdateModel();
+                io.close();
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                model = (Model) updatedModel;
                 imruContext.setModel(model);
 
                 long start = System.currentTimeMillis();
                 imruConnection.uploadModel(modelName, model);
                 long end = System.currentTimeMillis();
-//                Rt.p(model);
-                LOG.info("uploaded model to CC " + (end - start) + " milliseconds");
-                MemoryStatsLogger.logHeapStats(LOG, "Update: Deinitializing Update");
+                //                Rt.p(model);
+                LOG.info("uploaded model to CC " + (end - start)
+                        + " milliseconds");
+                MemoryStatsLogger.logHeapStats(LOG,
+                        "Update: Deinitializing Update");
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }
@@ -193,9 +221,10 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends IMRUOp
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, modelName, confFactory, this.getDisplayName()
-                + partition, imruConnection);
+            IRecordDescriptorProvider recordDescProvider, int partition,
+            int nPartitions) throws HyracksDataException {
+        return new UpdateOperatorNodePushable<Model>(ctx, imruSpec, modelName,
+                confFactory, this.getDisplayName() + partition, imruConnection);
     }
 
 }

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.imru.api2;
+package edu.uci.ics.hyracks.imru.api;
 
 import java.io.File;
 import java.io.IOException;
@@ -84,24 +84,6 @@ public class IMRUJobControl<Model extends Serializable> {
     }
 
     /**
-     * run job using low level interface
-     * 
-     * @param job
-     * @param initialModel
-     * @param app
-     * @return
-     * @throws Exception
-     */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job, Model initialModel, String app)
-            throws Exception {
-        driver = new IMRUDriver<Model>(hcc, imruConnection, job, initialModel, jobFactory,
-                confFactory.createConfiguration(), app);
-        driver.modelFileName = modelFileName;
-        driver.localIntermediateModelPath = localIntermediateModelPath;
-        return driver.run();
-    }
-
-    /**
      * run job using middle level interface
      * 
      * @param job2
@@ -112,8 +94,11 @@ public class IMRUJobControl<Model extends Serializable> {
      */
     public JobStatus run(IIMRUJob2<Model> job2, Model initialModel, String app) throws Exception {
         //        Model initialModel = job2.initModel();
-        IIMRUJobSpecificationImpl<Model> job = new IIMRUJobSpecificationImpl<Model>(job2);
-        return run(job, initialModel, app);
+        driver = new IMRUDriver<Model>(hcc, imruConnection, job2, initialModel, jobFactory,
+                confFactory.createConfiguration(), app);
+        driver.modelFileName = modelFileName;
+        driver.localIntermediateModelPath = localIntermediateModelPath;
+        return driver.run();
     }
 
     /**

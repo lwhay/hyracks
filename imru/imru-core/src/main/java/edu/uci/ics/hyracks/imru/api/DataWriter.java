@@ -15,11 +15,26 @@
 
 package edu.uci.ics.hyracks.imru.api;
 
+import java.io.IOException;
 import java.io.Serializable;
 
-/**
- * The model used to persist state between iterations.
- */
-//public interface IModel extends Serializable {
-//
-//}
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
+import edu.uci.ics.hyracks.imru.util.Rt;
+
+public class DataWriter<Data extends Serializable> {
+    TupleWriter tupleWriter;
+
+    public DataWriter(TupleWriter tupleWriter) throws IOException {
+        this.tupleWriter = tupleWriter;
+    }
+
+    public void addData(Data data) throws IOException {
+        byte[] objectData;
+        objectData = JavaSerializationUtils.serialize(data);
+        tupleWriter.writeInt(objectData.length);
+        tupleWriter.write(objectData);
+        tupleWriter.finishField();
+        tupleWriter.finishTuple();
+    }
+}

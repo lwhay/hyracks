@@ -4,7 +4,7 @@ CUR_DIR=$(cd $(dirname "$0"); pwd)
 APPASSEMBLER_DIR=$(cd $(dirname "$CUR_DIR"); pwd)
 CCHOST_NAME=`cat conf/master`
 
-hostname
+echo $(hostname) $1
 
 #Import cluster properties
 . $APPASSEMBLER_DIR/conf/cluster.properties
@@ -15,8 +15,14 @@ then
 	exit
 fi
 
-#Get the IP address of the cc
-CCHOST=`ssh ${CCHOST_NAME} "cd ${CURRENT_PATH}; ${CUR_DIR}/getip.sh"`
+CCHOST=$1
+if test -z "$CCHOST"
+then
+	echo "login to cluster controller to get ip address"
+	CCHOST=`ssh ${CCHOST_NAME} "cd ${CURRENT_PATH}; ${CUR_DIR}/getip.sh"`
+fi
+
+#Get the IP address of the nc
 IPADDR=`$CUR_DIR/getip.sh`
 
 #Get node ID

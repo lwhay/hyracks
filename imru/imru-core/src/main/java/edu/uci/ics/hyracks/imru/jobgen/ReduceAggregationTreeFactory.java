@@ -23,7 +23,7 @@ import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 
 /**
@@ -64,7 +64,7 @@ public class ReduceAggregationTreeFactory {
     @SuppressWarnings( { "rawtypes" })
     public static void buildAggregationTree(JobSpecification spec, IOperatorDescriptor producerOp, int producerPort,
             int producerOpCount, IOperatorDescriptor consumerOp, int consumerPort, IConnectorDescriptor consumerConn,
-            int fanIn, boolean useLocalCombiners, String[] producerOpLocations, IIMRUJobSpecification imruSpec) {
+            int fanIn, boolean useLocalCombiners, String[] producerOpLocations, IIMRUJob2 imruSpec) {
         if (useLocalCombiners) {
             producerOpCount = LocalReducerFactory.getReducerCount(producerOpLocations);
         }

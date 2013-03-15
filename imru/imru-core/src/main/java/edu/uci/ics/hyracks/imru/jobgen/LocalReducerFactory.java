@@ -32,7 +32,7 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.HashtableLocalityMap;
 import edu.uci.ics.hyracks.dataflow.std.connectors.ILocalityMap;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
-import edu.uci.ics.hyracks.imru.api.IIMRUJobSpecification;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 
@@ -65,7 +65,7 @@ public class LocalReducerFactory {
     @SuppressWarnings( { "rawtypes" })
     public static void addLocalReducers(JobSpecification spec, IOperatorDescriptor producerOp, int producerPort,
             String[] producerLocations, IOperatorDescriptor consumerOp, int consumerPort,
-            IConnectorDescriptor consumerConn, IIMRUJobSpecification imruSpec) {
+            IConnectorDescriptor consumerConn, IIMRUJob2 imruSpec) {
         ReduceOperatorDescriptor localReducer = new ReduceOperatorDescriptor(spec, imruSpec, "localReducer");
         localReducer.level=-1;
         localReducer.isLocal=true;

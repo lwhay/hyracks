@@ -52,10 +52,9 @@ import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
 import edu.uci.ics.hyracks.control.common.controllers.NCConfig;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJobSpecificationImpl;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJob2;
-import edu.uci.ics.hyracks.imru.api2.IMRUJobControl;
-import edu.uci.ics.hyracks.imru.api2.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob;
+import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
+import edu.uci.ics.hyracks.imru.api.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.data.DataSpreadDriver;
 import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
@@ -276,16 +275,6 @@ public class Client<Model extends Serializable> {
      */
     public JobStatus run(IIMRUJob2<Model> job, Model initialModel)
             throws Exception {
-        return control.run(job, initialModel, options.app);
-    }
-
-    /**
-     * run IMRU job using callback interface
-     * 
-     * @throws Exception
-     */
-    public JobStatus run(IIMRUJobSpecificationImpl<Model> job,
-            Model initialModel) throws Exception {
         return control.run(job, initialModel, options.app);
     }
 

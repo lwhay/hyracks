@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.imru.api2;
+package edu.uci.ics.hyracks.imru.api;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 
