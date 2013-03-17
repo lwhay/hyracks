@@ -51,20 +51,12 @@ public class HelloWorld {
                 + "/fullstack_imru/imru/imru-example/data/helloworld";
         // port of cluster controller
         cmdline += " -port 3099";
-        // application name
-        cmdline += " -app helloworld";
-        // hadoop config path
-        if (useHDFS)
+        // HDFS path of input data
+        if (useHDFS) {
             cmdline += " -hadoop-conf " + System.getProperty("user.home")
                     + "/hadoop-0.20.2/conf";
-        // Path on local machine to save intermediate models
-        //        cmdline += " -save-intermediate-models /tmp/cache/models";
-        // Path on cluster controller to hold models
-        //        cmdline += " -cc-temp-path /tmp/cache/cc";
-        // HDFS path of input data
-        if (useHDFS)
             cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
-        else {
+        } else {
             int n = 52;
             n = 6;
             if (debugging) {
@@ -78,14 +70,6 @@ public class HelloWorld {
                     cmdline += "," + exampleData + "/hello" + i + ".txt";
             }
         }
-        // aggregation
-        //        cmdline += " -agg-tree-type nary -fan-in 2";
-        cmdline += " -agg-tree-type generic -agg-count 1";
-        // cmdline += " -agg-tree-type none";
-
-        // write to the same file
-        cmdline += " -model-file-name helloworld";
-        //        cmdline += " -model-file-name helloworld";
 
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);

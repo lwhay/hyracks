@@ -15,39 +15,31 @@
 
 package edu.uci.ics.hyracks.imru.example.bgd;
 
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
-
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
-/**
- * Generic main class for running Hyracks IMRU jobs.
- * 
- * @author Josh Rosen
- */
 public class BGD {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            args = ("-host localhost"//
-                    + " -app bgd"//
-                    + " -port 3099"//
-                    + " -hadoop-conf /data/imru/hadoop-0.20.2/conf"//
-                    + " -agg-tree-type generic"//
-                    + " -agg-count 1"//
-                    + " -temp-path /tmp"//
-                    + " -example-paths /input/data.txt").split(" ");
+            String home = System.getProperty("user.home");
+            String exampleData = home
+                    + "/fullstack_imru/imru/imru-example/data/bgd/bgd.txt";
+            String cmdline = "-debug";
+            cmdline += " -disable-logging";
+            cmdline += " -host localhost";
+            cmdline += " -port 3099";
+            cmdline += " -example-paths " + exampleData;
+            args = cmdline.split(" ");
         }
 
         int numRounds = 15;
-        String modeFileName = "/tmp/__imru.txt";
-        LinearModel finalModel = Client.run(new BGDJob(8000), new LinearModel(8000, numRounds), args);
-        System.out.println("Final model [0] " + finalModel.weights.array[0]);
-        System.out.println("Final loss was " + finalModel.loss);
-        PrintWriter writer = new PrintWriter(new FileOutputStream(modeFileName));
-        for (float x : finalModel.weights.array)
-            writer.println(x);
-        writer.close();
+        int features = 3;
+        Model model = Client.run(new BGDJob(features), new Model(features,
+                numRounds), args);
+        System.out.println("Rounds: " + model.roundsCompleted);
+        System.out.println("Model:");
+        for (int i = 0; i < model.weights.length; i++)
+            System.out.println(i + ":\t" + model.weights[i]);
+        System.out.println("Error: " + model.error + "%");
         System.exit(0);
     }
-
 }

@@ -17,19 +17,12 @@ package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.Serializable;
 
-public class LinearModel implements Serializable {
+public class Gradient implements Serializable {
+    int correct=0;
+    int total=0;
+    float[] gradient;
 
-    private static final long serialVersionUID = 1L;
-    public final int numFeatures;
-    public FragmentableFloatArray weights;
-    public float loss;
-    public float stepSize = 1.0f;
-    public float regularizationConstant = 0.5f;
-    public int roundsRemaining;
-
-    public LinearModel(int numFeatures, int numRounds) {
-        this.numFeatures = numFeatures;
-        this.weights = new FragmentableFloatArray(new float[numFeatures]);
-        this.roundsRemaining = numRounds;
+    public Gradient(int numFeatures) {
+        gradient = new float[numFeatures];
     }
 }

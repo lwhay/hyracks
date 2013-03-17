@@ -23,7 +23,7 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
 public class KMeans {
     static String[] defaultArgs(boolean debugging) throws Exception {
         // if no argument is given, the following code
-        // create default arguments to run the example
+        // creates default arguments to run the example
         String cmdline = "";
         if (debugging) {
             // debugging mode, everything run in one process
@@ -38,28 +38,19 @@ public class KMeans {
         }
 
         boolean useHDFS = false;
-        if (System.getProperty("local") != null)
-            useHDFS = false;
         String home = System.getProperty("user.home");
-        String exampleData = home + "/fullstack_imru/imru/imru-example/data/kmeans";
+        String exampleData = home
+                + "/fullstack_imru/imru/imru-example/data/kmeans";
         // port of cluster controller
         cmdline += " -port 3099";
-        // application name
-        // cmdline += " -app kmeans";
-        // hadoop config path
-        if (useHDFS)
-            cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
-        // Input data
-        if (useHDFS)
+        if (useHDFS) {
+            // hadoop config path
+            cmdline += " -hadoop-conf " + System.getProperty("user.home")
+                    + "/hadoop-0.20.2/conf";
             cmdline += " -example-paths /kmeans/kmeans0.txt,/kmeans/kmeans1.txt";
-        else
-            cmdline += " -example-paths " + exampleData + "/kmeans0.txt," + exampleData + "/kmeans1.txt";
-        // aggregation type
-        cmdline += " -agg-tree-type generic";
-        // aggregation parameter
-        cmdline += " -agg-count 1";
-        // write to the same file
-        cmdline += " -model-file-name kmeans";
+        } else
+            cmdline += " -example-paths " + exampleData + "/kmeans0.txt,"
+                    + exampleData + "/kmeans1.txt";
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         return cmdline.split(" ");
@@ -75,12 +66,14 @@ public class KMeans {
         KMeansModel bestModel = null;
         for (int modelId = 0; modelId < 3; modelId++) {
             System.out.println("trial " + modelId);
-            KMeansModel initModel = Client.run(new RandomSelectJob(k), new KMeansModel(k, 1),args);
+            KMeansModel initModel = Client.run(new RandomSelectJob(k),
+                    new KMeansModel(k, 1), args);
             System.out.println("InitModel: " + initModel);
 
             initModel.roundsRemaining = 20;
 
-            KMeansModel finalModel = Client.run(new KMeansJob(k), initModel,args);
+            KMeansModel finalModel = Client.run(new KMeansJob(k), initModel,
+                    args);
             System.out.println("FinalModel: " + finalModel);
             System.out.println("DistanceSum: " + finalModel.lastDistanceSum);
             if (finalModel.lastDistanceSum < minDis) {

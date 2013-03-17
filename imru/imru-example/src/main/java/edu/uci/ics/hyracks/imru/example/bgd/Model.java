@@ -17,12 +17,17 @@ package edu.uci.ics.hyracks.imru.example.bgd;
 
 import java.io.Serializable;
 
-public class LossGradient implements Serializable {
-    float loss;
-    float[] gradient;
+public class Model implements Serializable {
+    public final int numFeatures;
+    public float[] weights;
+    public float error;
+    public float stepSize = 1.0f;
+    public int roundsCompleted;
+    public int roundsRemaining;
 
-    public LossGradient(int numFeatures) {
-        loss = 0;
-        gradient = new float[numFeatures];
+    public Model(int numFeatures, int numRounds) {
+        this.numFeatures = numFeatures;
+        this.weights = new float[numFeatures];
+        this.roundsRemaining = numRounds;
     }
 }

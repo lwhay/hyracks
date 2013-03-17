@@ -47,6 +47,7 @@ import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Generates JobSpecifications for iterations of iterative map reduce
@@ -67,6 +68,7 @@ public class IMRUJobFactory {
     IMRUFileSplit[] inputSplits;
     String[] mapOperatorLocations;
     String[] mapNodesLocations;
+    String[] mapAndUpdateNodesLocations;
     String modelNode; //on which node the model will be
     private final int fanIn;
     private final int reducerCount;
@@ -121,8 +123,10 @@ public class IMRUJobFactory {
         Random random = new Random(id.getLeastSignificantBits());
         mapOperatorLocations = ClusterConfig.setLocationConstraint(null, null,
                 inputSplits, random);
-        mapNodesLocations = new HashSet<String>(
-                Arrays.asList(mapOperatorLocations)).toArray(new String[0]);
+        HashSet<String> hashSet = new HashSet<String>(
+                Arrays.asList(mapOperatorLocations));
+        mapNodesLocations = hashSet.toArray(new String[0]);
+        mapAndUpdateNodesLocations = hashSet.toArray(new String[0]);
         modelNode = mapNodesLocations[0];
         this.aggType = aggType;
         this.fanIn = fanIn;
@@ -167,7 +171,7 @@ public class IMRUJobFactory {
 
     public JobSpecification generateModelSpreadJob(String modelPath,
             int roundNum) {
-        return generateModelSpreadJob(mapNodesLocations, modelNode,
+        return generateModelSpreadJob(mapAndUpdateNodesLocations, modelNode,
                 imruConnection, modelPath, roundNum, null);
     }
 
@@ -244,6 +248,9 @@ public class IMRUJobFactory {
                 spec, model, modelName, imruConnection);
         PartitionConstraintHelper.addPartitionCountConstraint(spec,
                 updateOperator, 1);
+        // Make sure update operator can get the model
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                updateOperator, mapOperatorLocations[0]);
 
         if (aggType == AGGREGATION.NONE) {
             // Connect things together

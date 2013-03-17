@@ -27,7 +27,7 @@ import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
 import edu.uci.ics.hyracks.imru.api.IMRUDataException;
 
-public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
+public class BGDJob implements IIMRUJob<Model, Data, Gradient> {
     int features;
 
     public BGDJob(int features) {
@@ -43,106 +43,77 @@ public class BGDJob implements IIMRUJob<LinearModel, Data, LossGradient> {
     public void parse(IMRUContext ctx, InputStream input,
             DataWriter<Data> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        Pattern whitespacePattern = Pattern.compile("\\s+");
-        Pattern whitespacePattern2 = Pattern.compile(",|\\s+");
+        Pattern whitespacePattern = Pattern.compile(",|\\s+");
         Pattern labelFeaturePattern = Pattern.compile("[:=]");
         for (String line = reader.readLine(); line != null; line = reader
                 .readLine()) {
-            String[] comps = whitespacePattern.split(line, 2);
-
-            // Ignore leading plus sign
-            if (comps[0].charAt(0) == '+')
-                comps[0] = comps[0].substring(1);
-
+            String[] ss = whitespacePattern.split(line);
             Data data = new Data();
-            data.label = Integer.parseInt(comps[0]);
-            String[] kvs = whitespacePattern2.split(comps[1]);
-            data.fieldIds = new int[kvs.length];
-            data.values = new float[kvs.length];
-            for (int i = 0; i < kvs.length; i++) {
-                String[] parts = labelFeaturePattern.split(kvs[i]);
-                data.fieldIds[i] = Integer.parseInt(parts[0]);
-                if (data.fieldIds[i] > features) {
-                    throw new IndexOutOfBoundsException("Feature index "
-                            + data.fieldIds[i]
-                            + " exceed the declared number of features ("
-                            + features + ")");
-                }
-                // Ignore leading plus sign.
-                if (parts[1].charAt(0) == '+') {
-                    parts[1] = parts[1].substring(1);
-                }
-                data.values[i] = Float.parseFloat(parts[1]);
+            data.label = Integer.parseInt(ss[0]) > 0 ? 1 : -1;
+            data.fieldIds = new int[ss.length - 1];
+            data.values = new float[ss.length - 1];
+            for (int i = 1; i < ss.length; i++) {
+                String[] kv = labelFeaturePattern.split(ss[i]);
+                data.fieldIds[i - 1] = Integer.parseInt(kv[0]);
+                data.values[i - 1] = Float.parseFloat(kv[1]);
             }
             output.addData(data);
         }
     }
 
     @Override
-    public LossGradient map(IMRUContext ctx, Iterator<Data> input,
-            LinearModel model) throws IOException {
-        LossGradient lossGradientMap = new LossGradient(model.numFeatures);
+    public Gradient map(IMRUContext ctx, Iterator<Data> input, Model model)
+            throws IOException {
+        Gradient g = new Gradient(model.numFeatures);
         while (input.hasNext()) {
             Data data = input.next();
-            float innerProduct = data.dot(model.weights);
-            float diff = (data.label - innerProduct);
-            lossGradientMap.loss += diff * diff; // Use L2 loss
-            // function.
-            data.computeGradient(model.weights, innerProduct,
-                    lossGradientMap.gradient);
-        }
-        return lossGradientMap;
-    }
-
-    @Override
-    public LossGradient reduce(IMRUContext ctx, Iterator<LossGradient> input)
-            throws IMRUDataException {
-        LossGradient loss = new LossGradient(features);
-        while (input.hasNext()) {
-            LossGradient buf = input.next();
-            loss.loss += buf.loss;
-            for (int i = 0; i < loss.gradient.length; i++) {
-                loss.gradient[i] += buf.gradient[i];
+            float innerProduct = 0.0f;
+            for (int i = 0; i < data.fieldIds.length; i++)
+                innerProduct += data.values[i]
+                        * model.weights[data.fieldIds[i]];
+            g.total++;
+            if ((data.label > 0) != (innerProduct > 0)) {
+                for (int i = 0; i < data.fieldIds.length; i++)
+                    g.gradient[data.fieldIds[i]] += data.label * data.values[i];
+            } else {
+                g.correct++;
             }
         }
-        return loss;
+        return g;
     }
 
     @Override
-    public boolean shouldTerminate(LinearModel model) {
+    public Gradient reduce(IMRUContext ctx, Iterator<Gradient> input)
+            throws IMRUDataException {
+        Gradient g = new Gradient(features);
+        while (input.hasNext()) {
+            Gradient buf = input.next();
+            g.correct += buf.correct;
+            g.total += buf.total;
+            for (int i = 0; i < g.gradient.length; i++)
+                g.gradient[i] += buf.gradient[i];
+        }
+        return g;
+    }
+
+    @Override
+    public boolean shouldTerminate(Model model) {
         return model.roundsRemaining <= 0;
     }
 
     @Override
-    public LinearModel update(IMRUContext ctx, Iterator<LossGradient> input,
-            LinearModel model) throws IMRUDataException {
-        LossGradient loss = new LossGradient(features);
-        while (input.hasNext()) {
-            LossGradient buf = input.next();
-            loss.loss += buf.loss;
-            for (int i = 0; i < loss.gradient.length; i++) {
-                loss.gradient[i] += buf.gradient[i];
-            }
-        }
-        // Update loss
-        model.loss = loss.loss;
-        model.loss += model.regularizationConstant * norm(model.weights.array);
-        // Update weights
-        for (int i = 0; i < model.weights.length; i++) {
-            model.weights.array[i] = (model.weights.array[i] - loss.gradient[i]
-                    * model.stepSize)
-                    * (1.0f - model.stepSize * model.regularizationConstant);
-        }
+    public Model update(IMRUContext ctx, Iterator<Gradient> input, Model model)
+            throws IMRUDataException {
+        Gradient g = reduce(ctx, input);
+        model.error = 100f * (g.total - g.correct) / g.total;
+        for (int i = 0; i < model.weights.length; i++)
+            model.weights[i] += g.gradient[i] / g.total * model.stepSize;
         model.stepSize *= 0.9;
-        model.roundsRemaining--;
+        if (model.error < 0.0001)
+            model.roundsRemaining = 0;
+        else
+            model.roundsRemaining--;
+        model.roundsCompleted++;
         return model;
-    }
-
-    public static double norm(float[] vec) {
-        double norm = 0.0;
-        for (double comp : vec) {
-            norm += comp * comp;
-        }
-        return Math.sqrt(norm);
     }
 }

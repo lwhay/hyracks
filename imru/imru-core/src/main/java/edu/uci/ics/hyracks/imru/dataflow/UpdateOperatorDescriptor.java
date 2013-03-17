@@ -41,6 +41,7 @@ import edu.uci.ics.hyracks.imru.data.ChunkFrameHelper;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRURuntimeContext;
 import edu.uci.ics.hyracks.imru.util.MemoryStatsLogger;
+import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
  * Evaluates the update function in an iterative map reduce update
@@ -88,7 +89,8 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
     }
 
     @Override
-    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
+    public IOperatorNodePushable createPushRuntime(
+            final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, final int partition,
             int nPartitions) throws HyracksDataException {
         return new AbstractUnaryInputSinkOperatorNodePushable() {
@@ -116,13 +118,9 @@ public class UpdateOperatorDescriptor<Model extends Serializable> extends
             public void open() throws HyracksDataException {
                 MemoryStatsLogger.logHeapStats(LOG,
                         "Update: Initializing Update");
-                //            conf = confFactory == null ? null : confFactory
-                //                    .createConfiguration();
-                INCApplicationContext appContext = imruContext
-                        .getJobletContext().getApplicationContext();
-                IMRURuntimeContext context = (IMRURuntimeContext) appContext
-                        .getApplicationObject();
-                model = (Model) context.model;
+                model = (Model) imruContext.getModel();
+                if (model == null)
+                    Rt.p("Model == null " + imruContext.getNodeId());
                 io = new ASyncIO<byte[]>();
                 future = IMRUSerialize.threadPool.submit(new Runnable() {
                     @Override
