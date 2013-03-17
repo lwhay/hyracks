@@ -35,7 +35,6 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.kohsuke.args4j.CmdLineException;
@@ -56,8 +55,6 @@ import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUJobControl;
 import edu.uci.ics.hyracks.imru.data.DataSpreadDriver;
-import edu.uci.ics.hyracks.imru.runtime.IMRUDriver;
-import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
@@ -408,35 +405,6 @@ public class Client<Model extends Serializable> {
         JobId jobId = hcc.startJob(appName, spec,
                 EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
-    }
-
-    /**
-     * Write raw data to a local file
-     * 
-     * @param file
-     * @param bs
-     * @throws IOException
-     */
-    public void writeLocalFile(File file, byte[] bs) throws IOException {
-        FileOutputStream out = new FileOutputStream(file);
-        out.write(bs);
-        out.close();
-    }
-
-    /**
-     * Copy a local file to HDFS
-     * 
-     * @param localPath
-     * @param hdfsPath
-     * @throws IOException
-     */
-    public void copyFromLocalToHDFS(String localPath, String hdfsPath)
-            throws IOException {
-        FileSystem dfs = getHDFS();
-        dfs.mkdirs(new Path(hdfsPath).getParent());
-        System.out.println("copy " + localPath + " to " + hdfsPath);
-        dfs.copyFromLocalFile(new Path(localPath), new Path(hdfsPath));
-        dfs.close();
     }
 
     /**

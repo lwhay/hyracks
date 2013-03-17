@@ -17,6 +17,9 @@ package edu.uci.ics.hyracks.imru.example.bgd;
 
 import edu.uci.ics.hyracks.imru.example.utils.Client;
 
+/**
+ * Batch Gradient Descent example
+ */
 public class BGD {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
