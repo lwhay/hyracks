@@ -36,11 +36,6 @@ import java.util.Iterator;
 public interface IIMRUJob<Model extends Serializable, Data extends Serializable, IntermediateResult extends Serializable>
         extends Serializable {
     /**
-     * Return initial model
-     */
-//    public Model initModel();
-
-    /**
      * Frame size must be large enough to store at least one tuple
      */
     public int getCachedDataFrameSize();

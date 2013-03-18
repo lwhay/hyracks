@@ -32,11 +32,6 @@ import java.util.Iterator;
  */
 public interface IIMRUJob2<Model> extends Serializable {
     /**
-     * Return initial model
-     */
-//    public Model initModel();
-
-    /**
      * Frame size must be large enough to store at least one tuple
      */
     public int getCachedDataFrameSize();
