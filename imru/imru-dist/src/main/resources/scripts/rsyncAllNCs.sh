@@ -13,7 +13,7 @@ CCHOST=`$CUR_DIR/getip.sh`
 
 if test ! "(" -e $HOME/.ssh/id_rsa.pub ")"
 then
-	ssh-keygen -f $HOME/.ssh/id_rsa -N ''
+	ssh-keygen -t rsa -f $HOME/.ssh/id_rsa -N ''
 fi
 
 PUB_KEY=$(cat $HOME/.ssh/id_rsa.pub)
