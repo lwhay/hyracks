@@ -21,44 +21,33 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
  * Start a local cluster within the process and run the kmeans example.
  */
 public class KMeans {
-    static String[] defaultArgs(boolean debugging) throws Exception {
-        // if no argument is given, the following code
-        // creates default arguments to run the example
-        String cmdline = "";
-        if (debugging) {
-            // debugging mode, everything run in one process
-            cmdline += " -debug";
-            // disable logging
-            cmdline += " -disable-logging";
-            // hostname of cluster controller
-            cmdline += " -host localhost";
-        } else {
-            // hostname of cluster controller
-            cmdline += "-host " + Client.getLocalIp();
-        }
-
-        boolean useHDFS = false;
-        String home = System.getProperty("user.home");
-        String exampleData = home
-                + "/fullstack_imru/imru/imru-example/data/kmeans";
-        // port of cluster controller
-        cmdline += " -port 3099";
-        if (useHDFS) {
-            // hadoop config path
-            cmdline += " -hadoop-conf " + System.getProperty("user.home")
-                    + "/hadoop-0.20.2/conf";
-            cmdline += " -example-paths /kmeans/kmeans0.txt,/kmeans/kmeans1.txt";
-        } else
-            cmdline += " -example-paths " + exampleData + "/kmeans0.txt,"
-                    + exampleData + "/kmeans1.txt";
-        cmdline = cmdline.trim();
-        System.out.println("Using command line: " + cmdline);
-        return cmdline.split(" ");
-    }
-
     public static void main(String[] args) throws Exception {
-        if (args.length == 0)
-            args = defaultArgs(false);
+        if (args.length == 0) {
+            // if no argument is given, the following code
+            // creates default arguments to run the example
+            String cmdline = "";
+            if (Client.isServerAvailable(Client.getLocalIp(), 3099)) {
+                // hostname of cluster controller
+                cmdline += "-host " + Client.getLocalIp() + " -port 3099";
+                System.out.println("Connecting to " + Client.getLocalIp());
+            } else {
+                // debugging mode, everything run in one process
+                cmdline += "-host localhost -port 3099 -debug -disable-logging";
+                System.out.println("Starting hyracks cluster");
+            }
+
+            boolean useHDFS = false;
+            if (useHDFS) {
+                // hadoop config path
+                cmdline += " -hadoop-conf " + System.getProperty("user.home") + "/hadoop-0.20.2/conf";
+                cmdline += " -example-paths /kmeans/kmeans0.txt,/kmeans/kmeans1.txt";
+            } else {
+                String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data/kmeans";
+                cmdline += " -example-paths " + exampleData + "/kmeans0.txt," + exampleData + "/kmeans1.txt";
+            }
+            System.out.println("Using command line: " + cmdline);
+            args = cmdline.split(" ");
+        }
 
         int k = 3;
 

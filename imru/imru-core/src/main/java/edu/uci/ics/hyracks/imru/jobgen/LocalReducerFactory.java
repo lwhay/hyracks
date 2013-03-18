@@ -33,7 +33,6 @@ import edu.uci.ics.hyracks.dataflow.std.connectors.HashtableLocalityMap;
 import edu.uci.ics.hyracks.dataflow.std.connectors.ILocalityMap;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
-import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 
 /**

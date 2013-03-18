@@ -15,8 +15,8 @@ public class KMeansEC2 {
         String exampleData = System.getProperty("user.home") + "/fullstack_imru/imru/imru-example/data/kmeans";
         boolean setupClusterFirst = true;
         boolean uploadData = true;
-        setupClusterFirst = false;
-        uploadData = false;
+//        setupClusterFirst = false;
+//        uploadData = false;
         int dataSplits = 2;
         String[] localPaths = new String[dataSplits];
         for (int i = 0; i < dataSplits; i++)

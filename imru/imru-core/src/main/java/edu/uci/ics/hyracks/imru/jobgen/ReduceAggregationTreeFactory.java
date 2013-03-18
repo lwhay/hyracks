@@ -108,6 +108,8 @@ public class ReduceAggregationTreeFactory {
      *         the root (but not including the root).
      */
     public static Integer[] aggregationTreeNodeCounts(int size, int fanIn) {
+        if (size==1)
+            return new Integer[] {1};
         List<Integer> levels = new ArrayList<Integer>();
         while (size > 1) {
             size = (int) Math.round(Math.ceil((1.0 * size) / fanIn));

@@ -1,16 +1,7 @@
 package edu.uci.ics.hyracks.imru.data;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.UUID;
 import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
@@ -18,13 +9,15 @@ import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
-import edu.uci.ics.hyracks.imru.file.IMRUInputSplitProvider;
-import edu.uci.ics.hyracks.imru.jobgen.ClusterConfig;
 import edu.uci.ics.hyracks.imru.jobgen.IMRUJobFactory;
 import edu.uci.ics.hyracks.imru.runtime.bootstrap.IMRUConnection;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
+/**
+ * Distribute data to the cluster in logN steps
+ * 
+ * @author Rui Wang
+ */
 public class DataSpreadDriver {
     private final static Logger LOGGER = Logger
             .getLogger(DataSpreadDriver.class.getName());

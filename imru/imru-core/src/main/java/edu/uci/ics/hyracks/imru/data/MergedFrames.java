@@ -9,6 +9,16 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
+/**
+ * Split binary data into many data frames
+ * and then combined them together.
+ * Each frame contains the source partition, target partition
+ * and reply partition.Each node has multiple sender
+ * and one receiver. Source partition is the sender partition.
+ * Target partition and reply partition are receiver partition.
+ * 
+ * @author Rui Wang
+ */
 public class MergedFrames {
     public static final int HEADER = 20;
     public static final int SOURCE_OFFSET = 0;
@@ -64,7 +74,6 @@ public class MergedFrames {
                 bs = new byte[size];
             else if (size != bs.length)
                 throw new Error();
-            //            Rt.p(position);
             if (position != curPosition)
                 throw new Error(position + " " + curPosition);
             int len = Math.min(bs.length - curPosition, frameSize - HEADER);
@@ -98,5 +107,4 @@ public class MergedFrames {
             position += length;
         }
     }
-
 }

@@ -15,70 +15,52 @@
 
 package edu.uci.ics.hyracks.imru.example.helloworld;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
-import org.kohsuke.args4j.Option;
-
 import edu.uci.ics.hyracks.imru.example.utils.Client;
-import edu.uci.ics.hyracks.imru.util.Rt;
 
 /**
- * Upload helloworld example to a cluster and run it.
+ * This example demonstrate how data flows through IMRU.
+ * The input is six files. Each file has one character.
+ * The map operator pass each file's content to reduce operator.
+ * The reduce operator pass the combined content to update operator.
+ * The final model is the combined content annotated with each
+ * operator.
  */
 public class HelloWorld {
-    static String[] defaultArgs(boolean debugging) throws Exception {
-        // if no argument is given, the following code
-        // create default arguments to run the example
-        String cmdline = "";
-        int totalNodes = 5;
-        if (debugging) {
-            // debugging mode, everything run in one process
-            cmdline += " -debug";
-            // disable logging
-            cmdline += " -disable-logging";
-            // hostname of cluster controller
-            cmdline += " -host localhost";
-            cmdline += " -debugNodes " + totalNodes;
-        } else {
-            // hostname of cluster controller
-            cmdline += "-host " + Client.getLocalIp();
-        }
-        boolean useHDFS = false;
-        String exampleData = System.getProperty("user.home")
-                + "/fullstack_imru/imru/imru-example/data/helloworld";
-        // port of cluster controller
-        cmdline += " -port 3099";
-        // HDFS path of input data
-        if (useHDFS) {
-            cmdline += " -hadoop-conf " + System.getProperty("user.home")
-                    + "/hadoop-0.20.2/conf";
-            cmdline += " -example-paths /helloworld/input.txt,/helloworld/input2.txt";
-        } else {
-            int n = 52;
-            n = 6;
-            if (debugging) {
+    public static void main(String[] args) throws Exception {
+        if (args.length == 0) {
+            // if no argument is given, the following code
+            // creates default arguments to run the example
+            String cmdline = "";
+            int totalNodes = 5;
+            boolean useExistingCluster = Client.isServerAvailable(
+                    Client.getLocalIp(), 3099);
+            if (useExistingCluster) {
+                // hostname of cluster controller
+                cmdline += "-host " + Client.getLocalIp() + " -port 3099";
+                System.out.println("Connecting to " + Client.getLocalIp());
+            } else {
+                // debugging mode, everything run in one process
+                cmdline += "-host localhost -port 3099 -debug -disable-logging";
+                cmdline += " -debugNodes " + totalNodes;
+                System.out.println("Starting hyracks cluster");
+            }
+
+            String exampleData = System.getProperty("user.home")
+                    + "/fullstack_imru/imru/imru-example/data/helloworld";
+            int n = 6;
+            if (useExistingCluster) {
+                cmdline += " -example-paths " + exampleData + "/hello0.txt";
+                for (int i = 1; i < n; i++)
+                    cmdline += "," + exampleData + "/hello" + i + ".txt";
+            } else {
                 cmdline += " -example-paths NC0:" + exampleData + "/hello0.txt";
                 for (int i = 1; i < n; i++)
                     cmdline += ",NC" + (i % totalNodes) + ":" + exampleData
                             + "/hello" + i + ".txt";
-            } else {
-                cmdline += " -example-paths " + exampleData + "/hello0.txt";
-                for (int i = 1; i < n; i++)
-                    cmdline += "," + exampleData + "/hello" + i + ".txt";
             }
+            System.out.println("Using command line: " + cmdline);
+            args = cmdline.split(" ");
         }
-
-        cmdline = cmdline.trim();
-        System.out.println("Using command line: " + cmdline);
-        return cmdline.split(" ");
-    }
-
-    public static void main(String[] args) throws Exception {
-        if (args.length == 0)
-            args = defaultArgs(false);
 
         String finalModel = Client.run(new HelloWorldJob(), "", args);
         System.out.println("FinalModel: " + finalModel);

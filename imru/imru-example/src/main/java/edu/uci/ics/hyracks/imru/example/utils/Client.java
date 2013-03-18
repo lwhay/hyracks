@@ -22,6 +22,7 @@ import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
@@ -253,6 +254,17 @@ public class Client<Model extends Serializable> {
             throw new IllegalArgumentException("Invalid aggregation tree type");
         }
         // hyracks connection
+    }
+
+    public static boolean isServerAvailable(String host, int port)
+            throws Exception {
+        try {
+            Socket socket = new Socket(host, port);
+            socket.close();
+            return true;
+        } catch (java.net.ConnectException e) {
+        }
+        return false;
     }
 
     /**
@@ -540,8 +552,8 @@ public class Client<Model extends Serializable> {
      * 
      * @throws Exception
      */
-    public static void distributeData(File[] src, String[] targetNodes, String[] dest,
-            String[] args) throws Exception {
+    public static void distributeData(File[] src, String[] targetNodes,
+            String[] dest, String[] args) throws Exception {
         // create a client object, which handles everything
         Client<Serializable> client = new Client<Serializable>(args);
 

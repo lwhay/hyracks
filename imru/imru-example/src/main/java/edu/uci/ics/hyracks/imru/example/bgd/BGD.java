@@ -23,14 +23,22 @@ import edu.uci.ics.hyracks.imru.example.utils.Client;
 public class BGD {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            String home = System.getProperty("user.home");
-            String exampleData = home
+            String cmdline = "";
+            if (Client.isServerAvailable(Client.getLocalIp(), 3099)) {
+                // hostname of cluster controller
+                cmdline += "-host " + Client.getLocalIp() + " -port 3099";
+                System.out.println("Connecting to " + Client.getLocalIp());
+            } else {
+                // debugging mode, everything run in one process
+                cmdline += "-host localhost -port 3099 -debug -disable-logging";
+                System.out.println("Starting hyracks cluster");
+            }
+
+            String exampleData = System.getProperty("user.home")
                     + "/fullstack_imru/imru/imru-example/data/bgd/bgd.txt";
-            String cmdline = "-debug";
-            cmdline += " -disable-logging";
-            cmdline += " -host localhost";
-            cmdline += " -port 3099";
             cmdline += " -example-paths " + exampleData;
+
+            System.out.println("Using command line: " + cmdline);
             args = cmdline.split(" ");
         }
 

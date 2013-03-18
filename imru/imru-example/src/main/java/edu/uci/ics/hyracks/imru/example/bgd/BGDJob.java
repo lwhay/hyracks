@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
-import java.util.regex.Pattern;
 
 import edu.uci.ics.hyracks.imru.api.DataWriter;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob;
@@ -36,24 +35,22 @@ public class BGDJob implements IIMRUJob<Model, Data, Gradient> {
 
     @Override
     public int getCachedDataFrameSize() {
-        return 1024 * 1024;
+        return 1024;
     }
 
     @Override
     public void parse(IMRUContext ctx, InputStream input,
             DataWriter<Data> output) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        Pattern whitespacePattern = Pattern.compile(",|\\s+");
-        Pattern labelFeaturePattern = Pattern.compile("[:=]");
         for (String line = reader.readLine(); line != null; line = reader
                 .readLine()) {
-            String[] ss = whitespacePattern.split(line);
+            String[] ss = line.split(",|\\s+");
             Data data = new Data();
             data.label = Integer.parseInt(ss[0]) > 0 ? 1 : -1;
             data.fieldIds = new int[ss.length - 1];
             data.values = new float[ss.length - 1];
             for (int i = 1; i < ss.length; i++) {
-                String[] kv = labelFeaturePattern.split(ss[i]);
+                String[] kv = ss[i].split("[:=]");
                 data.fieldIds[i - 1] = Integer.parseInt(kv[0]);
                 data.values[i - 1] = Float.parseFloat(kv[1]);
             }
@@ -67,7 +64,7 @@ public class BGDJob implements IIMRUJob<Model, Data, Gradient> {
         Gradient g = new Gradient(model.numFeatures);
         while (input.hasNext()) {
             Data data = input.next();
-            float innerProduct = 0.0f;
+            float innerProduct = 0;
             for (int i = 0; i < data.fieldIds.length; i++)
                 innerProduct += data.values[i]
                         * model.weights[data.fieldIds[i]];
@@ -97,11 +94,6 @@ public class BGDJob implements IIMRUJob<Model, Data, Gradient> {
     }
 
     @Override
-    public boolean shouldTerminate(Model model) {
-        return model.roundsRemaining <= 0;
-    }
-
-    @Override
     public Model update(IMRUContext ctx, Iterator<Gradient> input, Model model)
             throws IMRUDataException {
         Gradient g = reduce(ctx, input);
@@ -115,5 +107,10 @@ public class BGDJob implements IIMRUJob<Model, Data, Gradient> {
             model.roundsRemaining--;
         model.roundsCompleted++;
         return model;
+    }
+
+    @Override
+    public boolean shouldTerminate(Model model) {
+        return model.roundsRemaining <= 0;
     }
 }

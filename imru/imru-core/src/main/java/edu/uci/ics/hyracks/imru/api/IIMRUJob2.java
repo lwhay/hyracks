@@ -25,9 +25,9 @@ import java.util.Iterator;
 
 /**
  * Low level IMRU job interface. Data passed through
- * is raw frame data.
+ * is raw binary data.
  * 
- * @author wangrui
+ * @author Rui Wang
  * @param <Model>
  */
 public interface IIMRUJob2<Model> extends Serializable {
@@ -42,23 +42,23 @@ public interface IIMRUJob2<Model> extends Serializable {
     public int getCachedDataFrameSize();
 
     /**
-     * Parse input data and output raw frames
+     * Parse input data and output binary data
      */
     public void parse(IMRUContext ctx, InputStream in, FrameWriter writer) throws IOException;
 
     /**
-     * For a list of raw frames, return one raw frame
+     * For a list of binary data, return one binary data
      */
     public void map(IMRUContext ctx, Iterator<ByteBuffer> input, Model model, OutputStream output,
             int cachedDataFrameSize) throws IMRUDataException;
 
     /**
-     * Combine multiple raw frames to one raw frame
+     * Combine multiple raw data to one binary data
      */
     public void reduce(IMRUReduceContext ctx, Iterator<byte[]> input, OutputStream output) throws IMRUDataException;
 
     /**
-     * update the model using combined raw frames.
+     * update the model using combined binary data.
      * Return the same model object or return another object.
      */
     public Model update(IMRUContext ctx, Iterator<byte[]> input, Model model) throws IMRUDataException;

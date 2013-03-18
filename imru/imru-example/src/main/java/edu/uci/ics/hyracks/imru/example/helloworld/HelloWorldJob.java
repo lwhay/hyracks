@@ -50,7 +50,7 @@ public class HelloWorldJob implements IIMRUJob<String, String, String> {
         reader.close();
         for (String s : line.split(" ")) {
             System.out.println(ctx.getNodeId() + "-" + ctx.getOperatorName() + ": " + s);
-            output.addData(new String(s));
+            output.addData(s);
         }
     }
 

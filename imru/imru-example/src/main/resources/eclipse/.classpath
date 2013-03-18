@@ -43,14 +43,15 @@
 	<classpathentry kind="lib" path="lib/wicket-request-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/wicket-util-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
-	<classpathentry kind="lib" path="lib/httpcore-4.1-beta1.jar"/>
 	<classpathentry kind="lib" path="lib/jasper-compiler-5.5.12.jar"/>
 	<classpathentry kind="lib" path="lib/jasper-runtime-5.5.12.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-client-8.0.0.M0.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.6.1.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-jcl-1.6.3.jar"/>
 	<classpathentry kind="lib" path="lib/hyracks-net-0.2.3-SNAPSHOT.jar"/>
-	<classpathentry kind="lib" path="lib/httpclient-4.1-alpha2.jar"/>
 	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/httpclient-4.1.1.jar"/>
+	<classpathentry kind="lib" path="lib/httpcore-4.1.jar"/>
+	<classpathentry kind="lib" path="lib/hyracks-ec2-0.2.3-SNAPSHOT.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

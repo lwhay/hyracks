@@ -15,9 +15,9 @@ public class HelloWorldEC2 {
                 + "/fullstack_imru/imru/imru-example/data/helloworld";
         boolean setupClusterFirst = true;
         boolean uploadData = true;
-        setupClusterFirst = false;
+//        setupClusterFirst = false;
 //        uploadData = false;
-        int dataSplits = 5;
+        int dataSplits = 6;
         String[] localPaths = new String[dataSplits];
         for (int i = 0; i < dataSplits; i++)
             localPaths[i] = exampleData + "/hello" + i + ".txt";
