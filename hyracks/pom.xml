@@ -105,5 +105,6 @@
     <module>hyracks-maven-plugins</module>
     <module>hyracks-hdfs</module>
     <module>hyracks-dist</module>
+    <module>hyracks-ec2</module>
   </modules>
 </project>
