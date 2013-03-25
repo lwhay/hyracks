@@ -65,7 +65,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.20.2</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
@@ -84,7 +84,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.20.2</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
@@ -103,7 +103,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.23.1</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
@@ -122,7 +122,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.23.1</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
@@ -141,7 +141,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.23.1</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
@@ -160,7 +160,7 @@
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
 					<artifactId>hyracks-hdfs-0.23.1</artifactId>
-					<version>0.2.3-SNAPSHOT</version>
+					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
