@@ -8,11 +8,11 @@
   <parent>
     <groupId>edu.uci.ics.hyracks</groupId>
     <artifactId>hyracks-examples</artifactId>
-    <version>0.2.3-SNAPSHOT</version>
+    <version>0.2.4-SNAPSHOT</version>
   </parent>
 
   <modules>
     <module>tpchclient</module>
-    <module>tpchapp</module>
+    <module>tpchserver</module>
   </modules>
 </project>

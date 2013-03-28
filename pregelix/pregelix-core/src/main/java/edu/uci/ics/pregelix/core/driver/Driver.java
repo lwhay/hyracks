@@ -75,11 +75,17 @@ public class Driver implements IDriver {
         try {
             /** add hadoop configurations */
             URL hadoopCore = job.getClass().getClassLoader().getResource("core-site.xml");
-            job.getConfiguration().addResource(hadoopCore);
+            if (hadoopCore != null) {
+                job.getConfiguration().addResource(hadoopCore);
+            }
             URL hadoopMapRed = job.getClass().getClassLoader().getResource("mapred-site.xml");
-            job.getConfiguration().addResource(hadoopMapRed);
+            if (hadoopMapRed != null) {
+                job.getConfiguration().addResource(hadoopMapRed);
+            }
             URL hadoopHdfs = job.getClass().getClassLoader().getResource("hdfs-site.xml");
-            job.getConfiguration().addResource(hadoopHdfs);
+            if (hadoopHdfs != null) {
+                job.getConfiguration().addResource(hadoopHdfs);
+            }
             ClusterConfig.loadClusterConfig(ipAddress, port);
 
             LOG.info("job started");
@@ -141,22 +147,11 @@ public class Driver implements IDriver {
             start = System.currentTimeMillis();
             runHDFSWRite(jobGen);
             runCleanup(jobGen);
-            destroyApplication(applicationName);
             end = System.currentTimeMillis();
             time = end - start;
             LOG.info("result writing finished " + time + "ms");
             LOG.info("job finished");
         } catch (Exception e) {
-            try {
-                /**
-                 * destroy application if there is any exception
-                 */
-                if (hcc != null) {
-                    destroyApplication(applicationName);
-                }
-            } catch (Exception e2) {
-                throw new HyracksException(e2);
-            }
             throw new HyracksException(e);
         }
     }
@@ -214,8 +209,8 @@ public class Driver implements IDriver {
 
     private void execute(JobSpecification job) throws Exception {
         job.setUseConnectorPolicyForScheduling(false);
-        JobId jobId = hcc.startJob(applicationName, job,
-                profiling ? EnumSet.of(JobFlag.PROFILE_RUNTIME) : EnumSet.noneOf(JobFlag.class));
+        JobId jobId = hcc
+                .startJob(job, profiling ? EnumSet.of(JobFlag.PROFILE_RUNTIME) : EnumSet.noneOf(JobFlag.class));
         hcc.waitForCompletion(jobId);
     }
 
@@ -230,15 +225,11 @@ public class Driver implements IDriver {
         LOG.info("jar packing finished " + (end - start) + "ms");
 
         start = System.currentTimeMillis();
-        hcc.createApplication(applicationName, appZip);
+        // TODO: Fix this step to use Yarn
+        //hcc.createApplication(applicationName, appZip);
         end = System.currentTimeMillis();
         LOG.info("jar deployment finished " + (end - start) + "ms");
     }
-
-    public void destroyApplication(String appName) throws Exception {
-        hcc.destroyApplication(appName);
-    }
-
 }
 
 class FileFilter implements FilenameFilter {
