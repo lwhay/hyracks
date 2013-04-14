@@ -42,5 +42,10 @@
     <artifactId>hyracks-dataflow-common</artifactId>
     <version>0.2.5-SNAPSHOT</version>
  </dependency>
+ <dependency>
+    <groupId>com.yammer.metrics</groupId>
+    <artifactId>metrics-core</artifactId>
+    <version>3.0.0-BETA1</version>
+ </dependency>
   </dependencies>
 </project>

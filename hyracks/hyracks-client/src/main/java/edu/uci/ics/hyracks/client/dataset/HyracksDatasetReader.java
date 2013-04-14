@@ -14,14 +14,21 @@
  */
 package edu.uci.ics.hyracks.client.dataset;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+
+import com.yammer.metrics.CsvReporter;
+import com.yammer.metrics.MetricRegistry;
+import com.yammer.metrics.Timer;
 
 import edu.uci.ics.hyracks.api.channels.IInputChannel;
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
@@ -63,6 +70,14 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
 
     private static int NUM_READ_BUFFERS = 1;
 
+    final MetricRegistry metricsRegistry = new MetricRegistry("ResultDistribution");
+    final CsvReporter reporter = CsvReporter.forRegistry(metricsRegistry)
+            .formatFor(Locale.US)
+            .convertRatesTo(TimeUnit.SECONDS)
+            .convertDurationsTo(TimeUnit.MILLISECONDS)
+            .build(new File("."));
+    private final Timer readerTimer = metricsRegistry.timer(MetricRegistry.name(HyracksDatasetReader.class, "reader"));
+
     public HyracksDatasetReader(IHyracksDatasetDirectoryServiceConnection datasetDirectoryServiceConnection,
             ClientNetworkManager netManager, DatasetClientContext datasetClientCtx, JobId jobId, ResultSetId resultSetId)
             throws Exception {
@@ -76,6 +91,7 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
         lastReadPartition = -1;
         lastMonitor = null;
         resultChannel = null;
+        reporter.start(1, TimeUnit.SECONDS);
     }
 
     @Override
@@ -94,55 +110,15 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
         ByteBuffer readBuffer;
         int readSize = 0;
 
-        if (lastReadPartition == -1) {
-            while (knownRecords == null || knownRecords[0] == null) {
-                try {
-                    knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId, resultSetId,
-                            knownRecords);
-                    lastReadPartition = 0;
-                    resultChannel = new DatasetNetworkInputChannel(netManager,
-                            getSocketAddress(knownRecords[lastReadPartition]), jobId, lastReadPartition,
-                            NUM_READ_BUFFERS);
-                    lastMonitor = getMonitor(lastReadPartition);
-                    resultChannel.open(datasetClientCtx);
-                    resultChannel.registerMonitor(lastMonitor);
-                } catch (HyracksException e) {
-                    throw new HyracksDataException(e);
-                } catch (UnknownHostException e) {
-                    throw new HyracksDataException(e);
-                } catch (Exception e) {
-                    // Do nothing here.
-                }
-            }
-        }
+        final Timer.Context context = readerTimer.time();
 
-        while (readSize <= 0 && !(isLastPartitionReadComplete())) {
-            synchronized (lastMonitor) {
-                while (lastMonitor.getNFramesAvailable() <= 0 && !lastMonitor.eosReached()) {
+        try {
+            if (lastReadPartition == -1) {
+                while (knownRecords == null || knownRecords[0] == null) {
                     try {
-                        lastMonitor.wait();
-                    } catch (InterruptedException e) {
-                        throw new HyracksDataException(e);
-                    }
-                }
-            }
-
-            if (isPartitionReadComplete(lastMonitor)) {
-                knownRecords[lastReadPartition].readEOS();
-                if ((lastReadPartition == knownRecords.length - 1)) {
-                    break;
-                } else {
-                    try {
-                        lastReadPartition++;
-                        while (knownRecords[lastReadPartition] == null) {
-                            try {
-                                knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId,
-                                        resultSetId, knownRecords);
-                            } catch (Exception e) {
-                                // Do nothing here.
-                            }
-                        }
-
+                        knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId, resultSetId,
+                                knownRecords);
+                        lastReadPartition = 0;
                         resultChannel = new DatasetNetworkInputChannel(netManager,
                                 getSocketAddress(knownRecords[lastReadPartition]), jobId, lastReadPartition,
                                 NUM_READ_BUFFERS);
@@ -153,18 +129,64 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                         throw new HyracksDataException(e);
                     } catch (UnknownHostException e) {
                         throw new HyracksDataException(e);
+                    } catch (Exception e) {
+                        // Do nothing here.
                     }
                 }
-            } else {
-                readBuffer = resultChannel.getNextBuffer();
-                lastMonitor.notifyFrameRead();
-                if (readBuffer != null) {
-                    buffer.put(readBuffer);
-                    buffer.flip();
-                    readSize = buffer.limit();
-                    resultChannel.recycleBuffer(readBuffer);
+            }
+
+            while (readSize <= 0 && !(isLastPartitionReadComplete())) {
+                synchronized (lastMonitor) {
+                    while (lastMonitor.getNFramesAvailable() <= 0 && !lastMonitor.eosReached()) {
+                        try {
+                            lastMonitor.wait();
+                        } catch (InterruptedException e) {
+                            throw new HyracksDataException(e);
+                        }
+                    }
+                }
+
+                if (isPartitionReadComplete(lastMonitor)) {
+                    knownRecords[lastReadPartition].readEOS();
+                    if ((lastReadPartition == knownRecords.length - 1)) {
+                        break;
+                    } else {
+                        try {
+                            lastReadPartition++;
+                            while (knownRecords[lastReadPartition] == null) {
+                                try {
+                                    knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId,
+                                            resultSetId, knownRecords);
+                                } catch (Exception e) {
+                                    // Do nothing here.
+                                }
+                            }
+
+                            resultChannel = new DatasetNetworkInputChannel(netManager,
+                                    getSocketAddress(knownRecords[lastReadPartition]), jobId, lastReadPartition,
+                                    NUM_READ_BUFFERS);
+                            lastMonitor = getMonitor(lastReadPartition);
+                            resultChannel.open(datasetClientCtx);
+                            resultChannel.registerMonitor(lastMonitor);
+                        } catch (HyracksException e) {
+                            throw new HyracksDataException(e);
+                        } catch (UnknownHostException e) {
+                            throw new HyracksDataException(e);
+                        }
+                    }
+                } else {
+                    readBuffer = resultChannel.getNextBuffer();
+                    lastMonitor.notifyFrameRead();
+                    if (readBuffer != null) {
+                        buffer.put(readBuffer);
+                        buffer.flip();
+                        readSize = buffer.limit();
+                        resultChannel.recycleBuffer(readBuffer);
+                    }
                 }
             }
+        } finally {
+            context.stop();
         }
 
         return readSize;
