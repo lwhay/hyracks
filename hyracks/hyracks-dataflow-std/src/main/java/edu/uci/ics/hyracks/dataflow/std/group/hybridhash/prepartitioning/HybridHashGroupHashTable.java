@@ -75,7 +75,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     private final ITuplePartitionComputer partitionComputer;
 
     /**
-     * Hashtable haders
+     * Hashtable headers
      */
     private ByteBuffer[] headers;
 

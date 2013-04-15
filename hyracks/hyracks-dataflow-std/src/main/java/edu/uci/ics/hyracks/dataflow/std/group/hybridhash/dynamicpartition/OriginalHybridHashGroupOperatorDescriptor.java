@@ -36,7 +36,6 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortGroupHashTable;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortRunMerger;
 import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashUtil;
 
@@ -270,8 +269,6 @@ public class OriginalHybridHashGroupOperatorDescriptor extends AbstractSingleAct
 
             private void finishAndRecursion(AbstractHybridHashDynamicPartitionGroupHashTable ht, long inputRecordCount,
                     long inputKeyCardinality, int level) throws HyracksDataException {
-
-                long timer = System.nanoTime();
 
                 ht.finishup();
 
