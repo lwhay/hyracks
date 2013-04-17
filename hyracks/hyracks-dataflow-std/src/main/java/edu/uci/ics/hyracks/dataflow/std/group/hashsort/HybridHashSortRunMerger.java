@@ -17,7 +17,6 @@ package edu.uci.ics.hyracks.dataflow.std.group.hashsort;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;

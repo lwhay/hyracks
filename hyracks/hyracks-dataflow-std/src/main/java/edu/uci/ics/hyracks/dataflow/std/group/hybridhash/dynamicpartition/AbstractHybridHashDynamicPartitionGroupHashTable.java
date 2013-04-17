@@ -448,7 +448,8 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
      * @param tupleIndex
      * @throws HyracksDataException
      */
-    protected void insertSpilledPartition(FrameTupleAccessor accessor, int tupleIndex, int pid) throws HyracksDataException {
+    protected void insertSpilledPartition(FrameTupleAccessor accessor, int tupleIndex, int pid)
+            throws HyracksDataException {
         spilledPartitionAppender.reset(frameManager.getFrame(partitionTopPages[pid]), false);
         if (!spilledPartitionAppender.append(accessor, tupleIndex)) {
             if (isAllPartitionsSpilled()) {
@@ -548,7 +549,7 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
                     hashTupleStartOffset + (internalKeys[i] - 1) * 4);
             int fEnd1 = hashAccessor.getBuffer().getInt(hashTupleStartOffset + internalKeys[i] * 4);
             int fLen1 = fEnd1 - fStart1;
-            
+
             int c = comparators[i].compare(accessor.getBuffer().array(), fStart0 + fStartOffset0, fLen0, hashAccessor
                     .getBuffer().array(), fStart1 + fStartOffset1, fLen1);
             if (c != 0) {
@@ -586,12 +587,8 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
             spilledPartitionFrameAccessor.reset(buf);
             for (int j = 0; j < spilledPartitionFrameAccessor.getTupleCount(); j++) {
                 outputTupleBuilder.reset();
-                int tupleOffset = spilledPartitionFrameAccessor.getTupleStartOffset(j);
-                int fieldOffset = spilledPartitionFrameAccessor.getFieldCount() * INT_SIZE;
                 for (int k = 0; k < internalKeys.length; k++) {
-                    outputTupleBuilder.addField(spilledPartitionFrameAccessor.getBuffer().array(), tupleOffset
-                            + fieldOffset + spilledPartitionFrameAccessor.getFieldStartOffset(j, k),
-                            spilledPartitionFrameAccessor.getFieldLength(j, k));
+                    outputTupleBuilder.addField(spilledPartitionFrameAccessor, j, internalKeys[k]);
                 }
 
                 if (isFinalOutput) {
