@@ -223,6 +223,7 @@ public class OriginalHybridHashGroupHashTable extends AbstractHybridHashDynamicP
                 runReaders.add(runWriters[i].createReader());
                 runsAggregatedPages.add(partitionAggregatedPages[i]);
                 runWriters[i].close();
+                runWriters[i] = null;
                 partitionRawRecords.add(partitionRawRecordCounts[i]);
                 partitionSizeInPages.add(partitionSizeInFrames[i]);
             }

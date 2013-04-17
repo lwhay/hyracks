@@ -195,7 +195,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     }
 
     public static int getHeaderPages(int tableSize, int frameSize) {
-        return (int) Math.ceil((double)tableSize * INT_SIZE * 2 / frameSize);
+        return (int) Math.ceil((double) tableSize * INT_SIZE * 2 / frameSize);
     }
 
     @Override
@@ -451,15 +451,23 @@ public class HybridHashGroupHashTable implements IFrameWriter {
 
     public void finishup() throws HyracksDataException {
         // spill all output buffers
+        ByteBuffer outputBuffer = null;
         for (int i = 0; i < numOfPartitions; i++) {
             if (spilledPartOutputBuffers[i] != null) {
                 flushSpilledPartitionOutputBuffer(i);
+                if (outputBuffer == null) {
+                    outputBuffer = spilledPartOutputBuffers[i];
+                } else {
+                    spilledPartOutputBuffers[i] = null;
+                }
             }
         }
-        spilledPartOutputBuffers = null;
+
+        if (outputBuffer == null) {
+            outputBuffer = ctx.allocateFrame();
+        }
 
         // flush in-memory aggregation results: no more frame cost here as all output buffers are recycled
-        ByteBuffer outputBuffer = ctx.allocateFrame();
         FrameTupleAppender outputBufferAppender = new FrameTupleAppender(frameSize);
         outputBufferAppender.reset(outputBuffer, true);
 

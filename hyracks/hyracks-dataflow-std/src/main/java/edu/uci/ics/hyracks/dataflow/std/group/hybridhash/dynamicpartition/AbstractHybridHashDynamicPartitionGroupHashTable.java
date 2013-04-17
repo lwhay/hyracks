@@ -682,6 +682,13 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
 
         frameManager.close();
 
+        for (int i = 0; i < runWriters.length; i++) {
+            if (runWriters[i] != null) {
+                runWriters[i].close();
+                runWriters[i] = null;
+            }
+        }
+
         runWriters = null;
 
         ctx.getCounterContext().getCounter("must.hash.succ.comps", true).update(hashSuccComparisonCount);
