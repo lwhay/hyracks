@@ -15,7 +15,18 @@
 
 package edu.uci.ics.hyracks.control.common.deployment;
 
+/**
+ * The conditional variable interface for deployment
+ * 
+ * @author yingyib
+ */
 public interface IDeploymentStatusConditionVariable {
 
+    /**
+     * synchronously wait the deployment to complete
+     * 
+     * @return the deployment status
+     * @throws Exception
+     */
     public DeploymentStatus waitForCompletion() throws Exception;
 }

@@ -18,6 +18,12 @@ package edu.uci.ics.hyracks.control.common.deployment;
 import java.util.Set;
 import java.util.TreeSet;
 
+/**
+ * The class maintain the status of a deployment process and the states
+ * of all slave machines involved in the deployment.
+ * 
+ * @author yingyib
+ */
 public class DeploymentRun implements IDeploymentStatusConditionVariable {
 
     private DeploymentStatus deploymentStatus = DeploymentStatus.FAIL;
@@ -27,10 +33,22 @@ public class DeploymentRun implements IDeploymentStatusConditionVariable {
         deploymentNodeIds.addAll(nodeIds);
     }
 
+    /**
+     * One notify the deployment status
+     * 
+     * @param nodeId
+     * @param status
+     */
     public synchronized void notifyDeploymentStatus(String nodeId, DeploymentStatus status) {
-        deploymentNodeIds.remove(nodeId);
-        if (deploymentNodeIds.size() == 0) {
-            deploymentStatus = DeploymentStatus.SUCCEED;
+        if (status == DeploymentStatus.SUCCEED) {
+            deploymentNodeIds.remove(nodeId);
+            if (deploymentNodeIds.size() == 0) {
+                deploymentStatus = DeploymentStatus.SUCCEED;
+                notifyAll();
+            }
+        } else {
+            deploymentNodeIds.clear();
+            deploymentStatus = DeploymentStatus.FAIL;
             notifyAll();
         }
     }

@@ -22,6 +22,11 @@ import edu.uci.ics.hyracks.control.common.deployment.DeploymentUtils;
 import edu.uci.ics.hyracks.control.common.work.AbstractWork;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 
+/**
+ * undeploy binaries regarding to a deployment id
+ * 
+ * @author yingyib
+ */
 public class UnDeployBinaryWork extends AbstractWork {
 
     private DeploymentId deploymentId;
@@ -34,11 +39,17 @@ public class UnDeployBinaryWork extends AbstractWork {
 
     @Override
     public void run() {
+        DeploymentStatus status;
         try {
             DeploymentUtils.undeploy(deploymentId, ncs.getApplicationContext().getJobSerializerDeserializerContainer(),
                     ncs.getServerContext());
+            status = DeploymentStatus.SUCCEED;
+        } catch (Exception e) {
+            status = DeploymentStatus.FAIL;
+        }
+        try {
             IClusterController ccs = ncs.getClusterController();
-            ccs.notifyDeployBinary(deploymentId, ncs.getId(), DeploymentStatus.SUCCEED);
+            ccs.notifyDeployBinary(deploymentId, ncs.getId(), status);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

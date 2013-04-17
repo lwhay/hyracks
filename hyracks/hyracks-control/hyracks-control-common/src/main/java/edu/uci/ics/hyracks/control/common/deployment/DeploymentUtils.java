@@ -38,10 +38,24 @@ import edu.uci.ics.hyracks.api.job.IJobSerializerDeserializerContainer;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.common.context.ServerContext;
 
+/**
+ * A utility class which is in charge of the actual work of deployments.
+ * 
+ * @author yingyib
+ */
 public class DeploymentUtils {
 
     private static final String DEPLOYMENT = "applications";
 
+    /**
+     * undeploy an existing deployment
+     * 
+     * @param deploymentId
+     *            the deployment id
+     * @param container
+     * @param ctx
+     * @throws HyracksException
+     */
     public static void undeploy(DeploymentId deploymentId, IJobSerializerDeserializerContainer container,
             ServerContext ctx) throws HyracksException {
         container.removeJobSerializerDeserializer(deploymentId);
@@ -58,6 +72,21 @@ public class DeploymentUtils {
         }
     }
 
+    /**
+     * Deploying jars in NC or CC
+     * 
+     * @param deploymentId
+     *            the deployment id
+     * @param urls
+     *            the jar URLs
+     * @param container
+     *            the container of serailizer/deserializer
+     * @param ctx
+     *            the ServerContext
+     * @param isNC
+     *            true is NC/false is CC
+     * @throws HyracksException
+     */
     public static void deploy(DeploymentId deploymentId, List<URL> urls, IJobSerializerDeserializerContainer container,
             ServerContext ctx, boolean isNC) throws HyracksException {
         IJobSerializerDeserializer jobSerDe = container.getJobSerializerDeerializer(deploymentId);
@@ -71,6 +100,17 @@ public class DeploymentUtils {
         jobSerDe.addClassPathURLs(downloadURLs(urls, deploymentDir, isNC));
     }
 
+    /**
+     * Deserialize bytes to an object according to a specific deployment
+     * 
+     * @param bytes
+     *            the bytes to be deserialized
+     * @param deploymentId
+     *            the deployment id
+     * @param appCtx
+     * @return the deserialized object
+     * @throws HyracksException
+     */
     public static Object deserialize(byte[] bytes, DeploymentId deploymentId, IApplicationContext appCtx)
             throws HyracksException {
         try {
@@ -84,6 +124,15 @@ public class DeploymentUtils {
         }
     }
 
+    /**
+     * Load a class from its class name
+     * 
+     * @param className
+     * @param deploymentId
+     * @param appCtx
+     * @return the loaded class
+     * @throws HyracksException
+     */
     public static Class<?> loadClass(String className, DeploymentId deploymentId, IApplicationContext appCtx)
             throws HyracksException {
         try {
@@ -98,6 +147,14 @@ public class DeploymentUtils {
         }
     }
 
+    /**
+     * Get the classloader of a specific deployment
+     * 
+     * @param deploymentId
+     * @param appCtx
+     * @return
+     * @throws HyracksException
+     */
     public static ClassLoader getClassLoader(DeploymentId deploymentId, IApplicationContext appCtx)
             throws HyracksException {
         try {
@@ -111,6 +168,18 @@ public class DeploymentUtils {
         }
     }
 
+    /**
+     * Download remote Http URLs and return the stored local file URLs
+     * 
+     * @param urls
+     *            the remote Http URLs
+     * @param deploymentDir
+     *            the deployment jar storage directory
+     * @param isNC
+     *            true is NC/false is CC
+     * @return a list of local file URLs
+     * @throws HyracksException
+     */
     private static List<URL> downloadURLs(List<URL> urls, String deploymentDir, boolean isNC) throws HyracksException {
         try {
             List<URL> downloadedFileURLs = new ArrayList<URL>();

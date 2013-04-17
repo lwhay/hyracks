@@ -27,6 +27,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.IJobSerializerDeserializer;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 
+/**
+ * This is the IJobSerializerDeserializer implementation for jobs with dynamic deployed jars.
+ * 
+ * @author yingyib
+ *
+ */
 public class ClassLoaderJobSerializerDeserializer implements IJobSerializerDeserializer {
 
     private URLClassLoader classLoader;
