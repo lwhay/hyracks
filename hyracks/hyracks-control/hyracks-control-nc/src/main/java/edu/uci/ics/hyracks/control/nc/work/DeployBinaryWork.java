@@ -25,6 +25,12 @@ import edu.uci.ics.hyracks.control.common.deployment.DeploymentUtils;
 import edu.uci.ics.hyracks.control.common.work.AbstractWork;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 
+/**
+ * Deploy binary work that happens at each NC
+ * 
+ * @author yingyib
+ *
+ */
 public class DeployBinaryWork extends AbstractWork {
 
     private DeploymentId deploymentId;

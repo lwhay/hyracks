@@ -17,6 +17,12 @@ package edu.uci.ics.hyracks.api.deployment;
 
 import java.io.Serializable;
 
+/**
+ * The representation of a deployment id
+ * 
+ * @author yingyib
+ *
+ */
 public class DeploymentId implements Serializable {
     private static final long serialVersionUID = 1L;
 
