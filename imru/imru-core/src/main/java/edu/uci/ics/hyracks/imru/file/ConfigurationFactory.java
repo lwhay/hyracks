@@ -31,7 +31,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 public class ConfigurationFactory implements Serializable {
     private static final long serialVersionUID = 1L;
     private boolean hasConf;
-    private String hadoopConfPath;
+    public String hadoopConfPath;
 
     /**
      * HDFS is not used

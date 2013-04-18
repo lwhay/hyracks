@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2010 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.hyracks.imru.dataflow;
 
 import java.io.IOException;
@@ -17,6 +31,10 @@ import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
+/**
+ * 
+ * @author Rui Wang
+ */
 public class HDFSOD extends IMRUOperatorDescriptor<Serializable> {
     private static final Logger LOG = Logger
             .getLogger(MapOperatorDescriptor.class.getName());
@@ -25,20 +43,19 @@ public class HDFSOD extends IMRUOperatorDescriptor<Serializable> {
 
     protected final ConfigurationFactory confFactory;
     protected final IMRUFileSplit[] inputSplits;
-    
-    HDFSOD(JobSpecification spec,IIMRUJob2<Serializable> imruSpec, IMRUFileSplit[] inputSplits,
-            ConfigurationFactory confFactory) {
+
+    public HDFSOD(JobSpecification spec, IIMRUJob2<Serializable> imruSpec,
+            IMRUFileSplit[] inputSplits, ConfigurationFactory confFactory) {
         super(spec, 1, 0, "parse", imruSpec);
         this.inputSplits = inputSplits;
         this.confFactory = confFactory;
     }
-        
+
     @Override
     public IOperatorNodePushable createPushRuntime(
             final IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider,
-            final int partition, int nPartitions)
-            throws HyracksDataException {
+            IRecordDescriptorProvider recordDescProvider, final int partition,
+            int nPartitions) throws HyracksDataException {
         return new AbstractUnaryInputSinkOperatorNodePushable() {
             @Override
             public void open() throws HyracksDataException {
@@ -51,12 +68,12 @@ public class HDFSOD extends IMRUOperatorDescriptor<Serializable> {
                     TupleReader reader = new TupleReader(buffer,
                             ctx.getFrameSize(), 2);
                     while (reader.nextTuple()) {
-                        reader.seekToField(0);
                         int len = reader.getFieldLength(0);
+                        reader.seekToField(0);
                         byte[] bs = new byte[len];
                         reader.readFully(bs);
                         String word = new String(bs);
-                        Rt.p(word);
+                        Rt.p(len+" "+word);
                     }
                     reader.close();
                 } catch (IOException ex) {

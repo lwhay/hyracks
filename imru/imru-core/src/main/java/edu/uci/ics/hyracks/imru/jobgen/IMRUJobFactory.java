@@ -21,16 +21,37 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.UUID;
 
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.TextInputFormat;
+
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import edu.uci.ics.hyracks.hdfs.api.IKeyValueParser;
+import edu.uci.ics.hyracks.hdfs.api.IKeyValueParserFactory;
+import edu.uci.ics.hyracks.hdfs.dataflow.HDFSReadOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
+import edu.uci.ics.hyracks.imru.api.TupleWriter;
 import edu.uci.ics.hyracks.imru.dataflow.DataLoadOperatorDescriptor;
+import edu.uci.ics.hyracks.imru.dataflow.HDFSOD;
 import edu.uci.ics.hyracks.imru.dataflow.IMRUOperatorDescriptor;
+import edu.uci.ics.hyracks.imru.dataflow.LineWriter;
 import edu.uci.ics.hyracks.imru.dataflow.MapOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.ReduceOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.dataflow.SpreadConnectorDescriptor;
@@ -57,6 +78,7 @@ public class IMRUJobFactory {
     };
 
     final ConfigurationFactory confFactory;
+    String inputPaths;
     IMRUFileSplit[] inputSplits;
     String[] mapOperatorLocations;
     String[] mapNodesLocations;
@@ -107,6 +129,7 @@ public class IMRUJobFactory {
             int reducerCount) throws IOException, InterruptedException {
         this.imruConnection = imruConnection;
         this.confFactory = confFactory;
+        this.inputPaths = inputPaths;
         inputSplits = IMRUInputSplitProvider.getInputSplits(inputPaths,
                 confFactory);
         // For repeatability of the partition assignments, seed the
@@ -147,17 +170,45 @@ public class IMRUJobFactory {
      * @param id
      *            A UUID identifying the IMRU job that this iteration belongs to.
      * @return A JobSpecification for caching the IMRU training examples.
-     * @throws HyracksException
+     * @throws IOException
      */
     @SuppressWarnings("rawtypes")
     public JobSpecification generateDataLoadJob(IIMRUJob2 model)
-            throws HyracksException {
+            throws IOException {
         JobSpecification spec = new JobSpecification();
-        IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(spec,
-                model, inputSplits, confFactory);
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dataLoad,
-                mapOperatorLocations);
-        spec.addRoot(dataLoad);
+        if (confFactory.useHDFS()) {
+            JobConf conf = new JobConf();
+            conf.addResource(new Path(confFactory.hadoopConfPath
+                    + "/core-site.xml"));
+            conf.addResource(new Path(confFactory.hadoopConfPath
+                    + "/mapred-site.xml"));
+            conf.addResource(new Path(confFactory.hadoopConfPath
+                    + "/hdfs-site.xml"));
+            FileInputFormat.setInputPaths(conf, inputPaths);
+            conf.setInputFormat(TextInputFormat.class);
+            RecordDescriptor recordDesc = new RecordDescriptor(
+                    new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE });
+            InputSplit[] splits = conf.getInputFormat().getSplits(conf, 1);
+            HDFSReadOperatorDescriptor readOperator = new HDFSReadOperatorDescriptor(
+                    spec, recordDesc, conf, splits, mapOperatorLocations,
+                    new LineWriter());
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                    readOperator, mapOperatorLocations);
+
+            IOperatorDescriptor writer = new HDFSOD(spec, model, inputSplits,
+                    confFactory);
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                    readOperator, mapOperatorLocations);
+
+            spec.connect(new OneToOneConnectorDescriptor(spec), readOperator,
+                    0, writer, 0);
+        } else {
+            IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(
+                    spec, model, inputSplits, confFactory);
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                    dataLoad, mapOperatorLocations);
+            spec.addRoot(dataLoad);
+        }
         return spec;
     }
 

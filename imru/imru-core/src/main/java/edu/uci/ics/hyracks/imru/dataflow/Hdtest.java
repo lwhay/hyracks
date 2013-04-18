@@ -80,6 +80,11 @@ import edu.uci.ics.hyracks.imru.api.TupleReader;
 import edu.uci.ics.hyracks.imru.api.TupleWriter;
 import edu.uci.ics.hyracks.imru.util.Rt;
 
+/**
+ * This file can be removed.
+ * 
+ * @author Rui Wang
+ */
 public class Hdtest {
     static class HashGroupState extends AbstractStateObject {
         Hashtable<String, Integer> hash = new Hashtable<String, Integer>();
@@ -137,7 +142,7 @@ public class Hdtest {
                 new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE });
         InputSplit[] splits = conf.getInputFormat().getSplits(conf, 1);
         HDFSReadOperatorDescriptor readOperator = new HDFSReadOperatorDescriptor(
-                spec, recordDesc, conf, splits, new String[] { "NC0","NC1" },
+                spec, recordDesc, conf, splits, new String[] { "NC0", "NC1" },
                 new IKeyValueParserFactory<LongWritable, Text>() {
                     @Override
                     public IKeyValueParser<LongWritable, Text> createKeyValueParser(
@@ -176,52 +181,9 @@ public class Hdtest {
 
         //        createPartitionConstraint(spec, readOperator, new String[] {"NC0"});
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
-                readOperator, new String[] { "NC0","NC1" });
-        
-        IOperatorDescriptor writer = new AbstractSingleActivityOperatorDescriptor(
-                spec, 1, 0) {
-            @Override
-            public IOperatorNodePushable createPushRuntime(
-                    final IHyracksTaskContext ctx,
-                    IRecordDescriptorProvider recordDescProvider,
-                    final int partition, int nPartitions)
-                    throws HyracksDataException {
-                return new AbstractUnaryInputSinkOperatorNodePushable() {
-                    @Override
-                    public void open() throws HyracksDataException {
-                    }
+                readOperator, new String[] { "NC0", "NC1" });
 
-                    @Override
-                    public void nextFrame(ByteBuffer buffer)
-                            throws HyracksDataException {
-                        try {
-                            TupleReader reader = new TupleReader(buffer,
-                                    ctx.getFrameSize(), 2);
-                            StringBuilder sb = new StringBuilder();
-                            while (reader.nextTuple()) {
-                                reader.seekToField(0);
-                                int len = reader.getFieldLength(0);
-                                byte[] bs = new byte[len];
-                                reader.readFully(bs);
-                                String word = new String(bs);
-                                Rt.p(word);
-                            }
-                            reader.close();
-                        } catch (IOException ex) {
-                            throw new HyracksDataException(ex);
-                        }
-                    }
-
-                    @Override
-                    public void fail() throws HyracksDataException {
-                    }
-
-                    @Override
-                    public void close() throws HyracksDataException {
-                    }
-                };
-            }
-        };
+        IOperatorDescriptor writer = new HDFSOD(spec, null, null, null);
         //        createPartitionConstraint(spec, writer, outSplits);
 
         spec.connect(new OneToOneConnectorDescriptor(spec), readOperator, 0,
@@ -232,6 +194,8 @@ public class Hdtest {
     }
 
     public static void main(String[] args) throws Exception {
+        Rt.disableLogging();
+        
         //start cluster controller
         CCConfig ccConfig = new CCConfig();
         ccConfig.clientNetIpAddress = "127.0.0.1";
