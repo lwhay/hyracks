@@ -70,11 +70,6 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     private final ITuplePartitionComputer hashComputer;
 
     /**
-     * hash partitioner for partitioning
-     */
-    private final ITuplePartitionComputer partitionComputer;
-
-    /**
      * Hashtable headers
      */
     private ByteBuffer[] headers;
@@ -180,8 +175,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
 
         this.outputWriter = outputWriter;
 
-        this.hashComputer = tpcFamily.createPartitioner(hashSeedOffset * 2);
-        this.partitionComputer = tpcFamily.createPartitioner(hashSeedOffset * 2 + 1);
+        this.hashComputer = tpcFamily.createPartitioner(hashSeedOffset);
 
         this.aggregator = aggregator;
 
@@ -265,17 +259,19 @@ public class HybridHashGroupHashTable implements IFrameWriter {
 
     private void insert(FrameTupleAccessor accessor, int tupleIndex) throws HyracksDataException {
 
+        int h = hashComputer.partition(accessor, tupleIndex, Integer.MAX_VALUE);
+
         if (isPartitionOnly) {
             // for partition only
-            int pid = partitionComputer.partition(accessor, tupleIndex, tableSize) % numOfPartitions;
+            int pid = h % numOfPartitions;
             insertSpilledPartition(accessor, tupleIndex, pid);
             spilledPartRunSizeArrayInTuples[pid]++;
             return;
         }
 
-        int hid = hashComputer.partition(accessor, tupleIndex, tableSize);
+        int entry = h % tableSize;
 
-        if (findMatch(hid, accessor, tupleIndex)) {
+        if (findMatch(entry, accessor, tupleIndex)) {
             // found a matching: do aggregation
             hashtableRecordAccessor.reset(contents[matchPointer.frameIndex]);
             aggregator.aggregate(accessor, tupleIndex, hashtableRecordAccessor, matchPointer.tupleIndex,
@@ -284,7 +280,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         } else {
             if (isHashtableFull) {
                 // when hash table is full: spill the record
-                int pid = partitionComputer.partition(accessor, tupleIndex, tableSize) % numOfPartitions;
+                int pid = h % numOfPartitions;
                 insertSpilledPartition(accessor, tupleIndex, pid);
                 spilledPartRunSizeArrayInTuples[pid]++;
             } else {
@@ -334,8 +330,8 @@ public class HybridHashGroupHashTable implements IFrameWriter {
                 // update hash table reference
                 if (matchPointer.frameIndex < 0) {
                     // need to initialize the hash table header
-                    int headerFrameIndex = getHeaderFrameIndex(hid);
-                    int headerFrameOffset = getHeaderTupleIndex(hid);
+                    int headerFrameIndex = getHeaderFrameIndex(entry);
+                    int headerFrameOffset = getHeaderTupleIndex(entry);
 
                     if (headers[headerFrameIndex] == null) {
                         headers[headerFrameIndex] = ctx.allocateFrame();
