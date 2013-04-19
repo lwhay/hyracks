@@ -74,10 +74,12 @@ public class OriginalHybridHashGroupHashTable extends AbstractHybridHashDynamicP
 
         int[] ks = (isRawInput) ? keys : internalKeys;
 
-        int entry = isRawInput ? rawHashTpc.partition(accessor, tupleIndex, tableSize) : intermediateHashTpc.partition(
-                accessor, tupleIndex, tableSize);
+        int h = isRawInput ? rawHashTpc.partition(accessor, tupleIndex, Integer.MAX_VALUE) : intermediateHashTpc
+                .partition(accessor, tupleIndex, Integer.MAX_VALUE);
 
-        int pid = partition(entry);
+        int entry = h % tableSize;
+
+        int pid = partition(h);
 
         if (isPartitionSpilled(pid)) {
             // for spilled partition: direct insertion

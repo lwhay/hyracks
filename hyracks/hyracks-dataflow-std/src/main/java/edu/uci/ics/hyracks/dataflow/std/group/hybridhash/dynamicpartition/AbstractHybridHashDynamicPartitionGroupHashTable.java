@@ -163,6 +163,8 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
      */
     protected int inputRecordState;
 
+    protected final int partition0KeyRange;
+
     /**************
      * For statistic information
      ****************/
@@ -172,11 +174,6 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
     protected LinkedList<Integer> runsAggregatedPages;
     protected LinkedList<Integer> partitionSizeInPages;
     protected int directFlushedSizeInPages, hashedKeys, hashedRawRecords;
-
-    /**
-     * key range for partition 0 (in-memory partition)
-     */
-    protected final int partition0KeyRange;
 
     /**
      * for profiling
@@ -257,8 +254,6 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
                 this.partitionTopPages[i] = -1;
             }
             ctx.getCounterContext().getCounter("optional.levels." + procLevel + ".type", true).update(1);
-
-            this.partition0KeyRange = (int) Math.ceil(((double) tableSize) / numOfPartitions);
         } else {
             // hybrid-hash-partition
 
@@ -291,12 +286,16 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
                 this.partitionTopPages[i] = -1;
             }
             ctx.getCounterContext().getCounter("optional.levels." + procLevel + ".type", true).update(100000000);
-
-            // compute the partition 0 key range: each of the P spilled partition will contain a 
-            // full memory copy and the partition-0 contains M-P pages.
-            this.partition0KeyRange = (int) Math.ceil(((double) tableSize) * (framesLimit - (numOfPartitions - 1))
-                    / (framesLimit - (numOfPartitions - 1) + framesLimit * (numOfPartitions - 1)));
         }
+
+        double partition0RangeRatio = 1;
+
+        if (numberOfPartitions > 0) {
+            partition0RangeRatio = ((double) (framesLimit - numOfPartitions))
+                    / (framesLimit - numOfPartitions + numOfPartitions * frameLimits);
+        }
+
+        this.partition0KeyRange = (int) (Integer.MAX_VALUE * partition0RangeRatio);
 
         this.inputRecordState = 0;
 
