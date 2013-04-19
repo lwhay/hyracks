@@ -27,11 +27,11 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.lib.input.FileSplit;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+//import org.apache.hadoop.conf.Configuration;
+//import org.apache.hadoop.mapreduce.InputSplit;
+//import org.apache.hadoop.mapreduce.Job;
+//import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+//import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
@@ -65,11 +65,11 @@ public class IMRUInputSplitProvider implements Serializable {
             ConfigurationFactory confFactory) throws InterruptedException {
         try {
             String[] ss = inputPaths.split(",");
-            if (confFactory == null || !confFactory.useHDFS()) {
+//            if (confFactory == null || !confFactory.useHDFS()) {
                 splits = IMRUFileSplit.get(ss);
-            } else {
-                splits = HDFSSplit.get(confFactory, ss);
-            }
+//            } else {
+//                splits = HDFSSplit.get(confFactory, ss);
+//            }
             numSplits = splits.size();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             DataOutput output = new DataOutputStream(baos);

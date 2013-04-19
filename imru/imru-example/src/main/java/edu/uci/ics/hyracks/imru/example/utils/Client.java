@@ -427,26 +427,36 @@ public class Client<Model extends Serializable> {
      */
     public void uploadApp() throws Exception {
         uploadApp(hcc, options.app, options.hadoopConfPath != null,
-                options.imruPort, options.ccTempPath);
+                options.imruPort, options.ccTempPath, options.debug);
     }
 
     public static void uploadApp(IHyracksClientConnection hcc, String appName,
             boolean includeHadoop, int imruPort, String tempDir)
             throws Exception {
-        final File harFile = File.createTempFile("imru_app", ".zip");
-        FileOutputStream out = new FileOutputStream(harFile);
-        CreateHar.createHar(harFile, includeHadoop, imruPort, tempDir);
-        out.close();
-        Timer timer = new Timer();
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Rt.p("Uploading harFile "
-                        + harFile.length()
-                        + ". If there is not respond for a while, please check nc logs, there might be ClassNotFoundException.");
+        uploadApp(hcc, appName, includeHadoop, imruPort, tempDir, false);
+    }
 
-            }
-        }, 2000);
+    public static void uploadApp(IHyracksClientConnection hcc, String appName,
+            boolean includeHadoop, int imruPort, String tempDir, boolean debug)
+            throws Exception {
+        Timer timer = new Timer();
+        File harFile = null;
+        if (!debug) {
+            harFile = File.createTempFile("imru_app", ".zip");
+            FileOutputStream out = new FileOutputStream(harFile);
+            CreateHar.createHar(harFile, includeHadoop, imruPort, tempDir);
+            out.close();
+            final File harFile2 = harFile;
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    Rt.p("Uploading harFile "
+                            + harFile2.length()
+                            + ". If there is not respond for a while, please check nc logs, there might be ClassNotFoundException.");
+
+                }
+            }, 2000);
+        }
         try {
             hcc.createApplication(appName, harFile);
         } catch (Exception e) {
@@ -461,7 +471,8 @@ public class Client<Model extends Serializable> {
             hcc.createApplication(appName, harFile);
         }
         timer.cancel();
-        harFile.delete();
+        if (harFile != null)
+            harFile.delete();
     }
 
     /**

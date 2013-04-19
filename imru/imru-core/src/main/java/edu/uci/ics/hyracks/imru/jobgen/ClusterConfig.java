@@ -126,7 +126,8 @@ public class ClusterConfig {
         int localAssignments = 0;
         int nonlocalAssignments = 0;
         for (int partition = 0; partition < partitionCount; partition++) {
-            String[] localHosts = splits[partition].getLocations();
+            String[] localHosts = new String[0];
+//                    splits[partition].getLocations();
             // Remove nondeterminism from the call to getLocations():
             Collections.sort(Arrays.asList(localHosts));
             Collections.shuffle(Arrays.asList(localHosts), random);
