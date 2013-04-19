@@ -66,14 +66,15 @@ public class HDFSOD extends IMRUOperatorDescriptor<Serializable> {
                     throws HyracksDataException {
                 try {
                     TupleReader reader = new TupleReader(buffer,
-                            ctx.getFrameSize(), 2);
+                            ctx.getFrameSize(), 1);
                     while (reader.nextTuple()) {
+//                        reader.dump();
                         int len = reader.getFieldLength(0);
                         reader.seekToField(0);
                         byte[] bs = new byte[len];
                         reader.readFully(bs);
                         String word = new String(bs);
-                        Rt.p(len+" "+word);
+                        Rt.p(word);
                     }
                     reader.close();
                 } catch (IOException ex) {

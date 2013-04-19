@@ -96,6 +96,10 @@ public class TupleWriter implements DataOutput {
         tb.reset();
     }
 
+    public void dump() {
+        Rt.p(Rt.getHex(0, frame.array(), 0, 256, false));
+    }
+    
     public void close() throws HyracksDataException {
         if (appender.getTupleCount() > 0) {
             writer.writeFrame(frame);

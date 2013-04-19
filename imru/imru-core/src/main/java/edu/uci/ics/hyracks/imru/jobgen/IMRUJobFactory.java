@@ -195,8 +195,8 @@ public class IMRUJobFactory {
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
                     readOperator, mapOperatorLocations);
 
-            IOperatorDescriptor writer = new HDFSOD(spec, model, inputSplits,
-                    confFactory);
+            IOperatorDescriptor writer = new DataLoadOperatorDescriptor(spec,
+                    model, inputSplits, confFactory, true);
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
                     readOperator, mapOperatorLocations);
 
@@ -204,7 +204,7 @@ public class IMRUJobFactory {
                     0, writer, 0);
         } else {
             IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(
-                    spec, model, inputSplits, confFactory);
+                    spec, model, inputSplits, confFactory, false);
             PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
                     dataLoad, mapOperatorLocations);
             spec.addRoot(dataLoad);

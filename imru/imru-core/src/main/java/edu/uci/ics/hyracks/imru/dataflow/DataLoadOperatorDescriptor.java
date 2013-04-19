@@ -15,9 +15,13 @@
 
 package edu.uci.ics.hyracks.imru.dataflow;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
@@ -31,9 +35,12 @@ import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorNodePushable;
+import edu.uci.ics.hyracks.imru.api.ASyncIO;
+import edu.uci.ics.hyracks.imru.api.ASyncInputStream;
 import edu.uci.ics.hyracks.imru.api.FrameWriter;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.IMRUContext;
+import edu.uci.ics.hyracks.imru.api.TupleReader;
 import edu.uci.ics.hyracks.imru.data.RunFileContext;
 import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
@@ -58,6 +65,7 @@ public class DataLoadOperatorDescriptor extends
 
     protected final ConfigurationFactory confFactory;
     protected final IMRUFileSplit[] inputSplits;
+    private boolean hdfsLoad = false;
 
     /**
      * Create a new DataLoadOperatorDescriptor.
@@ -73,31 +81,43 @@ public class DataLoadOperatorDescriptor extends
      */
     public DataLoadOperatorDescriptor(JobSpecification spec,
             IIMRUJob2<Serializable> imruSpec, IMRUFileSplit[] inputSplits,
-            ConfigurationFactory confFactory) {
-        super(spec, 0, 0, "parse", imruSpec);
+            ConfigurationFactory confFactory, boolean hdfsLoad) {
+        super(spec, hdfsLoad ? 1 : 0, 0, "parse", imruSpec);
         this.inputSplits = inputSplits;
         this.confFactory = confFactory;
+        this.hdfsLoad = hdfsLoad;
     }
 
     @Override
-    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
+    public IOperatorNodePushable createPushRuntime(
+            final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, final int partition,
             int nPartitions) throws HyracksDataException {
         return new AbstractOperatorNodePushable() {
             private final IHyracksTaskContext fileCtx;
             private final String name;
+            long startTime;
+            MapTaskState state;
+            RunFileWriter runFileWriter;
+            IMRUContext imruContext;
+            boolean initialized = false;
 
             {
                 fileCtx = new RunFileContext(ctx,
                         imruSpec.getCachedDataFrameSize());
-                name = DataLoadOperatorDescriptor.this.getDisplayName() + partition;
+                name = DataLoadOperatorDescriptor.this.getDisplayName()
+                        + partition;
             }
 
             @Override
             public void initialize() throws HyracksDataException {
+//                Rt.p("initialize");
+                if (initialized)
+                    return;
+                initialized = true;
                 // Load the examples.
-                MapTaskState state = (MapTaskState) IterationUtils
-                        .getIterationState(ctx, partition);
+                state = (MapTaskState) IterationUtils.getIterationState(ctx,
+                        partition);
                 if (state != null) {
                     LOG.severe("Duplicate loading of input data.");
                     INCApplicationContext appContext = ctx.getJobletContext()
@@ -107,35 +127,41 @@ public class DataLoadOperatorDescriptor extends
                     context.modelAge = 0;
                     //                throw new IllegalStateException("Duplicate loading of input data.");
                 }
-                long start = System.currentTimeMillis();
+                startTime = System.currentTimeMillis();
                 if (state == null)
                     state = new MapTaskState(ctx.getJobletContext().getJobId(),
                             ctx.getTaskAttemptId().getTaskId());
                 FileReference file = ctx
                         .createUnmanagedWorkspaceFile("IMRUInput");
-                RunFileWriter runFileWriter = new RunFileWriter(file,
-                        ctx.getIOManager());
+                runFileWriter = new RunFileWriter(file, ctx.getIOManager());
                 state.setRunFileWriter(runFileWriter);
                 runFileWriter.open();
 
-                IMRUContext context = new IMRUContext(fileCtx, name);
-                final IMRUFileSplit split = inputSplits[partition];
-                try {
-                    InputStream in = split.getInputStream();
-                    imruSpec.parse(context, in, new FrameWriter(runFileWriter));
-                    in.close();
-                } catch (IOException e) {
-                    fail();
-                    Rt.p(context.getNodeId() + " " + split);
-                    throw new HyracksDataException(e);
+                imruContext = new IMRUContext(fileCtx, name);
+                if (!hdfsLoad) {
+                    final IMRUFileSplit split = inputSplits[partition];
+                    try {
+                        InputStream in = split.getInputStream();
+                        imruSpec.parse(imruContext, in, new FrameWriter(
+                                runFileWriter));
+                        in.close();
+                    } catch (IOException e) {
+                        fail();
+                        Rt.p(imruContext.getNodeId() + " " + split);
+                        throw new HyracksDataException(e);
+                    }
+                    finishDataCache();
                 }
+            }
+
+            void finishDataCache() throws HyracksDataException {
                 runFileWriter.close();
                 LOG.info("Cached input data file "
                         + runFileWriter.getFileReference().getFile()
                                 .getAbsolutePath() + " is "
                         + runFileWriter.getFileSize() + " bytes");
                 long end = System.currentTimeMillis();
-                LOG.info("Parsed input data in " + (end - start)
+                LOG.info("Parsed input data in " + (end - startTime)
                         + " milliseconds");
                 IterationUtils.setIterationState(ctx, partition, state);
             }
@@ -152,12 +178,81 @@ public class DataLoadOperatorDescriptor extends
 
             @Override
             public int getInputArity() {
-                return 0;
+                return hdfsLoad ? 1 : 0;
             }
 
             @Override
-            public IFrameWriter getInputFrameWriter(int index) {
-                throw new IllegalStateException();
+            public final IFrameWriter getInputFrameWriter(int index) {
+//                Rt.p("getInputFrameWriter");
+                try {
+                    initialize();
+                } catch (HyracksDataException e1) {
+                    e1.printStackTrace();
+                }
+                return new IFrameWriter() {
+                    private ASyncIO<byte[]> io;
+                    private ASyncInputStream stream;
+                    Future future;
+                    byte[] ln = "\n".getBytes();
+
+                    @Override
+                    public void open() throws HyracksDataException {
+                        io = new ASyncIO<byte[]>();
+                        stream = new ASyncInputStream(io);
+                        future = IMRUSerialize.threadPool
+                                .submit(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        try {
+                                            imruSpec.parse(imruContext, stream,
+                                                    new FrameWriter(
+                                                            runFileWriter));
+                                            stream.close();
+                                        } catch (IOException e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void nextFrame(ByteBuffer buffer)
+                            throws HyracksDataException {
+                        try {
+                            TupleReader reader = new TupleReader(buffer,
+                                    ctx.getFrameSize(), 1);
+                            while (reader.nextTuple()) {
+                                //                                reader.dump();
+                                int len = reader.getFieldLength(0);
+                                reader.seekToField(0);
+                                byte[] bs = new byte[len];
+                                reader.readFully(bs);
+                                io.add(bs);
+                                io.add(ln);
+//                                String word = new String(bs);
+//                                Rt.p(word);
+                            }
+                            reader.close();
+                        } catch (IOException ex) {
+                            throw new HyracksDataException(ex);
+                        }
+                    }
+
+                    @Override
+                    public void fail() throws HyracksDataException {
+                    }
+
+                    @Override
+                    public void close() throws HyracksDataException {
+                        io.close();
+                        try {
+                            future.get();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        finishDataCache();
+                    }
+                };
             }
 
             private void fail() throws HyracksDataException {
