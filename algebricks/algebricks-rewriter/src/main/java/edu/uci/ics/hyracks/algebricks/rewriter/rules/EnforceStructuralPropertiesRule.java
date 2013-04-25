@@ -287,8 +287,7 @@ public class EnforceStructuralPropertiesRule implements IAlgebraicRewriteRule {
     private void optimizeUsingConstraintsAndEquivClasses(AbstractLogicalOperator op) {
         IPhysicalOperator pOp = op.getPhysicalOperator();
         switch (pOp.getOperatorTag()) {
-            case HASH_GROUP_BY:
-            case EXTERNAL_GROUP_BY: {
+            case HASH_SORT_GROUP_BY: {
                 GroupByOperator gby = (GroupByOperator) op;
                 ExternalGroupByPOperator hgbyOp = (ExternalGroupByPOperator) pOp;
                 hgbyOp.computeColumnSet(gby.getGroupByList());
