@@ -62,6 +62,23 @@ public class FrameTupleAppenderForGroupHashtable {
         return false;
     }
 
+    public boolean append(int[] fieldSlots, byte[] bytes, int offset, int length, int nextFrameIndex, int nextTupleIndex) {
+        if (tupleDataEndOffset + fieldSlots.length * 4 + length + 2 * 4 + 4 + (tupleCount + 1) * 4 <= frameSize) {
+            for (int i = 0; i < fieldSlots.length; ++i) {
+                buffer.putInt(tupleDataEndOffset + i * 4, fieldSlots[i]);
+            }
+            System.arraycopy(bytes, offset, buffer.array(), tupleDataEndOffset + fieldSlots.length * 4, length);
+            buffer.putInt(tupleDataEndOffset + fieldSlots.length * 4 + length, nextFrameIndex);
+            buffer.putInt(tupleDataEndOffset + fieldSlots.length * 4 + length + 4, nextTupleIndex);
+            tupleDataEndOffset += fieldSlots.length * 4 + length + 2 * 4;
+            buffer.putInt(FrameHelper.getTupleCountOffset(frameSize) - 4 * (tupleCount + 1), tupleDataEndOffset);
+            ++tupleCount;
+            buffer.putInt(FrameHelper.getTupleCountOffset(frameSize), tupleCount);
+            return true;
+        }
+        return false;
+    }
+
     public boolean append(byte[] bytes, int offset, int length) {
         if (tupleDataEndOffset + length + 2 * 4 + 4 + (tupleCount + 1) * 4 <= frameSize) {
             System.arraycopy(bytes, offset, buffer.array(), tupleDataEndOffset, length);
@@ -127,4 +144,3 @@ public class FrameTupleAppenderForGroupHashtable {
         return buffer;
     }
 }
-
