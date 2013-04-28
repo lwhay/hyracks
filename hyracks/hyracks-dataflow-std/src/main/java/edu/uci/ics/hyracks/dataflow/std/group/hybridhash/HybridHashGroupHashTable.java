@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.hybridhash.prepartitioning;
+package edu.uci.ics.hyracks.dataflow.std.group.hybridhash;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -33,11 +33,11 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAccessorForGroupHashtable;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAppenderForGroupHashtable;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.TupleAccessHelper;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAccessorForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAppenderForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.TupleAccessHelper;
 
-public class HybridHashGroupHashTableWithMiniBloomFilter implements IFrameWriter {
+public class HybridHashGroupHashTable implements IFrameWriter {
 
     private static final int HEADER_REF_EMPTY = -1;
 
@@ -175,7 +175,7 @@ public class HybridHashGroupHashTableWithMiniBloomFilter implements IFrameWriter
 
     private final int headerEntryPerFrame;
 
-    public HybridHashGroupHashTableWithMiniBloomFilter(IHyracksTaskContext ctx, int framesLimit, int tableSize,
+    public HybridHashGroupHashTable(IHyracksTaskContext ctx, int framesLimit, int tableSize,
             int numOfPartitions, int[] keys, int hashSeedOffset, IBinaryComparator[] comparators,
             ITuplePartitionComputerFamily tpcFamily, IAggregatorDescriptor aggregator,
             RecordDescriptor inputRecordDescriptor, RecordDescriptor outputRecordDescriptor, IFrameWriter outputWriter)

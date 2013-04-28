@@ -35,8 +35,8 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAccessorForGroupHashtable;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAppenderForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAccessorForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAppenderForGroupHashtable;
 import edu.uci.ics.hyracks.dataflow.std.structures.TuplePointer;
 
 public class HybridHashSortGroupHashTable {

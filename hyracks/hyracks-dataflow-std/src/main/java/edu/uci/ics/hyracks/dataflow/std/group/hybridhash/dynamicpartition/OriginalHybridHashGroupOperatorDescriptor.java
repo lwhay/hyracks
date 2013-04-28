@@ -37,7 +37,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperat
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortRunMerger;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashUtil;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.HybridHashUtil;
 
 public class OriginalHybridHashGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 

@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.hybridhash.prepartitioning;
+package edu.uci.ics.hyracks.dataflow.std.group.hybridhash;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -39,7 +39,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperat
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortGroupHashTable;
 import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortRunMerger;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashUtil;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.HybridHashUtil;
 
 public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 

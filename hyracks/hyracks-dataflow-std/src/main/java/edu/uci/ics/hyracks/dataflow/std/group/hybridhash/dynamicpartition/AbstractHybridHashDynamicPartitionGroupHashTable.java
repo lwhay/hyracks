@@ -35,10 +35,10 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameMemManager;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAccessorForGroupHashtable;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.FrameTupleAppenderForGroupHashtable;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.TupleAccessHelper;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameMemManager;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAccessorForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.FrameTupleAppenderForGroupHashtable;
+import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util.TupleAccessHelper;
 
 public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
     protected static final int INT_SIZE = 4;
