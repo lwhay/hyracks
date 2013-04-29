@@ -36,6 +36,8 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.BroadcastP
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.ExternalGroupByPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HashPartitionExchangePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HashPartitionMergeExchangePOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HybridHashGroupByPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HybridHashSortGroupByPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.InMemoryStableSortPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.PreSortedDistinctByPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.PreclusteredGroupByPOperator;
@@ -289,7 +291,7 @@ public class EnforceStructuralPropertiesRule implements IAlgebraicRewriteRule {
         switch (pOp.getOperatorTag()) {
             case HASH_SORT_GROUP_BY: {
                 GroupByOperator gby = (GroupByOperator) op;
-                ExternalGroupByPOperator hgbyOp = (ExternalGroupByPOperator) pOp;
+                HybridHashSortGroupByPOperator hgbyOp = (HybridHashSortGroupByPOperator) pOp;
                 hgbyOp.computeColumnSet(gby.getGroupByList());
                 break;
             }
@@ -303,6 +305,12 @@ public class EnforceStructuralPropertiesRule implements IAlgebraicRewriteRule {
                 DistinctOperator d = (DistinctOperator) op;
                 PreSortedDistinctByPOperator preSortedDistinct = (PreSortedDistinctByPOperator) pOp;
                 preSortedDistinct.setDistinctByColumns(d.getDistinctByVarList());
+                break;
+            }
+            case HYBRID_HASH_GROUP_BY: {
+                GroupByOperator gby = (GroupByOperator) op;
+                HybridHashGroupByPOperator hgbyOp = (HybridHashGroupByPOperator) pOp;
+                hgbyOp.computeColumnSet(gby.getGroupByList());
                 break;
             }
         }

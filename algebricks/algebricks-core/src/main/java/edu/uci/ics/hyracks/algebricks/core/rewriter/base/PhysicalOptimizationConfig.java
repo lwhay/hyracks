@@ -2,6 +2,8 @@ package edu.uci.ics.hyracks.algebricks.core.rewriter.base;
 
 import java.util.Properties;
 
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
+
 public class PhysicalOptimizationConfig {
     private static final int MB = 1048576;
     private static final String FRAMESIZE = "FRAMESIZE";
@@ -12,6 +14,9 @@ public class PhysicalOptimizationConfig {
     private static final String DEFAULT_EXTERNAL_GROUP_TABLE_SIZE = "DEFAULT_EXTERNAL_GROUP_TABLE_SIZE";
     private static final String DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE = "DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE";
 
+    private static final String DEFAULT_HYBRID_HASH_GROUP_ROW_COUNT = "DEFAULT_HYBRID_HASH_GROUP_ROW_COUNT";
+    private static final String DEFAULT_HYBRID_HASH_GROUP_KEY_CARDINALITY = "DEFAULT_HYBRID_HASH_GROUP_KEY_CARDINALITY";
+
     private Properties properties = new Properties();
 
     public PhysicalOptimizationConfig() {
@@ -21,9 +26,13 @@ public class PhysicalOptimizationConfig {
         setInt(MAX_FRAMES_EXTERNAL_GROUP_BY, (int) (((long) 32 * MB) / frameSize));
 
         // use http://www.rsok.com/~jrm/printprimes.html to find prime numbers
-        setInt(DEFAULT_HASH_GROUP_TABLE_SIZE, 10485767);
-        setInt(DEFAULT_EXTERNAL_GROUP_TABLE_SIZE, 10485767);
+        setInt(DEFAULT_HASH_GROUP_TABLE_SIZE, 262133);
+        setInt(DEFAULT_EXTERNAL_GROUP_TABLE_SIZE, 262133);
         setInt(DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE, 10485767);
+
+        // default parameters for hybrid-hash-group-by: try to underestimate the key cardinality ratio
+        setInt(DEFAULT_HYBRID_HASH_GROUP_ROW_COUNT, 1000000);
+        setInt(DEFAULT_HYBRID_HASH_GROUP_KEY_CARDINALITY, 10000);
     }
 
     public int getFrameSize() {
@@ -74,6 +83,30 @@ public class PhysicalOptimizationConfig {
 
     public void setInMemHashJoinTableSize(int tableSize) {
         setInt(DEFAULT_IN_MEM_HASH_JOIN_TABLE_SIZE, tableSize);
+    }
+
+    public int getHybridHashGroupByInputRowCount(ILogicalPlan gbyNestedPlan) {
+        return getInt(gbyNestedPlan.toString() + ".rows", 1000000);
+    }
+
+    public void setHybridHashGroupByInputRowCount(ILogicalPlan gbyNestedPlan, int rowCount) {
+        setInt(gbyNestedPlan.toString() + ".rows", rowCount);
+    }
+
+    public int getHybridHashGroupByKeyCardinality(ILogicalPlan gbyNestedPlan) {
+        return getInt(gbyNestedPlan.toString() + ".card", 10000);
+    }
+
+    public void setHybridHashGroupByKeyCardinality(ILogicalPlan gbyNestedPlan, int card) {
+        setInt(gbyNestedPlan.toString() + ".card", card);
+    }
+
+    public void setHybridHashGroupByRecordInBytes(ILogicalPlan gbyNestedPlan, int recSize) {
+        setInt(gbyNestedPlan.toString() + ".rsize", recSize);
+    }
+
+    public int getHybridHashGroupByRecordInBytes(ILogicalPlan gbyNestedPlan) {
+        return getInt(gbyNestedPlan.toString() + ".rsize", 64);
     }
 
     private void setInt(String property, int value) {

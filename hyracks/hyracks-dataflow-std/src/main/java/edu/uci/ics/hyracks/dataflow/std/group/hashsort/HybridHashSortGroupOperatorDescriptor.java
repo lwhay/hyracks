@@ -32,8 +32,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractActivityNode;
@@ -65,7 +65,7 @@ public class HybridHashSortGroupOperatorDescriptor extends AbstractOperatorDescr
 
     private final boolean isLoadOptimized;
 
-    public HybridHashSortGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
+    public HybridHashSortGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int framesLimit,
             int tableSize, IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory aggTpcf,
             ITuplePartitionComputerFactory mergeTpcf, IAggregatorDescriptorFactory aggregatorFactory,
             IAggregatorDescriptorFactory mergerFactory, RecordDescriptor recordDescriptor) {
@@ -73,7 +73,7 @@ public class HybridHashSortGroupOperatorDescriptor extends AbstractOperatorDescr
                 mergerFactory, recordDescriptor, false);
     }
 
-    public HybridHashSortGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
+    public HybridHashSortGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int framesLimit,
             int tableSize, IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory aggTpcf,
             ITuplePartitionComputerFactory mergeTpcf, INormalizedKeyComputerFactory firstNormalizerFactory,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
@@ -82,7 +82,7 @@ public class HybridHashSortGroupOperatorDescriptor extends AbstractOperatorDescr
                 aggregatorFactory, mergerFactory, recordDescriptor, false);
     }
 
-    public HybridHashSortGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
+    public HybridHashSortGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int framesLimit,
             int tableSize, IBinaryComparatorFactory[] comparatorFactories, ITuplePartitionComputerFactory aggTpcf,
             ITuplePartitionComputerFactory mergeTpcf, INormalizedKeyComputerFactory firstNormalizerFactory,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
@@ -190,10 +190,10 @@ public class HybridHashSortGroupOperatorDescriptor extends AbstractOperatorDescr
                     }
 
                     serializableGroupHashtable = new HybridHashSortGroupHashTable(ctx, framesLimit, tableSize,
-                            keyFields, comparators, aggTpcf.createPartitioner(),
-                            firstNormalizerFactory.createNormalizedKeyComputer(), aggregatorFactory.createAggregator(
-                                    ctx, inRecDesc, recordDescriptors[0], keyFields, storedKeyFields), inRecDesc,
-                            recordDescriptors[0]);
+                            keyFields, comparators, aggTpcf.createPartitioner(), firstNormalizerFactory == null ? null
+                                    : firstNormalizerFactory.createNormalizedKeyComputer(),
+                            aggregatorFactory.createAggregator(ctx, inRecDesc, recordDescriptors[0], keyFields,
+                                    storedKeyFields), inRecDesc, recordDescriptors[0]);
                     accessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecDesc);
                 }
 

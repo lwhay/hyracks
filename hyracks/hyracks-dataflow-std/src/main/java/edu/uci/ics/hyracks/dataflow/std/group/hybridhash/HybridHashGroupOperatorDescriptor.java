@@ -30,7 +30,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFamily;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFamily;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
@@ -97,7 +97,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
     private final static double FUDGE_FACTOR_ESTIMATION = 1.2;
 
-    public HybridHashGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
+    public HybridHashGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int framesLimit,
             long inputSizeInRawRecords, long inputSizeInUniqueKeys, int recordSizeInBytes, int tableSize,
             IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFamily[] hashFamilies,
             int hashFuncStartLevel, INormalizedKeyComputerFactory firstNormalizerFactory,
@@ -108,7 +108,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 mergerFactory, outRecDesc, true);
     }
 
-    public HybridHashGroupOperatorDescriptor(JobSpecification spec, int[] keyFields, int framesLimit,
+    public HybridHashGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int framesLimit,
             long inputSizeInRawRecords, long inputSizeInUniqueKeys, int recordSizeInBytes, int tableSize,
             IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFamily[] hashFamilies,
             int hashFuncStartLevel, INormalizedKeyComputerFactory firstNormalizerFactory,
@@ -162,8 +162,9 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
         final int frameSize = ctx.getFrameSize();
 
-        final double fudgeFactor = HybridHashGroupHashTable.getHashtableOverheadRatio(tableSize, frameSize,
-                framesLimit, userProvidedRecordSizeInBytes) * FUDGE_FACTOR_ESTIMATION;
+        final double fudgeFactor = Math.min(1.0, HybridHashGroupHashTable.getHashtableOverheadRatio(tableSize,
+                frameSize, framesLimit, userProvidedRecordSizeInBytes))
+                * FUDGE_FACTOR_ESTIMATION;
 
         return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
 
@@ -171,6 +172,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
             int observedInputSizeInRawTuples;
             int observedInputSizeInFrames, maxRecursiveLevels;
+            int observedInputRecordSizeInBytes = 0;
 
             int userProvidedInputSizeInFrames;
 
@@ -238,6 +240,10 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
                 observedInputSizeInRawTuples += buffer.getInt(buffer.capacity() - 4);
+                int firstRecordSizeInByte = buffer.getInt(buffer.capacity() - 4 * 2);
+                if (firstRecordSizeInByte > observedInputRecordSizeInBytes) {
+                    observedInputRecordSizeInBytes = firstRecordSizeInByte;
+                }
                 observedInputSizeInFrames++;
                 topProcessor.nextFrame(buffer);
             }
@@ -267,7 +273,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 boolean checkFallback = true;
 
                 int numOfPartitions = getNumberOfPartitions(tableSize, framesLimit, (long) inputCardinality
-                        * userProvidedRecordSizeInBytes / frameSize, fudgeFactor);
+                        * observedInputRecordSizeInBytes / frameSize, fudgeFactor);
 
                 HybridHashGroupHashTable processor = new HybridHashGroupHashTable(ctx, framesLimit, tableSize,
                         numOfPartitions, keyFields, runLevel, comparators, tpcf, aggregatorFactory.createAggregator(

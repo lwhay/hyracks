@@ -60,11 +60,8 @@ public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule 
             p.second.setValue(new VariableReferenceExpression(newDecorVar));
         }
         newGbyOp.setExecutionMode(ExecutionMode.LOCAL);
-        Object v = gbyOp.getAnnotations().get(OperatorAnnotations.USE_HASH_GROUP_BY);
-        newGbyOp.getAnnotations().put(OperatorAnnotations.USE_HASH_GROUP_BY, v);
-
-        Object v2 = gbyOp.getAnnotations().get(OperatorAnnotations.USE_EXTERNAL_GROUP_BY);
-        newGbyOp.getAnnotations().put(OperatorAnnotations.USE_EXTERNAL_GROUP_BY, v2);
+        Object v = gbyOp.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY);
+        newGbyOp.getAnnotations().put(OperatorAnnotations.USE_HASH_SORT_GROUP_BY, v);
 
         List<LogicalVariable> propagatedVars = new LinkedList<LogicalVariable>();
         VariableUtilities.getProducedVariables(newGbyOp, propagatedVars);
@@ -85,7 +82,7 @@ public class IntroduceGroupByCombinerRule extends AbstractIntroduceCombinerRule 
         opRef3.setValue(newGbyOp);
         typeGby(newGbyOp, context);
         typeGby(gbyOp, context);
-    	context.addToDontApplySet(this, op);
+        context.addToDontApplySet(this, op);
         return true;
     }
 

@@ -184,7 +184,7 @@ public class GroupByVisitor extends DefaultVisitor {
             Boolean extGby = conf.getBoolean("hive.algebricks.groupby.external", false);
 
             if (extGby && isSerializable(aggregators)) {
-                currentOperator.getAnnotations().put(OperatorAnnotations.USE_EXTERNAL_GROUP_BY, Boolean.TRUE);
+                currentOperator.getAnnotations().put(OperatorAnnotations.USE_HASH_SORT_GROUP_BY, Boolean.TRUE);
             }
             return new MutableObject<ILogicalOperator>(currentOperator);
         } else {

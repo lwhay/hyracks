@@ -30,21 +30,15 @@ import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
+import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.hashsort.HybridHashSortGroupOperatorDescriptor;
 
-public class HybridHashGroupByPOperator extends AbstractGroupByPOperator {
+public class HybridHashSortGroupByPOperator extends AbstractGroupByPOperator {
 
-    protected final int inputRows;
-    protected final int inputKeyCardinality;
-    protected final int recordSizeInBytes;
-
-    public HybridHashGroupByPOperator(List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> gbyList, int frameLimit,
-            int tableSize, int inputRows, int inputKeyCard, int recSizeInBytes) {
+    public HybridHashSortGroupByPOperator(List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> gbyList,
+            int frameLimit, int tableSize) {
         super(gbyList, frameLimit, tableSize);
-        this.inputRows = inputRows;
-        this.inputKeyCardinality = inputKeyCard;
-        this.recordSizeInBytes = recSizeInBytes;
     }
 
     /* (non-Javadoc)
@@ -52,7 +46,7 @@ public class HybridHashGroupByPOperator extends AbstractGroupByPOperator {
      */
     @Override
     public PhysicalOperatorTag getOperatorTag() {
-        return PhysicalOperatorTag.HYBRID_HASH_GROUP_BY;
+        return PhysicalOperatorTag.HASH_SORT_GROUP_BY;
     }
 
     @Override
@@ -61,8 +55,9 @@ public class HybridHashGroupByPOperator extends AbstractGroupByPOperator {
             IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryHashFunctionFamily[] hashFunctionFamilies,
             INormalizedKeyComputerFactory nkf, IAggregatorDescriptorFactory aggFactory,
             IAggregatorDescriptorFactory mergeFactory, RecordDescriptor outRecDesc) throws HyracksDataException {
-        return new HybridHashGroupOperatorDescriptor(spec, inputKeys, frameLimit, inputRows, inputKeyCardinality,
-                recordSizeInBytes, tableSize, comparatorFactories, hashFunctionFamilies, 0, nkf, aggFactory,
-                mergeFactory, outRecDesc);
+        return new HybridHashSortGroupOperatorDescriptor(spec, inputKeys, frameLimit, tableSize, comparatorFactories,
+                new FieldHashPartitionComputerFactory(inputKeys, hashFunctionFactories),
+                new FieldHashPartitionComputerFactory(intermediateKeys, hashFunctionFactories), nkf, aggFactory,
+                mergeFactory, outRecDesc, false);
     }
 }

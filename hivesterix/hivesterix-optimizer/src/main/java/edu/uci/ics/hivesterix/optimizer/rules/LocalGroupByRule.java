@@ -31,10 +31,8 @@ public class LocalGroupByRule implements IAlgebraicRewriteRule {
         }
         Boolean localGby = (Boolean) op.getAnnotations().get(HiveOperatorAnnotations.LOCAL_GROUP_BY);
         if (localGby != null && localGby.equals(Boolean.TRUE)) {
-            Boolean hashGby = (Boolean) op.getAnnotations().get(OperatorAnnotations.USE_HASH_GROUP_BY);
-            Boolean externalGby = (Boolean) op.getAnnotations().get(OperatorAnnotations.USE_EXTERNAL_GROUP_BY);
-            if ((hashGby != null && (hashGby.equals(Boolean.TRUE)) || (externalGby != null && externalGby
-                    .equals(Boolean.TRUE)))) {
+            Boolean hashGby = (Boolean) op.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY);
+            if (hashGby != null && (hashGby.equals(Boolean.TRUE))) {
                 reviseExchange(op);
             } else {
                 ILogicalOperator child = op.getInputs().get(0).getValue();

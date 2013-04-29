@@ -31,8 +31,13 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AggregateFunctionCallExpression;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IPartialAggregationTypeComputer;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
@@ -44,6 +49,19 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.properties.PhysicalRequiremen
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.StructuralPropertiesVector;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.UnorderedPartitionedProperty;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
+import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenHelper;
+import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.OperatorSchemaImpl;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopySerializableAggregateFunctionFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.aggreg.SerializableAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFamily;
+import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public abstract class AbstractGroupByPOperator extends AbstractPhysicalOperator {
 
@@ -113,6 +131,137 @@ public abstract class AbstractGroupByPOperator extends AbstractPhysicalOperator 
         deliveredProperties = new StructuralPropertiesVector(childProp.getPartitioningProperty(), propsLocal);
     }
 
+    @Override
+    public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
+            IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
+            throws AlgebricksException {
+        List<LogicalVariable> gbyCols = getGbyColumns();
+        int keys[] = JobGenHelper.variablesToFieldIndexes(gbyCols, inputSchemas[0]);
+        GroupByOperator gby = (GroupByOperator) op;
+        int numFds = gby.getDecorList().size();
+        int fdColumns[] = new int[numFds];
+        int j = 0;
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gby.getDecorList()) {
+            ILogicalExpression expr = p.second.getValue();
+            if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE) {
+                throw new AlgebricksException("Hash-sort group-by expects variable references.");
+            }
+            VariableReferenceExpression v = (VariableReferenceExpression) expr;
+            LogicalVariable decor = v.getVariableReference();
+            fdColumns[j++] = inputSchemas[0].findVariable(decor);
+        }
+
+        if (gby.getNestedPlans().size() != 1) {
+            throw new AlgebricksException(
+                    "Hash-sort group-by currently works only for one nested plan with one root containing"
+                            + "an aggregate and a nested-tuple-source.");
+        }
+        ILogicalPlan p0 = gby.getNestedPlans().get(0);
+        if (p0.getRoots().size() != 1) {
+            throw new AlgebricksException(
+                    "Hash-sort group-by currently works only for one nested plan with one root containing"
+                            + "an aggregate and a nested-tuple-source.");
+        }
+        Mutable<ILogicalOperator> r0 = p0.getRoots().get(0);
+        AggregateOperator aggOp = (AggregateOperator) r0.getValue();
+
+        IPartialAggregationTypeComputer partialAggregationTypeComputer = context.getPartialAggregationTypeComputer();
+        List<Object> intermediateTypes = new ArrayList<Object>();
+        int n = aggOp.getExpressions().size();
+        ICopySerializableAggregateFunctionFactory[] aff = new ICopySerializableAggregateFunctionFactory[n];
+        int i = 0;
+        IExpressionRuntimeProvider expressionRuntimeProvider = context.getExpressionRuntimeProvider();
+        IVariableTypeEnvironment aggOpInputEnv = context.getTypeEnvironment(aggOp.getInputs().get(0).getValue());
+        IVariableTypeEnvironment outputEnv = context.getTypeEnvironment(op);
+        for (Mutable<ILogicalExpression> exprRef : aggOp.getExpressions()) {
+            AggregateFunctionCallExpression aggFun = (AggregateFunctionCallExpression) exprRef.getValue();
+            aff[i++] = expressionRuntimeProvider.createSerializableAggregateFunctionFactory(aggFun, aggOpInputEnv,
+                    inputSchemas, context);
+            intermediateTypes.add(partialAggregationTypeComputer.getType(aggFun, aggOpInputEnv,
+                    context.getMetadataProvider()));
+        }
+
+        int[] keyAndDecFields = new int[keys.length + fdColumns.length];
+        for (i = 0; i < keys.length; ++i) {
+            keyAndDecFields[i] = keys[i];
+        }
+        for (i = 0; i < fdColumns.length; i++) {
+            keyAndDecFields[keys.length + i] = fdColumns[i];
+        }
+
+        // internal keys
+        int[] intermediateKeys = new int[keys.length];
+        for (i = 0; i < intermediateKeys.length; i++) {
+            intermediateKeys[i] = i;
+        }
+
+        List<LogicalVariable> keyAndDecVariables = new ArrayList<LogicalVariable>();
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gby.getGroupByList())
+            keyAndDecVariables.add(p.first);
+        for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gby.getDecorList())
+            keyAndDecVariables.add(GroupByOperator.getDecorVariable(p));
+
+        for (LogicalVariable var : keyAndDecVariables)
+            aggOpInputEnv.setVarType(var, outputEnv.getVarType(var));
+
+        compileSubplans(inputSchemas[0], gby, propagatedSchema, context);
+        IOperatorDescriptorRegistry spec = builder.getJobSpec();
+        IBinaryComparatorFactory[] comparatorFactories = JobGenHelper.variablesToAscBinaryComparatorFactories(gbyCols,
+                aggOpInputEnv, context);
+        RecordDescriptor recordDescriptor = JobGenHelper.mkRecordDescriptor(context.getTypeEnvironment(op),
+                propagatedSchema, context);
+        IBinaryHashFunctionFactory[] hashFunctionFactories = JobGenHelper.variablesToBinaryHashFunctionFactories(
+                gbyCols, aggOpInputEnv, context);
+        IBinaryHashFunctionFamily[] hashFunctionFamilies = JobGenHelper.variablesToBinaryHashFunctionFamilies(gbyCols,
+                aggOpInputEnv, context);
+
+        ICopySerializableAggregateFunctionFactory[] merges = new ICopySerializableAggregateFunctionFactory[n];
+        List<LogicalVariable> usedVars = new ArrayList<LogicalVariable>();
+        IOperatorSchema[] localInputSchemas = new IOperatorSchema[1];
+        localInputSchemas[0] = new OperatorSchemaImpl();
+        for (i = 0; i < n; i++) {
+            AggregateFunctionCallExpression aggFun = (AggregateFunctionCallExpression) aggOp.getMergeExpressions()
+                    .get(i).getValue();
+            aggFun.getUsedVariables(usedVars);
+        }
+        i = 0;
+        for (Object type : intermediateTypes) {
+            aggOpInputEnv.setVarType(usedVars.get(i++), type);
+        }
+        for (LogicalVariable keyVar : keyAndDecVariables)
+            localInputSchemas[0].addVariable(keyVar);
+        for (LogicalVariable usedVar : usedVars)
+            localInputSchemas[0].addVariable(usedVar);
+        for (i = 0; i < n; i++) {
+            AggregateFunctionCallExpression mergeFun = (AggregateFunctionCallExpression) aggOp.getMergeExpressions()
+                    .get(i).getValue();
+            merges[i] = expressionRuntimeProvider.createSerializableAggregateFunctionFactory(mergeFun, aggOpInputEnv,
+                    localInputSchemas, context);
+        }
+        IAggregatorDescriptorFactory aggregatorFactory = new SerializableAggregatorDescriptorFactory(aff);
+        IAggregatorDescriptorFactory mergeFactory = new SerializableAggregatorDescriptorFactory(merges);
+
+        INormalizedKeyComputerFactory normalizedKeyFactory = JobGenHelper.variablesToAscNormalizedKeyComputerFactory(
+                gbyCols, aggOpInputEnv, context);
+
+        IOperatorDescriptor gbyOpDesc = null;
+        try {
+            gbyOpDesc = getHyracksGroupByOperator(spec, keys, intermediateKeys, comparatorFactories,
+                    hashFunctionFactories, hashFunctionFamilies, normalizedKeyFactory, aggregatorFactory, mergeFactory,
+                    recordDescriptor);
+        } catch (HyracksDataException e) {
+            throw new AlgebricksException(e);
+        }
+
+        if (gbyOpDesc == null) {
+            throw new AlgebricksException(gby.getOperatorTag() + ": failed to generate physical group-by operator!");
+        }
+
+        contributeOpDesc(builder, gby, gbyOpDesc);
+        ILogicalOperator src = op.getInputs().get(0).getValue();
+        builder.contributeGraphEdge(src, 0, op, 0);
+    }
+
     /* (non-Javadoc)
      * @see edu.uci.ics.hyracks.algebricks.core.algebra.base.IPhysicalOperator#isMicroOperator()
      */
@@ -120,5 +269,20 @@ public abstract class AbstractGroupByPOperator extends AbstractPhysicalOperator 
     public boolean isMicroOperator() {
         return false;
     }
+
+    @Override
+    public String toString() {
+        return getOperatorTag().toString() + columnSet;
+    }
+
+    public List<LogicalVariable> getGbyColumns() {
+        return columnSet;
+    }
+
+    public abstract IOperatorDescriptor getHyracksGroupByOperator(IOperatorDescriptorRegistry spec, int[] inputKeys,
+            int[] intermediateKeys, IBinaryComparatorFactory[] comparatorFactories,
+            IBinaryHashFunctionFactory[] hashFunctionFactories, IBinaryHashFunctionFamily[] hashFunctionFamilies,
+            INormalizedKeyComputerFactory nkf, IAggregatorDescriptorFactory aggFactory,
+            IAggregatorDescriptorFactory mergeFactory, RecordDescriptor outRecDesc) throws HyracksDataException;
 
 }

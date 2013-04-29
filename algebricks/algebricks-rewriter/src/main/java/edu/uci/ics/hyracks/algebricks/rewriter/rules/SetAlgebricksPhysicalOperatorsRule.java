@@ -35,12 +35,16 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LimitOperat
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AbstractGroupByPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AbstractPhysicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AggregatePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AssignPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DataSourceScanPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DistributeResultPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.EmptyTupleSourcePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.ExternalGroupByPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HybridHashGroupByPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.HybridHashSortGroupByPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.InMemoryStableSortPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.IndexInsertDeletePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.InsertDeletePOperator;
@@ -132,19 +136,31 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     if (gby.getNestedPlans().size() == 1) {
                         ILogicalPlan p0 = gby.getNestedPlans().get(0);
                         if (p0.getRoots().size() == 1) {
-                            if (gby.getAnnotations().get(OperatorAnnotations.USE_HASH_GROUP_BY) == Boolean.TRUE
-                                    || gby.getAnnotations().get(OperatorAnnotations.USE_EXTERNAL_GROUP_BY) == Boolean.TRUE) {
-                                if (!topLevelOp) {
-                                    throw new NotImplementedException(
-                                            "External hash group-by for nested grouping is not implemented.");
-                                }
-                                ExternalGroupByPOperator externalGby = new ExternalGroupByPOperator(
-                                        gby.getGroupByList(), physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
-                                        physicalOptimizationConfig.getExternalGroupByTableSize());
-                                op.setPhysicalOperator(externalGby);
-                                generateMergeAggregationExpressions(gby, context);
-                                break;
+
+                            if (!topLevelOp) {
+                                throw new NotImplementedException(
+                                        "Hash-sort group-by for nested grouping is not implemented.");
                             }
+
+                            AbstractPhysicalOperator gbyPOp = null;
+
+                            if (gby.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY) == Boolean.TRUE) {
+                                gbyPOp = new HybridHashSortGroupByPOperator(gby.getGroupByList(),
+                                        physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
+                                        physicalOptimizationConfig.getExternalGroupByTableSize());
+                            } else {
+                                // use hybrid-hash-gby by default 
+                                gbyPOp = new HybridHashGroupByPOperator(gby.getGroupByList(),
+                                        physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
+                                        physicalOptimizationConfig.getExternalGroupByTableSize(),
+                                        physicalOptimizationConfig.getHybridHashGroupByInputRowCount(p0),
+                                        physicalOptimizationConfig.getHybridHashGroupByKeyCardinality(p0),
+                                        physicalOptimizationConfig.getHybridHashGroupByRecordInBytes(p0));
+                            }
+
+                            op.setPhysicalOperator(gbyPOp);
+                            generateMergeAggregationExpressions(gby, context);
+                            break;
                         }
                     }
 

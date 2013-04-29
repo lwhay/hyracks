@@ -143,7 +143,7 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
         for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gby.getDecorList()) {
             ILogicalExpression expr = p.second.getValue();
             if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE) {
-                throw new AlgebricksException("pre-sorted group-by expects variable references.");
+                throw new AlgebricksException("Hash-sort group-by expects variable references.");
             }
             VariableReferenceExpression v = (VariableReferenceExpression) expr;
             LogicalVariable decor = v.getVariableReference();
@@ -152,13 +152,13 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
 
         if (gby.getNestedPlans().size() != 1) {
             throw new AlgebricksException(
-                    "External group-by currently works only for one nested plan with one root containing"
+                    "Hash-sort group-by currently works only for one nested plan with one root containing"
                             + "an aggregate and a nested-tuple-source.");
         }
         ILogicalPlan p0 = gby.getNestedPlans().get(0);
         if (p0.getRoots().size() != 1) {
             throw new AlgebricksException(
-                    "External group-by currently works only for one nested plan with one root containing"
+                    "Hash-sort group-by currently works only for one nested plan with one root containing"
                             + "an aggregate and a nested-tuple-source.");
         }
         Mutable<ILogicalOperator> r0 = p0.getRoots().get(0);
