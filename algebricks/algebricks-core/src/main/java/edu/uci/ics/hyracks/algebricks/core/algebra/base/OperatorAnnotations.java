@@ -3,6 +3,7 @@ package edu.uci.ics.hyracks.algebricks.core.algebra.base;
 public interface OperatorAnnotations {
     // hints
     public static final String USE_HASH_SORT_GROUP_BY = "USE_HASH_SORT_GROUP_BY"; // -->
+    public static final String USE_HYBRID_HASH_GROUP_BY = "USE_HYBRID_HASH_GROUP_BY";
 
     // Boolean
     public static final String CARDINALITY = "CARDINALITY"; // -->
