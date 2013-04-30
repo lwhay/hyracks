@@ -5,3 +5,9 @@ target
 ClusterControllerService
 build
 actual/
+hivesterix/hivesterix-dist/metastore_db
+pregelix/pregelix-core/expected
+hivesterix/hivesterix-dist/hadoop-conf-tmp
+pregelix/pregelix-core/teststore
+hivesterix/hivesterix-dist/tmp
+pregelix/pregelix-example/expected
