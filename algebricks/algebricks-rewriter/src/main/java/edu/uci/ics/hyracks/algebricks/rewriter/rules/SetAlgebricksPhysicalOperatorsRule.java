@@ -137,30 +137,18 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                         ILogicalPlan p0 = gby.getNestedPlans().get(0);
                         if (p0.getRoots().size() == 1) {
 
-                            if (!topLevelOp) {
-                                throw new NotImplementedException(
-                                        "Hash-sort group-by for nested grouping is not implemented.");
-                            }
-
-                            AbstractPhysicalOperator gbyPOp = null;
-
                             if (gby.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY) == Boolean.TRUE) {
-                                gbyPOp = new HybridHashSortGroupByPOperator(gby.getGroupByList(),
-                                        physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
+                                if (!topLevelOp) {
+                                    throw new NotImplementedException(
+                                            "Hash-sort group-by for nested grouping is not implemented.");
+                                }
+                                AbstractPhysicalOperator gbyPOp = new HybridHashSortGroupByPOperator(
+                                        gby.getGroupByList(), physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
                                         physicalOptimizationConfig.getExternalGroupByTableSize());
-                            } else {
-                                // use hybrid-hash-gby by default 
-                                gbyPOp = new HybridHashGroupByPOperator(gby.getGroupByList(),
-                                        physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
-                                        physicalOptimizationConfig.getExternalGroupByTableSize(),
-                                        physicalOptimizationConfig.getHybridHashGroupByInputRowCount(p0),
-                                        physicalOptimizationConfig.getHybridHashGroupByKeyCardinality(p0),
-                                        physicalOptimizationConfig.getHybridHashGroupByRecordInBytes(p0));
+                                op.setPhysicalOperator(gbyPOp);
+                                generateMergeAggregationExpressions(gby, context);
+                                break;
                             }
-
-                            op.setPhysicalOperator(gbyPOp);
-                            generateMergeAggregationExpressions(gby, context);
-                            break;
                         }
                     }
 

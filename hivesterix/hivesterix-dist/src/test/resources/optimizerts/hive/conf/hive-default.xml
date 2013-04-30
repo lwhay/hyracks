@@ -55,7 +55,7 @@
 
 	<property>
 		<name>hive.algebricks.groupby.external.memory</name>
-		<value>3072</value>
+		<value>98304</value>
 	</property>
 
 	<property>

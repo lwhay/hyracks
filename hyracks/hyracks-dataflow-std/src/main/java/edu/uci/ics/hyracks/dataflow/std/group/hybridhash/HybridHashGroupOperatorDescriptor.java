@@ -176,7 +176,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
             int userProvidedInputSizeInFrames;
 
-            boolean topLevelFallbackCheck = true;
+            boolean topLevelFallbackCheck = false;
 
             ITuplePartitionComputerFamily tpcf = new FieldHashPartitionComputerFamily(keyFields, hashFamilies);
 
@@ -364,9 +364,9 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 FrameTupleAccessor runFrameTupleAccessor = new FrameTupleAccessor(frameSize, inRecDesc);
                 HybridHashSortGroupHashTable hhsTable = new HybridHashSortGroupHashTable(ctx, framesLimit, tableSize,
                         keyFields, comparators, tpcf.createPartitioner(runLevel + 1),
-                        firstNormalizerFactory.createNormalizedKeyComputer(), aggregatorFactory.createAggregator(ctx,
-                                inRecDesc, recordDescriptors[0], keyFields, storedKeyFields), inRecDesc,
-                        recordDescriptors[0]);
+                        (firstNormalizerFactory == null ? null : firstNormalizerFactory.createNormalizedKeyComputer()),
+                        aggregatorFactory.createAggregator(ctx, inRecDesc, recordDescriptors[0], keyFields,
+                                storedKeyFields), inRecDesc, recordDescriptors[0]);
 
                 recurRunReader.open();
                 if (readAheadBuf == null) {

@@ -62,7 +62,7 @@ public class PhysicalOptimizationConfig {
     }
 
     public int getHashGroupByTableSize() {
-        return getInt(DEFAULT_HASH_GROUP_TABLE_SIZE, 10485767);
+        return getInt(DEFAULT_HASH_GROUP_TABLE_SIZE, 262133);
     }
 
     public void setHashGroupByTableSize(int tableSize) {
@@ -70,7 +70,7 @@ public class PhysicalOptimizationConfig {
     }
 
     public int getExternalGroupByTableSize() {
-        return getInt(DEFAULT_EXTERNAL_GROUP_TABLE_SIZE, 10485767);
+        return getInt(DEFAULT_EXTERNAL_GROUP_TABLE_SIZE, 262133);
     }
 
     public void setExternalGroupByTableSize(int tableSize) {
