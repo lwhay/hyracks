@@ -44,8 +44,8 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     private static final int INT_SIZE = 4;
 
     private static final int MINI_BLOOM_FILTER_BYTE = 1;
-
-    private static final int[] PRIME_SEEDS = new int[] { 257, 536870923, 4194319 };
+    
+    private static final int PRIME_FUNC_COUNT = 3;
 
     private final boolean useMiniBloomFilter;
 
@@ -231,8 +231,8 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         if (isInitialize) {
             headers[headerFrameIndex].put(byteIndex, (byte) 0);
         }
-        for (int i = 0; i < PRIME_SEEDS.length; i++) {
-            int bitIndex = (int) (h % PRIME_SEEDS[i]) & 0x07;
+        for (int i = 0; i < PRIME_FUNC_COUNT; i++) {
+            int bitIndex = (int) (h >> (12 * i)) & 0x07;
             headers[headerFrameIndex].put(byteIndex,
                     (byte) (headers[headerFrameIndex].get(byteIndex) | (1 << bitIndex)));
         }
@@ -240,8 +240,8 @@ public class HybridHashGroupHashTable implements IFrameWriter {
 
     private boolean lookup(int h, int headerFrameIndex, int headerFrameOffset) {
         int byteIndex = headerFrameOffset + 2 * INT_SIZE;
-        for (int i = 0; i < PRIME_SEEDS.length; i++) {
-            int bitIndex = (int) (h % PRIME_SEEDS[i]) & 0x07;
+        for (int i = 0; i < PRIME_FUNC_COUNT; i++) {
+            int bitIndex = (int) (h >> (12 * i)) & 0x07;
             if (!((headers[headerFrameIndex].get(byteIndex) & (1L << bitIndex)) != 0)) {
                 return false;
             }
