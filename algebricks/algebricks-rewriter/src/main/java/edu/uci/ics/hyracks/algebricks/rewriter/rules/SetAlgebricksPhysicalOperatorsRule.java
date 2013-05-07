@@ -55,7 +55,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RunningAgg
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.SinkPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.SinkWritePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StableSortPOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamDiePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamLimitPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamProjectPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamSelectPOperator;
@@ -291,10 +290,6 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                 }
                 case SINK: {
                     op.setPhysicalOperator(new SinkPOperator());
-                    break;
-                }
-                case DIE: {
-                    op.setPhysicalOperator(new StreamDiePOperator());
                     break;
                 }
             }

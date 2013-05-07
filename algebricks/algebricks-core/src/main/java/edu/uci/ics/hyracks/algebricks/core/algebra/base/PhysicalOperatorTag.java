@@ -34,7 +34,6 @@ public enum PhysicalOperatorTag {
     SPLIT,
     STABLE_SORT,
     STREAM_LIMIT,
-    STREAM_DIE,
     STREAM_SELECT,
     STREAM_PROJECT,
     STRING_STREAM_SCRIPT,
