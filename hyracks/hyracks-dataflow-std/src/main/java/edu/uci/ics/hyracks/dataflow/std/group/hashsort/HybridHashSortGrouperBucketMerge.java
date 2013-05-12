@@ -274,7 +274,9 @@ public class HybridHashSortGrouperBucketMerge {
                      * outFrame
                      */
 
-                    merger.aggregate(fta, tupleIndex, outFrameAccessor, currentTupleInOutFrame, mergeState);
+                    int outTupleStartOffset = outFrameAccessor.getTupleStartOffset(currentTupleInOutFrame);
+                    merger.aggregate(fta, tupleIndex, outFrameAccessor.getBuffer().array(), outTupleStartOffset,
+                            outFrameAccessor.getTupleEndOffset(currentTupleInOutFrame), mergeState);
 
                 }
                 tupleIndices[runIndex]++;

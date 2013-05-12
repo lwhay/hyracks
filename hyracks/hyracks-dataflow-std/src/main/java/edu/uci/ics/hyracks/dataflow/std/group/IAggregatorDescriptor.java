@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -18,9 +18,6 @@ import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 
-/**
- *
- */
 public interface IAggregatorDescriptor {
 
     /**
@@ -56,31 +53,20 @@ public interface IAggregatorDescriptor {
     public void reset();
 
     /**
-     * Aggregate the value. Aggregate state should be updated correspondingly.
-     * 
-     * @param accessor
-     * @param tIndex
-     * @param data
-     *            The buffer containing the state, if frame-based-state is used.
-     *            This means that it can be null if java-object-based-state is
-     *            used.
-     * @param offset
-     * @param state
-     *            The aggregate state.
-     * @throws HyracksDataException
-     */
-    public void aggregate(IFrameTupleAccessor accessor, int tIndex, IFrameTupleAccessor stateAccessor,
-            int stateTupleIndex, AggregateState state) throws HyracksDataException;
-    
-    /**
      * Aggregate the value from the accessor with the state stored in the given bytes.
      * 
      * @param accessor
+     *            Accessor to the frame containing the input tuple
      * @param tIndex
+     *            The index of the input tuple in the frame
      * @param data
+     *            The binary state containing the aggregate state
      * @param offset
+     *            The offset of the aggregation state in the binary state
      * @param length
+     *            The length of the aggregation state in the binary state
      * @param state
+     *            The object aggregation state.
      * @throws HyracksDataException
      */
     public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,

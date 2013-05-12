@@ -201,7 +201,7 @@ class GroupingHashTable {
             link.add(lastBIndex, appender.getTupleCount() - 1, saIndex);
 
         } else {
-            aggregator.aggregate(accessor, tIndex, null, 0, aggregateStates[saIndex]);
+            aggregator.aggregate(accessor, tIndex, null, 0, 0, aggregateStates[saIndex]);
         }
     }
 

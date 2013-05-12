@@ -218,7 +218,10 @@ public class GroupRunMergingFrameReader implements IFrameReader {
                 groupResultCacheAccessor.reset(groupResultCacheBuffer);
 
             } else {
-                grouper.aggregate(fta, tupleIndex, groupResultCacheAccessor, 0, groupState);
+                int groupResultCacheStartOffset = groupResultCacheAccessor.getTupleStartOffset(0);
+                grouper.aggregate(fta, tupleIndex, groupResultCacheAccessor.getBuffer().array(),
+                        groupResultCacheStartOffset, groupResultCacheAccessor.getTupleEndOffset(0)
+                                - groupResultCacheStartOffset, groupState);
             }
 
             ++tupleIndexes[runIndex];

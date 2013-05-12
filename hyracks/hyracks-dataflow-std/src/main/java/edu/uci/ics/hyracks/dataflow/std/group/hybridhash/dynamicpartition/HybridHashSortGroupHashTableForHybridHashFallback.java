@@ -55,7 +55,10 @@ public class HybridHashSortGroupHashTableForHybridHashFallback extends HybridHas
         if (findMatch(entry, accessor, tupleIndex, isRawInput)) {
             // find match; do aggregation
             hashtableRecordAccessor.reset(contents[matchPointer.frameIndex]);
-            workAggergator.aggregate(accessor, tupleIndex, hashtableRecordAccessor, matchPointer.tupleIndex, aggState);
+            int htRecordStartOffset = hashtableRecordAccessor.getTupleStartOffset(matchPointer.tupleIndex);
+            workAggergator.aggregate(accessor, tupleIndex, hashtableRecordAccessor.getBuffer().array(),
+                    htRecordStartOffset, hashtableRecordAccessor.getTupleEndOffset(matchPointer.tupleIndex)
+                            - htRecordStartOffset, aggState);
         } else {
 
             internalTupleBuilder.reset();

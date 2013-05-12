@@ -84,7 +84,10 @@ public class PreclusteredGroupWriter implements IFrameWriter {
                 groupResultCacheAccessor.reset(ByteBuffer.wrap(groupResultCache));
                 if (sameGroup(inFrameAccessor, i, groupResultCacheAccessor, 0)) {
                     // find match: do aggregation
-                    aggregator.aggregate(inFrameAccessor, i, groupResultCacheAccessor, 0, aggregateState);
+                    int groupCacheStartOffset = groupResultCacheAccessor.getTupleStartOffset(0);
+                    aggregator.aggregate(inFrameAccessor, i, groupResultCacheAccessor.getBuffer().array(),
+                            groupCacheStartOffset, groupResultCacheAccessor.getTupleEndOffset(0)
+                                    - groupCacheStartOffset, aggregateState);
                     continue;
                 } else {
                     // write the cached group into the final output
@@ -116,7 +119,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
                     tupleBuilder.getSize())) {
                 throw new HyracksDataException("The partial result is too large to be initialized in a frame.");
             }
-            
+
             groupResultCacheAccessor.reset(groupResultCacheBuffer);
         }
     }

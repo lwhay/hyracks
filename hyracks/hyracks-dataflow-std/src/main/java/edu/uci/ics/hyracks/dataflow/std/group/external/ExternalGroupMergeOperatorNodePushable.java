@@ -255,7 +255,9 @@ class ExternalGroupMergeOperatorNodePushable extends AbstractUnaryOutputSourceOp
                      * outFrame
                      */
 
-                    aggregator.aggregate(fta, tupleIndex, outFrameAccessor, currentTupleInOutFrame, aggregateState);
+                    int outTupleStartOffset = outFrameAccessor.getTupleStartOffset(currentTupleInOutFrame);
+                    aggregator.aggregate(fta, tupleIndex, outFrameAccessor.getBuffer().array(), outTupleStartOffset,
+                            outFrameAccessor.getTupleEndOffset(currentTupleInOutFrame), aggregateState);
 
                 }
                 tupleIndices[runIndex]++;

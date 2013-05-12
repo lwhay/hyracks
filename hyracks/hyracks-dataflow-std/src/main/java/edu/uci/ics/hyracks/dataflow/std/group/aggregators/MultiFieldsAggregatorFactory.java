@@ -141,31 +141,6 @@ public class MultiFieldsAggregatorFactory implements IAggregatorDescriptorFactor
                 }
             }
 
-            @Override
-            public void aggregate(IFrameTupleAccessor accessor, int tIndex, IFrameTupleAccessor stateAccessor,
-                    int stateTupleIndex, AggregateState state) throws HyracksDataException {
-                if (stateAccessor != null) {
-                    int stateTupleOffset = stateAccessor.getTupleStartOffset(stateTupleIndex);
-                    int fieldIndex = 0;
-                    for (int i = 0; i < aggregators.length; i++) {
-                        if (aggregators[i].needsBinaryState()) {
-                            int stateFieldOffset = stateAccessor.getFieldStartOffset(stateTupleIndex, keys.length
-                                    + fieldIndex);
-                            aggregators[i].aggregate(accessor, tIndex, stateAccessor.getBuffer().array(),
-                                    stateTupleOffset + stateAccessor.getFieldSlotsLength() + stateFieldOffset,
-                                    ((AggregateState[]) state.state)[i]);
-                            fieldIndex++;
-                        } else {
-                            aggregators[i].aggregate(accessor, tIndex, null, 0, ((AggregateState[]) state.state)[i]);
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < aggregators.length; i++) {
-                        aggregators[i].aggregate(accessor, tIndex, null, 0, ((AggregateState[]) state.state)[i]);
-                    }
-                }
-            }
-            
             public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset, int length,
                     AggregateState state) throws HyracksDataException {
                 if (data != null) {
@@ -188,7 +163,7 @@ public class MultiFieldsAggregatorFactory implements IAggregatorDescriptorFactor
                     }
                 }
             }
-            
+
             private int getInt(byte[] data, int offset) {
                 return ((data[offset] & 0xff) << 24) | ((data[offset + 1] & 0xff) << 16)
                         | ((data[offset + 2] & 0xff) << 8) | (data[offset + 3] & 0xff);

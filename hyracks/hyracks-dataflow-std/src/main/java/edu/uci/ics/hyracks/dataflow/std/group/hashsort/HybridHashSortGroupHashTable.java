@@ -183,7 +183,9 @@ public class HybridHashSortGroupHashTable {
         if (findMatch(entry, accessor, tupleIndex)) {
             // find match; do aggregation
             hashtableRecordAccessor.reset(contents[matchPointer.frameIndex]);
-            aggregator.aggregate(accessor, tupleIndex, hashtableRecordAccessor, matchPointer.tupleIndex, aggState);
+            int htRecordStartOffset = hashtableRecordAccessor.getTupleStartOffset(matchPointer.tupleIndex);
+            aggregator.aggregate(accessor, tupleIndex, hashtableRecordAccessor.getBuffer().array(),
+                    htRecordStartOffset, hashtableRecordAccessor.getTupleEndOffset(matchPointer.tupleIndex), aggState);
         } else {
 
             internalTupleBuilder.reset();

@@ -226,9 +226,11 @@ public class HashSpillableTableFactory implements ISpillableTableFactory {
                     storedTuplePointer.tupleIndex = stateAppender.getTupleCount() - 1;
                     table.insert(entry, storedTuplePointer);
                 } else {
-
-                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1, storedTuplePointer.tupleIndex,
-                            aggregateState);
+                    int storedTupleStartOffset = storedKeysAccessor1.getTupleStartOffset(storedTuplePointer.tupleIndex);
+                    aggregator.aggregate(accessor, tIndex, storedKeysAccessor1.getBuffer().array(),
+                            storedTupleStartOffset,
+                            storedKeysAccessor1.getTupleEndOffset(storedTuplePointer.tupleIndex)
+                                    - storedTupleStartOffset, aggregateState);
 
                 }
                 return true;
