@@ -181,10 +181,15 @@ public class GroupByVisitor extends DefaultVisitor {
             }
 
             HiveConf conf = ConfUtil.getHiveConf();
-            Boolean extGby = conf.getBoolean("hive.algebricks.groupby.external", false);
 
-            if (extGby && isSerializable(aggregators)) {
-                currentOperator.getAnnotations().put(OperatorAnnotations.USE_HASH_SORT_GROUP_BY, Boolean.TRUE);
+            int gbyAlgo = conf.getInt("hive.algebricks.groupby.algo", 2);
+
+            if (isSerializable(aggregators)) {
+                if (gbyAlgo == 1) {
+                    currentOperator.getAnnotations().put(OperatorAnnotations.USE_HASH_SORT_GROUP_BY, Boolean.TRUE);
+                } else if (gbyAlgo >= 2) {
+                    currentOperator.getAnnotations().put(OperatorAnnotations.USE_HYBRID_HASH_GROUP_BY, Boolean.TRUE);
+                }
             }
             return new MutableObject<ILogicalOperator>(currentOperator);
         } else {
