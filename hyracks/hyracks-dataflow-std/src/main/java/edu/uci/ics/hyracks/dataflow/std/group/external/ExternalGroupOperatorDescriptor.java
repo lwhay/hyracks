@@ -31,7 +31,8 @@ import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.ISpillableTableFactory;
 
 /**
- *
+ * External-Group operator does the group-by using both hash and sort, and its
+ * output result is sorted. 
  */
 public class ExternalGroupOperatorDescriptor extends AbstractOperatorDescriptor {
 

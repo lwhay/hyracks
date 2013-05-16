@@ -45,49 +45,6 @@ public class RuntimeFunctionTestCase extends AbstractHivesterixTestCase {
             driver.run(query);
             driver.clear();
             i++;
-
-            String warehouse = hconf.get("hive.metastore.warehouse.dir");
-            String tableName = removeExt(resultFile.getName());
-            String directory = warehouse + "/" + tableName + "/";
-            String localDirectory = "tmp";
-
-            FileStatus[] files = dfs.listStatus(new Path(directory));
-            FileSystem lfs = null;
-            if (files == null) {
-                continue;
-            }
-
-            File resultDirectory = new File(localDirectory + "/" + tableName);
-            deleteDir(resultDirectory);
-            resultDirectory.mkdir();
-
-            for (FileStatus fs : files) {
-                Path src = fs.getPath();
-                if (src.getName().indexOf("crc") >= 0)
-                    continue;
-
-                String destStr = localDirectory + "/" + tableName + "/" + src.getName();
-                Path dest = new Path(destStr);
-                if (lfs != null) {
-                    lfs.copyToLocalFile(src, dest);
-                    dfs.copyFromLocalFile(dest, new Path(directory));
-                } else
-                    dfs.copyToLocalFile(src, dest);
-            }
-
-            File[] rFiles = resultDirectory.listFiles();
-            StringBuilder sb = new StringBuilder();
-            for (File r : rFiles) {
-                if (r.getName().indexOf("crc") >= 0)
-                    continue;
-                readFileToString(r, sb);
-            }
-
-            StringBuilder buf = new StringBuilder();
-            readFileToString(resultFile, buf);
-            System.out.println(">>>>>>>>" + buf);
-            System.out.println("<<<<<<<<" + sb);
-
         }
 
         String warehouse = hconf.get("hive.metastore.warehouse.dir");
@@ -131,6 +88,10 @@ public class RuntimeFunctionTestCase extends AbstractHivesterixTestCase {
         StringBuilder buf = new StringBuilder();
         readFileToString(resultFile, buf);
         StringBuffer errorMsg = new StringBuffer();
+
+        System.out.println("expected:>>>>>>>" + sb.toString());
+        System.out.println("actual:<<<<<<<" + buf.toString());
+
         if (!equal(buf, sb, errorMsg)) {
             throw new Exception("Result for " + queryFile + " changed:\n" + errorMsg.toString());
         }

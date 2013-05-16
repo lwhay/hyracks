@@ -38,9 +38,6 @@ import edu.uci.ics.hyracks.dataflow.std.structures.ISerializableTable;
 import edu.uci.ics.hyracks.dataflow.std.structures.SerializableHashTable;
 import edu.uci.ics.hyracks.dataflow.std.structures.TuplePointer;
 
-/**
- *
- */
 public class HashSpillableTableFactory implements ISpillableTableFactory {
 
     private static final long serialVersionUID = 1L;
