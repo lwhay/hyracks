@@ -54,8 +54,8 @@
 	</property>
 
 	<property>
-		<name>hive.algebricks.groupby.external</name>
-		<value>false</value>
+		<name>hive.algebricks.groupby.algo</name>
+		<value>1</value>
 	</property>
 
 	<property>

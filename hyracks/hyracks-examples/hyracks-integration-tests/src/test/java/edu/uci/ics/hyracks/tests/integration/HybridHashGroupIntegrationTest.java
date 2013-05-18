@@ -104,6 +104,53 @@ public class HybridHashGroupIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    public void noKeySumHybridHashTest() throws Exception {
+        JobSpecification spec = new JobSpecification();
+
+        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
+                desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
+
+        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                FloatSerializerDeserializer.INSTANCE });
+        int estimatedRecSize = 10 + 4 + 4 + 4 + 4 * 4 + 4;
+
+        int[] keyFields = new int[] {};
+
+        HybridHashGroupOperatorDescriptor grouper = new HybridHashGroupOperatorDescriptor(spec, keyFields, framesLimit,
+                userProvidedInputSizeOfRawRecords, userProvidedInputSizeOfUniqueRecords, estimatedRecSize, tableSize,
+                new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, 0,
+                new UTF8StringNormalizedKeyComputerFactory(), new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
+                                new IntSumFieldAggregatorFactory(3, false),
+                                new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
+                                new IntSumFieldAggregatorFactory(2, false),
+                                new FloatSumFieldAggregatorFactory(3, false) }), outputRec);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
+
+        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
+        spec.connect(conn1, csvScanner, 0, grouper, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeySumHybridHashTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID);
+
+        IConnectorDescriptor conn3 = new MToNPartitioningConnectorDescriptor(spec,
+                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
+
+        spec.connect(conn3, grouper, 0, printer, 0);
+
+        spec.addRoot(printer);
+
+        runTestAndCheckCorrectness(spec, new File[] { new File("data/tpch0.001/aggresults/nokeysum.dat") }, outputRec);
+    }
+
+    @Test
     public void singleKeySumHybridHashTest() throws Exception {
         JobSpecification spec = new JobSpecification();
 

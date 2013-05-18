@@ -424,6 +424,17 @@ public class AggregationTest extends AbstractIntegrationTest {
                 IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
+        int frameLimits = 4;
+
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn0, csvScanner, 0, sorter, 0);
 
         PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
@@ -437,7 +448,7 @@ public class AggregationTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
                                 .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        spec.connect(conn1, sorter, 0, grouper, 0);
 
         AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
 
@@ -557,6 +568,17 @@ public class AggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 0 };
+        int frameLimits = 4;
+
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
+                desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn0, csvScanner, 0, sorter, 0);
 
         PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
@@ -570,7 +592,7 @@ public class AggregationTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields,
                         new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
                                 .of(UTF8StringPointable.FACTORY) }));
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        spec.connect(conn1, sorter, 0, grouper, 0);
 
         AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
 
@@ -690,6 +712,17 @@ public class AggregationTest extends AbstractIntegrationTest {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 8, 0 };
+        int frameLimits = 4;
+
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn0, csvScanner, 0, sorter, 0);
 
         PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
@@ -704,7 +737,7 @@ public class AggregationTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        spec.connect(conn1, sorter, 0, grouper, 0);
 
         AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumInmemGroupTest");
 
@@ -827,6 +860,17 @@ public class AggregationTest extends AbstractIntegrationTest {
                 FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 8, 0 };
+        int frameLimits = 4;
+
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn0, csvScanner, 0, sorter, 0);
 
         PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
@@ -841,7 +885,7 @@ public class AggregationTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        spec.connect(conn1, sorter, 0, grouper, 0);
 
         AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyAvgInmemGroupTest");
 
@@ -965,6 +1009,17 @@ public class AggregationTest extends AbstractIntegrationTest {
                 IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 8, 0 };
+        int frameLimits = 4;
+
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
+
+        spec.connect(conn0, csvScanner, 0, sorter, 0);
 
         PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
@@ -979,7 +1034,7 @@ public class AggregationTest extends AbstractIntegrationTest {
                 new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        spec.connect(conn1, sorter, 0, grouper, 0);
 
         AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxStringPreClusterGroupTest");
 
