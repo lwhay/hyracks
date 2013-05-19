@@ -83,8 +83,8 @@ public class SerializableAggregatorDescriptorFactory implements IAggregatorDescr
                 int fieldSlotLength = outRecordDescriptor.getFieldCount() * 4;
                 for (int i = 0; i < aggs.length; i++) {
                     try {
-                        int stateFieldOffset = (keys.length + i == 0) ? 0 : getInt(data, offset + (keys.length + i - 1)
-                                * 4)
+                        int stateFieldOffset = ((keys.length + i == 0) ? 0 : getInt(data, offset
+                                + (keys.length + i - 1) * 4))
                                 + offset + fieldSlotLength;
                         aggs[i].step(ftr, data, stateFieldOffset, stateFieldLength[i]);
                     } catch (AlgebricksException e) {

@@ -89,9 +89,6 @@ public class RuntimeFunctionTestCase extends AbstractHivesterixTestCase {
         readFileToString(resultFile, buf);
         StringBuffer errorMsg = new StringBuffer();
 
-        System.out.println("expected:>>>>>>>" + sb.toString());
-        System.out.println("actual:<<<<<<<" + buf.toString());
-
         if (!equal(buf, sb, errorMsg)) {
             throw new Exception("Result for " + queryFile + " changed:\n" + errorMsg.toString());
         }

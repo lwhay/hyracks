@@ -50,7 +50,7 @@
 
 	<property>
 		<name>hive.algebricks.groupby.algo</name>
-		<value>1</value>
+		<value>2</value>
 		<description>The group-by algorithm to be used. 0 is for sort-based 
 		algorithm, 1 is for hash-sort algorithm, and 2 is for hybrid-hash 
 		algorithm. By default hybrid-hash algorithm is used.</description>
