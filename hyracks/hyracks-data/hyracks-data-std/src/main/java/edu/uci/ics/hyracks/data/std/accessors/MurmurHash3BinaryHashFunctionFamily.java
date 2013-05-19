@@ -19,11 +19,14 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunction;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFamily;
 
 /**
- * An implementation of the Murmur3 hash family. The code is implemented based on the original
- * <a href=http://code.google.com/p/guava-libraries/source/browse/guava/src/com/google/common/hash/Murmur3_32HashFunction.java>guava implementation</a>
- * from Google Guava library.
+ * An implementation of the Murmur3 hash family. The code is implemented based
+ * on the original <a
+ * href=http://code.google.com/p/guava-libraries/source/browse
+ * /guava/src/com/google/common/hash/Murmur3_32HashFunction.java>guava
+ * implementation</a> from Google Guava library.
  */
-public class MurmurHash3BinaryHashFunctionFamily implements IBinaryHashFunctionFamily {
+public class MurmurHash3BinaryHashFunctionFamily implements
+        IBinaryHashFunctionFamily {
 
     public static final IBinaryHashFunctionFamily INSTANCE = new MurmurHash3BinaryHashFunctionFamily();
 
@@ -48,7 +51,8 @@ public class MurmurHash3BinaryHashFunctionFamily implements IBinaryHashFunctionF
                 int p = offset;
                 int remain = length;
                 while (remain >= 4) {
-                    int k = (bytes[p] & 0xff) | ((bytes[p + 1] & 0xff) << 8) | ((bytes[p + 2] & 0xff) << 16)
+                    int k = (bytes[p] & 0xff) | ((bytes[p + 1] & 0xff) << 8)
+                            | ((bytes[p + 2] & 0xff) << 16)
                             | ((bytes[p + 3] & 0xff) << 24);
                     k *= C1;
                     k = Integer.rotateLeft(k, 15);
