@@ -152,13 +152,13 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
 
         if (gby.getNestedPlans().size() != 1) {
             throw new AlgebricksException(
-                    "Hash-sort group-by currently works only for one nested plan with one root containing"
+                    "External-hash-sort group-by currently works only for one nested plan with one root containing"
                             + "an aggregate and a nested-tuple-source.");
         }
         ILogicalPlan p0 = gby.getNestedPlans().get(0);
         if (p0.getRoots().size() != 1) {
             throw new AlgebricksException(
-                    "Hash-sort group-by currently works only for one nested plan with one root containing"
+                    "External-hash-sort group-by currently works only for one nested plan with one root containing"
                             + "an aggregate and a nested-tuple-source.");
         }
         Mutable<ILogicalOperator> r0 = p0.getRoots().get(0);

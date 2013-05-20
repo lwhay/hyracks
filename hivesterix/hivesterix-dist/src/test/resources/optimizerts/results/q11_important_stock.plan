@@ -10,62 +10,66 @@ write [%0->$$17, %0->$$18]
                   nested tuple source
                   -- NESTED_TUPLE_SOURCE  |LOCAL|
              }
-      -- EXTERNAL_GROUP_BY[$$21]  |PARTITIONED|
+      -- PRE_CLUSTERED_GROUP_BY[$$21]  |PARTITIONED|
         exchange 
-        -- HASH_PARTITION_EXCHANGE [$$21]  |PARTITIONED|
+        -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$21(ASC)] HASH:[$$21]  |PARTITIONED|
           group by ([$$21 := %0->$$1]) decor ([]) {
                     aggregate [$$20] <- [function-call: hive:sum(PARTIAL1), Args:[function-call: hive:org.apache.hadoop.hive.ql.udf.UDFOPMultiply, Args:[%0->$$4, %0->$$3]]]
                     -- AGGREGATE  |LOCAL|
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- EXTERNAL_GROUP_BY[$$1]  |LOCAL|
+          -- PRE_CLUSTERED_GROUP_BY[$$1]  |LOCAL|
             exchange 
-            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-              project ([$$1, $$3, $$4])
-              -- STREAM_PROJECT  |PARTITIONED|
+            -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+              order (ASC, %0->$$1) 
+              -- STABLE_SORT [$$1(ASC)]  |LOCAL|
                 exchange 
                 -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                  join (function-call: algebricks:eq, Args:[%0->$$2, %0->$$6])
-                  -- HYBRID_HASH_JOIN [$$2][$$6]  |PARTITIONED|
+                  project ([$$1, $$3, $$4])
+                  -- STREAM_PROJECT  |PARTITIONED|
                     exchange 
-                    -- HASH_PARTITION_EXCHANGE [$$2]  |PARTITIONED|
-                      data-scan [$$2, $$1, $$3, $$4]<-[$$1, $$2, $$3, $$4, $$5] <- default.partsupp
-                      -- DATASOURCE_SCAN  |PARTITIONED|
+                    -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+                      join (function-call: algebricks:eq, Args:[%0->$$2, %0->$$6])
+                      -- HYBRID_HASH_JOIN [$$2][$$6]  |PARTITIONED|
                         exchange 
-                        -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                          empty-tuple-source
-                          -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
-                    exchange 
-                    -- HASH_PARTITION_EXCHANGE [$$6]  |PARTITIONED|
-                      project ([$$6])
-                      -- STREAM_PROJECT  |PARTITIONED|
-                        exchange 
-                        -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                          join (function-call: algebricks:eq, Args:[%0->$$9, %0->$$13])
-                          -- HYBRID_HASH_JOIN [$$9][$$13]  |PARTITIONED|
+                        -- HASH_PARTITION_EXCHANGE [$$2]  |PARTITIONED|
+                          data-scan [$$2, $$1, $$3, $$4]<-[$$1, $$2, $$3, $$4, $$5] <- default.partsupp
+                          -- DATASOURCE_SCAN  |PARTITIONED|
                             exchange 
-                            -- HASH_PARTITION_EXCHANGE [$$9]  |PARTITIONED|
-                              data-scan [$$9, $$6]<-[$$6, $$7, $$8, $$9, $$10, $$11, $$12] <- default.supplier
-                              -- DATASOURCE_SCAN  |PARTITIONED|
+                            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+                              empty-tuple-source
+                              -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
+                        exchange 
+                        -- HASH_PARTITION_EXCHANGE [$$6]  |PARTITIONED|
+                          project ([$$6])
+                          -- STREAM_PROJECT  |PARTITIONED|
+                            exchange 
+                            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+                              join (function-call: algebricks:eq, Args:[%0->$$9, %0->$$13])
+                              -- HYBRID_HASH_JOIN [$$9][$$13]  |PARTITIONED|
                                 exchange 
-                                -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                                  empty-tuple-source
-                                  -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
-                            exchange 
-                            -- HASH_PARTITION_EXCHANGE [$$13]  |PARTITIONED|
-                              project ([$$13])
-                              -- STREAM_PROJECT  |PARTITIONED|
-                                select (function-call: algebricks:eq, Args:[%0->$$14, GERMANY])
-                                -- STREAM_SELECT  |PARTITIONED|
-                                  exchange 
-                                  -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                                    data-scan [$$13, $$14]<-[$$13, $$14, $$15, $$16] <- default.nation
-                                    -- DATASOURCE_SCAN  |PARTITIONED|
+                                -- HASH_PARTITION_EXCHANGE [$$9]  |PARTITIONED|
+                                  data-scan [$$9, $$6]<-[$$6, $$7, $$8, $$9, $$10, $$11, $$12] <- default.supplier
+                                  -- DATASOURCE_SCAN  |PARTITIONED|
+                                    exchange 
+                                    -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+                                      empty-tuple-source
+                                      -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
+                                exchange 
+                                -- HASH_PARTITION_EXCHANGE [$$13]  |PARTITIONED|
+                                  project ([$$13])
+                                  -- STREAM_PROJECT  |PARTITIONED|
+                                    select (function-call: algebricks:eq, Args:[%0->$$14, GERMANY])
+                                    -- STREAM_SELECT  |PARTITIONED|
                                       exchange 
                                       -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                                        empty-tuple-source
-                                        -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
+                                        data-scan [$$13, $$14]<-[$$13, $$14, $$15, $$16] <- default.nation
+                                        -- DATASOURCE_SCAN  |PARTITIONED|
+                                          exchange 
+                                          -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+                                            empty-tuple-source
+                                            -- EMPTY_TUPLE_SOURCE  |PARTITIONED|
 write [%0->$$3]
 -- SINK_WRITE  |PARTITIONED|
   exchange 
@@ -76,7 +80,7 @@ write [%0->$$3]
                 nested tuple source
                 -- NESTED_TUPLE_SOURCE  |LOCAL|
            }
-    -- EXTERNAL_GROUP_BY[]  |PARTITIONED|
+    -- PRE_CLUSTERED_GROUP_BY[]  |PARTITIONED|
       exchange 
       -- HASH_PARTITION_EXCHANGE []  |PARTITIONED|
         group by ([]) decor ([]) {
@@ -85,7 +89,7 @@ write [%0->$$3]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- EXTERNAL_GROUP_BY[]  |LOCAL|
+        -- PRE_CLUSTERED_GROUP_BY[]  |LOCAL|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             data-scan [$$2]<-[$$1, $$2] <- default.q11_part_tmp

@@ -90,26 +90,26 @@ write [%0->$$47, %0->$$48, %0->$$49, %0->$$50]
   -- STREAM_PROJECT  |PARTITIONED|
     exchange 
     -- SORT_MERGE_EXCHANGE [$$47(ASC), $$48(ASC), $$49(ASC) ]  |PARTITIONED|
-      order (ASC, %0->$$47) (ASC, %0->$$48) (ASC, %0->$$49) 
-      -- STABLE_SORT [$$47(ASC), $$48(ASC), $$49(ASC)]  |LOCAL|
+      group by ([$$47 := %0->$$53; $$48 := %0->$$54; $$49 := %0->$$55]) decor ([]) {
+                aggregate [$$50] <- [function-call: hive:sum(FINAL), Args:[%0->$$52]]
+                -- AGGREGATE  |LOCAL|
+                  nested tuple source
+                  -- NESTED_TUPLE_SOURCE  |LOCAL|
+             }
+      -- PRE_CLUSTERED_GROUP_BY[$$53, $$54, $$55]  |PARTITIONED|
         exchange 
-        -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-          group by ([$$47 := %0->$$53; $$48 := %0->$$54; $$49 := %0->$$55]) decor ([]) {
-                    aggregate [$$50] <- [function-call: hive:sum(FINAL), Args:[%0->$$52]]
+        -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$53(ASC), $$54(ASC), $$55(ASC)] HASH:[$$53, $$54, $$55]  |PARTITIONED|
+          group by ([$$53 := %0->$$1; $$54 := %0->$$2; $$55 := %0->$$45]) decor ([]) {
+                    aggregate [$$52] <- [function-call: hive:sum(PARTIAL1), Args:[%0->$$46]]
                     -- AGGREGATE  |LOCAL|
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- EXTERNAL_GROUP_BY[$$53, $$54, $$55]  |PARTITIONED|
+          -- PRE_CLUSTERED_GROUP_BY[$$1, $$2, $$45]  |LOCAL|
             exchange 
-            -- HASH_PARTITION_EXCHANGE [$$53, $$54, $$55]  |PARTITIONED|
-              group by ([$$53 := %0->$$1; $$54 := %0->$$2; $$55 := %0->$$45]) decor ([]) {
-                        aggregate [$$52] <- [function-call: hive:sum(PARTIAL1), Args:[%0->$$46]]
-                        -- AGGREGATE  |LOCAL|
-                          nested tuple source
-                          -- NESTED_TUPLE_SOURCE  |LOCAL|
-                     }
-              -- EXTERNAL_GROUP_BY[$$1, $$2, $$45]  |LOCAL|
+            -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+              order (ASC, %0->$$1) (ASC, %0->$$2) (ASC, %0->$$45) 
+              -- STABLE_SORT [$$1(ASC), $$2(ASC), $$45(ASC)]  |LOCAL|
                 exchange 
                 -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                   project ([$$1, $$2, $$45, $$46])

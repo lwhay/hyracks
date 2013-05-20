@@ -24,7 +24,7 @@ write [%0->$$4]
                 nested tuple source
                 -- NESTED_TUPLE_SOURCE  |LOCAL|
            }
-    -- EXTERNAL_GROUP_BY[]  |PARTITIONED|
+    -- PRE_CLUSTERED_GROUP_BY[]  |PARTITIONED|
       exchange 
       -- HASH_PARTITION_EXCHANGE []  |PARTITIONED|
         group by ([]) decor ([]) {
@@ -33,7 +33,7 @@ write [%0->$$4]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- EXTERNAL_GROUP_BY[]  |LOCAL|
+        -- PRE_CLUSTERED_GROUP_BY[]  |LOCAL|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             select (function-call: algebricks:gt, Args:[%0->$$1, 0.0])
@@ -72,26 +72,26 @@ write [%0->$$6, %0->$$9, %0->$$8]
     -- ASSIGN  |PARTITIONED|
       exchange 
       -- SORT_MERGE_EXCHANGE [$$6(ASC) ]  |PARTITIONED|
-        order (ASC, %0->$$6) 
-        -- STABLE_SORT [$$6(ASC)]  |LOCAL|
+        group by ([$$6 := %0->$$13]) decor ([]) {
+                  aggregate [$$7, $$8] <- [function-call: hive:count(FINAL), Args:[%0->$$11], function-call: hive:sum(FINAL), Args:[%0->$$12]]
+                  -- AGGREGATE  |LOCAL|
+                    nested tuple source
+                    -- NESTED_TUPLE_SOURCE  |LOCAL|
+               }
+        -- PRE_CLUSTERED_GROUP_BY[$$13]  |PARTITIONED|
           exchange 
-          -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-            group by ([$$6 := %0->$$13]) decor ([]) {
-                      aggregate [$$7, $$8] <- [function-call: hive:count(FINAL), Args:[%0->$$11], function-call: hive:sum(FINAL), Args:[%0->$$12]]
+          -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$13(ASC)] HASH:[$$13]  |PARTITIONED|
+            group by ([$$13 := %0->$$5]) decor ([]) {
+                      aggregate [$$11, $$12] <- [function-call: hive:count(PARTIAL1), Args:[1], function-call: hive:sum(PARTIAL1), Args:[%0->$$3]]
                       -- AGGREGATE  |LOCAL|
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- EXTERNAL_GROUP_BY[$$13]  |PARTITIONED|
+            -- PRE_CLUSTERED_GROUP_BY[$$5]  |LOCAL|
               exchange 
-              -- HASH_PARTITION_EXCHANGE [$$13]  |PARTITIONED|
-                group by ([$$13 := %0->$$5]) decor ([]) {
-                          aggregate [$$11, $$12] <- [function-call: hive:count(PARTIAL1), Args:[1], function-call: hive:sum(PARTIAL1), Args:[%0->$$3]]
-                          -- AGGREGATE  |LOCAL|
-                            nested tuple source
-                            -- NESTED_TUPLE_SOURCE  |LOCAL|
-                       }
-                -- EXTERNAL_GROUP_BY[$$5]  |LOCAL|
+              -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+                order (ASC, %0->$$5) 
+                -- STABLE_SORT [$$5(ASC)]  |LOCAL|
                   exchange 
                   -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                     project ([$$5, $$3])

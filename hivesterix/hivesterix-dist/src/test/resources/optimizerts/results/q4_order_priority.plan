@@ -30,26 +30,26 @@ write [%0->$$11, %0->$$13]
     -- ASSIGN  |PARTITIONED|
       exchange 
       -- SORT_MERGE_EXCHANGE [$$11(ASC) ]  |PARTITIONED|
-        order (ASC, %0->$$11) 
-        -- STABLE_SORT [$$11(ASC)]  |LOCAL|
+        group by ([$$11 := %0->$$16]) decor ([]) {
+                  aggregate [$$12] <- [function-call: hive:count(FINAL), Args:[%0->$$15]]
+                  -- AGGREGATE  |LOCAL|
+                    nested tuple source
+                    -- NESTED_TUPLE_SOURCE  |LOCAL|
+               }
+        -- PRE_CLUSTERED_GROUP_BY[$$16]  |PARTITIONED|
           exchange 
-          -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-            group by ([$$11 := %0->$$16]) decor ([]) {
-                      aggregate [$$12] <- [function-call: hive:count(FINAL), Args:[%0->$$15]]
+          -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$16(ASC)] HASH:[$$16]  |PARTITIONED|
+            group by ([$$16 := %0->$$7]) decor ([]) {
+                      aggregate [$$15] <- [function-call: hive:count(PARTIAL1), Args:[1]]
                       -- AGGREGATE  |LOCAL|
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- EXTERNAL_GROUP_BY[$$16]  |PARTITIONED|
+            -- PRE_CLUSTERED_GROUP_BY[$$7]  |LOCAL|
               exchange 
-              -- HASH_PARTITION_EXCHANGE [$$16]  |PARTITIONED|
-                group by ([$$16 := %0->$$7]) decor ([]) {
-                          aggregate [$$15] <- [function-call: hive:count(PARTIAL1), Args:[1]]
-                          -- AGGREGATE  |LOCAL|
-                            nested tuple source
-                            -- NESTED_TUPLE_SOURCE  |LOCAL|
-                       }
-                -- EXTERNAL_GROUP_BY[$$7]  |LOCAL|
+              -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+                order (ASC, %0->$$7) 
+                -- STABLE_SORT [$$7(ASC)]  |LOCAL|
                   exchange 
                   -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                     project ([$$7])

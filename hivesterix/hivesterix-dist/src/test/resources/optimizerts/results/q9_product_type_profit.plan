@@ -4,26 +4,26 @@ write [%0->$$53, %0->$$54, %0->$$55]
   -- STREAM_PROJECT  |PARTITIONED|
     exchange 
     -- SORT_MERGE_EXCHANGE [$$53(ASC), $$54(DESC) ]  |PARTITIONED|
-      order (ASC, %0->$$53) (DESC, %0->$$54) 
-      -- STABLE_SORT [$$53(ASC), $$54(DESC)]  |LOCAL|
+      group by ([$$53 := %0->$$58; $$54 := %0->$$59]) decor ([]) {
+                aggregate [$$55] <- [function-call: hive:sum(FINAL), Args:[%0->$$57]]
+                -- AGGREGATE  |LOCAL|
+                  nested tuple source
+                  -- NESTED_TUPLE_SOURCE  |LOCAL|
+             }
+      -- PRE_CLUSTERED_GROUP_BY[$$58, $$59]  |PARTITIONED|
         exchange 
-        -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-          group by ([$$53 := %0->$$58; $$54 := %0->$$59]) decor ([]) {
-                    aggregate [$$55] <- [function-call: hive:sum(FINAL), Args:[%0->$$57]]
+        -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$58(ASC), $$59(DESC)] HASH:[$$58, $$59]  |PARTITIONED|
+          group by ([$$58 := %0->$$48; $$59 := %0->$$51]) decor ([]) {
+                    aggregate [$$57] <- [function-call: hive:sum(PARTIAL1), Args:[%0->$$52]]
                     -- AGGREGATE  |LOCAL|
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- EXTERNAL_GROUP_BY[$$58, $$59]  |PARTITIONED|
+          -- PRE_CLUSTERED_GROUP_BY[$$48, $$51]  |LOCAL|
             exchange 
-            -- HASH_PARTITION_EXCHANGE [$$58, $$59]  |PARTITIONED|
-              group by ([$$58 := %0->$$48; $$59 := %0->$$51]) decor ([]) {
-                        aggregate [$$57] <- [function-call: hive:sum(PARTIAL1), Args:[%0->$$52]]
-                        -- AGGREGATE  |LOCAL|
-                          nested tuple source
-                          -- NESTED_TUPLE_SOURCE  |LOCAL|
-                     }
-              -- EXTERNAL_GROUP_BY[$$48, $$51]  |LOCAL|
+            -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+              order (ASC, %0->$$48) (DESC, %0->$$51) 
+              -- STABLE_SORT [$$48(ASC), $$51(DESC)]  |LOCAL|
                 exchange 
                 -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                   project ([$$48, $$51, $$52])

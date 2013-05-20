@@ -2,32 +2,32 @@ write [%0->$$63, %0->$$66]
 -- SINK_WRITE  |PARTITIONED|
   exchange 
   -- SORT_MERGE_EXCHANGE [$$63(ASC) ]  |PARTITIONED|
-    order (ASC, %0->$$63) 
-    -- STABLE_SORT [$$63(ASC)]  |LOCAL|
-      exchange 
-      -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-        project ([$$63, $$66])
-        -- STREAM_PROJECT  |PARTITIONED|
-          assign [$$66] <- [function-call: hive:org.apache.hadoop.hive.ql.udf.UDFOPDivide, Args:[%0->$$64, %0->$$65]]
-          -- ASSIGN  |PARTITIONED|
+    project ([$$63, $$66])
+    -- STREAM_PROJECT  |PARTITIONED|
+      assign [$$66] <- [function-call: hive:org.apache.hadoop.hive.ql.udf.UDFOPDivide, Args:[%0->$$64, %0->$$65]]
+      -- ASSIGN  |PARTITIONED|
+        exchange 
+        -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
+          group by ([$$63 := %0->$$70]) decor ([]) {
+                    aggregate [$$64, $$65] <- [function-call: hive:sum(FINAL), Args:[%0->$$68], function-call: hive:sum(FINAL), Args:[%0->$$69]]
+                    -- AGGREGATE  |LOCAL|
+                      nested tuple source
+                      -- NESTED_TUPLE_SOURCE  |LOCAL|
+                 }
+          -- PRE_CLUSTERED_GROUP_BY[$$70]  |PARTITIONED|
             exchange 
-            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-              group by ([$$63 := %0->$$70]) decor ([]) {
-                        aggregate [$$64, $$65] <- [function-call: hive:sum(FINAL), Args:[%0->$$68], function-call: hive:sum(FINAL), Args:[%0->$$69]]
+            -- HASH_PARTITION_MERGE_EXCHANGE MERGE:[$$70(ASC)] HASH:[$$70]  |PARTITIONED|
+              group by ([$$70 := %0->$$61]) decor ([]) {
+                        aggregate [$$68, $$69] <- [function-call: hive:sum(PARTIAL1), Args:[function-call: hive:org.apache.hadoop.hive.ql.udf.generic.GenericUDFWhen, Args:[function-call: algebricks:eq, Args:[%0->$$2, BRAZIL], %0->$$62, 0.0]], function-call: hive:sum(PARTIAL1), Args:[%0->$$62]]
                         -- AGGREGATE  |LOCAL|
                           nested tuple source
                           -- NESTED_TUPLE_SOURCE  |LOCAL|
                      }
-              -- EXTERNAL_GROUP_BY[$$70]  |PARTITIONED|
+              -- PRE_CLUSTERED_GROUP_BY[$$61]  |LOCAL|
                 exchange 
-                -- HASH_PARTITION_EXCHANGE [$$70]  |PARTITIONED|
-                  group by ([$$70 := %0->$$61]) decor ([]) {
-                            aggregate [$$68, $$69] <- [function-call: hive:sum(PARTIAL1), Args:[function-call: hive:org.apache.hadoop.hive.ql.udf.generic.GenericUDFWhen, Args:[function-call: algebricks:eq, Args:[%0->$$2, BRAZIL], %0->$$62, 0.0]], function-call: hive:sum(PARTIAL1), Args:[%0->$$62]]
-                            -- AGGREGATE  |LOCAL|
-                              nested tuple source
-                              -- NESTED_TUPLE_SOURCE  |LOCAL|
-                         }
-                  -- EXTERNAL_GROUP_BY[$$61]  |LOCAL|
+                -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+                  order (ASC, %0->$$61) 
+                  -- STABLE_SORT [$$61(ASC)]  |LOCAL|
                     exchange 
                     -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                       project ([$$61, $$62, $$2])
