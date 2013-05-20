@@ -109,11 +109,6 @@
 			<artifactId>algebricks-compiler</artifactId>
 			<version>0.2.6-SNAPSHOT</version>
 		</dependency>
-        <dependency>
-            <groupId>edu.uci.ics.hyracks</groupId>
-            <artifactId>algebricks-common</artifactId>
-            <version>0.2.6-SNAPSHOT</version>
-        </dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>

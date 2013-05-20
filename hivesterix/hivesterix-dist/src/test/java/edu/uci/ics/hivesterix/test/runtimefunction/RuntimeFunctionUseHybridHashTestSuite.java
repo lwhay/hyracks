@@ -7,12 +7,12 @@ import junit.framework.Test;
 import junit.framework.TestResult;
 import edu.uci.ics.hivesterix.test.base.AbstractTestSuiteClass;
 
-public class RuntimeFunctionTestSuite extends AbstractTestSuiteClass {
+public class RuntimeFunctionUseHybridHashTestSuite extends AbstractTestSuiteClass {
 
     private static final String PATH_TO_QUERIES = "src/test/resources/runtimefunctionts/queries/";
     private static final String PATH_TO_RESULTS = "src/test/resources/runtimefunctionts/results/";
     private static final String PATH_TO_IGNORES = "src/test/resources/runtimefunctionts/ignore.txt";
-    private static final String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default.xml";
+    private static final String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default-hh.xml";
 
     private static final String FILE_EXTENSION_OF_RESULTS = "result";
 
@@ -20,7 +20,7 @@ public class RuntimeFunctionTestSuite extends AbstractTestSuiteClass {
         List<String> ignores = getIgnoreList(PATH_TO_IGNORES);
         File testData = new File(PATH_TO_QUERIES);
         File[] queries = testData.listFiles();
-        RuntimeFunctionTestSuite testSuite = new RuntimeFunctionTestSuite();
+        RuntimeFunctionUseHybridHashTestSuite testSuite = new RuntimeFunctionUseHybridHashTestSuite();
 
         // set hdfs and hyracks cluster, and load test data to hdfs
         try {
