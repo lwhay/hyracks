@@ -45,12 +45,20 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     *  The threshold for fallback to the hash-sort algorithm if the produced result contains
+     *  no less than this ratio of the original input keys
+     */
     private static final double HYBRID_FALLBACK_THRESHOLD = 0.8;
 
-    // input key fields
+    /**
+     *  input key fields
+     */
     private final int[] keyFields;
 
-    // intermediate and final key fields
+    /**
+     *  intermediate and final key fields
+     */
     private final int[] storedKeyFields;
 
     /**
@@ -63,25 +71,39 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
      */
     private final long inputSizeInUniqueKeys;
 
-    // hash table size
+    /**
+     *  hash table size
+     */
     private final int tableSize;
 
-    // estimated record size: used for compute the fudge factor
+    /**
+     *  estimated record size: used for compute the fudge factor
+     */
     private final int userProvidedRecordSizeInBytes;
 
-    // aggregator
+    /**
+     *  aggregator
+     */
     private final IAggregatorDescriptorFactory aggregatorFactory;
 
-    // merger, in case of falling back to the hash-sort algorithm for hash skewness
+    /**
+     *  merger, in case of falling back to the hash-sort algorithm for hash skewness
+     */
     private final IAggregatorDescriptorFactory mergerFactory;
 
-    // for the sort fall-back algorithm
+    /**
+     *  for the sort fall-back algorithm
+     */
     private final INormalizedKeyComputerFactory firstNormalizerFactory;
 
-    // total memory in pages
+    /**
+     *  total memory in pages
+     */
     private final int framesLimit;
 
-    // comparator factories for key fields.
+    /**
+     *  comparator factories for key fields.
+     */
     private final IBinaryComparatorFactory[] comparatorFactories;
 
     /**
@@ -223,6 +245,7 @@ public class HybridHashGroupOperatorDescriptor extends AbstractSingleActivityOpe
                 long estimatedNumberOfUniqueKeys = HybridHashUtil.getEstimatedPartitionSizeOfUniqueKeys(
                         inputSizeInRawRecords, inputSizeInUniqueKeys, 1);
 
+                // estimated output size in frames
                 userProvidedInputSizeInFrames = (int) Math.ceil(estimatedNumberOfUniqueKeys
                         * userProvidedRecordSizeInBytes / frameSize);
 

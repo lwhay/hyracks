@@ -139,18 +139,36 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                                     throw new NotImplementedException(
                                             "Hash-sort group-by for nested grouping is not implemented.");
                                 }
+
+                                int maxFrame = physicalOptimizationConfig.getMaxFramesExternalGroupBy();
+                                if (gby.getAnnotations().get(OperatorAnnotations.MAX_NUMBER_FRAMES) != null) {
+                                    maxFrame = (Integer) (gby.getAnnotations()
+                                            .get(OperatorAnnotations.MAX_NUMBER_FRAMES));
+                                }
+                                long keyCardinality = physicalOptimizationConfig.getHybridHashGroupByKeyCardinality(p0);
+                                if (gby.getAnnotations().get(OperatorAnnotations.CARDINALITY) != null) {
+                                    keyCardinality = (Long) (gby.getAnnotations().get(OperatorAnnotations.CARDINALITY));
+                                }
+                                long inputRowCount = physicalOptimizationConfig.getHybridHashGroupByInputRowCount(p0);
+                                if (gby.getAnnotations().get(OperatorAnnotations.INPUT_RECORD_COUNT) != null) {
+                                    inputRowCount = (Long) (gby.getAnnotations()
+                                            .get(OperatorAnnotations.INPUT_RECORD_COUNT));
+                                }
+                                int inputRecordSizeInBytes = physicalOptimizationConfig
+                                        .getHybridHashGroupByRecordInBytes(p0);
+                                if (gby.getAnnotations().get(OperatorAnnotations.INPUT_RECORD_SIZE_IN_BYTES) != null) {
+                                    inputRecordSizeInBytes = (Integer) (gby.getAnnotations()
+                                            .get(OperatorAnnotations.INPUT_RECORD_SIZE_IN_BYTES));
+                                }
+
                                 AbstractPhysicalOperator gbyPOp;
                                 if (gby.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY) == Boolean.TRUE) {
-                                    gbyPOp = new HybridHashSortGroupByPOperator(gby.getGroupByList(),
-                                            physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
+                                    gbyPOp = new HybridHashSortGroupByPOperator(gby.getGroupByList(), maxFrame,
                                             physicalOptimizationConfig.getExternalGroupByTableSize());
                                 } else {
-                                    gbyPOp = new HybridHashGroupByPOperator(gby.getGroupByList(),
-                                            physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
-                                            physicalOptimizationConfig.getExternalGroupByTableSize(),
-                                            physicalOptimizationConfig.getHybridHashGroupByInputRowCount(p0),
-                                            physicalOptimizationConfig.getHybridHashGroupByKeyCardinality(p0),
-                                            physicalOptimizationConfig.getHybridHashGroupByRecordInBytes(p0));
+                                    gbyPOp = new HybridHashGroupByPOperator(gby.getGroupByList(), maxFrame,
+                                            physicalOptimizationConfig.getExternalGroupByTableSize(), inputRowCount,
+                                            keyCardinality, inputRecordSizeInBytes);
                                 }
                                 op.setPhysicalOperator(gbyPOp);
                                 generateMergeAggregationExpressions(gby, context);

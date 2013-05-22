@@ -35,12 +35,12 @@ import edu.uci.ics.hyracks.dataflow.std.group.hybridhash.HybridHashGroupOperator
 
 public class HybridHashGroupByPOperator extends AbstractGroupByPOperator {
 
-    protected final int inputRows;
-    protected final int inputKeyCardinality;
+    protected final long inputRows;
+    protected final long inputKeyCardinality;
     protected final int recordSizeInBytes;
 
     public HybridHashGroupByPOperator(List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> gbyList, int frameLimit,
-            int tableSize, int inputRows, int inputKeyCard, int recSizeInBytes) {
+            int tableSize, long inputRows, long inputKeyCard, int recSizeInBytes) {
         super(gbyList, frameLimit, tableSize);
         this.inputRows = inputRows;
         this.inputKeyCardinality = inputKeyCard;
