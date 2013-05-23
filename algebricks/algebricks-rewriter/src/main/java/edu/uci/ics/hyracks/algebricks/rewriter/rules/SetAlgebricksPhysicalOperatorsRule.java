@@ -160,15 +160,19 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                                     inputRecordSizeInBytes = (Integer) (gby.getAnnotations()
                                             .get(OperatorAnnotations.INPUT_RECORD_SIZE_IN_BYTES));
                                 }
+                                int htSlotCount = physicalOptimizationConfig.getExternalGroupByTableSize();
+                                if (gby.getAnnotations().get(OperatorAnnotations.HASHTABLE_SLOT_COUNT) != null) {
+                                    htSlotCount = (Integer) (gby.getAnnotations()
+                                            .get(OperatorAnnotations.HASHTABLE_SLOT_COUNT));
+                                }
 
                                 AbstractPhysicalOperator gbyPOp;
                                 if (gby.getAnnotations().get(OperatorAnnotations.USE_HASH_SORT_GROUP_BY) == Boolean.TRUE) {
                                     gbyPOp = new HybridHashSortGroupByPOperator(gby.getGroupByList(), maxFrame,
-                                            physicalOptimizationConfig.getExternalGroupByTableSize());
+                                            htSlotCount);
                                 } else {
                                     gbyPOp = new HybridHashGroupByPOperator(gby.getGroupByList(), maxFrame,
-                                            physicalOptimizationConfig.getExternalGroupByTableSize(), inputRowCount,
-                                            keyCardinality, inputRecordSizeInBytes);
+                                            htSlotCount, inputRowCount, keyCardinality, inputRecordSizeInBytes);
                                 }
                                 op.setPhysicalOperator(gbyPOp);
                                 generateMergeAggregationExpressions(gby, context);

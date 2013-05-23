@@ -14,4 +14,5 @@ public interface OperatorAnnotations {
     // for hybrid-hash-gby
     public static final String INPUT_RECORD_COUNT = "INPUT_RECORD_COUNT";
     public static final String INPUT_RECORD_SIZE_IN_BYTES = "INPUT_RECORD_SIZE_IN_BYTES";
+    public static final String HASHTABLE_SLOT_COUNT = "HASHTABLE_SLOT_COUNT";
 }
