@@ -1,32 +1,24 @@
+package edu.uci.ics.testselect;
+
 
 import java.util.ArrayList;
-
 import java.util.List;
 
-import javax.xml.crypto.dsig.keyinfo.KeyValue;
+import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 
-import edu.uci.ics.hivesterix.logical.expression.Schema;
-import edu.uci.ics.hivesterix.runtime.jobgen.HiveDataSink;
-import edu.uci.ics.hivesterix.runtime.jobgen.HiveScanRuntimeGenerator;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
-import edu.uci.ics.hyracks.algebricks.compiler.api.AbstractCompilerFactoryBuilder;
 import edu.uci.ics.hyracks.algebricks.compiler.api.HeuristicCompilerFactoryBuilder;
 import edu.uci.ics.hyracks.algebricks.compiler.api.ICompiler;
 import edu.uci.ics.hyracks.algebricks.compiler.api.ICompilerFactory;
 import edu.uci.ics.hyracks.algebricks.compiler.rewriter.rulecontrollers.SequentialFixpointRuleController;
 import edu.uci.ics.hyracks.algebricks.compiler.rewriter.rulecontrollers.SequentialOnceRuleController;
-import edu.uci.ics.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionEvalSizeComputer;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionTypeComputer;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.INullableTypeComputer;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IPartialAggregationTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
@@ -41,32 +33,16 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSc
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
-import edu.uci.ics.hyracks.algebricks.core.algebra.typing.ITypingContext;
-import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobBuilder;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
-import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.PlanCompiler;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.AbstractRuleController;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
-import edu.uci.ics.hyracks.algebricks.data.IBinaryBooleanInspectorFactory;
-import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
-import edu.uci.ics.hyracks.algebricks.data.IBinaryHashFunctionFactoryProvider;
-import edu.uci.ics.hyracks.algebricks.data.IBinaryHashFunctionFamilyProvider;
-import edu.uci.ics.hyracks.algebricks.data.IBinaryIntegerInspectorFactory;
-import edu.uci.ics.hyracks.algebricks.data.INormalizedKeyComputerFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.IPrinterFactory;
-import edu.uci.ics.hyracks.algebricks.data.IPrinterFactoryProvider;
-import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
-import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
-import edu.uci.ics.hyracks.algebricks.examples.piglet.metadata.PigletFileDataSource;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.CharArrayType;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
-import edu.uci.ics.hyracks.algebricks.runtime.operators.std.StreamSelectRuntimeFactory;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
-import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
-import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
@@ -80,17 +56,6 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileScanOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
-
-import org.apache.commons.lang3.mutable.Mutable;
-import org.apache.commons.lang3.mutable.MutableObject;
-import org.apache.hadoop.hive.ql.exec.ColumnInfo;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.parse.HiveParser.expression_return;
-import org.apache.hadoop.hive.ql.plan.PartitionDesc;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
-import org.apache.hadoop.io.Writable;
 
 public class TestSelect{
 	static int varCounter=0;
@@ -196,15 +161,77 @@ public class TestSelect{
 				return null;
 			}
 
-			//IOperatorDescriptor, AlgebricksPartitionConstraint
+		
+
+			@Override
+			public boolean scannerOperatorIsLeaf(IDataSource dataSource) {
+				// TODO Auto-generated method stub
+				return false;
+			}
+
+			@Override
+			public Pair getWriteFileRuntime(IDataSink sink, int[] printColumns,
+					IPrinterFactory[] printerFactories,
+					RecordDescriptor inputDesc) throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Pair getWriteResultRuntime(IDataSource dataSource,
+					IOperatorSchema propagatedSchema, List keys,
+					LogicalVariable payLoadVar, JobGenContext context,
+					JobSpecification jobSpec) throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+
+			@Override
+			public Pair getIndexInsertRuntime(IDataSourceIndex dataSource,
+					IOperatorSchema propagatedSchema,
+					IOperatorSchema[] inputSchemas,
+					IVariableTypeEnvironment typeEnv, List primaryKeys,
+					List secondaryKeys, ILogicalExpression filterExpr,
+					RecordDescriptor recordDesc, JobGenContext context,
+					JobSpecification spec) throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Pair getIndexDeleteRuntime(IDataSourceIndex dataSource,
+					IOperatorSchema propagatedSchema,
+					IOperatorSchema[] inputSchemas,
+					IVariableTypeEnvironment typeEnv, List primaryKeys,
+					List secondaryKeys, ILogicalExpression filterExpr,
+					RecordDescriptor recordDesc, JobGenContext context,
+					JobSpecification spec) throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public IDataSourceIndex findDataSourceIndex(Object indexId,
+					Object dataSourceId) throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
 			@Override
 			public Pair getScannerRuntime(IDataSource dataSource,
 					List scanVariables, List projectVariables,
 					boolean projectPushed, IOperatorSchema opSchema,
 					IVariableTypeEnvironment typeEnv, JobGenContext context,
-					JobSpecification jobSpec) throws AlgebricksException {
-					
-				   Object[] colTypes = dataSource.getSchemaTypes();
+					JobSpecification jobSpec, Object implConfig)
+					throws AlgebricksException {
+				  Object[] colTypes = dataSource.getSchemaTypes();
 			       IValueParserFactory[] vpfs = new IValueParserFactory[colTypes.length];
 			       ISerializerDeserializer[] serDesers = new ISerializerDeserializer[colTypes.length];
 			       
@@ -250,84 +277,36 @@ public class TestSelect{
 			        IOperatorDescriptor scanner = new FileScanOperatorDescriptor(jobSpec, fsp, tpf, rDesc);
 			        AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
 			        return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(scanner, constraint);
+		
 			}
 
 			@Override
-			public boolean scannerOperatorIsLeaf(IDataSource dataSource) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-
-			@Override
-			public Pair getWriteFileRuntime(IDataSink sink, int[] printColumns,
-					IPrinterFactory[] printerFactories,
-					RecordDescriptor inputDesc) throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public Pair getWriteResultRuntime(IDataSource dataSource,
-					IOperatorSchema propagatedSchema, List keys,
-					LogicalVariable payLoadVar, JobGenContext context,
-					JobSpecification jobSpec) throws AlgebricksException {
+			public Pair getResultHandleRuntime(IDataSink sink,
+					int[] printColumns, IPrinterFactory[] printerFactories,
+					RecordDescriptor inputDesc, boolean ordered,
+					JobSpecification spec) throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
 			@Override
 			public Pair getInsertRuntime(IDataSource dataSource,
-					IOperatorSchema propagatedSchema, List keys,
+					IOperatorSchema propagatedSchema,
+					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-							throws AlgebricksException {
+					throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
 			@Override
 			public Pair getDeleteRuntime(IDataSource dataSource,
-					IOperatorSchema propagatedSchema, List keys,
+					IOperatorSchema propagatedSchema,
+					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-							throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public Pair getIndexInsertRuntime(IDataSourceIndex dataSource,
-					IOperatorSchema propagatedSchema,
-					IOperatorSchema[] inputSchemas,
-					IVariableTypeEnvironment typeEnv, List primaryKeys,
-					List secondaryKeys, ILogicalExpression filterExpr,
-					RecordDescriptor recordDesc, JobGenContext context,
-					JobSpecification spec) throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public Pair getIndexDeleteRuntime(IDataSourceIndex dataSource,
-					IOperatorSchema propagatedSchema,
-					IOperatorSchema[] inputSchemas,
-					IVariableTypeEnvironment typeEnv, List primaryKeys,
-					List secondaryKeys, ILogicalExpression filterExpr,
-					RecordDescriptor recordDesc, JobGenContext context,
-					JobSpecification spec) throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public IDataSourceIndex findDataSourceIndex(Object indexId,
-					Object dataSourceId) throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
+					throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}

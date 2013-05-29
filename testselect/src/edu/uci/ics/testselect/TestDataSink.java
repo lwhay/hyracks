@@ -1,3 +1,4 @@
+package edu.uci.ics.testselect;
 import java.io.File;
 
 import edu.uci.ics.hivesterix.logical.expression.Schema;

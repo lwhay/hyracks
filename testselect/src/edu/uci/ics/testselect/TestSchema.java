@@ -1,3 +1,4 @@
+package edu.uci.ics.testselect;
 import java.util.List;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
