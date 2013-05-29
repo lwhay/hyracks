@@ -63,7 +63,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.WriteResul
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import edu.uci.ics.hyracks.algebricks.rewriter.util.JoinUtils;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DataSourceScan4MRPOperator;
 
 public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule {
 

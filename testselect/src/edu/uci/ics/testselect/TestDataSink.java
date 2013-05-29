@@ -1,12 +1,10 @@
 package edu.uci.ics.testselect;
 import java.io.File;
 
-import edu.uci.ics.hivesterix.logical.expression.Schema;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSink;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.FileSplitDomain;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPartitioningProperty;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.RandomPartitioningProperty;
-import edu.uci.ics.hyracks.algebricks.examples.piglet.metadata.FileSplitUtils;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 

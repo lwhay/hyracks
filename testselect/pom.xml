@@ -36,11 +36,6 @@
       <version>0.20.2</version>
     </dependency>
     <dependency>
-      <groupId>edu.uci.ics.hivesterix</groupId>
-      <artifactId>hivesterix</artifactId>
-      <version>0.2.6-SNAPSHOT</version>
-    </dependency>
-    <dependency>
    <groupId>org.apache.hive</groupId>
    <artifactId>hive-exec</artifactId>
    <version>0.8.0</version>
@@ -61,5 +56,10 @@
   	 <artifactId>piglet-example</artifactId>
   	 <version>0.2.6-SNAPSHOT</version>
   	</dependency>  
+  	<dependency>
+    <groupId>javax.jdo</groupId>
+    <artifactId>jdo2-api</artifactId>
+    <version>2.3-20090302111651</version>
+</dependency>
     </dependencies>
 </project>

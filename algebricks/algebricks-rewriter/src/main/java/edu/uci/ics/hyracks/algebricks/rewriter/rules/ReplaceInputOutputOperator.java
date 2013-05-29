@@ -16,7 +16,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DataSourceScan4MRPOperator;
+//import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DataSourceScan4MRPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.Write4MRPOperator;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
@@ -31,7 +31,7 @@ public class ReplaceInputOutputOperator implements IAlgebraicRewriteRule {
 
 		System.out.println(tag);
 		if (tag.equals(LogicalOperatorTag.DATASOURCESCAN)){
-			op.setPhysicalOperator(new DataSourceScan4MRPOperator(null));
+			//op.setPhysicalOperator(new DataSourceScan4MRPOperator(null));
 			List<Mutable<ILogicalOperator>> inputs = op.getInputs();
 			inputs.clear();
 			System.out.println();
