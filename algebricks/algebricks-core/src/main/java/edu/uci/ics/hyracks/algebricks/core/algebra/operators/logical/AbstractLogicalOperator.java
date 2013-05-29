@@ -188,13 +188,23 @@ public abstract class AbstractLogicalOperator implements ILogicalOperator {
     public boolean requiresVariableReferenceExpressions() {
         return true;
     }
-
     public String toStringForVisualizationGraph(){
-    	String toString = this.getOperatorTag().name();
-
+    	String logicalName = getOperatorTag().name();
+    	System.out.println("logicalName: "+logicalName);
+    	String physicalName = getPhysicalOperator().getOperatorTag().name();
+    	System.out.println("physicalName: " +physicalName);
+    	
     	Map<String, Object> annotations  = getAnnotations();
     	TaggingMRCounter tagMapperReducerKey = (TaggingMRCounter) annotations.get(new String("tagMapperReducerKey"));
     	
-    	return toString +"_"+tagMapperReducerKey;
+    	if (physicalName.equals("DATASOURCESCAN4MR")){
+			return physicalName+"_"+tagMapperReducerKey;
+    	}
+	    else if(physicalName.equals("WRITE4MR")){ 
+			return physicalName+"_"+tagMapperReducerKey;
+	    }
+	    else{
+    		return logicalName+"_"+tagMapperReducerKey;
+	    }
     }
 }

@@ -63,7 +63,8 @@ public class PlanCompiler {
         return spec;
     }
 
-    private void compileOpRef(Mutable<ILogicalOperator> opRef, IOperatorDescriptorRegistry spec, IHyracksJobBuilder builder,
+    //For each operator, compileOpRef contributes a runtime operator. 
+    public void compileOpRef(Mutable<ILogicalOperator> opRef, IOperatorDescriptorRegistry spec, IHyracksJobBuilder builder,
             IOperatorSchema outerPlanSchema) throws AlgebricksException {
         ILogicalOperator op = opRef.getValue();
         int n = op.getInputs().size();

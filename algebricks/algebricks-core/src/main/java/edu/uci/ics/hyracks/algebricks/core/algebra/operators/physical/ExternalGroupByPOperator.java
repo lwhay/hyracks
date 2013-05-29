@@ -134,12 +134,16 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
     public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
             IOperatorSchema opSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
+    	//get the keys from the query to group-by
         List<LogicalVariable> gbyCols = getGbyColumns();
+        
+        //associating fields in the table to the key used in the group-by
         int keys[] = JobGenHelper.variablesToFieldIndexes(gbyCols, inputSchemas[0]);
         GroupByOperator gby = (GroupByOperator) op;
         int numFds = gby.getDecorList().size();
         int fdColumns[] = new int[numFds];
         int j = 0;
+        //Decor List allows renaming of internal variables names in query to user's choice 
         for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gby.getDecorList()) {
             ILogicalExpression expr = p.second.getValue();
             if (expr.getExpressionTag() != LogicalExpressionTag.VARIABLE) {
@@ -149,7 +153,7 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
             LogicalVariable decor = v.getVariableReference();
             fdColumns[j++] = inputSchemas[0].findVariable(decor);
         }
-
+        //limitation of the group-by to one level (no nested group-by queries)
         if (gby.getNestedPlans().size() != 1) {
             throw new AlgebricksException(
                     "External group-by currently works only for one nested plan with one root containing"
@@ -161,9 +165,14 @@ public class ExternalGroupByPOperator extends AbstractPhysicalOperator {
                     "External group-by currently works only for one nested plan with one root containing"
                             + "an aggregate and a nested-tuple-source.");
         }
+        //Aggregation operator (max) to operate on the group-by fields
         Mutable<ILogicalOperator> r0 = p0.getRoots().get(0);
         AggregateOperator aggOp = (AggregateOperator) r0.getValue();
 
+        //Goup-by with average aggregation has two phases: partial and final
+        //partial iterates on tuples, counts the tuple, and their sum
+        //final counts the partial sums and (sums the counts) to calculate the final average
+        
         IPartialAggregationTypeComputer partialAggregationTypeComputer = context.getPartialAggregationTypeComputer();
         List<Object> intermediateTypes = new ArrayList<Object>();
         int n = aggOp.getExpressions().size();

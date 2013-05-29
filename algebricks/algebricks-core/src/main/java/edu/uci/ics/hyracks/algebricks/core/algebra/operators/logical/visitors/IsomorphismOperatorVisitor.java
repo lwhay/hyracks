@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors;
 
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -825,5 +826,4 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             return new ExtensionOperator(op.getNewInstanceOfDelegateOperator());
         }
     }
-
 }

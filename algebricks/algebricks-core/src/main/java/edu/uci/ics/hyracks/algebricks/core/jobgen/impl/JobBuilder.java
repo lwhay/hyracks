@@ -203,6 +203,7 @@ public class JobBuilder implements IHyracksJobBuilder {
         for (ILogicalOperator exchg : connectors.keySet()) {
             ILogicalOperator inOp = inEdges.get(exchg).get(0);
             ILogicalOperator outOp = outEdges.get(exchg).get(0);
+            
             IOperatorDescriptor inOpDesc = findOpDescForAlgebraicOp(inOp);
             IOperatorDescriptor outOpDesc = findOpDescForAlgebraicOp(outOp);
             Pair<IConnectorDescriptor, TargetConstraint> connPair = connectors.get(exchg);
@@ -218,7 +219,7 @@ public class JobBuilder implements IHyracksJobBuilder {
     }
 
     private IOperatorDescriptor findOpDescForAlgebraicOp(ILogicalOperator op) throws AlgebricksException {
-        IOperatorDescriptor hOpDesc = hyracksOps.get(op);
+    	IOperatorDescriptor hOpDesc = hyracksOps.get(op);
         if (hOpDesc != null) {
             return hOpDesc;
         }

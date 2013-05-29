@@ -108,7 +108,7 @@ public class PlanPrettyPrinter {
     	if (!op.getInputs().isEmpty()){
         	String stringToVisualize = op.toStringForVisualizationGraph(); 
         	int firstOccurenceOf_ = stringToVisualize.indexOf("_");
-        	String supernode_current = op.toStringForVisualizationGraph().substring(firstOccurenceOf_+1, stringToVisualize.length());
+        	String supernode_current = stringToVisualize.substring(firstOccurenceOf_+1, stringToVisualize.length());
         	if (current_supernode_name.isEmpty()){
         		current_supernode_name = supernode_current;
         		appendln(out, new String("subgraph cluster_"+supernode_current+" {"));
@@ -151,7 +151,7 @@ public class PlanPrettyPrinter {
             		
             		appendln(out, new String("}"));
             		pad(out, indent);
-            		appendln(out, new String("subgraph cluster_"+childNodeReducerOrMapper+" {"));
+            		appendln(out, new String("subgraph cluster_"+supernode_child+" {"));
             		pad(out, indent);
             		appendln(out, new String("node [style=filled, color = pink];"));
             		pad(out, indent);
@@ -175,14 +175,18 @@ public class PlanPrettyPrinter {
 	            	    	String right_category = right.substring(left.indexOf("_")+1,right.length());
 	            	    	
 	            	    	if (right_category.startsWith("M") && left_category.startsWith("R")){
-	            	    		missingVertex = op.toStringForVisualizationGraph()+"_"+counter + " -> " + right+"_"+counter;
+	            	    		missingVertex = stringToVisualize+"_"+counter + " -> " + right+"_"+counter;
 	            	    		
 	            	    	}	    		            
 	            	    }	
             		}
+            		else{
+            			System.out.println("Non-expected letter!! Should be M or R");
+            		}
+            		
             	}
             	
-            	appendln(out, op.toStringForVisualizationGraph()+"_"+counter + "[style = filled]");
+            	appendln(out, stringToVisualize+"_"+counter + "[style = filled]");
             	AbstractLogicalOperator child = (AbstractLogicalOperator)i.getValue(); 
 	            
             	if (!eraseExtraVertex){

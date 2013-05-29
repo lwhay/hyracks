@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors;
 
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
