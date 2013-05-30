@@ -7,6 +7,7 @@ import java.util.List;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 
+import edu.uci.ics.hivesterix.runtime.factory.evaluator.HiveExpressionRuntimeProvider;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -19,6 +20,7 @@ import edu.uci.ics.hyracks.algebricks.compiler.rewriter.rulecontrollers.Sequenti
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
@@ -93,7 +95,7 @@ public class TestSelect{
 		TestSchema schema = new TestSchema(schemaInput);
 
 		//Write operator requires the schema of the fields to write, etc
-		IDataSink dataSink = new TestDataSink("k1:output1K.txt, k2:output2K.txt"); 
+		IDataSink dataSink = new TestDataSink("localhost:~/output1K.txt, localhost:~/output2K.txt"); 
 
 		//This section creates an expression for dataScan to convert the input into variables according to a schema.
 		List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
@@ -119,7 +121,7 @@ public class TestSelect{
         
 		
 		//define the input file name, and the schema - required for scanning in data?
-		TestDataSource dataSource = new TestDataSource("input:inputKeren.txt", types.toArray());
+		TestDataSource dataSource = new TestDataSource("localhost:~/inputKeren.txt", types.toArray());
 
 		// roots contain a write->select->data, creating these operators below.
 		// [A query can have multiple roots - not the case here. still there's a list structure]
@@ -154,7 +156,7 @@ public class TestSelect{
 
 		IMetadataProvider metaData = new IMetadataProvider() {
 
-			@Override
+			@Override //TODO:
 			public IDataSource findDataSource(Object id)
 					throws AlgebricksException {
 				// TODO Auto-generated method stub
@@ -177,7 +179,7 @@ public class TestSelect{
 				return null;
 			}
 
-			@Override
+			@Override //TODO:
 			public Pair getWriteResultRuntime(IDataSource dataSource,
 					IOperatorSchema propagatedSchema, List keys,
 					LogicalVariable payLoadVar, JobGenContext context,
@@ -218,7 +220,7 @@ public class TestSelect{
 				return null;
 			}
 
-			@Override
+			@Override //TODO:
 			public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
 				// TODO Auto-generated method stub
 				return null;
@@ -280,7 +282,7 @@ public class TestSelect{
 		
 			}
 
-			@Override
+			@Override 
 			public Pair getResultHandleRuntime(IDataSink sink,
 					int[] printColumns, IPrinterFactory[] printerFactories,
 					RecordDescriptor inputDesc, boolean ordered,
@@ -314,6 +316,7 @@ public class TestSelect{
 		};
 		
 		
+		
 
 		ICompiler compiler = cFactory.createCompiler(plan, metaData, 1); // KIS
 		try {
@@ -328,10 +331,10 @@ public class TestSelect{
 		System.out.println(plan.toString());
 		// up to now we built a physical optimized plan, now to the runtime part
 		// of it.
-
+		
 		//================CONTINUE FROM HERE=============
-		IExpressionRuntimeProvider expressionRuntimeProvider = null;
-		ISerializerDeserializerProvider serializerDeserializerProvider = null;
+		IExpressionRuntimeProvider expressionRuntimeProvider = HiveExpressionRuntimeProvider.INSTANCE;
+/*		ISerializerDeserializerProvider serializerDeserializerProvider = null;
 		IBinaryHashFunctionFamilyProvider hashFunctionFamilyProvider = null;
 		IExpressionTypeComputer expressionTypeComputer = null;
 		IOperatorSchema outerFlowSchema = null;
@@ -377,7 +380,7 @@ public class TestSelect{
 
 		//verify the pseudo-code
 		//Hyracks Client start job (jobspec)
-
+*/
 		//
 	}
 }
