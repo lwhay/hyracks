@@ -379,9 +379,7 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
 
                 @Override
                 public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-                	if(!state.hybridHJ.isTableEmpty()){
-                		state.hybridHJ.probe(buffer, writer);
-                	}
+                	state.hybridHJ.probe(buffer, writer);
                 }
 
                 @Override
