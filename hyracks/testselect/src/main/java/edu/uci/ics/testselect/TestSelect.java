@@ -7,7 +7,19 @@ import java.util.List;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 
+import edu.uci.ics.hivesterix.logical.expression.HiveExpressionTypeComputer;
+import edu.uci.ics.hivesterix.logical.expression.HiveNullableTypeComputer;
+import edu.uci.ics.hivesterix.logical.expression.HivePartialAggregationTypeComputer;
 import edu.uci.ics.hivesterix.runtime.factory.evaluator.HiveExpressionRuntimeProvider;
+import edu.uci.ics.hivesterix.runtime.factory.nullwriter.HiveNullWriterFactory;
+import edu.uci.ics.hivesterix.runtime.inspector.HiveBinaryBooleanInspectorFactory;
+import edu.uci.ics.hivesterix.runtime.inspector.HiveBinaryIntegerInspectorFactory;
+import edu.uci.ics.hivesterix.runtime.provider.HiveBinaryComparatorFactoryProvider;
+import edu.uci.ics.hivesterix.runtime.provider.HiveBinaryHashFunctionFactoryProvider;
+import edu.uci.ics.hivesterix.runtime.provider.HiveNormalizedKeyComputerFactoryProvider;
+import edu.uci.ics.hivesterix.runtime.provider.HivePrinterFactoryProvider;
+import edu.uci.ics.hivesterix.runtime.provider.HiveSerializerDeserializerProvider;
+import edu.uci.ics.hivesterix.runtime.provider.HiveTypeTraitProvider;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -20,7 +32,11 @@ import edu.uci.ics.hyracks.algebricks.compiler.rewriter.rulecontrollers.Sequenti
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionEvalSizeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionTypeComputer;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.INullableTypeComputer;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IPartialAggregationTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
@@ -35,13 +51,25 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSc
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
+import edu.uci.ics.hyracks.algebricks.core.algebra.typing.ITypingContext;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
+import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.PlanCompiler;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.AbstractRuleController;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryBooleanInspectorFactory;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryHashFunctionFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryHashFunctionFamilyProvider;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryIntegerInspectorFactory;
+import edu.uci.ics.hyracks.algebricks.data.INormalizedKeyComputerFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.IPrinterFactory;
+import edu.uci.ics.hyracks.algebricks.data.IPrinterFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
+import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.CharArrayType;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -61,7 +89,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TestSelect{
 	static int varCounter=0;
-	
+
 	private static List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> buildDefaultLogicalRewrites() {
 		List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultLogicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
 		SequentialFixpointRuleController seqCtrlNoDfs = new SequentialFixpointRuleController(
@@ -81,11 +109,11 @@ public class TestSelect{
 				false);
 		return defaultPhysicalRewrites;
 	}
-    
+
 	public static LogicalVariable newVariable() {
-        return new LogicalVariable(varCounter++);
-    }
-	
+		return new LogicalVariable(varCounter++);
+	}
+
 	public static void main(String[] args) {
 
 		// schema: <nameEmployee, string>
@@ -109,17 +137,17 @@ public class TestSelect{
 		ScalarFunctionCallExpression scalarExp = new ScalarFunctionCallExpression(function, expressions);
 		MutableObject<ILogicalExpression> exprCondition = new MutableObject<ILogicalExpression>(scalarExp);
 
-		
-        List<Pair<String, Type>> fieldsSchema = schema.getSchema();
-        List<LogicalVariable> variables = new ArrayList<LogicalVariable>();
-        List<Object> types = new ArrayList<Object>();
-        for (Pair<String, Type> pair : fieldsSchema) {
-            LogicalVariable v = newVariable();
-            variables.add(v);
-            types.add(pair.second);
-        }
-        
-		
+
+		List<Pair<String, Type>> fieldsSchema = schema.getSchema();
+		List<LogicalVariable> variables = new ArrayList<LogicalVariable>();
+		List<Object> types = new ArrayList<Object>();
+		for (Pair<String, Type> pair : fieldsSchema) {
+			LogicalVariable v = newVariable();
+			variables.add(v);
+			types.add(pair.second);
+		}
+
+
 		//define the input file name, and the schema - required for scanning in data?
 		TestDataSource dataSource = new TestDataSource("localhost:~/inputKeren.txt", types.toArray());
 
@@ -163,7 +191,7 @@ public class TestSelect{
 				return null;
 			}
 
-		
+
 
 			@Override
 			public boolean scannerOperatorIsLeaf(IDataSource dataSource) {
@@ -232,54 +260,54 @@ public class TestSelect{
 					boolean projectPushed, IOperatorSchema opSchema,
 					IVariableTypeEnvironment typeEnv, JobGenContext context,
 					JobSpecification jobSpec, Object implConfig)
-					throws AlgebricksException {
-				  Object[] colTypes = dataSource.getSchemaTypes();
-			       IValueParserFactory[] vpfs = new IValueParserFactory[colTypes.length];
-			       ISerializerDeserializer[] serDesers = new ISerializerDeserializer[colTypes.length];
-			       
-			       for (int i = 0; i < colTypes.length; ++i) {
-			            Type colType = (Type) colTypes[i];
-			            IValueParserFactory vpf;
-			            ISerializerDeserializer serDeser;
-			            switch (colType.getTag()) {
-			                case INTEGER:
-			                    vpf = IntegerParserFactory.INSTANCE;
-			                    serDeser = IntegerSerializerDeserializer.INSTANCE;
-			                    break;
+							throws AlgebricksException {
+				Object[] colTypes = dataSource.getSchemaTypes();
+				IValueParserFactory[] vpfs = new IValueParserFactory[colTypes.length];
+				ISerializerDeserializer[] serDesers = new ISerializerDeserializer[colTypes.length];
 
-			                case CHAR_ARRAY:
-			                    vpf = UTF8StringParserFactory.INSTANCE;
-			                    serDeser = UTF8StringSerializerDeserializer.INSTANCE;
-			                    break;
+				for (int i = 0; i < colTypes.length; ++i) {
+					Type colType = (Type) colTypes[i];
+					IValueParserFactory vpf;
+					ISerializerDeserializer serDeser;
+					switch (colType.getTag()) {
+					case INTEGER:
+						vpf = IntegerParserFactory.INSTANCE;
+						serDeser = IntegerSerializerDeserializer.INSTANCE;
+						break;
 
-			                case FLOAT:
-			                    vpf = FloatParserFactory.INSTANCE;
-			                    serDeser = FloatSerializerDeserializer.INSTANCE;
-			                    break;
+					case CHAR_ARRAY:
+						vpf = UTF8StringParserFactory.INSTANCE;
+						serDeser = UTF8StringSerializerDeserializer.INSTANCE;
+						break;
 
-			                default:
-			                    throw new UnsupportedOperationException();
-			            }
-			            vpfs[i] = vpf;
-			            serDesers[i] = serDeser;
-			        }
+					case FLOAT:
+						vpf = FloatParserFactory.INSTANCE;
+						serDeser = FloatSerializerDeserializer.INSTANCE;
+						break;
 
-			        ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(vpfs, ',');
-			        RecordDescriptor rDesc = new RecordDescriptor(serDesers);
-			        
-			        //specify the file location
-			        FileSplit[] fs = ((TestDataSource)dataSource).getFileSplits();
-			        String[] locations = new String[fs.length];
-			        for (int i = 0; i < fs.length; ++i) {
-			            locations[i] = fs[i].getNodeName();
-			        }
-			        //just a wrapper for these splits
-			        IFileSplitProvider fsp = new ConstantFileSplitProvider(fs);
-			        
-			        IOperatorDescriptor scanner = new FileScanOperatorDescriptor(jobSpec, fsp, tpf, rDesc);
-			        AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
-			        return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(scanner, constraint);
-		
+					default:
+						throw new UnsupportedOperationException();
+					}
+					vpfs[i] = vpf;
+					serDesers[i] = serDeser;
+				}
+
+				ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(vpfs, ',');
+				RecordDescriptor rDesc = new RecordDescriptor(serDesers);
+
+				//specify the file location
+				FileSplit[] fs = ((TestDataSource)dataSource).getFileSplits();
+				String[] locations = new String[fs.length];
+				for (int i = 0; i < fs.length; ++i) {
+					locations[i] = fs[i].getNodeName();
+				}
+				//just a wrapper for these splits
+				IFileSplitProvider fsp = new ConstantFileSplitProvider(fs);
+
+				IOperatorDescriptor scanner = new FileScanOperatorDescriptor(jobSpec, fsp, tpf, rDesc);
+				AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
+				return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(scanner, constraint);
+
 			}
 
 			@Override 
@@ -297,7 +325,7 @@ public class TestSelect{
 					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-					throws AlgebricksException {
+							throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
@@ -308,15 +336,15 @@ public class TestSelect{
 					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-					throws AlgebricksException {
+							throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
 		};
-		
-		
-		
+
+
+
 
 		ICompiler compiler = cFactory.createCompiler(plan, metaData, 1); // KIS
 		try {
@@ -327,35 +355,36 @@ public class TestSelect{
 		} // this calls does the rewrites of the rules on the plan, which rules
 		// you want to execute here??
 
-		
+
 		System.out.println(plan.toString());
 		// up to now we built a physical optimized plan, now to the runtime part
 		// of it.
+
+		
+		IExpressionRuntimeProvider expressionRuntimeProvider = HiveExpressionRuntimeProvider.INSTANCE;
+		ISerializerDeserializerProvider serializerDeserializerProvider = HiveSerializerDeserializerProvider.INSTANCE;
+		IExpressionTypeComputer expressionTypeComputer = HiveExpressionTypeComputer.INSTANCE;
+		IPartialAggregationTypeComputer partialAggregationTypeComputer = HivePartialAggregationTypeComputer.INSTANCE;
+		IBinaryComparatorFactoryProvider comparatorFactoryProvider = HiveBinaryComparatorFactoryProvider.INSTANCE;
+		INormalizedKeyComputerFactoryProvider normalizedKeyComputerFactoryProvider = HiveNormalizedKeyComputerFactoryProvider.INSTANCE;
+		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = HiveBinaryHashFunctionFactoryProvider.INSTANCE;
+		IPrinterFactoryProvider printerFactoryProvider = HivePrinterFactoryProvider.INSTANCE;
+		INullWriterFactory nullWriterFactory = HiveNullWriterFactory.INSTANCE;
+		IBinaryIntegerInspectorFactory integerInspectorFactory = HiveBinaryIntegerInspectorFactory.INSTANCE;
+		ITypeTraitProvider typeTraitProvider = HiveTypeTraitProvider.INSTANCE;
+		INullableTypeComputer nullableTypeComputer = HiveNullableTypeComputer.INSTANCE;
+		IBinaryBooleanInspectorFactory booleanInspectorFactory = HiveBinaryBooleanInspectorFactory.INSTANCE;
 		
 		//================CONTINUE FROM HERE=============
-		IExpressionRuntimeProvider expressionRuntimeProvider = HiveExpressionRuntimeProvider.INSTANCE;
-/*		ISerializerDeserializerProvider serializerDeserializerProvider = null;
-		IBinaryHashFunctionFamilyProvider hashFunctionFamilyProvider = null;
-		IExpressionTypeComputer expressionTypeComputer = null;
-		IOperatorSchema outerFlowSchema = null;
-		IPartialAggregationTypeComputer partialAggregationTypeComputer = null;
-		IBinaryComparatorFactoryProvider comparatorFactoryProvider = null;
-		INormalizedKeyComputerFactoryProvider normalizedKeyComputerFactoryProvider = null;
-		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = null;
-		Object appContext = null;
-		IPrinterFactoryProvider printerFactoryProvider = null;
-		INullWriterFactory nullWriterFactory = null;
-		IBinaryIntegerInspectorFactory integerInspectorFactory = null;
-		ITypeTraitProvider typeTraitProvider = null;
-		int frameSize = 0;
-		AlgebricksPartitionConstraint clusterLocations = null;
-		INullableTypeComputer nullableTypeComputer = null;
-		IExpressionEvalSizeComputer expressionEvalSizeComputer = null;
-		IBinaryBooleanInspectorFactory booleanInspectorFactory = null;
-		ITypingContext typingContext = null;
-		// Here will actually start the modification to build the MR plan
-		// umbrella for all the runtime properties are stored in jobGenContext
-		// later passed to PlanCompiler
+		/**/IBinaryHashFunctionFamilyProvider hashFunctionFamilyProvider = null;
+		/**/IOperatorSchema outerFlowSchema = null;
+		/**/Object appContext = null;
+		/**/int frameSize = 0;
+		/**/AlgebricksPartitionConstraint clusterLocations = null;
+		/**/IExpressionEvalSizeComputer expressionEvalSizeComputer = null;
+		/**/ITypingContext typingContext = null;
+
+		// all the runtime properties are stored in jobGenContext later passed to PlanCompiler
 		JobGenContext jobGenContext = new JobGenContext(outerFlowSchema,
 				metaData, appContext, serializerDeserializerProvider,
 				hashFunctionFactoryProvider, hashFunctionFamilyProvider,
@@ -372,16 +401,14 @@ public class TestSelect{
 		// Wrap the three operators above into an ILogicalPlan - done (plan)
 		JobSpecification spec = null;
 		try {
-			spec = pc.compilePlan(plan, outerPlanSchema);
+			//see l. 275 in HyracksExecutionEngine
+			spec = pc.compilePlan(plan, null, null);
 		} catch (AlgebricksException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		//verify the pseudo-code
-		//Hyracks Client start job (jobspec)
-*/
-		//
 	}
 }
+
+
 
