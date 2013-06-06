@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -101,14 +101,20 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
                                 searchCallback.reconcile(copyTuple);
                             } else {
                                 searchCallback.reconcile(checkElement.getTuple());
+                                searchCallback.complete(checkElement.getTuple());
                             }
                             // retraverse
                             reusablePred.setLowKey(copyTuple, true);
                             memBTreeAccessor.search(rangeCursors[0], reusablePred);
-                            pushIntoPriorityQueue(inMemElement);
-                            if (cmp.compare(copyTuple, inMemElement.getTuple()) != 0) {
-                                searchCallback.cancel(copyTuple);
-                                continue;
+                            boolean isNotExhaustedCursor = pushIntoPriorityQueue(inMemElement);
+                            
+                            if (checkElement.getCursorIndex() == 0) {
+                                if (!isNotExhaustedCursor || cmp.compare(copyTuple, inMemElement.getTuple()) != 0) {
+                                    searchCallback.complete(copyTuple);
+                                    searchCallback.cancel(copyTuple);
+                                    continue;
+                                }
+                                searchCallback.complete(copyTuple);
                             }
                         } else {
                             // the in-memory cursor is exhausted

@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.hyracks.storage.am.common.api;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -42,4 +56,14 @@ public interface ISearchOperationCallback {
      * @param tuple the tuple that was previously reconciled
      */
     public void cancel(ITupleReference tuple) throws HyracksDataException;
+    
+    /**
+     * This method is only called on a tuple that was reconciled on, and found after
+     * retraversing. This method allows an opportunity to do some subsequent action that was 
+     * taken in {@link #reconcile(ITupleReference))}.
+     * 
+     * @param tuple
+     *            the tuple that was previously reconciled
+     */
+    public void complete(ITupleReference tuple) throws HyracksDataException;
 }

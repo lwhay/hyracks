@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 
 import java.util.ArrayList;
@@ -21,7 +35,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReference
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSource;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IMetadataProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
@@ -53,7 +66,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RunningAgg
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.SinkPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.SinkWritePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StableSortPOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamDiePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamLimitPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamProjectPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamSelectPOperator;
@@ -173,9 +185,7 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     break;
                 }
                 case LIMIT: {
-                    LimitOperator opLim = (LimitOperator) op;
-                    op.setPhysicalOperator(new StreamLimitPOperator(opLim.isTopmostLimitOp()
-                            && opLim.getExecutionMode() == ExecutionMode.PARTITIONED));
+                    op.setPhysicalOperator(new StreamLimitPOperator());
                     break;
                 }
                 case NESTEDTUPLESOURCE: {
@@ -278,10 +288,6 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                 }
                 case SINK: {
                     op.setPhysicalOperator(new SinkPOperator());
-                    break;
-                }
-                case DIE: {
-                    op.setPhysicalOperator(new StreamDiePOperator());
                     break;
                 }
             }

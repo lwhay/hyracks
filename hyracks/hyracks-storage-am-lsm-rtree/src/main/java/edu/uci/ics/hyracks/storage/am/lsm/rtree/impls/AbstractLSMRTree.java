@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -26,18 +26,18 @@ import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeDuplicateKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNonExistentKeyException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
-import edu.uci.ics.hyracks.storage.am.common.api.IInMemoryFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexOperationContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IVirtualFreePageManager;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
-import edu.uci.ics.hyracks.storage.am.lsm.common.api.IInMemoryBufferCache;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackProvider;
@@ -46,8 +46,9 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
-import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMOperationTrackerFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.InMemoryBufferCache;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
+import edu.uci.ics.hyracks.storage.am.lsm.common.freepage.VirtualFreePageManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.BlockingIOOperationCallbackWrapper;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
@@ -55,6 +56,8 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.impls.TreeIndexFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree;
+import edu.uci.ics.hyracks.storage.am.rtree.impls.RTree.RTreeAccessor;
+import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITreeIndex {
@@ -65,7 +68,8 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
 
     // In-memory components.
     protected final LSMRTreeMutableComponent mutableComponent;
-    protected final IInMemoryBufferCache memBufferCache;
+    protected final IVirtualBufferCache virtualBufferCache;
+    protected final IVirtualFreePageManager virtualFreePageManager;
 
     protected TreeTupleSorter rTreeTupleSorter;
 
@@ -82,25 +86,27 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     protected final ITreeIndexFrameFactory rtreeLeafFrameFactory;
     protected final ITreeIndexFrameFactory btreeLeafFrameFactory;
 
-    public AbstractLSMRTree(IInMemoryBufferCache memBufferCache, IInMemoryFreePageManager memFreePageManager,
-            ITreeIndexFrameFactory rtreeInteriorFrameFactory, ITreeIndexFrameFactory rtreeLeafFrameFactory,
-            ITreeIndexFrameFactory btreeInteriorFrameFactory, ITreeIndexFrameFactory btreeLeafFrameFactory,
-            ILSMIndexFileManager fileManager, TreeIndexFactory<RTree> diskRTreeFactory,
-            ILSMComponentFactory componentFactory, IFileMapProvider diskFileMapProvider, int fieldCount,
-            IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            ILinearizeComparatorFactory linearizer, int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray,
-            ILSMMergePolicy mergePolicy, ILSMOperationTrackerFactory opTrackerFactory,
-            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallbackProvider ioOpCallbackProvider) {
-        super(memFreePageManager, diskRTreeFactory.getBufferCache(), fileManager, diskFileMapProvider, mergePolicy,
-                opTrackerFactory, ioScheduler, ioOpCallbackProvider);
-        RTree memRTree = new RTree(memBufferCache, ((InMemoryBufferCache) memBufferCache).getFileMapProvider(),
-                memFreePageManager, rtreeInteriorFrameFactory, rtreeLeafFrameFactory, rtreeCmpFactories, fieldCount,
-                new FileReference(new File("memrtree")));
-        BTree memBTree = new BTree(memBufferCache, ((InMemoryBufferCache) memBufferCache).getFileMapProvider(),
-                memFreePageManager, btreeInteriorFrameFactory, btreeLeafFrameFactory, btreeCmpFactories, fieldCount,
-                new FileReference(new File("membtree")));
-        mutableComponent = new LSMRTreeMutableComponent(memRTree, memBTree, memFreePageManager);
-        this.memBufferCache = memBufferCache;
+    public AbstractLSMRTree(IVirtualBufferCache virtualBufferCache, ITreeIndexFrameFactory rtreeInteriorFrameFactory,
+            ITreeIndexFrameFactory rtreeLeafFrameFactory, ITreeIndexFrameFactory btreeInteriorFrameFactory,
+            ITreeIndexFrameFactory btreeLeafFrameFactory, ILSMIndexFileManager fileManager,
+            TreeIndexFactory<RTree> diskRTreeFactory, ILSMComponentFactory componentFactory,
+            IFileMapProvider diskFileMapProvider, int fieldCount, IBinaryComparatorFactory[] rtreeCmpFactories,
+            IBinaryComparatorFactory[] btreeCmpFactories, ILinearizeComparatorFactory linearizer,
+            int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray, double bloomFilterFalsePositiveRate,
+            ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
+            ILSMIOOperationCallbackProvider ioOpCallbackProvider) {
+        super(virtualBufferCache, diskRTreeFactory.getBufferCache(), fileManager, diskFileMapProvider,
+                bloomFilterFalsePositiveRate, mergePolicy, opTracker, ioScheduler, ioOpCallbackProvider);
+        virtualFreePageManager = new VirtualFreePageManager(virtualBufferCache.getNumPages());
+        RTree memRTree = new RTree(virtualBufferCache, ((IVirtualBufferCache) virtualBufferCache).getFileMapProvider(),
+                virtualFreePageManager, rtreeInteriorFrameFactory, rtreeLeafFrameFactory, rtreeCmpFactories,
+                fieldCount, new FileReference(new File(fileManager.getBaseDir() + "_virtual_r")));
+        BTree memBTree = new BTree(virtualBufferCache, ((IVirtualBufferCache) virtualBufferCache).getFileMapProvider(),
+                new VirtualFreePageManager(virtualBufferCache.getNumPages()), btreeInteriorFrameFactory,
+                btreeLeafFrameFactory, btreeCmpFactories, fieldCount, new FileReference(new File(
+                        fileManager.getBaseDir() + "_virtual_b")));
+        mutableComponent = new LSMRTreeMutableComponent(memRTree, memBTree, virtualBufferCache);
+        this.virtualBufferCache = virtualBufferCache;
         this.rtreeInteriorFrameFactory = rtreeInteriorFrameFactory;
         this.rtreeLeafFrameFactory = rtreeLeafFrameFactory;
         this.btreeInteriorFrameFactory = btreeInteriorFrameFactory;
@@ -128,10 +134,10 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     @Override
     public synchronized void activate() throws HyracksDataException {
         if (isActivated) {
-            return;
+            throw new HyracksDataException("Failed to activate the index since it is already activated.");
         }
 
-        ((InMemoryBufferCache) mutableComponent.getRTree().getBufferCache()).open();
+        ((IVirtualBufferCache) mutableComponent.getRTree().getBufferCache()).open();
         mutableComponent.getRTree().create();
         mutableComponent.getBTree().create();
         mutableComponent.getRTree().activate();
@@ -141,7 +147,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     @Override
     public synchronized void deactivate(boolean flushOnExit) throws HyracksDataException {
         if (!isActivated) {
-            return;
+            throw new HyracksDataException("Failed to deactivate the index since it is already deactivated.");
         }
 
         if (flushOnExit) {
@@ -161,7 +167,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
         mutableComponent.getBTree().deactivate();
         mutableComponent.getRTree().destroy();
         mutableComponent.getBTree().destroy();
-        ((InMemoryBufferCache) mutableComponent.getRTree().getBufferCache()).close();
+        ((IVirtualBufferCache) mutableComponent.getRTree().getBufferCache()).close();
     }
 
     @Override
@@ -169,9 +175,6 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
         if (isActivated) {
             throw new HyracksDataException("Failed to destroy the index since it is activated.");
         }
-
-        mutableComponent.getRTree().deactivate();
-        mutableComponent.getBTree().deactivate();
     }
 
     @Override
@@ -279,6 +282,8 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
             throw new UnsupportedOperationException("Physical delete not supported in the LSM-RTree");
         }
 
+        ctx.modificationCallback.before(tuple);
+        ctx.modificationCallback.found(null, tuple);
         if (ctx.getOperation() == IndexOperation.INSERT) {
             // Before each insert, we must check whether there exist a killer
             // tuple in the memBTree. If we find a killer tuple, we must truly
@@ -323,13 +328,16 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     }
 
     protected LSMRTreeOpContext createOpContext(IModificationOperationCallback modCallback) {
-        return new LSMRTreeOpContext((RTree.RTreeAccessor) mutableComponent.getRTree().createAccessor(modCallback,
-                NoOpOperationCallback.INSTANCE), (IRTreeLeafFrame) rtreeLeafFrameFactory.createFrame(),
-                (IRTreeInteriorFrame) rtreeInteriorFrameFactory.createFrame(), memFreePageManager
-                        .getMetaDataFrameFactory().createFrame(), 4, (BTree.BTreeAccessor) mutableComponent.getBTree()
-                        .createAccessor(modCallback, NoOpOperationCallback.INSTANCE), btreeLeafFrameFactory,
-                btreeInteriorFrameFactory, memFreePageManager.getMetaDataFrameFactory().createFrame(),
-                rtreeCmpFactories, btreeCmpFactories, null, null);
+        RTreeAccessor rtreeAccessor = (RTree.RTreeAccessor) mutableComponent.getRTree().createAccessor(
+                NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        BTreeAccessor btreeAccessor = (BTree.BTreeAccessor) mutableComponent.getBTree().createAccessor(
+                NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+
+        return new LSMRTreeOpContext(rtreeAccessor, (IRTreeLeafFrame) rtreeLeafFrameFactory.createFrame(),
+                (IRTreeInteriorFrame) rtreeInteriorFrameFactory.createFrame(), virtualFreePageManager
+                        .getMetaDataFrameFactory().createFrame(), 4, btreeAccessor, btreeLeafFrameFactory,
+                btreeInteriorFrameFactory, virtualFreePageManager.getMetaDataFrameFactory().createFrame(),
+                rtreeCmpFactories, btreeCmpFactories, modCallback, NoOpOperationCallback.INSTANCE);
     }
 
     @Override
@@ -352,7 +360,12 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
 
     @Override
     public long getMemoryAllocationSize() {
-        InMemoryBufferCache memBufferCache = (InMemoryBufferCache) mutableComponent.getRTree().getBufferCache();
-        return memBufferCache.getNumPages() * memBufferCache.getPageSize();
+        IBufferCache virtualBufferCache = mutableComponent.getRTree().getBufferCache();
+        return virtualBufferCache.getNumPages() * virtualBufferCache.getPageSize();
+    }
+
+    @Override
+    public String toString() {
+        return "LSMRTree [" + fileManager.getBaseDir() + "]";
     }
 }

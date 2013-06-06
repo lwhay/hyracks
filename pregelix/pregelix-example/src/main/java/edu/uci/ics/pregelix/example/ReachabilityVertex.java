@@ -1,11 +1,11 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- *
+ * 
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,6 +40,7 @@ import edu.uci.ics.pregelix.api.job.PregelixJob;
 import edu.uci.ics.pregelix.api.util.BspUtils;
 import edu.uci.ics.pregelix.dataflow.util.IterationUtils;
 import edu.uci.ics.pregelix.example.client.Client;
+import edu.uci.ics.pregelix.example.data.VLongNormalizedKeyComputer;
 import edu.uci.ics.pregelix.example.inputformat.TextReachibilityVertexInputFormat;
 import edu.uci.ics.pregelix.example.io.VLongWritable;
 
@@ -223,6 +224,7 @@ public class ReachabilityVertex extends Vertex<VLongWritable, ByteWritable, Floa
         job.setVertexInputFormatClass(TextReachibilityVertexInputFormat.class);
         job.setVertexOutputFormatClass(SimpleReachibilityVertexOutputFormat.class);
         job.setMessageCombinerClass(ReachabilityVertex.SimpleReachibilityCombiner.class);
+        job.setNoramlizedKeyComputerClass(VLongNormalizedKeyComputer.class);
         Client.run(args, job);
         System.out.println("reachable? " + readReachibilityResult(job.getConfiguration()));
     }

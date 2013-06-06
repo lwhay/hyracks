@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -26,9 +26,16 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 public class StreamProjectRuntimeFactory extends AbstractOneInputOneOutputRuntimeFactory {
 
     private static final long serialVersionUID = 1L;
+    private final boolean flushFramesRapidly;
+
+    public StreamProjectRuntimeFactory(int[] projectionList, boolean flushFramesRapidly) {
+        super(projectionList);
+        this.flushFramesRapidly = flushFramesRapidly;
+    }
 
     public StreamProjectRuntimeFactory(int[] projectionList) {
         super(projectionList);
+        this.flushFramesRapidly = false;
     }
 
     @Override
@@ -57,7 +64,16 @@ public class StreamProjectRuntimeFactory extends AbstractOneInputOneOutputRuntim
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
                 tAccess.reset(buffer);
                 int nTuple = tAccess.getTupleCount();
-                for (int t = 0; t < nTuple; t++) {
+
+                int t = 0;
+                for (; t < nTuple - 1; t++) {
+                    appendProjectionToFrame(t, projectionList);
+                }
+                if (flushFramesRapidly) {
+                    // Whenever all the tuples in the incoming frame have been consumed, the project operator 
+                    // will push its frame to the next operator; i.e., it won't wait until the frame gets full. 
+                    appendProjectionToFrame(t, projectionList, true);
+                } else {
                     appendProjectionToFrame(t, projectionList);
                 }
 

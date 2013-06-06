@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -36,7 +36,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLog
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DieOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistributeResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
@@ -176,16 +175,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         if (op.getOffset() != limitOpArg.getOffset())
             return Boolean.FALSE;
         boolean isomorphic = op.getMaxObjects().getValue().equals(limitOpArg.getMaxObjects().getValue());
-        return isomorphic;
-    }
-
-    @Override
-    public Boolean visitDieOperator(DieOperator op, ILogicalOperator arg) throws AlgebricksException {
-        AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
-        if (aop.getOperatorTag() != LogicalOperatorTag.DIE)
-            return Boolean.FALSE;
-        DieOperator dieOpArg = (DieOperator) copyAndSubstituteVar(op, arg);
-        boolean isomorphic = op.getAfterObjects().getValue().equals(dieOpArg.getAfterObjects().getValue());
         return isomorphic;
     }
 
@@ -640,11 +629,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         public ILogicalOperator visitLimitOperator(LimitOperator op, Void arg) throws AlgebricksException {
             return new LimitOperator(deepCopyExpressionRef(op.getMaxObjects()).getValue(), deepCopyExpressionRef(
                     op.getOffset()).getValue(), op.isTopmostLimitOp());
-        }
-
-        @Override
-        public ILogicalOperator visitDieOperator(DieOperator op, Void arg) throws AlgebricksException {
-            return new DieOperator(deepCopyExpressionRef(op.getAfterObjects()).getValue());
         }
 
         @Override

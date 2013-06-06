@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -81,15 +81,12 @@ public class VertexFileScanOperatorDescriptor extends AbstractSingleActivityOper
         final List<FileSplit> splits = splitsFactory.getSplits();
 
         return new AbstractUnaryOutputSourceOperatorNodePushable() {
-            private ClassLoader ctxCL;
             private ContextFactory ctxFactory = new ContextFactory();
 
             @Override
             public void initialize() throws HyracksDataException {
-                ctxCL = Thread.currentThread().getContextClassLoader();
                 try {
-                    Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-                    Configuration conf = confFactory.createConfiguration();
+                    Configuration conf = confFactory.createConfiguration(ctx);
                     writer.open();
                     for (int i = 0; i < scheduledLocations.length; i++) {
                         if (scheduledLocations[i].equals(ctx.getJobletContext().getApplicationContext().getNodeId())) {
@@ -109,8 +106,6 @@ public class VertexFileScanOperatorDescriptor extends AbstractSingleActivityOper
                     writer.close();
                 } catch (Exception e) {
                     throw new HyracksDataException(e);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(ctxCL);
                 }
             }
 
@@ -135,10 +130,11 @@ public class VertexFileScanOperatorDescriptor extends AbstractSingleActivityOper
                 VertexInputFormat vertexInputFormat = BspUtils.createVertexInputFormat(conf);
                 InputSplit split = splits.get(splitId);
                 TaskAttemptContext mapperContext = ctxFactory.createContext(conf, splitId);
+                mapperContext.getConfiguration().setClassLoader(ctx.getJobletContext().getClassLoader());
 
                 VertexReader vertexReader = vertexInputFormat.createVertexReader(split, mapperContext);
                 vertexReader.initialize(split, mapperContext);
-                Vertex readerVertex = (Vertex) BspUtils.createVertex(conf);
+                Vertex readerVertex = (Vertex) BspUtils.createVertex(mapperContext.getConfiguration());
                 ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldSize);
                 DataOutput dos = tb.getDataOutput();
 

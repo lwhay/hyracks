@@ -1,11 +1,11 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- *
+ * 
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,6 +20,13 @@ import java.io.FileReader;
 
 public class TestUtils {
 
+    public static void compareWithResultDir(File expectedFileDir, File actualFileDir) throws Exception {
+        String[] fileNames = expectedFileDir.list();
+        for (String fileName : fileNames) {
+            compareWithResult(new File(expectedFileDir, fileName), new File(actualFileDir, fileName));
+        }
+    }
+
     public static void compareWithResult(File expectedFile, File actualFile) throws Exception {
         BufferedReader readerExpected = new BufferedReader(new FileReader(expectedFile));
         BufferedReader readerActual = new BufferedReader(new FileReader(actualFile));
@@ -28,7 +35,6 @@ public class TestUtils {
         try {
             while ((lineExpected = readerExpected.readLine()) != null) {
                 lineActual = readerActual.readLine();
-                // Assert.assertEquals(lineExpected, lineActual);
                 if (lineActual == null) {
                     throw new Exception("Actual result changed at line " + num + ":\n< " + lineExpected + "\n> ");
                 }
@@ -62,8 +68,10 @@ public class TestUtils {
             if (row1.equals(row2))
                 continue;
 
-            String[] fields1 = row1.split(" ");
-            String[] fields2 = row2.split(" ");
+            boolean spaceOrTab = false;
+            spaceOrTab = row1.contains(" ");
+            String[] fields1 = spaceOrTab ? row1.split(" ") : row1.split("\t");
+            String[] fields2 = spaceOrTab ? row2.split(" ") : row2.split("\t");
 
             for (int j = 0; j < fields1.length; j++) {
                 if (fields1[j].equals(fields2[j])) {
@@ -76,7 +84,7 @@ public class TestUtils {
                     float float1 = (float) double1.doubleValue();
                     float float2 = (float) double2.doubleValue();
 
-                    if (Math.abs(float1 - float2) == 0)
+                    if (Math.abs(float1 - float2) < 1.0e-7)
                         continue;
                     else {
                         return false;

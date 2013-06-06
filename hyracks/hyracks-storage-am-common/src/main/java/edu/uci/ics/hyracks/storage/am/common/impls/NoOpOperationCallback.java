@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.storage.am.common.impls;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
@@ -47,6 +48,11 @@ public enum NoOpOperationCallback implements IModificationOperationCallback, ISe
 
     @Override
     public void cancel(ITupleReference tuple) {
+        // Do nothing.
+    }
+
+    @Override
+    public void complete(ITupleReference tuple) throws HyracksDataException {
         // Do nothing.
     }
 }

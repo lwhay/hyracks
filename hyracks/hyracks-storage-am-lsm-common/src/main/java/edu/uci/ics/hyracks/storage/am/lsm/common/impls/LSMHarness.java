@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2012 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -16,8 +16,9 @@
 package edu.uci.ics.hyracks.storage.am.lsm.common.impls;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -35,6 +36,8 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 
 public class LSMHarness implements ILSMHarness {
+    private static final Logger LOGGER = Logger.getLogger(LSMHarness.class.getName());
+
     private final ILSMIndexInternal lsmIndex;
     private final ILSMMergePolicy mergePolicy;
     private final ILSMOperationTracker opTracker;
@@ -46,10 +49,10 @@ public class LSMHarness implements ILSMHarness {
     }
 
     private void threadExit(ILSMIndexOperationContext opCtx, LSMOperationType opType) throws HyracksDataException {
-        if (!lsmIndex.getFlushStatus() && lsmIndex.getInMemoryFreePageManager().isFull()) {
+        if (!lsmIndex.getFlushStatus() && lsmIndex.isFull()) {
             lsmIndex.setFlushStatus(true);
         }
-        opTracker.afterOperation(opType, opCtx.getSearchOperationCallback(), opCtx.getModificationCallback());
+        opTracker.afterOperation(lsmIndex, opType, opCtx.getSearchOperationCallback(), opCtx.getModificationCallback());
     }
 
     private boolean getAndEnterComponents(ILSMIndexOperationContext ctx, LSMOperationType opType, boolean tryOperation)
@@ -90,7 +93,7 @@ public class LSMHarness implements ILSMHarness {
             }
         }
 
-        opTracker.beforeOperation(opType, ctx.getSearchOperationCallback(), ctx.getModificationCallback());
+        opTracker.beforeOperation(lsmIndex, opType, ctx.getSearchOperationCallback(), ctx.getModificationCallback());
         return true;
     }
 
@@ -159,7 +162,7 @@ public class LSMHarness implements ILSMHarness {
     @Override
     public void noOp(ILSMIndexOperationContext ctx) throws HyracksDataException {
         LSMOperationType opType = LSMOperationType.NOOP;
-        opTracker.beforeOperation(opType, ctx.getSearchOperationCallback(), ctx.getModificationCallback());
+        opTracker.beforeOperation(lsmIndex, opType, ctx.getSearchOperationCallback(), ctx.getModificationCallback());
         threadExit(ctx, opType);
     }
 
@@ -171,7 +174,7 @@ public class LSMHarness implements ILSMHarness {
         }
 
         lsmIndex.setFlushStatus(false);
-        
+
         if (!lsmIndex.scheduleFlush(ctx, callback)) {
             callback.beforeOperation();
             callback.afterOperation(null, null);
@@ -184,7 +187,11 @@ public class LSMHarness implements ILSMHarness {
     public void flush(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException,
             IndexException {
         operation.getCallback().beforeOperation();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(lsmIndex + ": flushing");
+        }
         ILSMComponent newComponent = lsmIndex.flush(operation);
+
         operation.getCallback().afterOperation(null, newComponent);
         lsmIndex.markAsValid(newComponent);
         operation.getCallback().afterFinalize(newComponent);
@@ -215,6 +222,9 @@ public class LSMHarness implements ILSMHarness {
             IndexException {
         List<ILSMComponent> mergedComponents = new ArrayList<ILSMComponent>();
         operation.getCallback().beforeOperation();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(lsmIndex + ": merging");
+        }
         ILSMComponent newComponent = lsmIndex.merge(mergedComponents, operation);
         ctx.getComponentHolder().addAll(mergedComponents);
         operation.getCallback().afterOperation(mergedComponents, newComponent);

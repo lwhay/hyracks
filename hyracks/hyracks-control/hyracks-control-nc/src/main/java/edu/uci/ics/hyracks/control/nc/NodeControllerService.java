@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -47,6 +47,7 @@ import edu.uci.ics.hyracks.api.application.INCApplicationEntryPoint;
 import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
 import edu.uci.ics.hyracks.api.context.IHyracksRootContext;
 import edu.uci.ics.hyracks.api.dataset.IDatasetPartitionManager;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.control.common.AbstractRemoteService;
@@ -73,8 +74,10 @@ import edu.uci.ics.hyracks.control.nc.work.AbortTasksWork;
 import edu.uci.ics.hyracks.control.nc.work.ApplicationMessageWork;
 import edu.uci.ics.hyracks.control.nc.work.BuildJobProfilesWork;
 import edu.uci.ics.hyracks.control.nc.work.CleanupJobletWork;
+import edu.uci.ics.hyracks.control.nc.work.DeployBinaryWork;
 import edu.uci.ics.hyracks.control.nc.work.ReportPartitionAvailabilityWork;
 import edu.uci.ics.hyracks.control.nc.work.StartTasksWork;
+import edu.uci.ics.hyracks.control.nc.work.UnDeployBinaryWork;
 import edu.uci.ics.hyracks.ipc.api.IIPCHandle;
 import edu.uci.ics.hyracks.ipc.api.IIPCI;
 import edu.uci.ics.hyracks.ipc.api.IPCPerformanceCounters;
@@ -96,9 +99,9 @@ public class NodeControllerService extends AbstractRemoteService {
 
     private final NetworkManager netManager;
 
-    private final IDatasetPartitionManager datasetPartitionManager;
+    private IDatasetPartitionManager datasetPartitionManager;
 
-    private final DatasetNetworkManager datasetNetworkManager;
+    private DatasetNetworkManager datasetNetworkManager;
 
     private final WorkQueue queue;
 
@@ -112,7 +115,7 @@ public class NodeControllerService extends AbstractRemoteService {
 
     private final Map<JobId, Joblet> jobletMap;
 
-    private final ExecutorService executor;
+    private ExecutorService executor;
 
     private NodeParameters nodeParameters;
 
@@ -139,21 +142,16 @@ public class NodeControllerService extends AbstractRemoteService {
     public NodeControllerService(NCConfig ncConfig) throws Exception {
         this.ncConfig = ncConfig;
         id = ncConfig.nodeId;
-        executor = Executors.newCachedThreadPool();
         NodeControllerIPCI ipci = new NodeControllerIPCI();
         ipc = new IPCSystem(new InetSocketAddress(ncConfig.clusterNetIPAddress, 0), ipci,
                 new CCNCFunctions.SerializerDeserializer());
-        this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices), executor));
+
+        this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices)));
         if (id == null) {
             throw new Exception("id not set");
         }
         partitionManager = new PartitionManager(this);
         netManager = new NetworkManager(getIpAddress(ncConfig.dataIPAddress), partitionManager, ncConfig.nNetThreads);
-
-        datasetPartitionManager = new DatasetPartitionManager(this, executor, ncConfig.resultManagerMemory,
-                ncConfig.resultHistorySize);
-        datasetNetworkManager = new DatasetNetworkManager(getIpAddress(ncConfig.datasetIPAddress),
-                datasetPartitionManager, ncConfig.nNetThreads);
 
         queue = new WorkQueue();
         jobletMap = new Hashtable<JobId, Joblet>();
@@ -216,6 +214,14 @@ public class NodeControllerService extends AbstractRemoteService {
         fv.setValue(ncInfos);
     }
 
+    private void init() throws Exception {
+        ctx.getIOManager().setExecutor(executor);
+        datasetPartitionManager = new DatasetPartitionManager(this, executor, ncConfig.resultManagerMemory,
+                ncConfig.resultTTL, ncConfig.resultSweepThreshold);
+        datasetNetworkManager = new DatasetNetworkManager(getIpAddress(ncConfig.datasetIPAddress),
+                datasetPartitionManager, ncConfig.nNetThreads);
+    }
+
     @Override
     public void start() throws Exception {
         LOGGER.log(Level.INFO, "Starting NodeControllerService");
@@ -223,6 +229,7 @@ public class NodeControllerService extends AbstractRemoteService {
         netManager.start();
 
         startApplication();
+        init();
 
         datasetNetworkManager.start();
         IIPCHandle ccIPCHandle = ipc.getHandle(new InetSocketAddress(ncConfig.ccHost, ncConfig.ccPort));
@@ -277,6 +284,7 @@ public class NodeControllerService extends AbstractRemoteService {
                     .toArray(new String[ncConfig.appArgs.size()]);
             ncAppEntryPoint.start(appCtx, args);
         }
+        executor = Executors.newCachedThreadPool(appCtx.getThreadFactory());
     }
 
     @Override
@@ -444,13 +452,14 @@ public class NodeControllerService extends AbstractRemoteService {
                 case SEND_APPLICATION_MESSAGE: {
                     CCNCFunctions.SendApplicationMessageFunction amf = (CCNCFunctions.SendApplicationMessageFunction) fn;
                     queue.schedule(new ApplicationMessageWork(NodeControllerService.this, amf.getMessage(), amf
-                            .getNodeId()));
+                            .getDeploymentId(), amf.getNodeId()));
                     return;
                 }
                 case START_TASKS: {
                     CCNCFunctions.StartTasksFunction stf = (CCNCFunctions.StartTasksFunction) fn;
-                    queue.schedule(new StartTasksWork(NodeControllerService.this, stf.getJobId(), stf.getPlanBytes(),
-                            stf.getTaskDescriptors(), stf.getConnectorPolicies(), stf.getFlags()));
+                    queue.schedule(new StartTasksWork(NodeControllerService.this, stf.getDeploymentId(),
+                            stf.getJobId(), stf.getPlanBytes(), stf.getTaskDescriptors(), stf.getConnectorPolicies(),
+                            stf.getFlags()));
                     return;
                 }
 
@@ -484,14 +493,27 @@ public class NodeControllerService extends AbstractRemoteService {
                     setNodeControllersInfo(gncirf.getNodeControllerInfos());
                     return;
                 }
+
+                case DEPLOY_BINARY: {
+                    CCNCFunctions.DeployBinaryFunction ndbf = (CCNCFunctions.DeployBinaryFunction) fn;
+                    queue.schedule(new DeployBinaryWork(NodeControllerService.this, ndbf.getDeploymentId(), ndbf
+                            .getBinaryURLs()));
+                    return;
+                }
+
+                case UNDEPLOY_BINARY: {
+                    CCNCFunctions.UnDeployBinaryFunction ndbf = (CCNCFunctions.UnDeployBinaryFunction) fn;
+                    queue.schedule(new UnDeployBinaryWork(NodeControllerService.this, ndbf.getDeploymentId()));
+                    return;
+                }
             }
             throw new IllegalArgumentException("Unknown function: " + fn.getFunctionId());
 
         }
     }
 
-    public void sendApplicationMessageToCC(byte[] data, String nodeId) throws Exception {
-        ccs.sendApplicationMessageToCC(data, nodeId);
+    public void sendApplicationMessageToCC(byte[] data, DeploymentId deploymentId, String nodeId) throws Exception {
+        ccs.sendApplicationMessageToCC(data, deploymentId, nodeId);
     }
 
     public IDatasetPartitionManager getDatasetPartitionManager() {

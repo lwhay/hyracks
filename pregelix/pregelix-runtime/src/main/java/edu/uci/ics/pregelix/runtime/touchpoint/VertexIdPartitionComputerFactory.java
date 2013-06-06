@@ -1,11 +1,11 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- *
+ * 
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,20 +24,22 @@ import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
+import edu.uci.ics.pregelix.dataflow.std.base.ISerializerDeserializerFactory;
 
 public class VertexIdPartitionComputerFactory<K extends Writable, V extends Writable> implements
         ITuplePartitionComputerFactory {
     private static final long serialVersionUID = 1L;
-    private final ISerializerDeserializer<K> keyIO;
+    private final ISerializerDeserializerFactory<K> keyIOFactory;
 
-    public VertexIdPartitionComputerFactory(ISerializerDeserializer<K> keyIO) {
-        this.keyIO = keyIO;
+    public VertexIdPartitionComputerFactory(ISerializerDeserializerFactory<K> keyIOFactory) {
+        this.keyIOFactory = keyIOFactory;
     }
 
     public ITuplePartitionComputer createPartitioner() {
         return new ITuplePartitionComputer() {
             private final ByteBufferInputStream bbis = new ByteBufferInputStream();
             private final DataInputStream dis = new DataInputStream(bbis);
+            private final ISerializerDeserializer<K> keyIO = keyIOFactory.getSerializerDeserializer();
 
             public int partition(IFrameTupleAccessor accessor, int tIndex, int nParts) throws HyracksDataException {
                 int keyStart = accessor.getTupleStartOffset(tIndex) + accessor.getFieldSlotsLength()

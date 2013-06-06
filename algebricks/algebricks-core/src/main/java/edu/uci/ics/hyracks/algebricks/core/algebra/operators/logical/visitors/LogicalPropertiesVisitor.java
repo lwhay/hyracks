@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -27,7 +27,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractAss
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DieOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistributeResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
@@ -137,12 +136,6 @@ public class LogicalPropertiesVisitor implements ILogicalOperatorVisitor<Void, I
 
     @Override
     public Void visitLimitOperator(LimitOperator op, IOptimizationContext arg) throws AlgebricksException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Void visitDieOperator(DieOperator op, IOptimizationContext arg) throws AlgebricksException {
         // TODO Auto-generated method stub
         return null;
     }
@@ -301,7 +294,7 @@ public class LogicalPropertiesVisitor implements ILogicalOperatorVisitor<Void, I
                         }
                         overhead += sz;
                     }
-                    int frameSize = context.getFrameSize();
+                    int frameSize = context.getPhysicalOptimizationConfig().getFrameSize();
                     if (frameSize > 0) {
                         long sz = frames0 * frameSize + overhead * v.getNumberOfTuples();
                         int frames1 = (int) (sz / frameSize);

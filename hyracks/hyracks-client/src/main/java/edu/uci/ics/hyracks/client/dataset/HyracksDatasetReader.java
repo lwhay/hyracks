@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 import edu.uci.ics.hyracks.api.channels.IInputChannel;
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
 import edu.uci.ics.hyracks.api.dataset.DatasetDirectoryRecord;
-import edu.uci.ics.hyracks.api.dataset.DatasetDirectoryRecord.Status;
+import edu.uci.ics.hyracks.api.dataset.DatasetJobRecord.Status;
 import edu.uci.ics.hyracks.api.dataset.IDatasetInputChannelMonitor;
 import edu.uci.ics.hyracks.api.dataset.IHyracksDatasetDirectoryServiceConnection;
 import edu.uci.ics.hyracks.api.dataset.IHyracksDatasetReader;
@@ -101,24 +101,20 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                             knownRecords);
                     lastReadPartition = 0;
                     resultChannel = new DatasetNetworkInputChannel(netManager,
-                            getSocketAddress(knownRecords[lastReadPartition]), jobId, lastReadPartition,
+                            getSocketAddress(knownRecords[lastReadPartition]), jobId, resultSetId, lastReadPartition,
                             NUM_READ_BUFFERS);
                     lastMonitor = getMonitor(lastReadPartition);
                     resultChannel.open(datasetClientCtx);
                     resultChannel.registerMonitor(lastMonitor);
-                } catch (HyracksException e) {
-                    throw new HyracksDataException(e);
-                } catch (UnknownHostException e) {
-                    throw new HyracksDataException(e);
                 } catch (Exception e) {
-                    // Do nothing here.
+                    throw new HyracksDataException(e);
                 }
             }
         }
 
         while (readSize <= 0 && !(isLastPartitionReadComplete())) {
             synchronized (lastMonitor) {
-                while (lastMonitor.getNFramesAvailable() <= 0 && !lastMonitor.eosReached()) {
+                while (lastMonitor.getNFramesAvailable() <= 0 && !lastMonitor.eosReached() && !lastMonitor.failed()) {
                     try {
                         lastMonitor.wait();
                     } catch (InterruptedException e) {
@@ -127,6 +123,9 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                 }
             }
 
+            if (lastMonitor.failed()) {
+                throw new HyracksDataException("Job Failed.");
+            }
             if (isPartitionReadComplete(lastMonitor)) {
                 knownRecords[lastReadPartition].readEOS();
                 if ((lastReadPartition == knownRecords.length - 1)) {
@@ -135,23 +134,17 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                     try {
                         lastReadPartition++;
                         while (knownRecords[lastReadPartition] == null) {
-                            try {
-                                knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId,
-                                        resultSetId, knownRecords);
-                            } catch (Exception e) {
-                                // Do nothing here.
-                            }
+                            knownRecords = datasetDirectoryServiceConnection.getDatasetResultLocations(jobId,
+                                    resultSetId, knownRecords);
                         }
 
                         resultChannel = new DatasetNetworkInputChannel(netManager,
-                                getSocketAddress(knownRecords[lastReadPartition]), jobId, lastReadPartition,
-                                NUM_READ_BUFFERS);
+                                getSocketAddress(knownRecords[lastReadPartition]), jobId, resultSetId,
+                                lastReadPartition, NUM_READ_BUFFERS);
                         lastMonitor = getMonitor(lastReadPartition);
                         resultChannel.open(datasetClientCtx);
                         resultChannel.registerMonitor(lastMonitor);
-                    } catch (HyracksException e) {
-                        throw new HyracksDataException(e);
-                    } catch (UnknownHostException e) {
+                    } catch (Exception e) {
                         throw new HyracksDataException(e);
                     }
                 }

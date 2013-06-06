@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -27,6 +27,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LimitOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.NestedTupleSourceOperator;
@@ -96,14 +97,21 @@ public class OperatorManipulationUtil {
                 break;
             }
             default: {
+                boolean forceUnpartitioned = false;
                 if (op.getOperatorTag() == LogicalOperatorTag.LIMIT) {
                     LimitOperator opLim = (LimitOperator) op;
                     if (opLim.isTopmostLimitOp()) {
-                        if (opLim.getExecutionMode() != AbstractLogicalOperator.ExecutionMode.UNPARTITIONED) {
-                            opLim.setExecutionMode(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED);
-                            change = true;
-                        }
-                        break;
+                        opLim.setExecutionMode(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED);
+                        change = true;
+                        forceUnpartitioned = true;
+                    }
+                }
+                if (op.getOperatorTag() == LogicalOperatorTag.AGGREGATE) {
+                    AggregateOperator aggOp = (AggregateOperator) op;
+                    if (aggOp.isGlobal()) {
+                        op.setExecutionMode(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED);
+                        change = true;
+                        forceUnpartitioned = true;
                     }
                 }
 
@@ -112,6 +120,8 @@ public class OperatorManipulationUtil {
                     AbstractLogicalOperator inputOp = (AbstractLogicalOperator) i.getValue();
                     switch (inputOp.getExecutionMode()) {
                         case PARTITIONED: {
+                            if (forceUnpartitioned)
+                                break;
                             op.setExecutionMode(AbstractLogicalOperator.ExecutionMode.PARTITIONED);
                             change = true;
                             exit = true;

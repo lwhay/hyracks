@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -91,5 +91,19 @@ public class TestJobletContext implements IHyracksJobletContext {
     @Override
     public Object getGlobalJobData() {
         return null;
+    }
+
+    @Override
+    public Class<?> loadClass(String className) {
+        try {
+            return Class.forName(className);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ClassLoader getClassLoader() {
+        return this.getClass().getClassLoader();
     }
 }

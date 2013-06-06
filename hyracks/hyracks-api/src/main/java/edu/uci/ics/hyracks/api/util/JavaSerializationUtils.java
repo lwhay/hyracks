@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -33,6 +33,19 @@ public class JavaSerializationUtils {
         return baos.toByteArray();
     }
 
+    public static byte[] serialize(Serializable jobSpec, ClassLoader classLoader) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(baos);
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            oos.writeObject(jobSpec);
+            return baos.toByteArray();
+        } finally {
+            Thread.currentThread().setContextClassLoader(ctxCL);
+        }
+    }
+
     public static Object deserialize(byte[] bytes) throws IOException, ClassNotFoundException {
         if (bytes == null) {
             return null;
@@ -53,6 +66,10 @@ public class JavaSerializationUtils {
         } finally {
             Thread.currentThread().setContextClassLoader(ctxCL);
         }
+    }
+
+    public static Class<?> loadClass(String className) throws IOException, ClassNotFoundException {
+        return Class.forName(className);
     }
 
     private static class ClassLoaderObjectInputStream extends ObjectInputStream {

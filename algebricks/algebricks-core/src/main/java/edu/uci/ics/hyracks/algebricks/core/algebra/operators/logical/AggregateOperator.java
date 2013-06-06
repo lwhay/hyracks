@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical;
 
 import java.util.ArrayList;
@@ -20,10 +34,11 @@ public class AggregateOperator extends AbstractAssignOperator {
     // private ArrayList<AggregateFunctionCallExpression> expressions;
     // TODO type safe list of expressions
     private List<Mutable<ILogicalExpression>> mergeExpressions;
-    private LogicalVariable partitioningVariable;
+    private boolean global;
 
     public AggregateOperator(List<LogicalVariable> variables, List<Mutable<ILogicalExpression>> expressions) {
         super(variables, expressions);
+        global = true;
     }
 
     @Override
@@ -69,12 +84,12 @@ public class AggregateOperator extends AbstractAssignOperator {
         return mergeExpressions;
     }
 
-    public void setPartitioningVariable(LogicalVariable partitioningVariable) {
-        this.partitioningVariable = partitioningVariable;
+    public void setGlobal(boolean global) {
+        this.global = global;
     }
 
-    public LogicalVariable getPartitioningVariable() {
-        return partitioningVariable;
+    public boolean isGlobal() {
+        return global;
     }
 
     @Override
@@ -90,4 +105,5 @@ public class AggregateOperator extends AbstractAssignOperator {
         }
         return env;
     }
+
 }

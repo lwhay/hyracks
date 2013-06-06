@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 by The Regents of the University of California
+ * Copyright 2009-2013 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
@@ -45,10 +45,10 @@ public class TerminationStateWriterOperatorDescriptor extends AbstractSingleActi
     }
 
     @Override
-    public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
+    public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new AbstractUnaryInputSinkOperatorNodePushable() {
-            private Configuration conf = confFactory.createConfiguration();
+            private Configuration conf = confFactory.createConfiguration(ctx);
             private boolean terminate = true;
 
             @Override
