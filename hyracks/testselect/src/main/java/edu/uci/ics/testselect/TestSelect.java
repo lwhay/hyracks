@@ -15,7 +15,6 @@ import edu.uci.ics.hivesterix.runtime.factory.nullwriter.HiveNullWriterFactory;
 import edu.uci.ics.hivesterix.runtime.inspector.HiveBinaryBooleanInspectorFactory;
 import edu.uci.ics.hivesterix.runtime.inspector.HiveBinaryIntegerInspectorFactory;
 import edu.uci.ics.hivesterix.runtime.provider.HiveBinaryComparatorFactoryProvider;
-import edu.uci.ics.hivesterix.runtime.provider.HiveBinaryHashFunctionFactoryProvider;
 import edu.uci.ics.hivesterix.runtime.provider.HiveNormalizedKeyComputerFactoryProvider;
 import edu.uci.ics.hivesterix.runtime.provider.HivePrinterFactoryProvider;
 import edu.uci.ics.hivesterix.runtime.provider.HiveSerializerDeserializerProvider;
@@ -35,6 +34,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionEvalSizeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionTypeComputer;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IMergeAggregationExpressionFactory;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.INullableTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IPartialAggregationTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
@@ -47,15 +47,19 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSource;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSourceIndex;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IMetadataProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
 import edu.uci.ics.hyracks.algebricks.core.algebra.typing.ITypingContext;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
+import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.OperatorSchemaImpl;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.PlanCompiler;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.AbstractRuleController;
+import edu.uci.ics.hyracks.algebricks.core.rewriter.base.AlgebricksOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
+import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import edu.uci.ics.hyracks.algebricks.data.IBinaryBooleanInspectorFactory;
 import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.IBinaryHashFunctionFactoryProvider;
@@ -69,6 +73,7 @@ import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.CharArrayType;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -86,28 +91,44 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileScanOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
+import edu.uci.ics.hyracks.hdfs.lib.RawBinaryHashFunctionFactory;
 
 public class TestSelect{
 	static int varCounter=0;
 
 	private static List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> buildDefaultLogicalRewrites() {
-		List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultLogicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
-		SequentialFixpointRuleController seqCtrlNoDfs = new SequentialFixpointRuleController(
-				false);
-		SequentialFixpointRuleController seqCtrlFullDfs = new SequentialFixpointRuleController(
-				true);
-		SequentialOnceRuleController seqOnceCtrl = new SequentialOnceRuleController(
-				true);
-		return defaultLogicalRewrites;
+        List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultLogicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
+        SequentialFixpointRuleController seqCtrlNoDfs = new SequentialFixpointRuleController(false);
+        SequentialFixpointRuleController seqCtrlFullDfs = new SequentialFixpointRuleController(true);
+        SequentialOnceRuleController seqOnceCtrl = new SequentialOnceRuleController(true);
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrl,
+                TestRules.buildTypeInferenceRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlFullDfs,
+                TestRules.buildNormalizationRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildCondPushDownRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildJoinInferenceRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildOpPushDownRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrl,
+                TestRules.buildDataExchangeRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildConsolidationRuleCollection()));
+        return defaultLogicalRewrites;
 	}
 
 	private static List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> buildDefaultPhysicalRewrites() {
-		List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultPhysicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
-		SequentialOnceRuleController seqOnceCtrlAllLevels = new SequentialOnceRuleController(
-				true);
-		SequentialOnceRuleController seqOnceCtrlTopLevel = new SequentialOnceRuleController(
-				false);
-		return defaultPhysicalRewrites;
+        List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultPhysicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
+        SequentialOnceRuleController seqOnceCtrlAllLevels = new SequentialOnceRuleController(true);
+        SequentialOnceRuleController seqOnceCtrlTopLevel = new SequentialOnceRuleController(false);
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlAllLevels,
+                TestRules.buildPhysicalRewritesAllLevelsRuleCollection()));
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlTopLevel,
+                TestRules.buildPhysicalRewritesTopLevelRuleCollection()));
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlAllLevels,
+                TestRules.prepareForJobGenRuleCollection()));
+        return defaultPhysicalRewrites;
 	}
 
 	public static LogicalVariable newVariable() {
@@ -123,16 +144,19 @@ public class TestSelect{
 		TestSchema schema = new TestSchema(schemaInput);
 
 		//Write operator requires the schema of the fields to write, etc
-		IDataSink dataSink = new TestDataSink("localhost:~/output1K.txt, localhost:~/output2K.txt"); 
+		IDataSink dataSink = new TestDataSink("localhost:output1K.txt"); 
 
 		//This section creates an expression for dataScan to convert the input into variables according to a schema.
 		List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
 		LogicalVariable variable = new LogicalVariable(1);
 		VariableReferenceExpression varExpr = new VariableReferenceExpression(variable);
+		//you need to provide both 
 		expressions.add(new MutableObject<ILogicalExpression>(varExpr));
+		expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(variable)));
+		
 
 		//Hard-coding the where function clause and corresponding arity + giving it the scanned data (expressions)
-		FunctionIdentifier finfo = new FunctionIdentifier("algebricks", "gt", 2);
+		FunctionIdentifier finfo = new FunctionIdentifier("algebricks", "eq", 2);
 		TestFunction function = new TestFunction(finfo);
 		ScalarFunctionCallExpression scalarExp = new ScalarFunctionCallExpression(function, expressions);
 		MutableObject<ILogicalExpression> exprCondition = new MutableObject<ILogicalExpression>(scalarExp);
@@ -141,15 +165,15 @@ public class TestSelect{
 		List<Pair<String, Type>> fieldsSchema = schema.getSchema();
 		List<LogicalVariable> variables = new ArrayList<LogicalVariable>();
 		List<Object> types = new ArrayList<Object>();
-		for (Pair<String, Type> pair : fieldsSchema) {
-			LogicalVariable v = newVariable();
-			variables.add(v);
-			types.add(pair.second);
-		}
+		
+		Pair<String, Type> pair = fieldsSchema.get(0);
+		LogicalVariable v = variable;
+		variables.add(v);
+		types.add(pair.second);
 
 
 		//define the input file name, and the schema - required for scanning in data?
-		TestDataSource dataSource = new TestDataSource("localhost:~/inputKeren.txt", types.toArray());
+		TestDataSource dataSource = new TestDataSource("localhost:inputKeren.txt", types.toArray());
 
 		// roots contain a write->select->data, creating these operators below.
 		// [A query can have multiple roots - not the case here. still there's a list structure]
@@ -164,6 +188,7 @@ public class TestSelect{
 
 
 		// chaining them: scan to select and select to write
+		dataScan.getInputs().add(new MutableObject<ILogicalOperator>(new EmptyTupleSourceOperator()));
 		select.getInputs().add(new MutableObject<ILogicalOperator>(dataScan));
 		write.getInputs().add(new MutableObject<ILogicalOperator>(select));
 		roots.add(new MutableObject<ILogicalOperator>(write));
@@ -348,17 +373,16 @@ public class TestSelect{
 
 		ICompiler compiler = cFactory.createCompiler(plan, metaData, 1); // KIS
 		try {
+			System.out.println("Optimization of the plan");
 			compiler.optimize();
 		} catch (AlgebricksException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} // this calls does the rewrites of the rules on the plan, which rules
-		// you want to execute here??
-
+		
 
 		System.out.println(plan.toString());
-		// up to now we built a physical optimized plan, now to the runtime part
-		// of it.
+		// up to now we built a physical optimized plan, now to the runtime part of it.
 
 		
 		IExpressionRuntimeProvider expressionRuntimeProvider = HiveExpressionRuntimeProvider.INSTANCE;
@@ -367,7 +391,6 @@ public class TestSelect{
 		IPartialAggregationTypeComputer partialAggregationTypeComputer = HivePartialAggregationTypeComputer.INSTANCE;
 		IBinaryComparatorFactoryProvider comparatorFactoryProvider = HiveBinaryComparatorFactoryProvider.INSTANCE;
 		INormalizedKeyComputerFactoryProvider normalizedKeyComputerFactoryProvider = HiveNormalizedKeyComputerFactoryProvider.INSTANCE;
-		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = HiveBinaryHashFunctionFactoryProvider.INSTANCE;
 		IPrinterFactoryProvider printerFactoryProvider = HivePrinterFactoryProvider.INSTANCE;
 		INullWriterFactory nullWriterFactory = HiveNullWriterFactory.INSTANCE;
 		IBinaryIntegerInspectorFactory integerInspectorFactory = HiveBinaryIntegerInspectorFactory.INSTANCE;
@@ -377,13 +400,27 @@ public class TestSelect{
 		
 		//================CONTINUE FROM HERE=============
 		/**/IBinaryHashFunctionFamilyProvider hashFunctionFamilyProvider = null;
-		/**/IOperatorSchema outerFlowSchema = null;
-		/**/Object appContext = null;
-		/**/int frameSize = 0;
+		/**/IOperatorSchema outerFlowSchema = new OperatorSchemaImpl();
+		/**/Object appContext = null; //only for the app? Hivesterix stuff
+		/**/int frameSize = 32768;
 		/**/AlgebricksPartitionConstraint clusterLocations = null;
 		/**/IExpressionEvalSizeComputer expressionEvalSizeComputer = null;
-		/**/ITypingContext typingContext = null;
-
+		IMergeAggregationExpressionFactory mergeAggregationExpressionFactory = null;
+		PhysicalOptimizationConfig physicalOptimizationConfig = null;
+		
+		ITypingContext typingContext = new AlgebricksOptimizationContext(varCounter, frameSize, expressionEvalSizeComputer,
+                mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
+                physicalOptimizationConfig);
+		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = new IBinaryHashFunctionFactoryProvider(){
+			
+			@Override
+			public IBinaryHashFunctionFactory getBinaryHashFunctionFactory(Object type)
+					throws AlgebricksException {
+				// TODO Auto-generated method stub
+				return RawBinaryHashFunctionFactory.INSTANCE;
+			}
+		};
+		
 		// all the runtime properties are stored in jobGenContext later passed to PlanCompiler
 		JobGenContext jobGenContext = new JobGenContext(outerFlowSchema,
 				metaData, appContext, serializerDeserializerProvider,

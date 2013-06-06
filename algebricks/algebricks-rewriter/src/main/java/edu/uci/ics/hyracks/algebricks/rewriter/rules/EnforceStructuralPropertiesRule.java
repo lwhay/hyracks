@@ -505,7 +505,7 @@ public class EnforceStructuralPropertiesRule implements IAlgebraicRewriteRule {
                     }
                     if (nd.cardinality() != 1) {
                         throw new NotImplementedException(
-                                "Random repartitioning is only implemented for target domains of"
+                                "Random repartitioning is only implemented for target domains of "
                                         + "cardinality equal to 1.");
                     }
                     pop = new BroadcastPOperator(nd);
