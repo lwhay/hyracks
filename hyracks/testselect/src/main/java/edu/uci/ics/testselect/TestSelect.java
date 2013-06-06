@@ -408,7 +408,7 @@ public class TestSelect{
 		IMergeAggregationExpressionFactory mergeAggregationExpressionFactory = null;
 		PhysicalOptimizationConfig physicalOptimizationConfig = null;
 		
-		ITypingContext typingContext = new AlgebricksOptimizationContext(varCounter, frameSize, expressionEvalSizeComputer,
+		ITypingContext typingContext = new AlgebricksOptimizationContext(varCounter, expressionEvalSizeComputer,
                 mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
                 physicalOptimizationConfig);
 		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = new IBinaryHashFunctionFactoryProvider(){
@@ -432,7 +432,7 @@ public class TestSelect{
 				expressionRuntimeProvider, expressionTypeComputer,
 				nullableTypeComputer, typingContext,
 				expressionEvalSizeComputer, partialAggregationTypeComputer,
-				frameSize, clusterLocations);
+				null, frameSize, clusterLocations);
 		PlanCompiler pc = new PlanCompiler(jobGenContext);
 
 		// Wrap the three operators above into an ILogicalPlan - done (plan)
