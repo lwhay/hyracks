@@ -75,6 +75,7 @@ import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IPredicateEvaluatorFactoryProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -407,7 +408,7 @@ public class TestSelect{
 		/**/IExpressionEvalSizeComputer expressionEvalSizeComputer = null;
 		IMergeAggregationExpressionFactory mergeAggregationExpressionFactory = null;
 		PhysicalOptimizationConfig physicalOptimizationConfig = null;
-		
+		IPredicateEvaluatorFactoryProvider predEvaluatorFactoryProvider = null;
 		ITypingContext typingContext = new AlgebricksOptimizationContext(varCounter, expressionEvalSizeComputer,
                 mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
                 physicalOptimizationConfig);
@@ -432,7 +433,7 @@ public class TestSelect{
 				expressionRuntimeProvider, expressionTypeComputer,
 				nullableTypeComputer, typingContext,
 				expressionEvalSizeComputer, partialAggregationTypeComputer,
-				null, frameSize, clusterLocations);
+				predEvaluatorFactoryProvider, frameSize, clusterLocations);
 		PlanCompiler pc = new PlanCompiler(jobGenContext);
 
 		// Wrap the three operators above into an ILogicalPlan - done (plan)
