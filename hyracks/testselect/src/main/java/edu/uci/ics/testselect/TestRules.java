@@ -114,4 +114,10 @@ public class TestRules {
         prepareForJobGenRewrites.add(new ReinferAllTypesRule());
         return prepareForJobGenRewrites;
     }
+
+	public static List<IAlgebraicRewriteRule> inferTypesRuleCollection() {
+		List<IAlgebraicRewriteRule> rules = new LinkedList<IAlgebraicRewriteRule>();
+		rules.add(new InferTypesRule());
+		return rules;
+	}
 }

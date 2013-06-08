@@ -1,7 +1,9 @@
 package edu.uci.ics.testselect;
 
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 
 import org.apache.commons.lang3.mutable.Mutable;
@@ -72,12 +74,20 @@ import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.CharArrayType;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
+import edu.uci.ics.hyracks.api.client.impl.JobSpecificationActivityClusterGraphGeneratorFactory;
+import edu.uci.ics.hyracks.api.comm.IFrameReader;
+import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IPredicateEvaluatorFactoryProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.job.IActivityClusterGraphGenerator;
+import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
@@ -86,6 +96,8 @@ import edu.uci.ics.hyracks.dataflow.common.data.parsers.FloatParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IntegerParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
+import edu.uci.ics.hyracks.dataflow.std.collectors.IPartitionAcceptor;
+import edu.uci.ics.hyracks.dataflow.std.collectors.PartitionCollector;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.DelimitedDataTupleParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.file.FileScanOperatorDescriptor;
@@ -116,6 +128,8 @@ public class TestSelect{
                 TestRules.buildDataExchangeRuleCollection()));
         defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
                 TestRules.buildConsolidationRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlFullDfs,
+                TestRules.inferTypesRuleCollection()));
         return defaultLogicalRewrites;
 	}
 
@@ -135,8 +149,21 @@ public class TestSelect{
 	public static LogicalVariable newVariable() {
 		return new LogicalVariable(varCounter++);
 	}
+	
+	static void executeJobSpecification(JobSpecification jobSpec, int framesize) throws HyracksException{
+		
+		//iterate on the job specification
+		//for each operator, call nextFrame
+		JobSpecificationActivityClusterGraphGeneratorFactory activtyGen = new JobSpecificationActivityClusterGraphGeneratorFactory(jobSpec);
+		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen.createActivityClusterGraphGenerator(new JobId(0), null, null);
+		/***********CONTINUE FROM HERE********************/
+		//Follow up who is calling JobSpecificationActivityClusterGraphGeneratorFactory and how you get from there to the open call on the operator
+		//there will be a bunch of interfaces that you will have to re-implement or use existing implementations
+		//in any case, you want to execute the jobSpec and see it running
+		
+	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws AlgebricksException {
 
 		// schema: <nameEmployee, string>
 		Pair<String, Type> p = new Pair("newEmployee", CharArrayType.INSTANCE);
@@ -385,68 +412,18 @@ public class TestSelect{
 		System.out.println(plan.toString());
 		// up to now we built a physical optimized plan, now to the runtime part of it.
 
+		JobSpecification jobSpec = compiler.createJob(null, null);
 		
-		IExpressionRuntimeProvider expressionRuntimeProvider = HiveExpressionRuntimeProvider.INSTANCE;
-		ISerializerDeserializerProvider serializerDeserializerProvider = HiveSerializerDeserializerProvider.INSTANCE;
-		IExpressionTypeComputer expressionTypeComputer = HiveExpressionTypeComputer.INSTANCE;
-		IPartialAggregationTypeComputer partialAggregationTypeComputer = HivePartialAggregationTypeComputer.INSTANCE;
-		IBinaryComparatorFactoryProvider comparatorFactoryProvider = HiveBinaryComparatorFactoryProvider.INSTANCE;
-		INormalizedKeyComputerFactoryProvider normalizedKeyComputerFactoryProvider = HiveNormalizedKeyComputerFactoryProvider.INSTANCE;
-		IPrinterFactoryProvider printerFactoryProvider = HivePrinterFactoryProvider.INSTANCE;
-		INullWriterFactory nullWriterFactory = HiveNullWriterFactory.INSTANCE;
-		IBinaryIntegerInspectorFactory integerInspectorFactory = HiveBinaryIntegerInspectorFactory.INSTANCE;
-		ITypeTraitProvider typeTraitProvider = HiveTypeTraitProvider.INSTANCE;
-		INullableTypeComputer nullableTypeComputer = HiveNullableTypeComputer.INSTANCE;
-		IBinaryBooleanInspectorFactory booleanInspectorFactory = HiveBinaryBooleanInspectorFactory.INSTANCE;
-		
-		//================CONTINUE FROM HERE=============
-		/**/IBinaryHashFunctionFamilyProvider hashFunctionFamilyProvider = null;
-		/**/IOperatorSchema outerFlowSchema = new OperatorSchemaImpl();
-		/**/Object appContext = null; //only for the app? Hivesterix stuff
-		/**/int frameSize = 32768;
-		/**/AlgebricksPartitionConstraint clusterLocations = null;
-		/**/IExpressionEvalSizeComputer expressionEvalSizeComputer = null;
-		IMergeAggregationExpressionFactory mergeAggregationExpressionFactory = null;
-		PhysicalOptimizationConfig physicalOptimizationConfig = null;
-		IPredicateEvaluatorFactoryProvider predEvaluatorFactoryProvider = null;
-		ITypingContext typingContext = new AlgebricksOptimizationContext(varCounter, expressionEvalSizeComputer,
-                mergeAggregationExpressionFactory, expressionTypeComputer, nullableTypeComputer,
-                physicalOptimizationConfig);
-		IBinaryHashFunctionFactoryProvider hashFunctionFactoryProvider = new IBinaryHashFunctionFactoryProvider(){
-			
-			@Override
-			public IBinaryHashFunctionFactory getBinaryHashFunctionFactory(Object type)
-					throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return RawBinaryHashFunctionFactory.INSTANCE;
-			}
-		};
-		
-		// all the runtime properties are stored in jobGenContext later passed to PlanCompiler
-		JobGenContext jobGenContext = new JobGenContext(outerFlowSchema,
-				metaData, appContext, serializerDeserializerProvider,
-				hashFunctionFactoryProvider, hashFunctionFamilyProvider,
-				comparatorFactoryProvider, typeTraitProvider,
-				booleanInspectorFactory, integerInspectorFactory,
-				printerFactoryProvider, nullWriterFactory,
-				normalizedKeyComputerFactoryProvider,
-				expressionRuntimeProvider, expressionTypeComputer,
-				nullableTypeComputer, typingContext,
-				expressionEvalSizeComputer, partialAggregationTypeComputer,
-				predEvaluatorFactoryProvider, frameSize, clusterLocations);
-		PlanCompiler pc = new PlanCompiler(jobGenContext);
-
-		// Wrap the three operators above into an ILogicalPlan - done (plan)
-		JobSpecification spec = null;
 		try {
-			//see l. 275 in HyracksExecutionEngine
-			spec = pc.compilePlan(plan, null, null);
-		} catch (AlgebricksException e) {
-			// TODO Auto-generated catch block
+			executeJobSpecification(jobSpec, 32768);
+		} catch (HyracksException e) {
+			System.out.println("Runtime plan failed to run!");
 			e.printStackTrace();
 		}
-	}
-}
+		
+	}//main
+	
+}//TestSelect
 
 
 
