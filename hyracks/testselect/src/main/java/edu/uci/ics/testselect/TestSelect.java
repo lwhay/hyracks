@@ -160,6 +160,7 @@ public class TestSelect{
 		//Follow up who is calling JobSpecificationActivityClusterGraphGeneratorFactory and how you get from there to the open call on the operator
 		//there will be a bunch of interfaces that you will have to re-implement or use existing implementations
 		//in any case, you want to execute the jobSpec and see it running
+		//You will also have to re-implement the PlanCompiler so you can actually have input and output adapters to mappers and reducers but that's for later..  
 		
 	}
 
