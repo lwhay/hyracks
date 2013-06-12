@@ -4,7 +4,13 @@ package edu.uci.ics.testselect;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.logging.Level;
 
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -40,6 +46,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IMergeAggregation
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.INullableTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IPartialAggregationTypeComputer;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.LogicalExpressionJobGenToExpressionRuntimeProviderAdapter;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
@@ -72,23 +79,40 @@ import edu.uci.ics.hyracks.algebricks.data.IPrinterFactory;
 import edu.uci.ics.hyracks.algebricks.data.IPrinterFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
+import edu.uci.ics.hyracks.algebricks.examples.piglet.compiler.PigletPrinterFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.examples.piglet.metadata.PigletFileDataSink;
+import edu.uci.ics.hyracks.algebricks.examples.piglet.runtime.PigletExpressionJobGen;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.CharArrayType;
 import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.SinkWriterRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.writers.PrinterBasedWriterFactory;
 import edu.uci.ics.hyracks.api.client.impl.JobSpecificationActivityClusterGraphGeneratorFactory;
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.ActivityId;
 import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
+import edu.uci.ics.hyracks.api.dataflow.IActivity;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.IPredicateEvaluatorFactoryProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.job.ActivityCluster;
+import edu.uci.ics.hyracks.api.job.ActivityClusterGraph;
+import edu.uci.ics.hyracks.api.job.ActivityClusterId;
 import edu.uci.ics.hyracks.api.job.IActivityClusterGraphGenerator;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.api.job.JobStatus;
+import edu.uci.ics.hyracks.api.rewriter.ActivityClusterGraphRewriter;
+import edu.uci.ics.hyracks.api.rewriter.runtime.SuperActivity;
+import edu.uci.ics.hyracks.control.cc.job.TaskCluster;
+import edu.uci.ics.hyracks.control.cc.work.JobCleanupWork;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
@@ -155,7 +179,28 @@ public class TestSelect{
 		//iterate on the job specification
 		//for each operator, call nextFrame
 		JobSpecificationActivityClusterGraphGeneratorFactory activtyGen = new JobSpecificationActivityClusterGraphGeneratorFactory(jobSpec);
-		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen.createActivityClusterGraphGenerator(new JobId(0), null, null);
+		JobId jid = new JobId(0);
+		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen.createActivityClusterGraphGenerator(jid, null, null);
+		ActivityClusterGraph acg = createActivityClusterGraphGenerator.initialize();
+		ActivityClusterGraphRewriter acgr = new ActivityClusterGraphRewriter();
+		acgr.rewrite(acg);
+		
+		//Now the ActivityCluster contains super activities, stored in this map:
+		Map<ActivityClusterId, ActivityCluster> acs = acg.getActivityClusterMap();
+		for (ActivityCluster  ac : acs.values()) {
+		    //each ac is a super-activity
+			System.out.println("toto");
+		}
+		/*
+		 * Implementation plan:
+		 * … we can first get a IOperatorNodePushable by calling superActivity.createPushRuntime
+[18:06:45] JArod Wen: then we should get the input frame writer from the IOperatorNodePushable, by calling IOperatorNodePushable.getInputFrameWriter(0)
+[18:08:01] Keren  Ouaknine: sounds like a plan, once you have the frame, how do you process it via the chain of operators?
+[18:08:09] JArod Wen: Then it would be similar to the Task.pushFrames() function, to push the frames from the input partition collectors to the IOperatorNodePushable
+[18:08:10] JArod Wen: yes
+[18:08:30] JArod Wen: once you push the frame into the IOperatorNodePushable, it will be pushed automatically to other operators in the downstream
+
+		 * */		
 		/***********CONTINUE FROM HERE********************/
 		//Follow up who is calling JobSpecificationActivityClusterGraphGeneratorFactory and how you get from there to the open call on the operator
 		//there will be a bunch of interfaces that you will have to re-implement or use existing implementations
@@ -231,6 +276,31 @@ public class TestSelect{
 		HeuristicCompilerFactoryBuilder builder = new HeuristicCompilerFactoryBuilder();
 		builder.setLogicalRewrites(buildDefaultLogicalRewrites());
 		builder.setPhysicalRewrites(buildDefaultPhysicalRewrites());
+		
+		builder.setExpressionRuntimeProvider(new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter(
+				new PigletExpressionJobGen()));
+        builder.setSerializerDeserializerProvider(new ISerializerDeserializerProvider() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public ISerializerDeserializer getSerializerDeserializer(Object type) throws AlgebricksException {
+                return null;
+            }
+        });
+        builder.setTypeTraitProvider(new ITypeTraitProvider() {
+            public ITypeTraits getTypeTrait(Object type) {
+                return null;
+            }
+        });
+        builder.setPrinterProvider(PigletPrinterFactoryProvider.INSTANCE);
+        builder.setExpressionRuntimeProvider(new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter(
+                new PigletExpressionJobGen()));
+        builder.setExpressionTypeComputer(new IExpressionTypeComputer() {
+            @Override
+            public Object getType(ILogicalExpression expr, IMetadataProvider<?, ?> metadataProvider,
+                    IVariableTypeEnvironment env) throws AlgebricksException {
+                return null;
+            }
+        });
 		final ICompilerFactory cFactory = builder.create();
 
 		// 2. create the logical plan based on the roots above, to pass to createCompiler
@@ -257,8 +327,16 @@ public class TestSelect{
 			public Pair getWriteFileRuntime(IDataSink sink, int[] printColumns,
 					IPrinterFactory[] printerFactories,
 					RecordDescriptor inputDesc) throws AlgebricksException {
-				// TODO Auto-generated method stub
-				return null;
+				TestDataSink ds = (TestDataSink) sink;
+		        FileSplit[] fileSplits = ds.getFileSplits();
+		        String[] locations = new String[fileSplits.length];
+		        for (int i = 0; i < fileSplits.length; ++i) {
+		            locations[i] = fileSplits[i].getNodeName();
+		        }
+		        IPushRuntimeFactory prf = new SinkWriterRuntimeFactory(printColumns, printerFactories, fileSplits[0]
+		                .getLocalFile().getFile(), PrinterBasedWriterFactory.INSTANCE, inputDesc);
+		        AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
+		        return new Pair<IPushRuntimeFactory, AlgebricksPartitionConstraint>(prf, constraint);
 			}
 
 			@Override //TODO:
