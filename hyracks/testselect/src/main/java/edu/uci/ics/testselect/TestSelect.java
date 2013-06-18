@@ -87,17 +87,24 @@ import edu.uci.ics.hyracks.algebricks.examples.piglet.types.Type;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.SinkWriterRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.writers.PrinterBasedWriterFactory;
+import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.client.impl.JobSpecificationActivityClusterGraphGeneratorFactory;
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
+import edu.uci.ics.hyracks.api.context.IHyracksRootContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.ActivityId;
 import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
+import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
+import edu.uci.ics.hyracks.api.dataflow.TaskId;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -129,6 +136,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.hdfs.lib.RawBinaryHashFunctionFactory;
+
 
 public class TestSelect{
 	static int varCounter=0;
@@ -185,12 +193,28 @@ public class TestSelect{
 		ActivityClusterGraphRewriter acgr = new ActivityClusterGraphRewriter();
 		acgr.rewrite(acg);
 		
-		//Now the ActivityCluster contains super activities, stored in this map:
-		Map<ActivityClusterId, ActivityCluster> acs = acg.getActivityClusterMap();
-		for (ActivityCluster  ac : acs.values()) {
-		    //each ac is a super-activity
-			System.out.println("toto");
+	    //Now the ActivityCluster contains super activities, stored in this map:
+		Map<ActivityClusterId, ActivityCluster> acm = acg.getActivityClusterMap();
+		for (ActivityClusterId acid : acm.keySet()) {
+		    
+			ActivityCluster ac = acm.get(acid);
+			for(ActivityId aid : ac.getActivityMap().keySet()){
+				
+				SuperActivity sact = new SuperActivity(acg, acid, aid);
+				
+	  
+				
+				IHyracksTaskContext ctx = null;
+				IRecordDescriptorProvider recordDescProvider = null;
+				int partition = 0;
+				int nPartitions = 0;
+				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
+				IFrameWriter frameWriter = op.getInputFrameWriter(0);
+			}
+			
 		}
+		
+		
 		/*
 		 * Implementation plan:
 		 * … we can first get a IOperatorNodePushable by calling superActivity.createPushRuntime
@@ -223,10 +247,12 @@ public class TestSelect{
 		//This section creates an expression for dataScan to convert the input into variables according to a schema.
 		List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
 		LogicalVariable variable = new LogicalVariable(1);
-		VariableReferenceExpression varExpr = new VariableReferenceExpression(variable);
-		//you need to provide both 
-		expressions.add(new MutableObject<ILogicalExpression>(varExpr));
-		expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(variable)));
+		VariableReferenceExpression varExpr1 = new VariableReferenceExpression(variable);
+		VariableReferenceExpression varExpr2 = new VariableReferenceExpression(variable);
+
+		//you need to provide two variables cause your finfo compares 
+		expressions.add(new MutableObject<ILogicalExpression>(varExpr1));		
+		expressions.add(new MutableObject<ILogicalExpression>(varExpr2));
 		
 
 		//Hard-coding the where function clause and corresponding arity + giving it the scanned data (expressions)
@@ -320,7 +346,8 @@ public class TestSelect{
 			@Override
 			public boolean scannerOperatorIsLeaf(IDataSource dataSource) {
 				// TODO Auto-generated method stub
-				return false;
+				return true;
+				//return false;
 			}
 
 			@Override
