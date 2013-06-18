@@ -1,5 +1,6 @@
 package edu.uci.ics.testselect;
 
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -146,69 +147,45 @@ import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.hdfs.lib.RawBinaryHashFunctionFactory;
 
-public class TestSelect {
-	static int varCounter = 0;
+
+public class TestSelect{
+	static int varCounter=0;
 
 	private static List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> buildDefaultLogicalRewrites() {
-		List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultLogicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
-		SequentialFixpointRuleController seqCtrlNoDfs = new SequentialFixpointRuleController(
-				false);
-		SequentialFixpointRuleController seqCtrlFullDfs = new SequentialFixpointRuleController(
-				true);
-		SequentialOnceRuleController seqOnceCtrl = new SequentialOnceRuleController(
-				true);
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqOnceCtrl, TestRules
-								.buildTypeInferenceRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlFullDfs, TestRules
-								.buildNormalizationRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlNoDfs, TestRules
-								.buildCondPushDownRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlNoDfs, TestRules
-								.buildJoinInferenceRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlNoDfs, TestRules.buildOpPushDownRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqOnceCtrl, TestRules
-								.buildDataExchangeRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlNoDfs, TestRules
-								.buildConsolidationRuleCollection()));
-		defaultLogicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqCtrlFullDfs, TestRules.inferTypesRuleCollection()));
-		return defaultLogicalRewrites;
+        List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultLogicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
+        SequentialFixpointRuleController seqCtrlNoDfs = new SequentialFixpointRuleController(false);
+        SequentialFixpointRuleController seqCtrlFullDfs = new SequentialFixpointRuleController(true);
+        SequentialOnceRuleController seqOnceCtrl = new SequentialOnceRuleController(true);
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrl,
+                TestRules.buildTypeInferenceRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlFullDfs,
+                TestRules.buildNormalizationRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildCondPushDownRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildJoinInferenceRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildOpPushDownRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrl,
+                TestRules.buildDataExchangeRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlNoDfs,
+                TestRules.buildConsolidationRuleCollection()));
+        defaultLogicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqCtrlFullDfs,
+                TestRules.inferTypesRuleCollection()));
+        return defaultLogicalRewrites;
 	}
 
 	private static List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> buildDefaultPhysicalRewrites() {
-		List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultPhysicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
-		SequentialOnceRuleController seqOnceCtrlAllLevels = new SequentialOnceRuleController(
-				true);
-		SequentialOnceRuleController seqOnceCtrlTopLevel = new SequentialOnceRuleController(
-				false);
-		defaultPhysicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqOnceCtrlAllLevels, TestRules
-								.buildPhysicalRewritesAllLevelsRuleCollection()));
-		defaultPhysicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqOnceCtrlTopLevel, TestRules
-								.buildPhysicalRewritesTopLevelRuleCollection()));
-		defaultPhysicalRewrites
-				.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(
-						seqOnceCtrlAllLevels, TestRules
-								.prepareForJobGenRuleCollection()));
-		return defaultPhysicalRewrites;
+        List<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>> defaultPhysicalRewrites = new ArrayList<Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>>();
+        SequentialOnceRuleController seqOnceCtrlAllLevels = new SequentialOnceRuleController(true);
+        SequentialOnceRuleController seqOnceCtrlTopLevel = new SequentialOnceRuleController(false);
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlAllLevels,
+                TestRules.buildPhysicalRewritesAllLevelsRuleCollection()));
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlTopLevel,
+                TestRules.buildPhysicalRewritesTopLevelRuleCollection()));
+        defaultPhysicalRewrites.add(new Pair<AbstractRuleController, List<IAlgebraicRewriteRule>>(seqOnceCtrlAllLevels,
+                TestRules.prepareForJobGenRuleCollection()));
+        return defaultPhysicalRewrites;
 	}
 
 	public static LogicalVariable newVariable() {
@@ -234,66 +211,53 @@ public class TestSelect {
 			for(ActivityId aid : ac.getActivityMap().keySet()){
 				Map<ActivityId, IActivity> mapAct = ac.getActivityMap();
 				IActivity acti = mapAct.get(aid);
-
+				
 				SuperActivity sact = new SuperActivity(acg, acid, aid);
 				sact.addActivity(acti);
-
-				IHyracksTaskContext ctx = new HyracksTaskContext4TestSelect();
-
+				
+				IHyracksTaskContext ctx = new HyracksTaskContext4TestSelect(); 
+				
 				IRecordDescriptorProvider recordDescProvider = new IRecordDescriptorProvider() {
-					@Override
-					public RecordDescriptor getOutputRecordDescriptor(
-							ActivityId aid, int outputIndex) {
-						ActivityCluster ac = acg.getActivityMap().get(aid);
-						IConnectorDescriptor conn = ac.getActivityOutputMap()
-								.get(aid).get(outputIndex);
-						return ac.getConnectorRecordDescriptorMap().get(
-								conn.getConnectorId());
-					}
+	                @Override
+	                public RecordDescriptor getOutputRecordDescriptor(ActivityId aid, int outputIndex) {
+	                    ActivityCluster ac = acg.getActivityMap().get(aid);
+	                    IConnectorDescriptor conn = ac.getActivityOutputMap().get(aid).get(outputIndex);
+	                    return ac.getConnectorRecordDescriptorMap().get(conn.getConnectorId());
+	                }
 
-					@Override
-					public RecordDescriptor getInputRecordDescriptor(
-							ActivityId aid, int inputIndex) {
-						ActivityCluster ac = acg.getActivityMap().get(aid);
-						IConnectorDescriptor conn = ac.getActivityInputMap()
-								.get(aid).get(inputIndex);
-						return ac.getConnectorRecordDescriptorMap().get(
-								conn.getConnectorId());
-					}
-				};
+	                @Override
+	                public RecordDescriptor getInputRecordDescriptor(ActivityId aid, int inputIndex) {
+	                    ActivityCluster ac = acg.getActivityMap().get(aid);
+	                    IConnectorDescriptor conn = ac.getActivityInputMap().get(aid).get(inputIndex);
+	                    return ac.getConnectorRecordDescriptorMap().get(conn.getConnectorId());
+	                }
+	            };
 				int partition = 0;
 				int nPartitions = 0;
 				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
 				op.initialize();
 				IFrameWriter frameWriter = op.getInputFrameWriter(0);
 			}
-
+			
 		}
-
+		
+		
 		/*
-		 * Implementation plan: ��� we can first get a IOperatorNodePushable by
-		 * calling superActivity.createPushRuntime [18:06:45] JArod Wen: then we
-		 * should get the input frame writer from the IOperatorNodePushable, by
-		 * calling IOperatorNodePushable.getInputFrameWriter(0) [18:08:01] Keren
-		 * Ouaknine: sounds like a plan, once you have the frame, how do you
-		 * process it via the chain of operators? [18:08:09] JArod Wen: Then it
-		 * would be similar to the Task.pushFrames() function, to push the
-		 * frames from the input partition collectors to the
-		 * IOperatorNodePushable [18:08:10] JArod Wen: yes [18:08:30] JArod Wen:
-		 * once you push the frame into the IOperatorNodePushable, it will be
-		 * pushed automatically to other operators in the downstream
-		 */
-		/*********** CONTINUE FROM HERE ********************/
-		// Follow up who is calling
-		// JobSpecificationActivityClusterGraphGeneratorFactory and how you get
-		// from there to the open call on the operator
-		// there will be a bunch of interfaces that you will have to
-		// re-implement or use existing implementations
-		// in any case, you want to execute the jobSpec and see it running
-		// You will also have to re-implement the PlanCompiler so you can
-		// actually have input and output adapters to mappers and reducers but
-		// that's for later..
+		 * Implementation plan:
+		 * … we can first get a IOperatorNodePushable by calling superActivity.createPushRuntime
+[18:06:45] JArod Wen: then we should get the input frame writer from the IOperatorNodePushable, by calling IOperatorNodePushable.getInputFrameWriter(0)
+[18:08:01] Keren  Ouaknine: sounds like a plan, once you have the frame, how do you process it via the chain of operators?
+[18:08:09] JArod Wen: Then it would be similar to the Task.pushFrames() function, to push the frames from the input partition collectors to the IOperatorNodePushable
+[18:08:10] JArod Wen: yes
+[18:08:30] JArod Wen: once you push the frame into the IOperatorNodePushable, it will be pushed automatically to other operators in the downstream
 
+		 * */		
+		/***********CONTINUE FROM HERE********************/
+		//Follow up who is calling JobSpecificationActivityClusterGraphGeneratorFactory and how you get from there to the open call on the operator
+		//there will be a bunch of interfaces that you will have to re-implement or use existing implementations
+		//in any case, you want to execute the jobSpec and see it running
+		//You will also have to re-implement the PlanCompiler so you can actually have input and output adapters to mappers and reducers but that's for later..  
+		
 	}
 
 	public static void main(String[] args) throws AlgebricksException {
@@ -304,126 +268,113 @@ public class TestSelect {
 		schemaInput.add(p);
 		TestSchema schema = new TestSchema(schemaInput);
 
-		// Write operator requires the schema of the fields to write, etc
-		IDataSink dataSink = new TestDataSink("localhost:output1K.txt");
+		//Write operator requires the schema of the fields to write, etc
+		IDataSink dataSink = new TestDataSink("localhost:output1K.txt"); 
 
-		// This section creates an expression for dataScan to convert the input
-		// into variables according to a schema.
+		//This section creates an expression for dataScan to convert the input into variables according to a schema.
 		List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
 		LogicalVariable variable = new LogicalVariable(1);
-		VariableReferenceExpression varExpr1 = new VariableReferenceExpression(
-				variable);
-		VariableReferenceExpression varExpr2 = new VariableReferenceExpression(
-				variable);
+		VariableReferenceExpression varExpr1 = new VariableReferenceExpression(variable);
+		VariableReferenceExpression varExpr2 = new VariableReferenceExpression(variable);
 
-		// you need to provide two variables cause your finfo compares
-		expressions.add(new MutableObject<ILogicalExpression>(varExpr1));
+		//you need to provide two variables cause your finfo compares 
+		expressions.add(new MutableObject<ILogicalExpression>(varExpr1));		
 		expressions.add(new MutableObject<ILogicalExpression>(varExpr2));
+		
 
-		// Hard-coding the where function clause and corresponding arity +
-		// giving it the scanned data (expressions)
+		//Hard-coding the where function clause and corresponding arity + giving it the scanned data (expressions)
 		FunctionIdentifier finfo = new FunctionIdentifier("algebricks", "eq", 2);
 		TestFunction function = new TestFunction(finfo);
-		ScalarFunctionCallExpression scalarExp = new ScalarFunctionCallExpression(
-				function, expressions);
-		MutableObject<ILogicalExpression> exprCondition = new MutableObject<ILogicalExpression>(
-				scalarExp);
+		ScalarFunctionCallExpression scalarExp = new ScalarFunctionCallExpression(function, expressions);
+		MutableObject<ILogicalExpression> exprCondition = new MutableObject<ILogicalExpression>(scalarExp);
+
 
 		List<Pair<String, Type>> fieldsSchema = schema.getSchema();
 		List<LogicalVariable> variables = new ArrayList<LogicalVariable>();
 		List<Object> types = new ArrayList<Object>();
-
+		
 		Pair<String, Type> pair = fieldsSchema.get(0);
 		LogicalVariable v = variable;
 		variables.add(v);
 		types.add(pair.second);
 
-		// define the input file name, and the schema - required for scanning in
-		// data?
-		TestDataSource dataSource = new TestDataSource(
-				"localhost:inputKeren.txt", types.toArray());
+
+		//define the input file name, and the schema - required for scanning in data?
+		TestDataSource dataSource = new TestDataSource("localhost:inputKeren.txt", types.toArray());
 
 		// roots contain a write->select->data, creating these operators below.
-		// [A query can have multiple roots - not the case here. still there's a
-		// list structure]
+		// [A query can have multiple roots - not the case here. still there's a list structure]
 		List<Mutable<ILogicalOperator>> roots = new ArrayList<Mutable<ILogicalOperator>>();
 
-		// We are using the same expressions list for the writeOperator and to
-		// build the condition - makes sense?
+		//We are using the same expressions list for the writeOperator and to build the condition - makes sense?
 		WriteOperator write = new WriteOperator(expressions, dataSink);
 
-		DataSourceScanOperator dataScan = new DataSourceScanOperator(variables,
-				dataSource);
+
+		DataSourceScanOperator dataScan = new DataSourceScanOperator(variables, dataSource);
 		SelectOperator select = new SelectOperator(exprCondition);
 
+
 		// chaining them: scan to select and select to write
-		dataScan.getInputs().add(
-				new MutableObject<ILogicalOperator>(
-						new EmptyTupleSourceOperator()));
+		dataScan.getInputs().add(new MutableObject<ILogicalOperator>(new EmptyTupleSourceOperator()));
 		select.getInputs().add(new MutableObject<ILogicalOperator>(dataScan));
 		write.getInputs().add(new MutableObject<ILogicalOperator>(select));
 		roots.add(new MutableObject<ILogicalOperator>(write));
 
-		// IOperatorSchema outerPlanSchema = null;
+
+		//IOperatorSchema outerPlanSchema = null;
 
 		// Two steps:
-		// 1. create a compiler object which performs the optimization on the
-		// plan
+		// 1. create a compiler object which performs the optimization on the plan
 
 		HeuristicCompilerFactoryBuilder builder = new HeuristicCompilerFactoryBuilder();
 		builder.setLogicalRewrites(buildDefaultLogicalRewrites());
 		builder.setPhysicalRewrites(buildDefaultPhysicalRewrites());
-
+		
 		builder.setExpressionRuntimeProvider(new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter(
 				new PigletExpressionJobGen()));
-		builder.setSerializerDeserializerProvider(new ISerializerDeserializerProvider() {
-			@SuppressWarnings("unchecked")
-			@Override
-			public ISerializerDeserializer getSerializerDeserializer(Object type)
-					throws AlgebricksException {
-				return null;
-			}
-		});
-		builder.setTypeTraitProvider(new ITypeTraitProvider() {
-			public ITypeTraits getTypeTrait(Object type) {
-				return null;
-			}
-		});
-		builder.setPrinterProvider(PigletPrinterFactoryProvider.INSTANCE);
-		builder.setExpressionRuntimeProvider(new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter(
-				new PigletExpressionJobGen()));
-		builder.setExpressionTypeComputer(new IExpressionTypeComputer() {
-			@Override
-			public Object getType(ILogicalExpression expr,
-					IMetadataProvider<?, ?> metadataProvider,
-					IVariableTypeEnvironment env) throws AlgebricksException {
-				return null;
-			}
-		});
-
-		builder.setBinaryBooleanInspectorFactory(HiveBinaryBooleanInspectorFactory.INSTANCE);
-
+        builder.setSerializerDeserializerProvider(new ISerializerDeserializerProvider() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public ISerializerDeserializer getSerializerDeserializer(Object type) throws AlgebricksException {
+                return null;
+            }
+        });
+        builder.setTypeTraitProvider(new ITypeTraitProvider() {
+            public ITypeTraits getTypeTrait(Object type) {
+                return null;
+            }
+        });
+        builder.setPrinterProvider(PigletPrinterFactoryProvider.INSTANCE);
+        builder.setExpressionRuntimeProvider(new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter(
+                new PigletExpressionJobGen()));
+        builder.setExpressionTypeComputer(new IExpressionTypeComputer() {
+            @Override
+            public Object getType(ILogicalExpression expr, IMetadataProvider<?, ?> metadataProvider,
+                    IVariableTypeEnvironment env) throws AlgebricksException {
+                return null;
+            }
+        });
 		final ICompilerFactory cFactory = builder.create();
 
-		// 2. create the logical plan based on the roots above, to pass to
-		// createCompiler
+		// 2. create the logical plan based on the roots above, to pass to createCompiler
 		ALogicalPlanImpl plan = new ALogicalPlanImpl(roots);
 
 		IMetadataProvider metaData = new IMetadataProvider() {
 
-			@Override
-			// TODO:
+			@Override //TODO:
 			public IDataSource findDataSource(Object id)
 					throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
+
+
 			@Override
 			public boolean scannerOperatorIsLeaf(IDataSource dataSource) {
 				// TODO Auto-generated method stub
 				return true;
-				// return false;
+				//return false;
 			}
 
 			@Override
@@ -431,23 +382,18 @@ public class TestSelect {
 					IPrinterFactory[] printerFactories,
 					RecordDescriptor inputDesc) throws AlgebricksException {
 				TestDataSink ds = (TestDataSink) sink;
-				FileSplit[] fileSplits = ds.getFileSplits();
-				String[] locations = new String[fileSplits.length];
-				for (int i = 0; i < fileSplits.length; ++i) {
-					locations[i] = fileSplits[i].getNodeName();
-				}
-				IPushRuntimeFactory prf = new SinkWriterRuntimeFactory(
-						printColumns, printerFactories, fileSplits[0]
-								.getLocalFile().getFile(),
-						PrinterBasedWriterFactory.INSTANCE, inputDesc);
-				AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(
-						locations);
-				return new Pair<IPushRuntimeFactory, AlgebricksPartitionConstraint>(
-						prf, constraint);
+		        FileSplit[] fileSplits = ds.getFileSplits();
+		        String[] locations = new String[fileSplits.length];
+		        for (int i = 0; i < fileSplits.length; ++i) {
+		            locations[i] = fileSplits[i].getNodeName();
+		        }
+		        IPushRuntimeFactory prf = new SinkWriterRuntimeFactory(printColumns, printerFactories, fileSplits[0]
+		                .getLocalFile().getFile(), PrinterBasedWriterFactory.INSTANCE, inputDesc);
+		        AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
+		        return new Pair<IPushRuntimeFactory, AlgebricksPartitionConstraint>(prf, constraint);
 			}
 
-			@Override
-			// TODO:
+			@Override //TODO:
 			public Pair getWriteResultRuntime(IDataSource dataSource,
 					IOperatorSchema propagatedSchema, List keys,
 					LogicalVariable payLoadVar, JobGenContext context,
@@ -455,6 +401,7 @@ public class TestSelect {
 				// TODO Auto-generated method stub
 				return null;
 			}
+
 
 			@Override
 			public Pair getIndexInsertRuntime(IDataSourceIndex dataSource,
@@ -487,8 +434,7 @@ public class TestSelect {
 				return null;
 			}
 
-			@Override
-			// TODO:
+			@Override //TODO:
 			public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
 				// TODO Auto-generated method stub
 				return null;
@@ -500,7 +446,7 @@ public class TestSelect {
 					boolean projectPushed, IOperatorSchema opSchema,
 					IVariableTypeEnvironment typeEnv, JobGenContext context,
 					JobSpecification jobSpec, Object implConfig)
-					throws AlgebricksException {
+							throws AlgebricksException {
 				Object[] colTypes = dataSource.getSchemaTypes();
 				IValueParserFactory[] vpfs = new IValueParserFactory[colTypes.length];
 				ISerializerDeserializer[] serDesers = new ISerializerDeserializer[colTypes.length];
@@ -532,29 +478,25 @@ public class TestSelect {
 					serDesers[i] = serDeser;
 				}
 
-				ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(
-						vpfs, ',');
+				ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(vpfs, ',');
 				RecordDescriptor rDesc = new RecordDescriptor(serDesers);
 
-				// specify the file location
-				FileSplit[] fs = ((TestDataSource) dataSource).getFileSplits();
+				//specify the file location
+				FileSplit[] fs = ((TestDataSource)dataSource).getFileSplits();
 				String[] locations = new String[fs.length];
 				for (int i = 0; i < fs.length; ++i) {
 					locations[i] = fs[i].getNodeName();
 				}
-				// just a wrapper for these splits
+				//just a wrapper for these splits
 				IFileSplitProvider fsp = new ConstantFileSplitProvider(fs);
 
-				IOperatorDescriptor scanner = new FileScanOperatorDescriptor(
-						jobSpec, fsp, tpf, rDesc);
-				AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(
-						locations);
-				return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(
-						scanner, constraint);
+				IOperatorDescriptor scanner = new FileScanOperatorDescriptor(jobSpec, fsp, tpf, rDesc);
+				AlgebricksAbsolutePartitionConstraint constraint = new AlgebricksAbsolutePartitionConstraint(locations);
+				return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(scanner, constraint);
 
 			}
 
-			@Override
+			@Override 
 			public Pair getResultHandleRuntime(IDataSink sink,
 					int[] printColumns, IPrinterFactory[] printerFactories,
 					RecordDescriptor inputDesc, boolean ordered,
@@ -569,7 +511,7 @@ public class TestSelect {
 					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-					throws AlgebricksException {
+							throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
@@ -580,12 +522,15 @@ public class TestSelect {
 					IVariableTypeEnvironment typeEnv, List keys,
 					LogicalVariable payLoadVar, RecordDescriptor recordDesc,
 					JobGenContext context, JobSpecification jobSpec)
-					throws AlgebricksException {
+							throws AlgebricksException {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
 		};
+
+
+
 
 		ICompiler compiler = cFactory.createCompiler(plan, metaData, 1); // KIS
 		try {
@@ -595,21 +540,23 @@ public class TestSelect {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		} // this calls does the rewrites of the rules on the plan, which rules
+		
 
 		System.out.println(plan.toString());
-		// up to now we built a physical optimized plan, now to the runtime part
-		// of it.
+		// up to now we built a physical optimized plan, now to the runtime part of it.
 
 		JobSpecification jobSpec = compiler.createJob(null, null);
-
+		
 		try {
 			executeJobSpecification(jobSpec, 32768);
 		} catch (HyracksException e) {
 			System.out.println("Runtime plan failed to run!");
 			e.printStackTrace();
 		}
+		
+	}//main
+	
+}//TestSelect
 
-	}// main
 
-}// TestSelect
 
