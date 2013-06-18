@@ -214,32 +214,24 @@ public class TestSelect {
 	public static LogicalVariable newVariable() {
 		return new LogicalVariable(varCounter++);
 	}
-
-	static void executeJobSpecification(JobSpecification jobSpec, int framesize)
-			throws HyracksException {
-
-		// iterate on the job specification
-		// for each operator, call nextFrame
-		JobSpecificationActivityClusterGraphGeneratorFactory activtyGen = new JobSpecificationActivityClusterGraphGeneratorFactory(
-				jobSpec);
+	
+	static void executeJobSpecification(JobSpecification jobSpec, int framesize) throws HyracksException{
+		
+		//iterate on the job specification
+		//for each operator, call nextFrame
+		JobSpecificationActivityClusterGraphGeneratorFactory activtyGen = new JobSpecificationActivityClusterGraphGeneratorFactory(jobSpec);
 		JobId jid = new JobId(0);
-		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen
-				.createActivityClusterGraphGenerator(jid, null, null);
-
-		// Hein???!!! Et pourquoi il bug s'il n'y a pas de final??
-		final ActivityClusterGraph acg = createActivityClusterGraphGenerator
-				.initialize();
-		ActivityClusterGraphRewriter acgr = new ActivityClusterGraphRewriter();
-		acgr.rewrite(acg);
-
-		// Now the ActivityCluster contains super activities, stored in this
-		// map:
-		Map<ActivityClusterId, ActivityCluster> acm = acg
-				.getActivityClusterMap();
+		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen.createActivityClusterGraphGenerator(jid, null, null);
+		
+		//Hein???!!! Et pourquoi il bug s'il n'y a pas de final??
+		final ActivityClusterGraph acg = createActivityClusterGraphGenerator.initialize();
+		
+	    //Now the ActivityCluster contains super activities, stored in this map:
+		Map<ActivityClusterId, ActivityCluster> acm = acg.getActivityClusterMap();
 		for (ActivityClusterId acid : acm.keySet()) {
-
+		    
 			ActivityCluster ac = acm.get(acid);
-			for (ActivityId aid : ac.getActivityMap().keySet()) {
+			for(ActivityId aid : ac.getActivityMap().keySet()){
 				Map<ActivityId, IActivity> mapAct = ac.getActivityMap();
 				IActivity acti = mapAct.get(aid);
 
@@ -271,10 +263,7 @@ public class TestSelect {
 				};
 				int partition = 0;
 				int nPartitions = 0;
-				IOperatorNodePushable op = sact.createPushRuntime(ctx,
-						recordDescProvider, partition, nPartitions);
-				// IOperatorNodePushable op = ac.createPushRuntime(ctx,
-				// recordDescProvider, partition, nPartitions);
+				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
 				op.initialize();
 				IFrameWriter frameWriter = op.getInputFrameWriter(0);
 			}
