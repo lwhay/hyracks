@@ -92,23 +92,31 @@ import edu.uci.ics.hyracks.api.client.impl.JobSpecificationActivityClusterGraphG
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.comm.IPartitionCollector;
+import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.context.IHyracksRootContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.ActivityId;
 import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
+import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.TaskAttemptId;
 import edu.uci.ics.hyracks.api.dataflow.TaskId;
+import edu.uci.ics.hyracks.api.dataflow.state.IStateObject;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.dataset.IDatasetPartitionManager;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
+import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.job.ActivityCluster;
 import edu.uci.ics.hyracks.api.job.ActivityClusterGraph;
 import edu.uci.ics.hyracks.api.job.ActivityClusterId;
@@ -116,6 +124,8 @@ import edu.uci.ics.hyracks.api.job.IActivityClusterGraphGenerator;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.job.JobStatus;
+import edu.uci.ics.hyracks.api.job.profiling.counters.ICounterContext;
+import edu.uci.ics.hyracks.api.resources.IDeallocatable;
 import edu.uci.ics.hyracks.api.rewriter.ActivityClusterGraphRewriter;
 import edu.uci.ics.hyracks.api.rewriter.runtime.SuperActivity;
 import edu.uci.ics.hyracks.control.cc.job.TaskCluster;
@@ -189,7 +199,9 @@ public class TestSelect{
 		JobSpecificationActivityClusterGraphGeneratorFactory activtyGen = new JobSpecificationActivityClusterGraphGeneratorFactory(jobSpec);
 		JobId jid = new JobId(0);
 		IActivityClusterGraphGenerator createActivityClusterGraphGenerator = activtyGen.createActivityClusterGraphGenerator(jid, null, null);
-		ActivityClusterGraph acg = createActivityClusterGraphGenerator.initialize();
+		
+		//Hein???!!! Et pourquoi il bug s'il n'y a pas de final??
+		final ActivityClusterGraph acg = createActivityClusterGraphGenerator.initialize();
 		ActivityClusterGraphRewriter acgr = new ActivityClusterGraphRewriter();
 		acgr.rewrite(acg);
 		
@@ -201,11 +213,105 @@ public class TestSelect{
 			for(ActivityId aid : ac.getActivityMap().keySet()){
 				
 				SuperActivity sact = new SuperActivity(acg, acid, aid);
-				
-	  
-				
-				IHyracksTaskContext ctx = null;
-				IRecordDescriptorProvider recordDescProvider = null;
+		
+				IHyracksTaskContext ctx = new IHyracksTaskContext() {
+					
+					@Override
+					public void setStateObject(IStateObject taskState) {
+						// TODO Auto-generated method stub
+						
+					}
+					
+					@Override
+					public IStateObject getStateObject(Object id) {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public void registerDeallocatable(IDeallocatable deallocatable) {
+						// TODO Auto-generated method stub
+						
+					}
+					
+					@Override
+					public FileReference createUnmanagedWorkspaceFile(String prefix)
+							throws HyracksDataException {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public FileReference createManagedWorkspaceFile(String prefix)
+							throws HyracksDataException {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public IIOManager getIOManager() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public int getFrameSize() {
+						// TODO Auto-generated method stub
+						return 0;
+					}
+					
+					@Override
+					public ByteBuffer allocateFrame() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public void sendApplicationMessageToCC(byte[] message,
+							DeploymentId deploymendId, String nodeId) throws Exception {
+						// TODO Auto-generated method stub
+						
+					}
+					
+					@Override
+					public TaskAttemptId getTaskAttemptId() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public IHyracksJobletContext getJobletContext() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public IDatasetPartitionManager getDatasetPartitionManager() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+					
+					@Override
+					public ICounterContext getCounterContext() {
+						// TODO Auto-generated method stub
+						return null;
+					}
+				};
+				IRecordDescriptorProvider recordDescProvider = new IRecordDescriptorProvider() {
+	                @Override
+	                public RecordDescriptor getOutputRecordDescriptor(ActivityId aid, int outputIndex) {
+	                    ActivityCluster ac = acg.getActivityMap().get(aid);
+	                    IConnectorDescriptor conn = ac.getActivityOutputMap().get(aid).get(outputIndex);
+	                    return ac.getConnectorRecordDescriptorMap().get(conn.getConnectorId());
+	                }
+
+	                @Override
+	                public RecordDescriptor getInputRecordDescriptor(ActivityId aid, int inputIndex) {
+	                    ActivityCluster ac = acg.getActivityMap().get(aid);
+	                    IConnectorDescriptor conn = ac.getActivityInputMap().get(aid).get(inputIndex);
+	                    return ac.getConnectorRecordDescriptorMap().get(conn.getConnectorId());
+	                }
+	            };
 				int partition = 0;
 				int nPartitions = 0;
 				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
