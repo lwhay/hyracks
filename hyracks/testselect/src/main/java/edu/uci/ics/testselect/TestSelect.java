@@ -211,9 +211,12 @@ public class TestSelect{
 		    
 			ActivityCluster ac = acm.get(acid);
 			for(ActivityId aid : ac.getActivityMap().keySet()){
+				Map<ActivityId, IActivity> mapAct = ac.getActivityMap();
+				IActivity acti = mapAct.get(aid);
 				
 				SuperActivity sact = new SuperActivity(acg, acid, aid);
-		
+				sact.addActivity(acti);
+				
 				IHyracksTaskContext ctx = new HyracksTaskContext4TestSelect(); 
 				
 				IRecordDescriptorProvider recordDescProvider = new IRecordDescriptorProvider() {
@@ -234,6 +237,7 @@ public class TestSelect{
 				int partition = 0;
 				int nPartitions = 0;
 				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
+				//IOperatorNodePushable op = ac.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
 				IFrameWriter frameWriter = op.getInputFrameWriter(0);
 			}
 			
