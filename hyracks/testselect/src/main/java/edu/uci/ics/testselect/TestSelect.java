@@ -4,6 +4,7 @@ package edu.uci.ics.testselect;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -202,6 +203,8 @@ public class TestSelect{
 		
 		//Hein???!!! Et pourquoi il bug s'il n'y a pas de final??
 		final ActivityClusterGraph acg = createActivityClusterGraphGenerator.initialize();
+		//ActivityClusterGraphRewriter acgr = new ActivityClusterGraphRewriter();
+		//acgr.rewrite(acg);
 		
 	    //Now the ActivityCluster contains super activities, stored in this map:
 		Map<ActivityClusterId, ActivityCluster> acm = acg.getActivityClusterMap();
@@ -212,8 +215,12 @@ public class TestSelect{
 				Map<ActivityId, IActivity> mapAct = ac.getActivityMap();
 				IActivity acti = mapAct.get(aid);
 				
+				
 				SuperActivity sact = new SuperActivity(acg, acid, aid);
 				sact.addActivity(acti);
+				
+				//that should solve the empty clusterInputIndex NPE
+				//sact.setClusterInputIndex(clusterInputIndex, aid, activityInputIndex);		
 				
 				IHyracksTaskContext ctx = new HyracksTaskContext4TestSelect(); 
 				
@@ -232,31 +239,15 @@ public class TestSelect{
 	                    return ac.getConnectorRecordDescriptorMap().get(conn.getConnectorId());
 	                }
 	            };
+	            
 				int partition = 0;
 				int nPartitions = 0;
 				IOperatorNodePushable op = sact.createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
 				op.initialize();
-				IFrameWriter frameWriter = op.getInputFrameWriter(0);
+
 			}
 			
 		}
-		
-		
-		/*
-		 * Implementation plan:
-		 * … we can first get a IOperatorNodePushable by calling superActivity.createPushRuntime
-[18:06:45] JArod Wen: then we should get the input frame writer from the IOperatorNodePushable, by calling IOperatorNodePushable.getInputFrameWriter(0)
-[18:08:01] Keren  Ouaknine: sounds like a plan, once you have the frame, how do you process it via the chain of operators?
-[18:08:09] JArod Wen: Then it would be similar to the Task.pushFrames() function, to push the frames from the input partition collectors to the IOperatorNodePushable
-[18:08:10] JArod Wen: yes
-[18:08:30] JArod Wen: once you push the frame into the IOperatorNodePushable, it will be pushed automatically to other operators in the downstream
-
-		 * */		
-		/***********CONTINUE FROM HERE********************/
-		//Follow up who is calling JobSpecificationActivityClusterGraphGeneratorFactory and how you get from there to the open call on the operator
-		//there will be a bunch of interfaces that you will have to re-implement or use existing implementations
-		//in any case, you want to execute the jobSpec and see it running
-		//You will also have to re-implement the PlanCompiler so you can actually have input and output adapters to mappers and reducers but that's for later..  
 		
 	}
 
@@ -353,7 +344,11 @@ public class TestSelect{
                     IVariableTypeEnvironment env) throws AlgebricksException {
                 return null;
             }
+            
         });
+        
+        builder.setBinaryBooleanInspectorFactory(HiveBinaryBooleanInspectorFactory.INSTANCE);
+        
 		final ICompilerFactory cFactory = builder.create();
 
 		// 2. create the logical plan based on the roots above, to pass to createCompiler
