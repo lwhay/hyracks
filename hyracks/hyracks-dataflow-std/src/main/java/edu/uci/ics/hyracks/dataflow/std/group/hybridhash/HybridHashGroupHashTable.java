@@ -44,7 +44,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     private static final int INT_SIZE = 4;
 
     private static final int MINI_BLOOM_FILTER_BYTE = 1;
-    
+
     private static final int PRIME_FUNC_COUNT = 3;
 
     private final boolean useMiniBloomFilter;
@@ -175,11 +175,10 @@ public class HybridHashGroupHashTable implements IFrameWriter {
 
     private final int headerEntryPerFrame;
 
-    public HybridHashGroupHashTable(IHyracksTaskContext ctx, int framesLimit, int tableSize,
-            int numOfPartitions, int[] keys, int hashSeedOffset, IBinaryComparator[] comparators,
-            ITuplePartitionComputerFamily tpcFamily, IAggregatorDescriptor aggregator,
-            RecordDescriptor inputRecordDescriptor, RecordDescriptor outputRecordDescriptor, IFrameWriter outputWriter)
-            throws HyracksDataException {
+    public HybridHashGroupHashTable(IHyracksTaskContext ctx, int framesLimit, int tableSize, int numOfPartitions,
+            int[] keys, int hashSeedOffset, IBinaryComparator[] comparators, ITuplePartitionComputerFamily tpcFamily,
+            IAggregatorDescriptor aggregator, RecordDescriptor inputRecordDescriptor,
+            RecordDescriptor outputRecordDescriptor, IFrameWriter outputWriter) throws HyracksDataException {
         this.ctx = ctx;
         this.frameSize = ctx.getFrameSize();
         this.tableSize = tableSize;
@@ -226,6 +225,14 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         return (int) Math.ceil((double) tableSize * (INT_SIZE * 2 + MINI_BLOOM_FILTER_BYTE) / frameSize);
     }
 
+    private int getHeaderPagesConsiderMiniBF(int tableSize, int frameSize) {
+        if (useMiniBloomFilter) {
+            return getHeaderPages(tableSize, frameSize);
+        } else {
+            return (int) Math.ceil((double) tableSize * INT_SIZE * 2 / frameSize);
+        }
+    }
+
     private void add(int h, int headerFrameIndex, int headerFrameOffset, boolean isInitialize) {
         int byteIndex = headerFrameOffset + 2 * INT_SIZE;
         if (isInitialize) {
@@ -255,7 +262,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     @Override
     public void open() throws HyracksDataException {
         // initialize hash headers
-        int htHeaderCount = getHeaderPages(tableSize, frameSize);
+        int htHeaderCount = getHeaderPagesConsiderMiniBF(tableSize, frameSize);
 
         isPartitionOnly = false;
         if (numOfPartitions >= framesLimit - htHeaderCount) {
