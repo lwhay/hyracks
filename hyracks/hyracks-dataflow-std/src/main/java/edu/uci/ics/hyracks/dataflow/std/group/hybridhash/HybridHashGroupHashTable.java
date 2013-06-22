@@ -226,11 +226,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     }
 
     private int getHeaderPagesConsiderMiniBF(int tableSize, int frameSize) {
-        if (useMiniBloomFilter) {
-            return getHeaderPages(tableSize, frameSize);
-        } else {
-            return (int) Math.ceil((double) tableSize * INT_SIZE * 2 / frameSize);
-        }
+        return (int) Math.ceil(tableSize / headerEntryPerFrame);
     }
 
     private void add(int h, int headerFrameIndex, int headerFrameOffset, boolean isInitialize) {
