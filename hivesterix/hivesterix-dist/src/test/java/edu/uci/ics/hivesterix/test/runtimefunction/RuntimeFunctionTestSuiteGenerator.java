@@ -38,7 +38,7 @@ public class RuntimeFunctionTestSuiteGenerator extends AbstractTestSuiteClass {
 
         // set hdfs and hyracks cluster, and load test data to hdfs
         try {
-            testSuite.setup(PATH_TO_HIVE_CONF);
+            testSuite.setup();
             testSuite.loadData();
         } catch (Exception e) {
             e.printStackTrace();

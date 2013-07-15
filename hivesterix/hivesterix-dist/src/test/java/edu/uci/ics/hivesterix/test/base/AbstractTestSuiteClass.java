@@ -50,6 +50,7 @@ import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 public abstract class AbstractTestSuiteClass extends TestSuite {
 
     private static final String PATH_TO_HADOOP_CONF = "src/test/resources/runtimefunctionts/hadoop/conf";
+    private static final String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default.xml";
 
     private static final String PATH_TO_CLUSTER_CONF = "src/test/resources/runtimefunctionts/hive/conf/topology.xml";
     private static final String PATH_TO_DATA = "src/test/resources/runtimefunctionts/data/";
@@ -72,17 +73,17 @@ public abstract class AbstractTestSuiteClass extends TestSuite {
      * 
      * @throws IOException
      */
-    protected void setup(String hiveConfPath) throws Exception {
-        setupHdfs(hiveConfPath);
-        setupHyracks(hiveConfPath);
+    protected void setup() throws Exception {
+        setupHdfs();
+        setupHyracks();
     }
 
-    private void setupHdfs(String hiveConfPath) throws IOException {
+    private void setupHdfs() throws IOException {
         conf.addResource(new Path(PATH_TO_HADOOP_CONF + "/core-site.xml"));
         conf.addResource(new Path(PATH_TO_HADOOP_CONF + "/mapred-site.xml"));
         conf.addResource(new Path(PATH_TO_HADOOP_CONF + "/hdfs-site.xml"));
         HiveConf hconf = new HiveConf(SessionState.class);
-        hconf.addResource(new Path(hiveConfPath));
+        hconf.addResource(new Path(PATH_TO_HIVE_CONF));
 
         FileSystem lfs = FileSystem.getLocal(new Configuration());
         lfs.delete(new Path("build"), true);
@@ -101,10 +102,10 @@ public abstract class AbstractTestSuiteClass extends TestSuite {
         ConfUtil.setHiveConf(hconf);
     }
 
-    private void setupHyracks(String hiveConfPath) throws Exception {
+    private void setupHyracks() throws Exception {
         // read hive conf
         HiveConf hconf = new HiveConf(SessionState.class);
-        hconf.addResource(new Path(hiveConfPath));
+        hconf.addResource(new Path(PATH_TO_HIVE_CONF));
         SessionState.start(hconf);
         /**
          * load the properties file if it is not loaded
