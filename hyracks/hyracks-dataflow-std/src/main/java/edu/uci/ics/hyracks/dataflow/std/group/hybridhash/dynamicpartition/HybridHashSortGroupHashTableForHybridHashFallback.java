@@ -35,7 +35,7 @@ public class HybridHashSortGroupHashTableForHybridHashFallback extends HybridHas
             int[] keys, IBinaryComparator[] comparators, ITuplePartitionComputer rawTpc,
             ITuplePartitionComputer internalTpc, INormalizedKeyComputer firstNormalizerComputer,
             IAggregatorDescriptor rawAggregator, IAggregatorDescriptor internalAggregator, RecordDescriptor inRecDesc,
-            RecordDescriptor outRecDesc) {
+            RecordDescriptor outRecDesc) throws HyracksDataException {
         super(ctx, frameLimits, tableSize, keys, comparators, rawTpc, firstNormalizerComputer, rawAggregator,
                 inRecDesc, outRecDesc);
         this.internalAggregator = internalAggregator;

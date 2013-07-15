@@ -26,7 +26,6 @@ public class RuntimeFunctionTestSuite extends AbstractTestSuiteClass {
     private static final String PATH_TO_QUERIES = "src/test/resources/runtimefunctionts/queries/";
     private static final String PATH_TO_RESULTS = "src/test/resources/runtimefunctionts/results/";
     private static final String PATH_TO_IGNORES = "src/test/resources/runtimefunctionts/ignore.txt";
-    private static final String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default.xml";
 
     private static final String FILE_EXTENSION_OF_RESULTS = "result";
 
@@ -38,7 +37,7 @@ public class RuntimeFunctionTestSuite extends AbstractTestSuiteClass {
 
         // set hdfs and hyracks cluster, and load test data to hdfs
         try {
-            testSuite.setup(PATH_TO_HIVE_CONF);
+            testSuite.setup();
             testSuite.loadData();
         } catch (Exception e) {
             e.printStackTrace();

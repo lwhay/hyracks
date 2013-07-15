@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.dataflow.std.group.hybridhash.util;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FrameMemManager {
     private ByteBuffer[] frames;
@@ -132,8 +133,9 @@ public class FrameMemManager {
      * 
      * @param frameIdx
      * @return
+     * @throws HyracksDataException 
      */
-    public ByteBuffer getFrame(int frameIdx) {
+    public ByteBuffer getFrame(int frameIdx) throws HyracksDataException {
         if (frameIdx < 0 || frameIdx > frames.length - 1) {
             return null;
         }

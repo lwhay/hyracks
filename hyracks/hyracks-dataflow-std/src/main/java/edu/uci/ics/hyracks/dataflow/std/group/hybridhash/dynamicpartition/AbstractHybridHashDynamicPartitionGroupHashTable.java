@@ -325,8 +325,9 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
      * Reset the header page
      * 
      * @param headerFrameIndex
+     * @throws HyracksDataException 
      */
-    protected void resetHeader(int headerFrameIndex) {
+    protected void resetHeader(int headerFrameIndex) throws HyracksDataException {
         ByteBuffer buf = frameManager.getFrame(headerFrameIndex);
         for (int i = 0; i < frameSize; i += INT_SIZE) {
             buf.putInt(i, -1);
@@ -365,8 +366,9 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
      * @param frameIndex
      * @param tupleIndex
      * @return
+     * @throws HyracksDataException 
      */
-    protected int getTupleStartOffset(int frameIndex, int tupleIndex) {
+    protected int getTupleStartOffset(int frameIndex, int tupleIndex) throws HyracksDataException {
         if (tupleIndex == 0) {
             return 0;
         } else {
@@ -381,8 +383,9 @@ public abstract class AbstractHybridHashDynamicPartitionGroupHashTable {
      * @param accessor
      * @param tupleIndex
      * @return
+     * @throws HyracksDataException 
      */
-    protected boolean findMatch(int entry, FrameTupleAccessor accessor, int tupleIndex) {
+    protected boolean findMatch(int entry, FrameTupleAccessor accessor, int tupleIndex) throws HyracksDataException {
 
         int comps = 0;
 

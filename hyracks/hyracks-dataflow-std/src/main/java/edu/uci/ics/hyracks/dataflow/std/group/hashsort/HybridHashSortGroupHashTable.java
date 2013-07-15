@@ -97,7 +97,7 @@ public class HybridHashSortGroupHashTable {
     public HybridHashSortGroupHashTable(IHyracksTaskContext ctx, int frameLimits, int tableSize, int[] keys,
             IBinaryComparator[] comparators, ITuplePartitionComputer tpc,
             INormalizedKeyComputer firstNormalizerComputer, IAggregatorDescriptor aggregator,
-            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc) {
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc) throws HyracksDataException {
         this.ctx = ctx;
         this.tableSize = tableSize;
         this.framesLimit = frameLimits;
