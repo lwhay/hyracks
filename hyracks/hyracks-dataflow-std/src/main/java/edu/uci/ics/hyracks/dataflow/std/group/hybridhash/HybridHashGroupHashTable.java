@@ -227,7 +227,7 @@ public class HybridHashGroupHashTable implements IFrameWriter {
     }
 
     private int getHeaderPagesConsiderMiniBF(int tableSize, int frameSize) {
-        return (int) Math.ceil((double)tableSize / headerEntryPerFrame);
+        return (int) Math.ceil((double) tableSize / headerEntryPerFrame);
     }
 
     private void add(int h, int headerFrameIndex, int headerFrameOffset, boolean isInitialize) {
@@ -253,7 +253,9 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         return true;
     }
 
-    /* (non-Javadoc)
+    /*
+     * (non-Javadoc)
+     * 
      * @see edu.uci.ics.hyracks.api.comm.IFrameWriter#open()
      */
     @Override
@@ -332,7 +334,9 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         }
     }
 
-    /* (non-Javadoc)
+    /*
+     * (non-Javadoc)
+     * 
      * @see edu.uci.ics.hyracks.api.comm.IFrameWriter#nextFrame(java.nio.ByteBuffer)
      */
     @Override
@@ -662,16 +666,19 @@ public class HybridHashGroupHashTable implements IFrameWriter {
         return 0;
     }
 
-    /* (non-Javadoc)
+    /*
+     * (non-Javadoc)
+     * 
      * @see edu.uci.ics.hyracks.api.comm.IFrameWriter#fail()
      */
     @Override
     public void fail() throws HyracksDataException {
-        // TODO Auto-generated method stub
-
+        throw new HyracksDataException("HybridHashGroupHashTable failed!");
     }
 
-    /* (non-Javadoc)
+    /*
+     * (non-Javadoc)
+     * 
      * @see edu.uci.ics.hyracks.api.comm.IFrameWriter#close()
      */
     @Override
