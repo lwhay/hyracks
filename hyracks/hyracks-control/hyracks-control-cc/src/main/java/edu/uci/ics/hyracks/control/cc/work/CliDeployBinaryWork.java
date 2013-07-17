@@ -27,7 +27,7 @@ import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.cc.NodeControllerState;
 import edu.uci.ics.hyracks.control.common.deployment.DeploymentRun;
 import edu.uci.ics.hyracks.control.common.deployment.DeploymentUtils;
-import edu.uci.ics.hyracks.control.common.work.IPCResponder;
+import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.SynchronizableWork;
 
 /***
@@ -43,10 +43,10 @@ public class CliDeployBinaryWork extends SynchronizableWork {
     private ClusterControllerService ccs;
     private List<URL> binaryURLs;
     private DeploymentId deploymentId;
-    private IPCResponder<DeploymentId> callback;
+    private IResultCallback<DeploymentId> callback;
 
     public CliDeployBinaryWork(ClusterControllerService ncs, List<URL> binaryURLs, DeploymentId deploymentId,
-            IPCResponder<DeploymentId> callback) {
+            IResultCallback<DeploymentId> callback) {
         this.ccs = ncs;
         this.binaryURLs = binaryURLs;
         this.deploymentId = deploymentId;

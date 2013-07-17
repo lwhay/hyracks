@@ -25,7 +25,7 @@ import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.cc.NodeControllerState;
 import edu.uci.ics.hyracks.control.common.deployment.DeploymentRun;
 import edu.uci.ics.hyracks.control.common.deployment.DeploymentUtils;
-import edu.uci.ics.hyracks.control.common.work.IPCResponder;
+import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.SynchronizableWork;
 
 /***
@@ -40,10 +40,10 @@ public class CliUnDeployBinaryWork extends SynchronizableWork {
 
     private ClusterControllerService ccs;
     private DeploymentId deploymentId;
-    private IPCResponder<DeploymentId> callback;
+    private IResultCallback<DeploymentId> callback;
 
     public CliUnDeployBinaryWork(ClusterControllerService ncs, DeploymentId deploymentId,
-            IPCResponder<DeploymentId> callback) {
+            IResultCallback<DeploymentId> callback) {
         this.ccs = ncs;
         this.deploymentId = deploymentId;
         this.callback = callback;
@@ -71,7 +71,7 @@ public class CliUnDeployBinaryWork extends SynchronizableWork {
                 nodeIds.add(nc);
             }
             final DeploymentRun dRun = new DeploymentRun(nodeIds);
-            
+
             /** The following call prevents a user to undeploy with the same deployment id simultaneously. */
             ccs.addDeploymentRun(deploymentId, dRun);
 

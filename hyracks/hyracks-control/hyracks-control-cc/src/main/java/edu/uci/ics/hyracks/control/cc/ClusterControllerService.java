@@ -17,6 +17,8 @@ package edu.uci.ics.hyracks.control.cc;
 import java.io.File;
 import java.io.FileReader;
 import java.net.InetSocketAddress;
+import java.net.URL;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,14 +35,18 @@ import java.util.logging.Logger;
 import org.xml.sax.InputSource;
 
 import edu.uci.ics.hyracks.api.application.ICCApplicationEntryPoint;
+import edu.uci.ics.hyracks.api.client.AbstractHyracksClientConnection;
 import edu.uci.ics.hyracks.api.client.ClusterControllerInfo;
 import edu.uci.ics.hyracks.api.client.HyracksClientInterfaceFunctions;
+import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
 import edu.uci.ics.hyracks.api.context.ICCContext;
 import edu.uci.ics.hyracks.api.dataset.DatasetDirectoryRecord;
 import edu.uci.ics.hyracks.api.dataset.DatasetJobRecord.Status;
 import edu.uci.ics.hyracks.api.deployment.DeploymentId;
+import edu.uci.ics.hyracks.api.job.IActivityClusterGraphGeneratorFactory;
+import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.topology.ClusterTopology;
@@ -53,7 +59,6 @@ import edu.uci.ics.hyracks.control.cc.web.WebServer;
 import edu.uci.ics.hyracks.control.cc.work.ApplicationMessageWork;
 import edu.uci.ics.hyracks.control.cc.work.CliDeployBinaryWork;
 import edu.uci.ics.hyracks.control.cc.work.CliUnDeployBinaryWork;
-import edu.uci.ics.hyracks.control.cc.work.GetDatasetDirectoryServiceInfoWork;
 import edu.uci.ics.hyracks.control.cc.work.GetIpAddressNodeNameMapWork;
 import edu.uci.ics.hyracks.control.cc.work.GetJobStatusWork;
 import edu.uci.ics.hyracks.control.cc.work.GetNodeControllersInfoWork;
@@ -82,6 +87,7 @@ import edu.uci.ics.hyracks.control.common.deployment.DeploymentRun;
 import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions;
 import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions.Function;
 import edu.uci.ics.hyracks.control.common.logs.LogFile;
+import edu.uci.ics.hyracks.control.common.work.FutureValue;
 import edu.uci.ics.hyracks.control.common.work.IPCResponder;
 import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.WorkQueue;
@@ -136,6 +142,8 @@ public class ClusterControllerService extends AbstractRemoteService {
 
     private final Map<DeploymentId, DeploymentRun> deploymentRunMap;
 
+    private final IHyracksClientConnection inProcessConnection;
+
     public ClusterControllerService(final CCConfig ccConfig) throws Exception {
         this.ccConfig = ccConfig;
         File jobLogFolder = new File(ccConfig.ccRoot, "logs/jobs");
@@ -186,12 +194,18 @@ public class ClusterControllerService extends AbstractRemoteService {
             public ClusterTopology getClusterTopology() {
                 return topology;
             }
+
+            @Override
+            public IHyracksClientConnection getInProcessClientConnection() {
+                return inProcessConnection;
+            }
         };
         sweeper = new DeadNodeSweeper();
         datasetDirectoryService = new DatasetDirectoryService(ccConfig.resultTTL, ccConfig.resultSweepThreshold);
         jobCounter = 0;
 
         deploymentRunMap = new HashMap<DeploymentId, DeploymentRun>();
+        this.inProcessConnection = new InProcessHyracksClientConnection();
     }
 
     private static ClusterTopology computeClusterTopology(CCConfig ccConfig) throws Exception {
@@ -329,6 +343,68 @@ public class ClusterControllerService extends AbstractRemoteService {
         return datasetDirectoryService;
     }
 
+    private class InProcessHyracksClientConnection extends AbstractHyracksClientConnection {
+        public InProcessHyracksClientConnection() {
+            this.ccHost = ccConfig.clientNetIpAddress;
+            this.ccInfo = info;
+        }
+
+        @Override
+        public JobStatus getJobStatus(JobId jobId) throws Exception {
+            FutureValue<JobStatus> fv = new FutureValue<>();
+            workQueue.schedule(new GetJobStatusWork(ClusterControllerService.this, jobId, fv));
+            return fv.get();
+        }
+
+        @Override
+        public NetworkAddress getDatasetDirectoryServiceInfo() throws Exception {
+            return ClusterControllerService.this.getDatasetDirectoryServiceInfo();
+        }
+
+        @Override
+        public void waitForCompletion(JobId jobId) throws Exception {
+            FutureValue<Object> fv = new FutureValue<>();
+            workQueue.schedule(new WaitForJobCompletionWork(ClusterControllerService.this, jobId, fv));
+            fv.get();
+        }
+
+        @Override
+        public Map<String, NodeControllerInfo> getNodeControllerInfos() throws Exception {
+            FutureValue<Map<String, NodeControllerInfo>> fv = new FutureValue<>();
+            workQueue.schedule(new GetNodeControllersInfoWork(ClusterControllerService.this, fv));
+            return fv.get();
+        }
+
+        @Override
+        public ClusterTopology getClusterTopology() throws Exception {
+            return ccContext.getClusterTopology();
+        }
+
+        @Override
+        public void unDeployBinary(DeploymentId deploymentId) throws Exception {
+            FutureValue<DeploymentId> fv = new FutureValue<>();
+            workQueue.schedule(new CliUnDeployBinaryWork(ClusterControllerService.this, deploymentId, fv));
+            fv.get();
+        }
+
+        @Override
+        public JobId startJob(DeploymentId deploymentId, IActivityClusterGraphGeneratorFactory acggf,
+                EnumSet<JobFlag> jobFlags) throws Exception {
+            FutureValue<JobId> fv = new FutureValue<>();
+            JobId jobId = createJobId();
+            workQueue
+                    .schedule(new JobStartWork(ClusterControllerService.this, deploymentId, acggf, jobFlags, jobId, fv));
+            return fv.get();
+        }
+
+        @Override
+        protected void performDeployment(List<URL> binaryURLs, DeploymentId deploymentId) throws Exception {
+            FutureValue<DeploymentId> fv = new FutureValue<>();
+            workQueue.schedule(new CliDeployBinaryWork(ClusterControllerService.this, binaryURLs, deploymentId, fv));
+            fv.get();
+        }
+    }
+
     private class HyracksClientInterfaceIPCI implements IIPCI {
         @Override
         public void deliverIncomingMessage(IIPCHandle handle, long mid, long rmid, Object payload, Exception exception) {
@@ -359,9 +435,11 @@ public class ClusterControllerService extends AbstractRemoteService {
                 }
 
                 case GET_DATASET_DIRECTORY_SERIVICE_INFO: {
-                    workQueue.schedule(new GetDatasetDirectoryServiceInfoWork(ClusterControllerService.this,
-                            new IPCResponder<NetworkAddress>(handle, mid)));
-                    return;
+                    try {
+                        handle.send(mid, getDatasetDirectoryServiceInfo(), null);
+                    } catch (IPCException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 case GET_DATASET_RESULT_STATUS: {

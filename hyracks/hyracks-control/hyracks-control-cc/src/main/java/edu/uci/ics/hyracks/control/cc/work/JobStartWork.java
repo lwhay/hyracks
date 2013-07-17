@@ -32,6 +32,7 @@ import edu.uci.ics.hyracks.control.common.work.SynchronizableWork;
 
 public class JobStartWork extends SynchronizableWork {
     private final ClusterControllerService ccs;
+    private final IActivityClusterGraphGeneratorFactory acggf;
     private final byte[] acggfBytes;
     private final EnumSet<JobFlag> jobFlags;
     private final DeploymentId deploymentId;
@@ -43,7 +44,20 @@ public class JobStartWork extends SynchronizableWork {
         this.deploymentId = deploymentId;
         this.jobId = jobId;
         this.ccs = ccs;
+        this.acggf = null;
         this.acggfBytes = acggfBytes;
+        this.jobFlags = jobFlags;
+        this.callback = callback;
+    }
+
+    public JobStartWork(ClusterControllerService ccs, DeploymentId deploymentId,
+            IActivityClusterGraphGeneratorFactory acggf, EnumSet<JobFlag> jobFlags, JobId jobId,
+            IResultCallback<JobId> callback) {
+        this.deploymentId = deploymentId;
+        this.jobId = jobId;
+        this.ccs = ccs;
+        this.acggf = acggf;
+        this.acggfBytes = null;
         this.jobFlags = jobFlags;
         this.callback = callback;
     }
@@ -52,8 +66,9 @@ public class JobStartWork extends SynchronizableWork {
     protected void doRun() throws Exception {
         try {
             final CCApplicationContext appCtx = ccs.getApplicationContext();
-            IActivityClusterGraphGeneratorFactory acggf = (IActivityClusterGraphGeneratorFactory) DeploymentUtils
-                    .deserialize(acggfBytes, deploymentId, appCtx);
+            IActivityClusterGraphGeneratorFactory acggf = this.acggf != null ? this.acggf
+                    : (IActivityClusterGraphGeneratorFactory) DeploymentUtils.deserialize(acggfBytes, deploymentId,
+                            appCtx);
             IActivityClusterGraphGenerator acgg = acggf.createActivityClusterGraphGenerator(jobId, appCtx, jobFlags);
             JobRun run = new JobRun(ccs, deploymentId, jobId, acgg, jobFlags);
             run.setStatus(JobStatus.INITIALIZED, null);

@@ -31,8 +31,6 @@ public interface IHyracksClientInterface {
 
     public JobStatus getJobStatus(JobId jobId) throws Exception;
 
-    public JobId startJob(byte[] acggfBytes, EnumSet<JobFlag> jobFlags) throws Exception;
-
     public NetworkAddress getDatasetDirectoryServiceInfo() throws Exception;
 
     public void waitForCompletion(JobId jobId) throws Exception;
