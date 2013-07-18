@@ -28,7 +28,6 @@ public class OptimizerTestSuitGenerator extends AbstractTestSuiteClass {
     private static final String PATH_TO_QUERIES = "src/test/resources/optimizerts/queries/";
     private static final String PATH_TO_RESULTS = "src/test/resources/optimizerts/results/";
     private static final String PATH_TO_IGNORES = "src/test/resources/optimizerts/ignore.txt";
-    private static final String PATH_TO_HIVE_CONF = "src/test/resources/optimizerts/hive/conf/hive-default.xml";
 
     private static final String FILE_EXTENSION_OF_RESULTS = "plan";
 

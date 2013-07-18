@@ -1,7 +1,65 @@
 <?xml version="1.0"?>
+<!-- ! Copyright 2009-2013 by The Regents of the University of California 
+	! Licensed under the Apache License, Version 2.0 (the "License"); ! you may 
+	not use this file except in compliance with the License. ! you may obtain 
+	a copy of the License from ! ! http://www.apache.org/licenses/LICENSE-2.0 
+	! ! Unless required by applicable law or agreed to in writing, software ! 
+	distributed under the License is distributed on an "AS IS" BASIS, ! WITHOUT 
+	WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. ! See the 
+	License for the specific language governing permissions and ! limitations 
+	under the License. ! -->
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 
 <configuration>
+
+	<!-- Hivesterix Execution Parameters -->
+	<property>
+		<name>hive.hyracks.connectorpolicy</name>
+		<value>PIPELINING</value>
+	</property>
+
+	<property>
+		<name>hive.hyracks.parrallelism</name>
+		<value>4</value>
+	</property>
+
+	<property>
+		<name>hive.algebricks.groupby.algo</name>
+		<value>1</value>
+	</property>
+
+	<property>
+		<name>hive.algebricks.groupby.external.memory</name>
+		<value>98304</value>
+	</property>
+
+	<property>
+		<name>hive.algebricks.sort.memory</name>
+		<value>3072</value>
+	</property>
+
+	<property>
+		<name>hive.algebricks.framesize</name>
+		<value>768</value>
+	</property>
+
+	<property>
+		<name>hive.auto.convert.join</name>
+		<value>false</value>
+	</property>
+
+	<property>
+		<name>hive.auto.convert.join.noconditionaltask</name>
+		<value>false</value>
+		<description>Whether Hive enable the optimization about converting
+			common join into mapjoin based on the input file
+			size. If this paramater is on, and the sum of size for n-1 of the
+			tables/partitions for a n-way join is smaller than the
+			specified size, the join is directly converted to a mapjoin (there is no
+			conditional task).
+		</description>
+	</property>
+
 
 	<!-- Hive Configuration can either be stored in this file or in the hadoop 
 		configuration files -->
@@ -24,58 +82,15 @@
 			-1, Hive will automatically figure out what
 			should be the number of
 			reducers.
-  </description>
-	</property>
-
-	<property>
-		<name>hive.hyracks.host</name>
-		<value>127.0.0.1</value>
-	</property>
-
-	<property>
-		<name>hive.hyracks.port</name>
-		<value>13099</value>
-	</property>
-
-	<property>
-		<name>hive.hyracks.app</name>
-		<value>hivesterix</value>
-	</property>
-
-
-	<property>
-		<name>hive.hyracks.parrallelism</name>
-		<value>2</value>
-	</property>
-
-	<property>
-		<name>hive.algebricks.groupby.algo</name>
-		<value>1</value>
-		<description>The group-by algorithm to be used. 0 is for sort-based 
-		algorithm, 1 is for hash-sort algorithm, and 2 is for hybrid-hash 
-		algorithm. By default hybrid-hash algorithm is used.</description>
-	</property>
-
-	<property>
-		<name>hive.algebricks.groupby.external.memory</name>
-		<value>98304</value>
-	</property>
-
-	<property>
-		<name>hive.algebricks.sort.memory</name>
-		<value>3072</value>
-	</property>
-
-	<property>
-		<name>hive.algebricks.framesize</name>
-		<value>768</value>
+		</description>
 	</property>
 
 	<property>
 		<name>hive.exec.reducers.bytes.per.reducer</name>
 		<value>1000000000</value>
 		<description>size per reducer.The default is 1G, i.e if the input size
-			is 10G, it will use 10 reducers.</description>
+			is 10G, it will use 10 reducers.
+		</description>
 	</property>
 
 	<property>
@@ -87,7 +102,8 @@
 			negative, hive
 			will use this one as the max number of reducers when
 			automatically
-			determine number of reducers.</description>
+			determine number of reducers.
+		</description>
 	</property>
 
 	<property>
@@ -100,14 +116,16 @@
 		<name>hive.test.mode</name>
 		<value>false</value>
 		<description>whether hive is running in test mode. If yes, it turns on
-			sampling and prefixes the output tablename</description>
+			sampling and prefixes the output tablename
+		</description>
 	</property>
 
 	<property>
 		<name>hive.test.mode.prefix</name>
 		<value>test_</value>
 		<description>if hive is running in test mode, prefixes the output
-			table by this string</description>
+			table by this string
+		</description>
 	</property>
 
 	<!-- If the input table is not bucketed, the denominator of the tablesample 
@@ -122,21 +140,24 @@
 		<name>hive.test.mode.samplefreq</name>
 		<value>32</value>
 		<description>if hive is running in test mode and table is not
-			bucketed, sampling frequency</description>
+			bucketed, sampling frequency
+		</description>
 	</property>
 
 	<property>
 		<name>hive.test.mode.nosamplelist</name>
 		<value></value>
 		<description>if hive is running in test mode, dont sample the above
-			comma seperated list of tables</description>
+			comma seperated list of tables
+		</description>
 	</property>
 
 	<property>
 		<name>hive.metastore.local</name>
 		<value>true</value>
 		<description>controls whether to connect to remove metastore server or
-			open a new metastore server in Hive Client JVM</description>
+			open a new metastore server in Hive Client JVM
+		</description>
 	</property>
 
 	<property>
@@ -168,7 +189,8 @@
 		<name>javax.jdo.option.DetachAllOnCommit</name>
 		<value>true</value>
 		<description>detaches all objects from session so that they can be
-			used after transaction is committed</description>
+			used after transaction is committed
+		</description>
 	</property>
 
 	<property>
@@ -193,21 +215,24 @@
 		<name>datanucleus.validateTables</name>
 		<value>false</value>
 		<description>validates existing schema against code. turn this on if
-			you want to verify existing schema </description>
+			you want to verify existing schema
+		</description>
 	</property>
 
 	<property>
 		<name>datanucleus.validateColumns</name>
 		<value>false</value>
 		<description>validates existing schema against code. turn this on if
-			you want to verify existing schema </description>
+			you want to verify existing schema
+		</description>
 	</property>
 
 	<property>
 		<name>datanucleus.validateConstraints</name>
 		<value>false</value>
 		<description>validates existing schema against code. turn this on if
-			you want to verify existing schema </description>
+			you want to verify existing schema
+		</description>
 	</property>
 
 	<property>
@@ -220,7 +245,8 @@
 		<name>datanucleus.autoCreateSchema</name>
 		<value>true</value>
 		<description>creates necessary schema on a startup if one doesn't
-			exist. set this to false, after creating it once</description>
+			exist. set this to false, after creating it once
+		</description>
 	</property>
 
 	<property>
@@ -234,21 +260,24 @@
 		<name>datanucleus.transactionIsolation</name>
 		<value>read-committed</value>
 		<description>Default transaction isolation level for identity
-			generation. </description>
+			generation.
+		</description>
 	</property>
 
 	<property>
 		<name>datanucleus.cache.level2</name>
 		<value>false</value>
 		<description>Use a level 2 cache. Turn this off if metadata is changed
-			independently of hive metastore server</description>
+			independently of hive metastore server
+		</description>
 	</property>
 
 	<property>
 		<name>datanucleus.cache.level2.type</name>
 		<value>SOFT</value>
 		<description>SOFT=soft reference based cache, WEAK=weak reference
-			based cache.</description>
+			based cache.
+		</description>
 	</property>
 
 	<property>
@@ -256,7 +285,8 @@
 		<value>datanucleus</value>
 		<description>Name of the identifier factory to use when generating
 			table/column names etc. 'datanucleus' is used for backward
-			compatibility</description>
+			compatibility
+		</description>
 	</property>
 
 	<property>
@@ -279,7 +309,8 @@
 		<description>Name of the class that implements
 			org.apache.hadoop.hive.metastore.rawstore interface. This class is
 			used to store and retrieval of raw metadata objects such as table,
-			database</description>
+			database
+		</description>
 	</property>
 
 	<property>
@@ -294,28 +325,32 @@
 		<name>hive.fileformat.check</name>
 		<value>true</value>
 		<description>Whether to check file format or not when loading data
-			files</description>
+			files
+		</description>
 	</property>
 
 	<property>
 		<name>hive.map.aggr</name>
 		<value>true</value>
 		<description>Whether to use map-side aggregation in Hive Group By
-			queries</description>
+			queries
+		</description>
 	</property>
 
 	<property>
 		<name>hive.groupby.skewindata</name>
 		<value>false</value>
 		<description>Whether there is skew in data to optimize group by
-			queries</description>
+			queries
+		</description>
 	</property>
 
 	<property>
 		<name>hive.groupby.mapaggr.checkinterval</name>
 		<value>100000</value>
 		<description>Number of rows after which size of the grouping
-			keys/aggregation classes is performed</description>
+			keys/aggregation classes is performed
+		</description>
 	</property>
 
 	<property>
@@ -329,7 +364,8 @@
 		<name>hive.map.aggr.hash.percentmemory</name>
 		<value>0.5</value>
 		<description>Portion of total memory to be used by map-side grup
-			aggregation hash table</description>
+			aggregation hash table
+		</description>
 	</property>
 
 	<property>
@@ -340,7 +376,8 @@
 			table size and input rows is bigger than this number. Set to 1 to
 			make
 			sure
-			hash aggregation is never turned off.</description>
+			hash aggregation is never turned off.
+		</description>
 	</property>
 
 	<property>
@@ -369,28 +406,32 @@
 		<name>hive.optimize.groupby</name>
 		<value>true</value>
 		<description>Whether to enable the bucketed group by from bucketed
-			partitions/tables.</description>
+			partitions/tables.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.join.emit.interval</name>
 		<value>1000</value>
 		<description>How many rows in the right-most join operand Hive should
-			buffer before emitting the join result. </description>
+			buffer before emitting the join result.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.join.cache.size</name>
 		<value>25000</value>
 		<description>How many rows in the joining tables (except the streaming
-			table) should be cached in memory. </description>
+			table) should be cached in memory.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.mapjoin.bucket.cache.size</name>
 		<value>100</value>
 		<description>How many values in each keys in the map-joined table
-			should be cached in memory. </description>
+			should be cached in memory.
+		</description>
 	</property>
 
 	<property>
@@ -420,7 +461,8 @@
 		<value>100000</value>
 		<description>Determine if we get a skew key in join. If we see more
 			than the specified number of rows with the same key in join operator,
-			we think the key as a skew join key. </description>
+			we think the key as a skew join key.
+		</description>
 	</property>
 
 	<property>
@@ -443,7 +485,8 @@
 			size. It should be used
 			together with
 			hive.skewjoin.mapjoin.map.tasks
-			to perform a fine grained control.</description>
+			to perform a fine grained control.
+		</description>
 	</property>
 
 	<property>
@@ -459,7 +502,8 @@
 		<value>100000</value>
 		<description>Maximum number of bytes a script is allowed to emit to
 			standard error (per map-reduce task). This prevents runaway scripts
-			from filling logs partitions to capacity </description>
+			from filling logs partitions to capacity
+		</description>
 	</property>
 
 	<property>
@@ -485,7 +529,8 @@
 		<description> This controls whether the final outputs of a query (to a
 			local/hdfs file or a hive table) is compressed. The compression codec
 			and other options are determined from hadoop config variables
-			mapred.output.compress* </description>
+			mapred.output.compress*
+		</description>
 	</property>
 
 	<property>
@@ -494,7 +539,8 @@
 		<description> This controls whether intermediate files produced by
 			hive between multiple map-reduce jobs are compressed. The compression
 			codec and other options are determined from hadoop config variables
-			mapred.output.compress* </description>
+			mapred.output.compress*
+		</description>
 	</property>
 
 	<property>
@@ -514,14 +560,16 @@
 		<name>hive.hwi.war.file</name>
 		<value>lib\hive-hwi-0.7.0.war</value>
 		<description>This sets the path to the HWI war file, relative to
-			${HIVE_HOME}. </description>
+			${HIVE_HOME}.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.hwi.listen.host</name>
 		<value>0.0.0.0</value>
 		<description>This is the host address the Hive Web Interface will
-			listen on</description>
+			listen on
+		</description>
 	</property>
 
 	<property>
@@ -555,7 +603,8 @@
 		<name>hive.heartbeat.interval</name>
 		<value>1000</value>
 		<description>Send a heartbeat after this interval - used by mapjoin
-			and filter operators</description>
+			and filter operators
+		</description>
 	</property>
 
 	<property>
@@ -571,7 +620,8 @@
 			this number, Hive will start an additional map-reduce job to merge
 			the output files into bigger files. This is only done for map-only
 			jobs if hive.merge.mapfiles is true, and for map-reduce jobs if
-			hive.merge.mapredfiles is true.</description>
+			hive.merge.mapredfiles is true.
+		</description>
 	</property>
 
 	<property>
@@ -583,28 +633,32 @@
 			information when the script is outputting to stderr. This option
 			removes the need of periodically producing stderr messages, but users
 			should be cautious because this may prevent infinite loops in the
-			scripts to be killed by TaskTracker.  </description>
+			scripts to be killed by TaskTracker.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.script.serde</name>
 		<value>org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe</value>
 		<description>The default serde for trasmitting input data to and
-			reading output data from the user scripts. </description>
+			reading output data from the user scripts.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.script.recordreader</name>
 		<value>org.apache.hadoop.hive.ql.exec.TextRecordReader</value>
 		<description>The default record reader for reading data from the user
-			scripts. </description>
+			scripts.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.script.recordwriter</name>
 		<value>org.apache.hadoop.hive.ql.exec.TextRecordWriter</value>
 		<description>The default record writer for writing data to the user
-			scripts. </description>
+			scripts.
+		</description>
 	</property>
 
 	<property>
@@ -615,7 +669,8 @@
 			17, 18 and 19, whereas it is set to CombinedHiveInputFormat for
 			hadoop 20. The user can always overwrite it - if there is a bug in
 			CombinedHiveInputFormat, it can always be manually set to
-			HiveInputFormat. </description>
+			HiveInputFormat.
+		</description>
 	</property>
 
 	<property>
@@ -625,14 +680,16 @@
 			information to TaskTracker when using UDTF's to prevent the task
 			getting killed because of inactivity. Users should be cautious
 			because this may prevent TaskTracker from killing tasks with infinte
-			loops.  </description>
+			loops.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.mapred.reduce.tasks.speculative.execution</name>
 		<value>true</value>
 		<description>Whether speculative execution for reducers should be
-			turned on. </description>
+			turned on.
+		</description>
 	</property>
 
 	<property>
@@ -641,21 +698,24 @@
 		<description>The interval with which to poll the JobTracker for the
 			counters the running job. The smaller it is the more load there will
 			be on the jobtracker, the higher it is the less granular the caught
-			will be.</description>
+			will be.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.enforce.bucketing</name>
 		<value>false</value>
 		<description>Whether bucketing is enforced. If true, while inserting
-			into the table, bucketing is enforced. </description>
+			into the table, bucketing is enforced.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.enforce.sorting</name>
 		<value>false</value>
 		<description>Whether sorting is enforced. If true, while inserting
-			into the table, sorting is enforced. </description>
+			into the table, sorting is enforced.
+		</description>
 	</property>
 
 	<property>
@@ -670,28 +730,32 @@
 		<name>hive.metastore.ds.retry.attempts</name>
 		<value>1</value>
 		<description>The number of times to retry a metastore call if there
-			were a connection error</description>
+			were a connection error
+		</description>
 	</property>
 
 	<property>
 		<name>hive.metastore.ds.retry.interval</name>
 		<value>1000</value>
 		<description>The number of miliseconds between metastore retry
-			attempts</description>
+			attempts
+		</description>
 	</property>
 
 	<property>
 		<name>hive.metastore.server.min.threads</name>
 		<value>200</value>
 		<description>Minimum number of worker threads in the Thrift server's
-			pool.</description>
+			pool.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.metastore.server.max.threads</name>
 		<value>100000</value>
 		<description>Maximum number of worker threads in the Thrift server's
-			pool.</description>
+			pool.
+		</description>
 	</property>
 
 	<property>
@@ -708,7 +772,8 @@
 		<description>Remove extra map-reduce jobs if the data is already
 			clustered by the same key which needs to be used again. This should
 			always be set to true. Since it is a new feature, it has been made
-			configurable.</description>
+			configurable.
+		</description>
 	</property>
 
 	<property>
@@ -730,14 +795,16 @@
 		<name>hive.exec.max.dynamic.partitions</name>
 		<value>1000</value>
 		<description>Maximum number of dynamic partitions allowed to be
-			created in total.</description>
+			created in total.
+		</description>
 	</property>
 
 	<property>
 		<name>hive.exec.max.dynamic.partitions.pernode</name>
 		<value>100</value>
 		<description>Maximum number of dynamic partitions allowed to be
-			created in each mapper/reducer node.</description>
+			created in each mapper/reducer node.
+		</description>
 	</property>
 
 	<property>
@@ -748,7 +815,8 @@
 			escaped. This value must not contain any special character used in
 			HDFS URI (e.g., ':', '%', '/' etc). The user has to be aware that the
 			dynamic partition value should not contain this value to avoid
-			confusions.</description>
+			confusions.
+		</description>
 	</property>
 
 	<property>
@@ -784,7 +852,8 @@
 		<value>true</value>
 		<description>Whether writes to HBase should be forced to the
 			write-ahead log. Disabling this improves HBase write performance at
-			the risk of lost writes in case of a crash.</description>
+			the risk of lost writes in case of a crash.
+		</description>
 	</property>
 
 	<property>

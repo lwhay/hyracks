@@ -24,7 +24,7 @@ write [%0->$$4]
                 nested tuple source
                 -- NESTED_TUPLE_SOURCE  |LOCAL|
            }
-    -- HYBRID_HASH_GROUP_BY[]  |PARTITIONED|
+    -- HASH_SORT_GROUP_BY[]  |PARTITIONED|
       exchange 
       -- HASH_PARTITION_EXCHANGE []  |PARTITIONED|
         group by ([]) decor ([]) {
@@ -33,7 +33,7 @@ write [%0->$$4]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- HYBRID_HASH_GROUP_BY[]  |LOCAL|
+        -- HASH_SORT_GROUP_BY[]  |PARTITIONED|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             select (function-call: algebricks:gt, Args:[%0->$$1, 0.0])
@@ -53,9 +53,9 @@ write [%0->$$2]
     distinct ([%0->$$2])
     -- PRE_SORTED_DISTINCT_BY  |PARTITIONED|
       exchange 
-      -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+      -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
         order (ASC, %0->$$2) 
-        -- STABLE_SORT [$$2(ASC)]  |LOCAL|
+        -- STABLE_SORT [$$2(ASC)]  |PARTITIONED|
           exchange 
           -- HASH_PARTITION_EXCHANGE [$$2]  |PARTITIONED|
             data-scan [$$2]<-[$$1, $$2, $$3, $$4, $$5, $$6, $$7, $$8, $$9] <- default.orders
@@ -73,7 +73,7 @@ write [%0->$$6, %0->$$9, %0->$$8]
       exchange 
       -- SORT_MERGE_EXCHANGE [$$6(ASC) ]  |PARTITIONED|
         order (ASC, %0->$$6) 
-        -- STABLE_SORT [$$6(ASC)]  |LOCAL|
+        -- STABLE_SORT [$$6(ASC)]  |PARTITIONED|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             group by ([$$6 := %0->$$13]) decor ([]) {
@@ -82,7 +82,7 @@ write [%0->$$6, %0->$$9, %0->$$8]
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- HYBRID_HASH_GROUP_BY[$$13]  |PARTITIONED|
+            -- HASH_SORT_GROUP_BY[$$13]  |PARTITIONED|
               exchange 
               -- HASH_PARTITION_EXCHANGE [$$13]  |PARTITIONED|
                 group by ([$$13 := %0->$$5]) decor ([]) {
@@ -91,7 +91,7 @@ write [%0->$$6, %0->$$9, %0->$$8]
                             nested tuple source
                             -- NESTED_TUPLE_SOURCE  |LOCAL|
                        }
-                -- HYBRID_HASH_GROUP_BY[$$5]  |LOCAL|
+                -- HASH_SORT_GROUP_BY[$$5]  |PARTITIONED|
                   exchange 
                   -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                     project ([$$5, $$3])

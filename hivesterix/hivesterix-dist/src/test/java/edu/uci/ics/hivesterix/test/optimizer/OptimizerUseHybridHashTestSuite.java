@@ -7,6 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import junit.framework.Test;
+import junit.framework.TestResult;
 import edu.uci.ics.hivesterix.test.base.AbstractTestSuiteClass;
 
 public class OptimizerUseHybridHashTestSuite extends AbstractTestSuiteClass {
@@ -26,7 +27,7 @@ public class OptimizerUseHybridHashTestSuite extends AbstractTestSuiteClass {
 
         // set hdfs and hyracks cluster, and load test data to hdfs
         try {
-            testSuite.setup();
+            testSuite.setup(PATH_TO_HIVE_CONF);
             testSuite.loadData();
         } catch (Exception e) {
             e.printStackTrace();
@@ -37,7 +38,7 @@ public class OptimizerUseHybridHashTestSuite extends AbstractTestSuiteClass {
             if (isIgnored(qFile.getName(), ignores))
                 continue;
 
-            if (qFile.isFile() && qFile.getName().startsWith("h11_")) {
+            if (qFile.isFile()) {
                 String resultFileName = hiveExtToResExt(qFile.getName());
                 File rFile = new File(PATH_TO_RESULTS + resultFileName);
                 testSuite.addTest(new OptimizerTestCase(qFile, rFile));
@@ -51,4 +52,27 @@ public class OptimizerUseHybridHashTestSuite extends AbstractTestSuiteClass {
         return fname.substring(0, dot + 1) + FILE_EXTENSION_OF_RESULTS;
     }
 
+    /**
+     * Runs the tests and collects their result in a TestResult.
+     */
+    @Override
+    public void run(TestResult result) {
+
+        int testCount = countTestCases();
+        for (int i = 0; i < testCount; i++) {
+            Test each = this.testAt(i);
+            if (result.shouldStop())
+                break;
+            runTest(each, result);
+        }
+
+        // cleanup hdfs and hyracks cluster
+        try {
+            cleanup();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new IllegalStateException(e.getMessage());
+        }
+    }
+    
 }

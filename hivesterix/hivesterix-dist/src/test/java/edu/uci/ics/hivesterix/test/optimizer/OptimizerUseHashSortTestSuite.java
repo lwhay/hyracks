@@ -7,6 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import junit.framework.Test;
+import junit.framework.TestResult;
 import edu.uci.ics.hivesterix.test.base.AbstractTestSuiteClass;
 
 public class OptimizerUseHashSortTestSuite extends AbstractTestSuiteClass {
@@ -26,7 +27,7 @@ public class OptimizerUseHashSortTestSuite extends AbstractTestSuiteClass {
 
         // set hdfs and hyracks cluster, and load test data to hdfs
         try {
-            testSuite.setup();
+            testSuite.setup(PATH_TO_HIVE_CONF);
             testSuite.loadData();
         } catch (Exception e) {
             e.printStackTrace();
@@ -49,6 +50,29 @@ public class OptimizerUseHashSortTestSuite extends AbstractTestSuiteClass {
     private static String hiveExtToResExt(String fname) {
         int dot = fname.lastIndexOf('.');
         return fname.substring(0, dot + 1) + FILE_EXTENSION_OF_RESULTS;
+    }
+    
+    /**
+     * Runs the tests and collects their result in a TestResult.
+     */
+    @Override
+    public void run(TestResult result) {
+
+        int testCount = countTestCases();
+        for (int i = 0; i < testCount; i++) {
+            Test each = this.testAt(i);
+            if (result.shouldStop())
+                break;
+            runTest(each, result);
+        }
+
+        // cleanup hdfs and hyracks cluster
+        try {
+            cleanup();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new IllegalStateException(e.getMessage());
+        }
     }
 
 }

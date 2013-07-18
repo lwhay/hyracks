@@ -50,7 +50,7 @@ import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 public abstract class AbstractTestSuiteClass extends TestSuite {
 
     private static final String PATH_TO_HADOOP_CONF = "src/test/resources/runtimefunctionts/hadoop/conf";
-    private static final String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default.xml";
+    private static String PATH_TO_HIVE_CONF = "src/test/resources/runtimefunctionts/hive/conf/hive-default.xml";
 
     private static final String PATH_TO_CLUSTER_CONF = "src/test/resources/runtimefunctionts/hive/conf/topology.xml";
     private static final String PATH_TO_DATA = "src/test/resources/runtimefunctionts/data/";
@@ -74,6 +74,17 @@ public abstract class AbstractTestSuiteClass extends TestSuite {
      * @throws IOException
      */
     protected void setup() throws Exception {
+        setupHdfs();
+        setupHyracks();
+    }
+
+    /**
+     * setup cluster
+     * 
+     * @throws IOException
+     */
+    protected void setup(String hiveConfPath) throws Exception {
+        PATH_TO_HIVE_CONF = hiveConfPath;
         setupHdfs();
         setupHyracks();
     }
