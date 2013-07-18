@@ -19,11 +19,11 @@ write [%0->$$53, %0->$$54, %0->$$55]
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- PRE_CLUSTERED_GROUP_BY[$$48, $$51]  |LOCAL|
+          -- PRE_CLUSTERED_GROUP_BY[$$48, $$51]  |PARTITIONED|
             exchange 
-            -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
               order (ASC, %0->$$48) (DESC, %0->$$51) 
-              -- STABLE_SORT [$$48(ASC), $$51(DESC)]  |LOCAL|
+              -- STABLE_SORT [$$48(ASC), $$51(DESC)]  |PARTITIONED|
                 exchange 
                 -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                   project ([$$48, $$51, $$52])

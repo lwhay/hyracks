@@ -36,7 +36,7 @@ write [%0->$$17, %0->$$18, %0->$$20]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- HASH_SORT_GROUP_BY[$$23, $$24]  |PARTITIONED|
+        -- HYBRID_HASH_GROUP_BY[$$23, $$24]  |PARTITIONED|
           exchange 
           -- HASH_PARTITION_EXCHANGE [$$23, $$24]  |PARTITIONED|
             group by ([$$23 := %0->$$2; $$24 := %0->$$3]) decor ([]) {
@@ -45,7 +45,7 @@ write [%0->$$17, %0->$$18, %0->$$20]
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- HASH_SORT_GROUP_BY[$$2, $$3]  |LOCAL|
+            -- HYBRID_HASH_GROUP_BY[$$2, $$3]  |LOCAL|
               exchange 
               -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                 project ([$$2, $$3, $$5])

@@ -12,7 +12,7 @@ write [%0->$$17, %0->$$19]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- HYBRID_HASH_GROUP_BY[$$22]  |PARTITIONED|
+        -- HASH_SORT_GROUP_BY[$$22]  |PARTITIONED|
           exchange 
           -- HASH_PARTITION_EXCHANGE [$$22]  |PARTITIONED|
             group by ([$$22 := %0->$$2]) decor ([]) {
@@ -21,7 +21,7 @@ write [%0->$$17, %0->$$19]
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- HYBRID_HASH_GROUP_BY[$$2]  |LOCAL|
+            -- HASH_SORT_GROUP_BY[$$2]  |LOCAL|
               exchange 
               -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                 data-scan [$$2, $$5]<-[$$1, $$2, $$3, $$4, $$5, $$6, $$7, $$8, $$9, $$10, $$11, $$12, $$13, $$14, $$15, $$16] <- default.lineitem
@@ -44,7 +44,7 @@ write [%0->$$29]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- HYBRID_HASH_GROUP_BY[]  |PARTITIONED|
+        -- HASH_SORT_GROUP_BY[]  |PARTITIONED|
           exchange 
           -- HASH_PARTITION_EXCHANGE []  |PARTITIONED|
             group by ([]) decor ([]) {
@@ -53,7 +53,7 @@ write [%0->$$29]
                         nested tuple source
                         -- NESTED_TUPLE_SOURCE  |LOCAL|
                    }
-            -- HYBRID_HASH_GROUP_BY[]  |LOCAL|
+            -- HASH_SORT_GROUP_BY[]  |LOCAL|
               exchange 
               -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                 project ([$$17])

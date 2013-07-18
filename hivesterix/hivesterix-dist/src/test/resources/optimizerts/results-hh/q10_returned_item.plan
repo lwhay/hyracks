@@ -22,7 +22,7 @@ write [%0->$$38, %0->$$39, %0->$$45, %0->$$40, %0->$$42, %0->$$43, %0->$$41, %0-
                               nested tuple source
                               -- NESTED_TUPLE_SOURCE  |LOCAL|
                          }
-                  -- HYBRID_HASH_GROUP_BY[$$48, $$49, $$50, $$51, $$52, $$53, $$54]  |PARTITIONED|
+                  -- HASH_SORT_GROUP_BY[$$48, $$49, $$50, $$51, $$52, $$53, $$54]  |PARTITIONED|
                     exchange 
                     -- HASH_PARTITION_EXCHANGE [$$48, $$49, $$50, $$51, $$52, $$53, $$54]  |PARTITIONED|
                       group by ([$$48 := %0->$$21; $$49 := %0->$$22; $$50 := %0->$$26; $$51 := %0->$$25; $$52 := %0->$$18; $$53 := %0->$$23; $$54 := %0->$$28]) decor ([]) {
@@ -31,7 +31,7 @@ write [%0->$$38, %0->$$39, %0->$$45, %0->$$40, %0->$$42, %0->$$43, %0->$$41, %0-
                                   nested tuple source
                                   -- NESTED_TUPLE_SOURCE  |LOCAL|
                              }
-                      -- HYBRID_HASH_GROUP_BY[$$21, $$22, $$26, $$25, $$18, $$23, $$28]  |LOCAL|
+                      -- HASH_SORT_GROUP_BY[$$21, $$22, $$26, $$25, $$18, $$23, $$28]  |LOCAL|
                         exchange 
                         -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                           project ([$$21, $$22, $$23, $$25, $$26, $$28, $$18, $$6, $$7])

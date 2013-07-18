@@ -65,7 +65,7 @@ write [%0->$$10, %0->$$11, %0->$$12, %0->$$14]
       exchange 
       -- SORT_MERGE_EXCHANGE [$$13(DESC), $$10(ASC), $$11(ASC), $$12(ASC) ]  |PARTITIONED|
         order (DESC, %0->$$13) (ASC, %0->$$10) (ASC, %0->$$11) (ASC, %0->$$12) 
-        -- STABLE_SORT [$$13(DESC), $$10(ASC), $$11(ASC), $$12(ASC)]  |LOCAL|
+        -- STABLE_SORT [$$13(DESC), $$10(ASC), $$11(ASC), $$12(ASC)]  |PARTITIONED|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             group by ([$$10 := %0->$$5; $$11 := %0->$$6; $$12 := %0->$$7]) decor ([]) {
@@ -85,9 +85,9 @@ write [%0->$$10, %0->$$11, %0->$$12, %0->$$14]
                        }
                 -- PRE_CLUSTERED_GROUP_BY[$$1, $$2, $$3, $$4]  |PARTITIONED|
                   exchange 
-                  -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+                  -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                     order (ASC, %0->$$1) (ASC, %0->$$2) (ASC, %0->$$3) (ASC, %0->$$4) 
-                    -- STABLE_SORT [$$1(ASC), $$2(ASC), $$3(ASC), $$4(ASC)]  |LOCAL|
+                    -- STABLE_SORT [$$1(ASC), $$2(ASC), $$3(ASC), $$4(ASC)]  |PARTITIONED|
                       exchange 
                       -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                         select (function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:or, Args:[function-call: algebricks:eq, Args:[%0->$$3, 49], function-call: algebricks:eq, Args:[%0->$$3, 14]], function-call: algebricks:eq, Args:[%0->$$3, 23]], function-call: algebricks:eq, Args:[%0->$$3, 45]], function-call: algebricks:eq, Args:[%0->$$3, 19]], function-call: algebricks:eq, Args:[%0->$$3, 3]], function-call: algebricks:eq, Args:[%0->$$3, 36]], function-call: algebricks:eq, Args:[%0->$$3, 9]])

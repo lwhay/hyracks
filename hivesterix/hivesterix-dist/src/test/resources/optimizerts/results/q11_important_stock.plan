@@ -19,11 +19,11 @@ write [%0->$$17, %0->$$18]
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- PRE_CLUSTERED_GROUP_BY[$$1]  |LOCAL|
+          -- PRE_CLUSTERED_GROUP_BY[$$1]  |PARTITIONED|
             exchange 
-            -- ONE_TO_ONE_EXCHANGE  |LOCAL|
+            -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
               order (ASC, %0->$$1) 
-              -- STABLE_SORT [$$1(ASC)]  |LOCAL|
+              -- STABLE_SORT [$$1(ASC)]  |PARTITIONED|
                 exchange 
                 -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                   project ([$$1, $$3, $$4])
@@ -89,7 +89,7 @@ write [%0->$$3]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- PRE_CLUSTERED_GROUP_BY[]  |LOCAL|
+        -- PRE_CLUSTERED_GROUP_BY[]  |PARTITIONED|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             data-scan [$$2]<-[$$1, $$2] <- default.q11_part_tmp
@@ -103,7 +103,7 @@ write [%0->$$2, %0->$$3]
   exchange 
   -- SORT_MERGE_EXCHANGE [$$3(DESC) ]  |PARTITIONED|
     order (DESC, %0->$$3) 
-    -- STABLE_SORT [$$3(DESC)]  |LOCAL|
+    -- STABLE_SORT [$$3(DESC)]  |PARTITIONED|
       exchange 
       -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
         project ([$$2, $$3])

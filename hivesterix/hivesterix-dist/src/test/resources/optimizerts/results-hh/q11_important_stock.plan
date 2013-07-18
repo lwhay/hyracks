@@ -10,7 +10,7 @@ write [%0->$$17, %0->$$18]
                   nested tuple source
                   -- NESTED_TUPLE_SOURCE  |LOCAL|
              }
-      -- HYBRID_HASH_GROUP_BY[$$21]  |PARTITIONED|
+      -- HASH_SORT_GROUP_BY[$$21]  |PARTITIONED|
         exchange 
         -- HASH_PARTITION_EXCHANGE [$$21]  |PARTITIONED|
           group by ([$$21 := %0->$$1]) decor ([]) {
@@ -19,7 +19,7 @@ write [%0->$$17, %0->$$18]
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- HYBRID_HASH_GROUP_BY[$$1]  |LOCAL|
+          -- HASH_SORT_GROUP_BY[$$1]  |LOCAL|
             exchange 
             -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
               project ([$$1, $$3, $$4])
@@ -76,7 +76,7 @@ write [%0->$$3]
                 nested tuple source
                 -- NESTED_TUPLE_SOURCE  |LOCAL|
            }
-    -- HYBRID_HASH_GROUP_BY[]  |PARTITIONED|
+    -- HASH_SORT_GROUP_BY[]  |PARTITIONED|
       exchange 
       -- HASH_PARTITION_EXCHANGE []  |PARTITIONED|
         group by ([]) decor ([]) {
@@ -85,7 +85,7 @@ write [%0->$$3]
                     nested tuple source
                     -- NESTED_TUPLE_SOURCE  |LOCAL|
                }
-        -- HYBRID_HASH_GROUP_BY[]  |LOCAL|
+        -- HASH_SORT_GROUP_BY[]  |LOCAL|
           exchange 
           -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
             data-scan [$$2]<-[$$1, $$2] <- default.q11_part_tmp

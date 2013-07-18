@@ -10,7 +10,7 @@ write [%0->$$17, %0->$$18]
                   nested tuple source
                   -- NESTED_TUPLE_SOURCE  |LOCAL|
              }
-      -- HASH_SORT_GROUP_BY[$$21]  |PARTITIONED|
+      -- HYBRID_HASH_GROUP_BY[$$21]  |PARTITIONED|
         exchange 
         -- HASH_PARTITION_EXCHANGE [$$21]  |PARTITIONED|
           group by ([$$21 := %0->$$1]) decor ([]) {
@@ -19,7 +19,7 @@ write [%0->$$17, %0->$$18]
                       nested tuple source
                       -- NESTED_TUPLE_SOURCE  |LOCAL|
                  }
-          -- HASH_SORT_GROUP_BY[$$1]  |LOCAL|
+          -- HYBRID_HASH_GROUP_BY[$$1]  |LOCAL|
             exchange 
             -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
               data-scan [$$1, $$5]<-[$$1, $$2, $$3, $$4, $$5, $$6, $$7, $$8, $$9, $$10, $$11, $$12, $$13, $$14, $$15, $$16] <- default.lineitem
@@ -52,7 +52,7 @@ write [%0->$$36, %0->$$37, %0->$$38, %0->$$39, %0->$$40, %0->$$41]
                               nested tuple source
                               -- NESTED_TUPLE_SOURCE  |LOCAL|
                          }
-                  -- HASH_SORT_GROUP_BY[$$44, $$45, $$46, $$47, $$48]  |PARTITIONED|
+                  -- HYBRID_HASH_GROUP_BY[$$44, $$45, $$46, $$47, $$48]  |PARTITIONED|
                     exchange 
                     -- HASH_PARTITION_EXCHANGE [$$44, $$45, $$46, $$47, $$48]  |PARTITIONED|
                       group by ([$$44 := %0->$$20; $$45 := %0->$$19; $$46 := %0->$$27; $$47 := %0->$$31; $$48 := %0->$$30]) decor ([]) {
@@ -61,7 +61,7 @@ write [%0->$$36, %0->$$37, %0->$$38, %0->$$39, %0->$$40, %0->$$41]
                                   nested tuple source
                                   -- NESTED_TUPLE_SOURCE  |LOCAL|
                              }
-                      -- HASH_SORT_GROUP_BY[$$20, $$19, $$27, $$31, $$30]  |LOCAL|
+                      -- HYBRID_HASH_GROUP_BY[$$20, $$19, $$27, $$31, $$30]  |LOCAL|
                         exchange 
                         -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                           project ([$$19, $$20, $$27, $$30, $$31, $$7])
