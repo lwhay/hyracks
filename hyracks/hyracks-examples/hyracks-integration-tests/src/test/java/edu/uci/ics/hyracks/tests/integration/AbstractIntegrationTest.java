@@ -56,6 +56,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDes
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ResultFrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
+import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 
 public abstract class AbstractIntegrationTest {
     private static final Logger LOGGER = Logger.getLogger(AbstractIntegrationTest.class.getName());
@@ -318,5 +319,23 @@ public abstract class AbstractIntegrationTest {
         }
         outputFiles.add(tempFile);
         return tempFile;
+    }
+
+    protected void runTestAndDumpResults(JobSpecification spec, FileSplit[] splits) throws Exception {
+        JobId jobId = executeTest(spec);
+
+        hcc.waitForCompletion(jobId);
+        for (FileSplit fs : splits) {
+            LOGGER.severe(fs.getLocalFile().getFile().getAbsolutePath());
+            BufferedReader freader = new BufferedReader(new FileReader(fs.getLocalFile().getFile().getAbsolutePath()));
+
+            String l;
+            boolean isFirst = true;
+            while ((l = freader.readLine()) != null && isFirst) {
+                LOGGER.severe(l);
+                isFirst = false;
+            }
+            freader.close();
+        }
     }
 }

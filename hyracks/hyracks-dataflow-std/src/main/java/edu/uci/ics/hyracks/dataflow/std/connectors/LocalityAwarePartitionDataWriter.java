@@ -76,7 +76,7 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
         tupleAccessor.reset(buffer);
         int tupleCount = tupleAccessor.getTupleCount();
         for (int i = 0; i < tupleCount; ++i) {
-            int h = pWriters.length == 1 ? 0 : tpc.partition(tupleAccessor, i, pWriters.length);
+            int h = (pWriters.length <= 1) ? 0 : tpc.partition(tupleAccessor, i, pWriters.length);
             FrameTupleAppender appender = appenders[h];
             if (!appender.append(tupleAccessor, i)) {
                 ByteBuffer appenderBuffer = appender.getBuffer();
