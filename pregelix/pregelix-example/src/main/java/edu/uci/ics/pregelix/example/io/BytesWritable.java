@@ -12,18 +12,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package edu.uci.ics.pregelix.example.io;
 
-package edu.uci.ics.hyracks.storage.am.btree.exceptions;
+import edu.uci.ics.pregelix.api.io.WritableSizable;
 
-public class BTreeNonExistentKeyException extends BTreeException {
+/**
+ * Writable for Bytes values.
+ */
+public class BytesWritable extends org.apache.hadoop.io.BytesWritable implements WritableSizable {
 
-    private static final long serialVersionUID = 1L;
-
-    public BTreeNonExistentKeyException(Exception e) {
-        super(e);
+    public BytesWritable(byte[] value) {
+        super(value);
     }
 
-    public BTreeNonExistentKeyException(String message) {
-        super(message);
+    public BytesWritable() {
+        super();
     }
+
+    @Override
+    public int sizeInBytes() {
+        return getLength() + 4; // add the integer size slot
+    }
+
 }
