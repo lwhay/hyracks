@@ -31,13 +31,13 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
 public class FrameSorter {
-    private final IHyracksTaskContext ctx;
-    private final int[] sortFields;
+    protected final IHyracksTaskContext ctx;
+    protected final int[] sortFields;
     private final INormalizedKeyComputer nkc;
     private final IBinaryComparator[] comparators;
-    private final List<ByteBuffer> buffers;
+    protected final List<ByteBuffer> buffers;
 
-    private final FrameTupleAccessor fta1;
+    protected final FrameTupleAccessor fta1;
     private final FrameTupleAccessor fta2;
 
     private final FrameTupleAppender appender;
@@ -45,9 +45,9 @@ public class FrameSorter {
     private final ByteBuffer outFrame;
 
     private int dataFrameCount;
-    private int[] tPointers;
+    protected int[] tPointers;
     private int[] tPointersTemp;
-    private int tupleCount;
+    protected int tupleCount;
 
     public FrameSorter(IHyracksTaskContext ctx, int[] sortFields,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
@@ -202,7 +202,7 @@ public class FrameSorter {
         tPointersTemp[dest * 4 + 3] = tPointers[src * 4 + 3];
     }
 
-    private int compare(int tp1, int tp2) {
+    protected int compare(int tp1, int tp2) {
         int i1 = tPointers[tp1 * 4];
         int j1 = tPointers[tp1 * 4 + 1];
         int v1 = tPointers[tp1 * 4 + 3];
