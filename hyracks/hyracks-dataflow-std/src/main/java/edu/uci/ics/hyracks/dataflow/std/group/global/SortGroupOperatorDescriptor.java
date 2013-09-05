@@ -56,6 +56,7 @@ public class SortGroupOperatorDescriptor extends AbstractSingleActivityOperatorD
             throw new IllegalStateException();
         }
         recordDescriptors[0] = recordDescriptor;
+        
     }
 
     @Override

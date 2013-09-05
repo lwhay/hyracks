@@ -32,8 +32,13 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.HistogramUtils;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
 
-public class FrameSortGrouper {
+/**
+ * An implementation of aggregating each frame of the input data using sort-based approach.
+ */
+public class FrameSortGrouper implements IPushBasedGrouper {
 
     private static final int POINTER_LENGTH = 3;
     private static final int INT_SIZE = 4;
@@ -41,12 +46,13 @@ public class FrameSortGrouper {
     private final IAggregatorDescriptor aggregator;
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
+    private final int framesLimit;
     private final INormalizedKeyComputer nkc;
     private final IBinaryComparator[] comparators;
     private final RecordDescriptor outRecordDesc;
 
     protected final List<ByteBuffer> buffers;
-    protected final FrameTupleAccessor fta1;
+    protected final FrameTupleAccessor bufferTupleAccessor;
     private final FrameTupleAccessor fta2;
 
     private ByteBuffer outFrame;
@@ -58,18 +64,22 @@ public class FrameSortGrouper {
     private int[] tPointersTemp;
     protected int tupleCount;
 
+    private int[] histogram;
+    private boolean enableHistogram = false;
+
     private AggregateState aggregateState;
     private byte[] groupResultCache;
     private ByteBuffer groupResultCacheBuffer;
     private FrameTupleAppender groupResultCacheAppender;
     private FrameTupleAccessor groupResultCacheAccessor;
 
-    public FrameSortGrouper(IHyracksTaskContext ctx, int[] keyFields,
+    public FrameSortGrouper(IHyracksTaskContext ctx, int[] keyFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             IAggregatorDescriptor aggregator, RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor)
             throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
+        this.framesLimit = framesLimit;
         this.nkc = (firstKeyNormalizerFactory == null) ? null : firstKeyNormalizerFactory.createNormalizedKeyComputer();
         this.outRecordDesc = outRecordDescriptor;
         this.comparators = new IBinaryComparator[comparatorFactories.length];
@@ -78,62 +88,85 @@ public class FrameSortGrouper {
         }
         this.aggregator = aggregator;
         this.buffers = new ArrayList<ByteBuffer>();
-        this.fta1 = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
+        this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
         this.fta2 = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
+        this.histogram = new int[HistogramUtils.HISTOGRAM_SLOTS];
+
+    }
+
+    public void init() throws HyracksDataException {
 
         this.aggregateState = this.aggregator.createAggregateStates();
 
         this.outFrame = ctx.allocateFrame();
-        this.tupleBuilder = new ArrayTupleBuilder(outRecordDescriptor.getFieldCount());
-
+        this.tupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFieldCount());
         this.dataFrameCount = 0;
         this.tupleCount = 0;
+
+        for (int i = 0; i < this.histogram.length; i++) {
+            histogram[i] = 0;
+        }
     }
 
-    public void reset() {
-        dataFrameCount = 0;
-        tupleCount = 0;
+    public void reset() throws HyracksDataException {
+        this.dataFrameCount = 0;
+        this.tupleCount = 0;
+        for (int i = 0; i < histogram.length; i++) {
+            histogram[i] = 0;
+        }
+        this.aggregateState.reset();
+        this.tupleBuilder.reset();
     }
 
     public int getFrameCount() {
         return dataFrameCount;
     }
 
-    public void insertFrame(ByteBuffer buffer) throws HyracksDataException {
+    public boolean nextFrame(ByteBuffer buffer) throws HyracksDataException {
         ByteBuffer copyFrame;
         if (dataFrameCount == buffers.size()) {
-            copyFrame = ctx.allocateFrame();
-            buffers.add(copyFrame);
+            if (dataFrameCount < framesLimit) {
+                copyFrame = ctx.allocateFrame();
+                buffers.add(copyFrame);
+            } else {
+                return false;
+            }
         } else {
             copyFrame = buffers.get(dataFrameCount);
         }
         FrameUtils.copy(buffer, copyFrame);
         ++dataFrameCount;
+        return true;
     }
 
-    public void sortFrames() {
+    private void sortFrames() throws HyracksDataException {
         int nBuffers = dataFrameCount;
         tupleCount = 0;
         for (int i = 0; i < nBuffers; ++i) {
-            fta1.reset(buffers.get(i));
-            tupleCount += fta1.getTupleCount();
+            bufferTupleAccessor.reset(buffers.get(i));
+            tupleCount += bufferTupleAccessor.getTupleCount();
         }
         int sfIdx = keyFields[0];
-        tPointers = tPointers == null || tPointers.length < tupleCount * POINTER_LENGTH ? new int[tupleCount
+        tPointers = (tPointers == null || tPointers.length < tupleCount * POINTER_LENGTH) ? new int[tupleCount
                 * POINTER_LENGTH] : tPointers;
         int ptr = 0;
         for (int i = 0; i < nBuffers; ++i) {
-            fta1.reset(buffers.get(i));
-            int tCount = fta1.getTupleCount();
-            byte[] array = fta1.getBuffer().array();
+            bufferTupleAccessor.reset(buffers.get(i));
+            int tCount = bufferTupleAccessor.getTupleCount();
+            byte[] array = bufferTupleAccessor.getBuffer().array();
             for (int j = 0; j < tCount; ++j) {
+
+                // do histogram update if needed
+                if (enableHistogram) {
+                    histogram[HistogramUtils.getHistogramBucketID(bufferTupleAccessor, j, keyFields)]++;
+                }
 
                 tPointers[ptr * POINTER_LENGTH] = i;
                 tPointers[ptr * POINTER_LENGTH + 1] = j;
-                int tStart = fta1.getTupleStartOffset(j);
-                int f0StartRel = fta1.getFieldStartOffset(j, sfIdx);
-                int f0EndRel = fta1.getFieldEndOffset(j, sfIdx);
-                int f0Start = f0StartRel + tStart + fta1.getFieldSlotsLength();
+                int tStart = bufferTupleAccessor.getTupleStartOffset(j);
+                int f0StartRel = bufferTupleAccessor.getFieldStartOffset(j, sfIdx);
+                int f0EndRel = bufferTupleAccessor.getFieldEndOffset(j, sfIdx);
+                int f0Start = f0StartRel + tStart + bufferTupleAccessor.getFieldSlotsLength();
                 tPointers[ptr * POINTER_LENGTH + 2] = nkc == null ? 0 : nkc.normalize(array, f0Start, f0EndRel
                         - f0StartRel);
                 ++ptr;
@@ -211,14 +244,15 @@ public class FrameSortGrouper {
         if (nk1 != nk2) {
             return ((((long) nk1) & 0xffffffffL) < (((long) nk2) & 0xffffffffL)) ? -1 : 1;
         }
-        fta1.reset(buffers.get(buf1));
+        bufferTupleAccessor.reset(buffers.get(buf1));
         fta2.reset(buffers.get(buf2));
-        byte[] b1 = fta1.getBuffer().array();
+        byte[] b1 = bufferTupleAccessor.getBuffer().array();
         byte[] b2 = fta2.getBuffer().array();
         for (int f = 0; f < comparators.length; ++f) {
             int fIdx = keyFields[f];
-            int s1 = fta1.getTupleStartOffset(tid1) + fta1.getFieldStartOffset(tid1, fIdx);
-            int l1 = fta1.getFieldLength(tid1, fIdx);
+            int s1 = bufferTupleAccessor.getTupleStartOffset(tid1)
+                    + bufferTupleAccessor.getFieldStartOffset(tid1, fIdx);
+            int l1 = bufferTupleAccessor.getFieldLength(tid1, fIdx);
 
             int s2 = fta2.getTupleStartOffset(tid2) + fta2.getFieldStartOffset(tid2, fIdx);
             int l2 = fta2.getFieldLength(tid2, fIdx);
@@ -230,40 +264,62 @@ public class FrameSortGrouper {
         return 0;
     }
 
+    protected boolean sameGroup(FrameTupleAccessor a1, int t1Idx, FrameTupleAccessor a2, int t2Idx) {
+        for (int i = 0; i < comparators.length; ++i) {
+            int fIdx = keyFields[i];
+            int s1 = a1.getTupleStartOffset(t1Idx) + a1.getFieldSlotsLength() + a1.getFieldStartOffset(t1Idx, fIdx);
+            int l1 = a1.getFieldLength(t1Idx, fIdx);
+            int s2 = a2.getTupleStartOffset(t2Idx) + a2.getFieldSlotsLength() + a2.getFieldStartOffset(t2Idx, i);
+            int l2 = a2.getFieldLength(t2Idx, i);
+            if (comparators[i].compare(a1.getBuffer().array(), s1, l1, a2.getBuffer().array(), s2, l2) != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void copy(int src, int dest) {
         for (int i = 0; i < POINTER_LENGTH; i++) {
             tPointersTemp[dest * POINTER_LENGTH + i] = tPointers[src * POINTER_LENGTH + i];
         }
     }
 
-    public void flushFrames(IFrameWriter writer) throws HyracksDataException {
+    public void flush(IFrameWriter writer) throws HyracksDataException {
 
         if (tupleCount <= 0) {
             return;
         }
 
+        // sort the data before flushing
+        sortFrames();
+
         for (int ptr = 0; ptr < tupleCount; ptr++) {
             int bufIdx = tPointers[ptr * POINTER_LENGTH];
             int tupleIdx = tPointers[ptr * POINTER_LENGTH + 1];
-            fta1.reset(buffers.get(bufIdx));
+            bufferTupleAccessor.reset(buffers.get(bufIdx));
             if (groupResultCache != null && groupResultCacheAccessor.getTupleCount() > 0) {
 
-                if (compare(ptr, ptr - 1) == 0) {
-                    // could be aggregated: do aggregation and move to the next tuple
-                    aggregator.aggregate(fta1, tupleIdx, groupResultCacheAccessor.getBuffer().array(), 0,
-                            groupResultCacheAccessor.getTupleStartOffset(0), aggregateState);
+                groupResultCacheAccessor.reset(ByteBuffer.wrap(groupResultCache));
+
+                if (sameGroup(bufferTupleAccessor, tupleIdx, groupResultCacheAccessor, 0)) {
+                    // find match: do aggregation
+                    int groupCacheStartOffset = groupResultCacheAccessor.getTupleStartOffset(0);
+                    aggregator.aggregate(bufferTupleAccessor, tupleIdx, groupResultCacheAccessor.getBuffer().array(),
+                            groupCacheStartOffset, groupResultCacheAccessor.getTupleEndOffset(0)
+                                    - groupCacheStartOffset, aggregateState);
                     continue;
                 } else {
+                    // write the cached group into the final output
                     writeOutput(groupResultCacheAccessor, 0, writer);
                 }
             }
 
             tupleBuilder.reset();
-            fta1.reset(buffers.get(tPointers[0]));
+            bufferTupleAccessor.reset(buffers.get(tPointers[0]));
             for (int i : keyFields) {
-                tupleBuilder.addField(fta1, tPointers[1], i);
+                tupleBuilder.addField(bufferTupleAccessor, tPointers[1], i);
             }
-            aggregator.init(tupleBuilder, fta1, tPointers[1], aggregateState);
+            aggregator.init(tupleBuilder, bufferTupleAccessor, tPointers[1], aggregateState);
 
             // enlarge the cache buffer if needed
             int requiredSize = tupleBuilder.getSize() + tupleBuilder.getFieldEndOffsets().length * INT_SIZE + 2
@@ -317,5 +373,10 @@ public class FrameSortGrouper {
             }
         }
 
+    }
+
+    @Override
+    public int[] getDataDistHistogram() throws HyracksDataException {
+        return histogram;
     }
 }
