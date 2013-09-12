@@ -56,6 +56,7 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
     @Override
     public boolean nextFrame(ByteBuffer buffer) throws HyracksDataException {
         outFrameAppender.reset(buffer, true);
+        outFrameAccessor.reset(buffer);
         if (hasResultInTupleBuilder) {
             if (!outFrameAppender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
                     tupleBuilder.getSize())) {

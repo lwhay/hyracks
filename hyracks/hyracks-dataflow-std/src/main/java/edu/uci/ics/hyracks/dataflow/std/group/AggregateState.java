@@ -34,6 +34,23 @@ public class AggregateState implements Serializable {
     }
 
     public void reset() {
+        if (state == null) {
+            return;
+        }
+        if (state instanceof AggregateState) {
+            ((AggregateState) state).reset();
+            return;
+        }
+        if (state.getClass().isArray()) {
+            for (Object s : (Object[]) state) {
+                if (s instanceof AggregateState) {
+                    ((AggregateState) s).reset();
+                } else {
+                    s = null;
+                }
+            }
+            return;
+        }
         state = null;
     }
 

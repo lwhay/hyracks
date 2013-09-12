@@ -32,6 +32,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.HistogramUtils;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
 
@@ -76,8 +77,8 @@ public class SortGrouper implements IPushBasedGrouper {
 
     public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
-            IAggregatorDescriptor aggregator, RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor)
-            throws HyracksDataException {
+            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor inRecordDescriptor,
+            RecordDescriptor outRecordDescriptor) throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
@@ -88,7 +89,8 @@ public class SortGrouper implements IPushBasedGrouper {
         for (int i = 0; i < comparators.length; i++) {
             this.comparators[i] = comparatorFactories[i].createBinaryComparator();
         }
-        this.aggregator = aggregator;
+        this.aggregator = aggregatorFactory.createAggregator(ctx, inRecordDescriptor, outRecordDescriptor, keyFields,
+                keyFields);
         this.buffers = new ArrayList<ByteBuffer>();
         this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
         this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
@@ -148,7 +150,7 @@ public class SortGrouper implements IPushBasedGrouper {
             bufferTupleAccessor.reset(buffers.get(i));
             tupleCount += bufferTupleAccessor.getTupleCount();
         }
-        int sfIdx = keyFields[0];
+
         tPointers = (tPointers == null || tPointers.length < tupleCount * POINTER_LENGTH) ? new int[tupleCount
                 * POINTER_LENGTH] : tPointers;
         int ptr = 0;
@@ -165,12 +167,15 @@ public class SortGrouper implements IPushBasedGrouper {
 
                 tPointers[ptr * POINTER_LENGTH] = i;
                 tPointers[ptr * POINTER_LENGTH + 1] = j;
-                int tStart = bufferTupleAccessor.getTupleStartOffset(j);
-                int f0StartRel = bufferTupleAccessor.getFieldStartOffset(j, sfIdx);
-                int f0EndRel = bufferTupleAccessor.getFieldEndOffset(j, sfIdx);
-                int f0Start = f0StartRel + tStart + bufferTupleAccessor.getFieldSlotsLength();
-                tPointers[ptr * POINTER_LENGTH + 2] = nkc == null ? 0 : nkc.normalize(array, f0Start, f0EndRel
-                        - f0StartRel);
+                if (keyFields.length > 0 && nkc != null) {
+                    int tStart = bufferTupleAccessor.getTupleStartOffset(j);
+                    int f0StartRel = bufferTupleAccessor.getFieldStartOffset(j, keyFields[0]);
+                    int f0EndRel = bufferTupleAccessor.getFieldEndOffset(j, keyFields[0]);
+                    int f0Start = f0StartRel + tStart + bufferTupleAccessor.getFieldSlotsLength();
+                    tPointers[ptr * POINTER_LENGTH + 2] = nkc.normalize(array, f0Start, f0EndRel - f0StartRel);
+                } else {
+                    tPointers[ptr * POINTER_LENGTH + 2] = 0;
+                }
                 ++ptr;
             }
         }
@@ -290,12 +295,12 @@ public class SortGrouper implements IPushBasedGrouper {
 
     public void flush(IFrameWriter writer) throws HyracksDataException {
 
+        // sort the data before flushing
+        sortFrames();
+
         if (tupleCount <= 0) {
             return;
         }
-
-        // sort the data before flushing
-        sortFrames();
 
         for (int ptr = 0; ptr < tupleCount; ptr++) {
             int bufIdx = tPointers[ptr * POINTER_LENGTH];
@@ -364,6 +369,11 @@ public class SortGrouper implements IPushBasedGrouper {
 
     private void writeOutput(FrameTupleAccessor lastTupleAccessor, int lastTupleIndex, IFrameWriter writer)
             throws HyracksDataException {
+
+        if (appender == null) {
+            appender = new FrameTupleAppender(ctx.getFrameSize());
+            appender.reset(outFrame, true);
+        }
 
         tupleBuilder.reset();
         for (int j = 0; j < keyFields.length + decorFields.length; j++) {

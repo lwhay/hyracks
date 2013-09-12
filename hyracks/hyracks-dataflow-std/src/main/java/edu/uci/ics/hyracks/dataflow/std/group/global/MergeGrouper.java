@@ -2,13 +2,13 @@ package edu.uci.ics.hyracks.dataflow.std.group.global;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
@@ -20,6 +20,7 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
 public class MergeGrouper {
 
@@ -35,7 +36,7 @@ public class MergeGrouper {
     private final IAggregatorDescriptor partialMerger, finalMerger;
     private AggregateState mergeState;
 
-    LinkedList<RunFileReader> runs;
+    List<RunFileReader> runs;
 
     List<ByteBuffer> inFrames;
     ByteBuffer outFrame, writerFrame;
@@ -46,22 +47,26 @@ public class MergeGrouper {
     int runFrameLimit = 1;
 
     public MergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
-            IBinaryComparator[] comparators, IAggregatorDescriptor partialMerger, IAggregatorDescriptor finalMerger,
-            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc) throws HyracksDataException {
+            IBinaryComparatorFactory[] comparatorFactories, IAggregatorDescriptorFactory partialMergerFactory,
+            IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc)
+            throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
         this.framesLimit = framesLimit;
-        this.comparators = comparators;
-        this.partialMerger = partialMerger;
-        this.finalMerger = finalMerger;
+        this.comparators = new IBinaryComparator[comparatorFactories.length];
+        for (int i = 0; i < this.comparators.length; i++) {
+            this.comparators[i] = comparatorFactories[i].createBinaryComparator();
+        }
+        this.partialMerger = partialMergerFactory.createAggregator(ctx, inRecDesc, outRecDesc, keyFields, keyFields);
+        this.finalMerger = finalMergerFactory.createAggregator(ctx, outRecDesc, outRecDesc, keyFields, keyFields);
         this.inRecDesc = inRecDesc;
         this.outRecDesc = outRecDesc;
 
         this.mergeState = partialMerger.createAggregateStates();
     }
 
-    public void process(LinkedList<RunFileReader> runFiles, IFrameWriter writer) throws HyracksDataException {
+    public void process(List<RunFileReader> runFiles, IFrameWriter writer) throws HyracksDataException {
         runs = runFiles;
 
         writer.open();
@@ -136,6 +141,10 @@ public class MergeGrouper {
             writerAppender = new FrameTupleAppender(ctx.getFrameSize());
         }
         writerAppender.reset(writerFrame, true);
+
+        if (outFrameAccessor == null) {
+            outFrameAccessor = new FrameTupleAccessor(ctx.getFrameSize(), outRecDesc);
+        }
 
         outFrameAccessor.reset(outFrame);
 
