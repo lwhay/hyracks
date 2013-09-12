@@ -32,7 +32,7 @@ public class MergeGrouper {
 
     private final int framesLimit;
 
-    private final IAggregatorDescriptor merger;
+    private final IAggregatorDescriptor partialMerger, finalMerger;
     private AggregateState mergeState;
 
     LinkedList<RunFileReader> runs;
@@ -46,18 +46,19 @@ public class MergeGrouper {
     int runFrameLimit = 1;
 
     public MergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
-            IBinaryComparator[] comparators, IAggregatorDescriptor merger, RecordDescriptor inRecDesc,
-            RecordDescriptor outRecDesc) throws HyracksDataException {
+            IBinaryComparator[] comparators, IAggregatorDescriptor partialMerger, IAggregatorDescriptor finalMerger,
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc) throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
         this.framesLimit = framesLimit;
         this.comparators = comparators;
-        this.merger = merger;
+        this.partialMerger = partialMerger;
+        this.finalMerger = finalMerger;
         this.inRecDesc = inRecDesc;
         this.outRecDesc = outRecDesc;
 
-        this.mergeState = merger.createAggregateStates();
+        this.mergeState = partialMerger.createAggregateStates();
     }
 
     public void process(LinkedList<RunFileReader> runFiles, IFrameWriter writer) throws HyracksDataException {
@@ -86,7 +87,7 @@ public class MergeGrouper {
                         for (int i = 0; i < mergeWidth; i++) {
                             runCursors[i] = runs.get(generationSeparator + i);
                         }
-                        merge(mergeResultWriter, runCursors, false);
+                        merge(mergeResultWriter, runCursors, partialMerger);
                         runs.subList(generationSeparator, mergeWidth + generationSeparator).clear();
                         runs.add(generationSeparator++, ((RunFileWriter) mergeResultWriter).createReader());
                     }
@@ -96,7 +97,7 @@ public class MergeGrouper {
                     for (int i = 0; i < runCursors.length; i++) {
                         runCursors[i] = runs.get(i);
                     }
-                    merge(writer, runCursors, true);
+                    merge(writer, runCursors, finalMerger);
                 }
             }
         } catch (Exception e) {
@@ -107,21 +108,21 @@ public class MergeGrouper {
         }
     }
 
-    protected void merge(IFrameWriter mergeResultWriter, IFrameReader[] runCursors, boolean isFinalRound)
+    protected void merge(IFrameWriter mergeResultWriter, IFrameReader[] runCursors, IAggregatorDescriptor merger)
             throws HyracksDataException {
         RumMergingGroupingFrameReader mergeFrameReader = new RumMergingGroupingFrameReader(ctx, runCursors, inFrames,
                 keyFields, decorFields, comparators, merger, mergeState, inRecDesc, outRecDesc);
         mergeFrameReader.open();
         try {
             while (mergeFrameReader.nextFrame(outFrame)) {
-                flushOutFrame(mergeResultWriter, isFinalRound);
+                flushOutFrame(mergeResultWriter, merger);
             }
         } finally {
             mergeFrameReader.close();
         }
     }
 
-    private void flushOutFrame(IFrameWriter writer, boolean isFinal) throws HyracksDataException {
+    private void flushOutFrame(IFrameWriter writer, IAggregatorDescriptor merger) throws HyracksDataException {
 
         if (flushTupleBuilder == null) {
             flushTupleBuilder = new ArrayTupleBuilder(outRecDesc.getFields().length);
@@ -146,14 +147,7 @@ public class MergeGrouper {
                 flushTupleBuilder.addField(outFrameAccessor, i, k);
             }
 
-            if (isFinal) {
-
-                merger.outputFinalResult(flushTupleBuilder, outFrameAccessor, i, mergeState);
-
-            } else {
-
-                merger.outputPartialResult(flushTupleBuilder, outFrameAccessor, i, mergeState);
-            }
+            merger.outputFinalResult(flushTupleBuilder, outFrameAccessor, i, mergeState);
 
             if (!writerAppender.append(flushTupleBuilder.getFieldEndOffsets(), flushTupleBuilder.getByteArray(), 0,
                     flushTupleBuilder.getSize())) {
