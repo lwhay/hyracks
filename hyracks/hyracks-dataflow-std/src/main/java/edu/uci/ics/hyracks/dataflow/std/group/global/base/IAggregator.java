@@ -14,24 +14,33 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.group.global.base;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.util.List;
+
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.data.std.api.IPointable;
+import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
+import edu.uci.ics.hyracks.data.std.api.IValueReference;
 
 public interface IAggregator {
 
-    boolean useFixedLengthAggregateState() throws HyracksDataException;
+    void init() throws HyracksDataException;
 
-    int estimateSpaceForAllocation(IFrameTupleAccessor accessor, int tupleIndex) throws HyracksDataException;
+    int getRequiredSizeForFixedLengthState();
 
-    void allocate(IFrameTupleAccessor accessor, int tupleIndex, IPointable allocated) throws HyracksDataException;
+    boolean useDynamicState();
 
-    int estimateSpaceForStep(IFrameTupleAccessor accessor, int tupleIndex, IPointable allocated)
+    void step(IFrameTupleAccessor accessor, int tupleIndex, IValueReference fixedLengthState,
+            IMutableValueStorage dynamicState) throws HyracksDataException;
+
+    void dumpState(DataOutput dumpOutput, IValueReference fixedLengthState, IMutableValueStorage dynamicState)
             throws HyracksDataException;
 
-    void step(IFrameTupleAccessor accessor, int tupleIndex, IPointable allocated) throws HyracksDataException;
+    void restoreState(DataInput dumpedStateInput, IValueReference fixedLengthState, IMutableValueStorage dynamicState)
+            throws HyracksDataException;
 
-    int estimateSpaceForOutput(IPointable allocated) throws HyracksDataException;
+    void output(List<Integer> outputOffsets, DataOutput output, IValueReference fixedLengthState, IMutableValueStorage dynamicState)
+            throws HyracksDataException;
 
-    void output(IPointable allocated, IPointable outputStorage) throws HyracksDataException;
 }

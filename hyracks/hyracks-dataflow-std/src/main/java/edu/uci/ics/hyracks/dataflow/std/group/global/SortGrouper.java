@@ -46,6 +46,7 @@ public class SortGrouper implements IPushBasedGrouper {
     private final IAggregatorDescriptor aggregator;
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
+    protected final int[] decorFields;
     private final int framesLimit;
     private final INormalizedKeyComputer nkc;
     private final IBinaryComparator[] comparators;
@@ -53,7 +54,7 @@ public class SortGrouper implements IPushBasedGrouper {
 
     protected final List<ByteBuffer> buffers;
     protected final FrameTupleAccessor bufferTupleAccessor;
-    private final FrameTupleAccessor fta2;
+    private final FrameTupleAccessor bufferTupleAccessorForComparison;
 
     private ByteBuffer outFrame;
     private ArrayTupleBuilder tupleBuilder;
@@ -73,12 +74,13 @@ public class SortGrouper implements IPushBasedGrouper {
     private FrameTupleAppender groupResultCacheAppender;
     private FrameTupleAccessor groupResultCacheAccessor;
 
-    public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int framesLimit,
+    public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             IAggregatorDescriptor aggregator, RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor)
             throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
+        this.decorFields = decorFields;
         this.framesLimit = framesLimit;
         this.nkc = (firstKeyNormalizerFactory == null) ? null : firstKeyNormalizerFactory.createNormalizedKeyComputer();
         this.outRecordDesc = outRecordDescriptor;
@@ -89,7 +91,7 @@ public class SortGrouper implements IPushBasedGrouper {
         this.aggregator = aggregator;
         this.buffers = new ArrayList<ByteBuffer>();
         this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
-        this.fta2 = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
+        this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
         this.histogram = new int[HistogramUtils.HISTOGRAM_SLOTS];
 
     }
@@ -233,6 +235,7 @@ public class SortGrouper implements IPushBasedGrouper {
     }
 
     protected int compare(int tp1, int tp2) {
+
         int buf1 = tPointers[tp1 * POINTER_LENGTH];
         int tid1 = tPointers[tp1 * POINTER_LENGTH + 1];
         int nk1 = tPointers[tp1 * POINTER_LENGTH + 2];
@@ -245,17 +248,18 @@ public class SortGrouper implements IPushBasedGrouper {
             return ((((long) nk1) & 0xffffffffL) < (((long) nk2) & 0xffffffffL)) ? -1 : 1;
         }
         bufferTupleAccessor.reset(buffers.get(buf1));
-        fta2.reset(buffers.get(buf2));
+        bufferTupleAccessorForComparison.reset(buffers.get(buf2));
         byte[] b1 = bufferTupleAccessor.getBuffer().array();
-        byte[] b2 = fta2.getBuffer().array();
+        byte[] b2 = bufferTupleAccessorForComparison.getBuffer().array();
         for (int f = 0; f < comparators.length; ++f) {
             int fIdx = keyFields[f];
             int s1 = bufferTupleAccessor.getTupleStartOffset(tid1)
                     + bufferTupleAccessor.getFieldStartOffset(tid1, fIdx);
             int l1 = bufferTupleAccessor.getFieldLength(tid1, fIdx);
 
-            int s2 = fta2.getTupleStartOffset(tid2) + fta2.getFieldStartOffset(tid2, fIdx);
-            int l2 = fta2.getFieldLength(tid2, fIdx);
+            int s2 = bufferTupleAccessorForComparison.getTupleStartOffset(tid2)
+                    + bufferTupleAccessorForComparison.getFieldStartOffset(tid2, fIdx);
+            int l2 = bufferTupleAccessorForComparison.getFieldLength(tid2, fIdx);
             int c = comparators[f].compare(b1, s1, l1, b2, s2, l2);
             if (c != 0) {
                 return c;
@@ -319,6 +323,9 @@ public class SortGrouper implements IPushBasedGrouper {
             for (int i : keyFields) {
                 tupleBuilder.addField(bufferTupleAccessor, tPointers[1], i);
             }
+            for (int i : decorFields) {
+                tupleBuilder.addField(bufferTupleAccessor, tPointers[1], i);
+            }
             aggregator.init(tupleBuilder, bufferTupleAccessor, tPointers[1], aggregateState);
 
             // enlarge the cache buffer if needed
@@ -359,7 +366,7 @@ public class SortGrouper implements IPushBasedGrouper {
             throws HyracksDataException {
 
         tupleBuilder.reset();
-        for (int j = 0; j < keyFields.length; j++) {
+        for (int j = 0; j < keyFields.length + decorFields.length; j++) {
             tupleBuilder.addField(lastTupleAccessor, lastTupleIndex, j);
         }
         aggregator.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
