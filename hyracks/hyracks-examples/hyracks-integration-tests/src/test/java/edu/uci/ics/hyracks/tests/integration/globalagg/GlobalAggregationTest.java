@@ -54,8 +54,6 @@ import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.aggregators.AvgFieldGroupAggregatorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.aggregators.AvgFieldMergeAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.CountFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.FloatSumFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorFactory;
@@ -63,6 +61,9 @@ import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MinMaxStringFieldAggre
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.external.ExternalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldAggregateAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldFinalMergeAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldPartialMergeAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.hash.HashGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.preclustered.PreclusteredGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.misc.PrinterOperatorDescriptor;
@@ -177,28 +178,37 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 //UTF8StringSerializerDeserializer.INSTANCE, 
-                IntegerSerializerDeserializer.INSTANCE,
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                FloatSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 1 };
         int framesLimit = 8;
 
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, new IBinaryComparatorFactory[] {
-                        //PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
+                //PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { //MurmurHash3BinaryHashFunctionFamily.INSTANCE,
-                        MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false),
-                                new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false),
-                                new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(keyFields.length, false),
-                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false), new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false) }), new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(keyFields.length, false),
-                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false), new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false) }), outputRec,
+                MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { 
+                                new CountFieldAggregatorFactory(false),
+                                new IntSumFieldAggregatorFactory(1, false), 
+                                new IntSumFieldAggregatorFactory(3, false),
+                                new FloatSumFieldAggregatorFactory(5, false),
+                                new AvgFieldAggregateAggregatorFactory(1, false) }), new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] {
+                                new IntSumFieldAggregatorFactory(keyFields.length, false),
+                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
+                                new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
+                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
+                                new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false) }),
+                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
+                        new IntSumFieldAggregatorFactory(keyFields.length, false),
+                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
+                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
+                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
+                        new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false) }), outputRec,
                 LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
