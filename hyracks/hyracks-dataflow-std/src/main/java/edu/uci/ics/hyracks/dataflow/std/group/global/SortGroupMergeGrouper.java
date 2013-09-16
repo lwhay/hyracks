@@ -87,18 +87,15 @@ public class SortGroupMergeGrouper implements IPushBasedGrouper {
     @Override
     public boolean nextFrame(ByteBuffer buffer) throws HyracksDataException {
         if (!sortGrouper.nextFrame(buffer)) {
-            if (currentRunWriter == null) {
-                currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                        .getSimpleName() + "_sort"), ctx.getIOManager());
-                currentRunWriter.open();
-            }
+            currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
+                    .getSimpleName() + "_sort"), ctx.getIOManager());
+            currentRunWriter.open();
             try {
                 this.sortGrouper.flush(currentRunWriter);
                 this.sortGrouper.reset();
             } finally {
                 currentRunWriter.close();
                 runsFromSortGrouper.add(currentRunWriter.createReader());
-                currentRunWriter = null;
             }
             return sortGrouper.nextFrame(buffer);
         }
@@ -125,18 +122,20 @@ public class SortGroupMergeGrouper implements IPushBasedGrouper {
     @Override
     public void flush(IFrameWriter writer) throws HyracksDataException {
         if (sortGrouper.getFrameCount() > 0) {
-            if (currentRunWriter == null) {
-                currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                        .getSimpleName() + "_sort"), ctx.getIOManager());
-                currentRunWriter.open();
-            }
+            currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
+                    .getSimpleName() + "_sort"), ctx.getIOManager());
+            currentRunWriter.open();
             this.sortGrouper.flush(currentRunWriter);
             currentRunWriter.close();
             runsFromSortGrouper.add(currentRunWriter.createReader());
             currentRunWriter = null;
             this.sortGrouper.close();
         }
-        this.mergeGrouper = new MergeGrouper(ctx, keyFields, decorFields, framesLimit, comparatorFactories,
+        int[] mergeKeyFields = new int[keyFields.length];
+        for (int i = 0; i < mergeKeyFields.length; i++) {
+            mergeKeyFields[i] = i;
+        }
+        this.mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, decorFields, framesLimit, comparatorFactories,
                 partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc);
         this.mergeGrouper.process(runsFromSortGrouper, writer);
 

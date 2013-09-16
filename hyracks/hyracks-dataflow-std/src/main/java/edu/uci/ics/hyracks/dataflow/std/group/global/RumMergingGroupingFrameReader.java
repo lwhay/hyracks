@@ -117,13 +117,11 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
         byte[] b1 = fta1.getBuffer().array();
         byte[] b2 = fta2.getBuffer().array();
         for (int f = 0; f < sortFields.length; ++f) {
-            int fIdx = f;
+            int fIdx = sortFields[f];
             int s1 = fta1.getTupleStartOffset(j1) + fta1.getFieldSlotsLength() + fta1.getFieldStartOffset(j1, fIdx);
             int l1 = fta1.getFieldLength(j1, fIdx);
             int s2 = fta2.getTupleStartOffset(j2) + fta2.getFieldSlotsLength() + fta2.getFieldStartOffset(j2, fIdx);
-            int l2_start = fta2.getFieldStartOffset(j2, fIdx);
-            int l2_end = fta2.getFieldEndOffset(j2, fIdx);
-            int l2 = l2_end - l2_start;
+            int l2 = fta2.getFieldLength(j2, fIdx);
             int c = comparators[f].compare(b1, s1, l1, b2, s2, l2);
             if (c != 0) {
                 return c;

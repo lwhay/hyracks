@@ -120,6 +120,12 @@ public class SortGrouper implements IPushBasedGrouper {
         }
         this.aggregateState.reset();
         this.tupleBuilder.reset();
+        if (this.groupResultCacheBuffer != null) {
+            groupResultCacheAppender.reset(groupResultCacheBuffer, true);
+        }
+        if (this.outFrame != null) {
+            this.appender.reset(outFrame, true);
+        }
     }
 
     public int getFrameCount() {
@@ -258,11 +264,12 @@ public class SortGrouper implements IPushBasedGrouper {
         byte[] b2 = bufferTupleAccessorForComparison.getBuffer().array();
         for (int f = 0; f < comparators.length; ++f) {
             int fIdx = keyFields[f];
-            int s1 = bufferTupleAccessor.getTupleStartOffset(tid1)
-                    + bufferTupleAccessor.getFieldStartOffset(tid1, fIdx);
+            int s1 = bufferTupleAccessor.getTupleStartOffset(tid1) + bufferTupleAccessor.getFieldSlotsLength()
+                    + +bufferTupleAccessor.getFieldStartOffset(tid1, fIdx);
             int l1 = bufferTupleAccessor.getFieldLength(tid1, fIdx);
 
             int s2 = bufferTupleAccessorForComparison.getTupleStartOffset(tid2)
+                    + bufferTupleAccessor.getFieldSlotsLength()
                     + bufferTupleAccessorForComparison.getFieldStartOffset(tid2, fIdx);
             int l2 = bufferTupleAccessorForComparison.getFieldLength(tid2, fIdx);
             int c = comparators[f].compare(b1, s1, l1, b2, s2, l2);
@@ -324,14 +331,14 @@ public class SortGrouper implements IPushBasedGrouper {
             }
 
             tupleBuilder.reset();
-            bufferTupleAccessor.reset(buffers.get(tPointers[0]));
+
             for (int i : keyFields) {
-                tupleBuilder.addField(bufferTupleAccessor, tPointers[1], i);
+                tupleBuilder.addField(bufferTupleAccessor, tupleIdx, i);
             }
             for (int i : decorFields) {
-                tupleBuilder.addField(bufferTupleAccessor, tPointers[1], i);
+                tupleBuilder.addField(bufferTupleAccessor, tupleIdx, i);
             }
-            aggregator.init(tupleBuilder, bufferTupleAccessor, tPointers[1], aggregateState);
+            aggregator.init(tupleBuilder, bufferTupleAccessor, tupleIdx, aggregateState);
 
             // enlarge the cache buffer if needed
             int requiredSize = tupleBuilder.getSize() + tupleBuilder.getFieldEndOffsets().length * INT_SIZE + 2

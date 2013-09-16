@@ -29,8 +29,10 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.dataset.ResultSetId;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.data.std.accessors.MurmurHash3BinaryHashFunctionFamily;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
+import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
 import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
@@ -105,6 +107,20 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         return printer;
     }
 
+    /**
+     * <pre>
+     * select count(*), sum(L_PARTKEY), sum(L_LINENUMBER), sum(L_EXTENDEDPRICE) 
+     * from LINEITEM;
+     * </pre>
+     * 
+     * which should return
+     * 
+     * <pre>
+     * 6005, 615388, 17990, 152774398.38
+     * </pre>
+     * 
+     * @throws Exception
+     */
     @Test
     public void noKeySumGlobalGroupTest() throws Exception {
         JobSpecification spec = new JobSpecification();
@@ -116,32 +132,81 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                FloatSerializerDeserializer.INSTANCE });
+                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] {};
-        int tableSize = 8;
         int framesLimit = 8;
 
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false),
-                        new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(0, false),
-                                new IntSumFieldAggregatorFactory(1, false),
-                                new FloatSumFieldAggregatorFactory(2, false) }), new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(0, false),
-                                new IntSumFieldAggregatorFactory(1, false),
-                                new FloatSumFieldAggregatorFactory(2, false) }), outputRec,
+                        new CountFieldAggregatorFactory(false), new IntSumFieldAggregatorFactory(1, false),
+                        new IntSumFieldAggregatorFactory(3, false), new FloatSumFieldAggregatorFactory(5, false) }),
+                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
+                        new IntSumFieldAggregatorFactory(0, false), new IntSumFieldAggregatorFactory(1, false),
+                        new IntSumFieldAggregatorFactory(2, false), new FloatSumFieldAggregatorFactory(3, false) }),
+                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
+                        new IntSumFieldAggregatorFactory(0, false), new IntSumFieldAggregatorFactory(1, false),
+                        new IntSumFieldAggregatorFactory(2, false), new FloatSumFieldAggregatorFactory(3, false) }),
+                outputRec, LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
+
+        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn1, csvScanner, 0, grouper, 0);
+
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeySumInmemGroupTest");
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
+
+        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn2, grouper, 0, printer, 0);
+
+        spec.addRoot(printer);
+        runTest(spec);
+    }
+
+    @Test
+    public void multiKeySumGlobalGroupTest() throws Exception {
+        JobSpecification spec = new JobSpecification();
+
+        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
+                desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
+
+        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
+                //UTF8StringSerializerDeserializer.INSTANCE, 
+                IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
+
+        int[] keyFields = new int[] { 1 };
+        int framesLimit = 8;
+
+        LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
+                framesLimit, new IBinaryComparatorFactory[] {
+                        //PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
+                new IBinaryHashFunctionFamily[] { //MurmurHash3BinaryHashFunctionFamily.INSTANCE,
+                        MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { new CountFieldAggregatorFactory(false),
+                                new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false),
+                                new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(keyFields.length, false),
+                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false), new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
+                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false) }), new MultiFieldsAggregatorFactory(
+                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(keyFields.length, false),
+                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false), new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
+                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false) }), outputRec,
                 LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
+        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
         spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeySumInmemGroupTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumInmemGroupTest");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
