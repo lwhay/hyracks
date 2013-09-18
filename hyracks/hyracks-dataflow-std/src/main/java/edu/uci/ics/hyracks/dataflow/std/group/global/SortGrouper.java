@@ -75,6 +75,10 @@ public class SortGrouper implements IPushBasedGrouper {
     private FrameTupleAppender groupResultCacheAppender;
     private FrameTupleAccessor groupResultCacheAccessor;
 
+    // For debugging
+    private final String debugID;
+    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter;
+
     public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor inRecordDescriptor,
@@ -96,6 +100,7 @@ public class SortGrouper implements IPushBasedGrouper {
         this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
         this.histogram = new int[HistogramUtils.HISTOGRAM_SLOTS];
 
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     public void init() throws HyracksDataException {
@@ -110,6 +115,12 @@ public class SortGrouper implements IPushBasedGrouper {
         for (int i = 0; i < this.histogram.length; i++) {
             histogram[i] = 0;
         }
+
+        this.compCounter = 0;
+        this.inRecCounter = 0;
+        this.outRecCounter = 0;
+        this.outFrameCounter = 0;
+        this.recCopyCounter = 0;
     }
 
     public void reset() throws HyracksDataException {
@@ -126,6 +137,18 @@ public class SortGrouper implements IPushBasedGrouper {
         if (this.outFrame != null) {
             this.appender.reset(outFrame, true);
         }
+
+        ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
+        ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
+        ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+
+        this.compCounter = 0;
+        this.inRecCounter = 0;
+        this.outRecCounter = 0;
+        this.outFrameCounter = 0;
+        this.recCopyCounter = 0;
     }
 
     public int getFrameCount() {
@@ -156,6 +179,8 @@ public class SortGrouper implements IPushBasedGrouper {
             bufferTupleAccessor.reset(buffers.get(i));
             tupleCount += bufferTupleAccessor.getTupleCount();
         }
+
+        inRecCounter += tupleCount;
 
         tPointers = (tPointers == null || tPointers.length < tupleCount * POINTER_LENGTH) ? new int[tupleCount
                 * POINTER_LENGTH] : tPointers;
@@ -247,6 +272,8 @@ public class SortGrouper implements IPushBasedGrouper {
 
     protected int compare(int tp1, int tp2) {
 
+        compCounter++;
+
         int buf1 = tPointers[tp1 * POINTER_LENGTH];
         int tid1 = tPointers[tp1 * POINTER_LENGTH + 1];
         int nk1 = tPointers[tp1 * POINTER_LENGTH + 2];
@@ -281,6 +308,7 @@ public class SortGrouper implements IPushBasedGrouper {
     }
 
     protected boolean sameGroup(FrameTupleAccessor a1, int t1Idx, FrameTupleAccessor a2, int t2Idx) {
+        compCounter++;
         for (int i = 0; i < comparators.length; ++i) {
             int fIdx = keyFields[i];
             int s1 = a1.getTupleStartOffset(t1Idx) + a1.getFieldSlotsLength() + a1.getFieldStartOffset(t1Idx, fIdx);
@@ -295,6 +323,7 @@ public class SortGrouper implements IPushBasedGrouper {
     }
 
     private void copy(int src, int dest) {
+        recCopyCounter++;
         for (int i = 0; i < POINTER_LENGTH; i++) {
             tPointersTemp[dest * POINTER_LENGTH + i] = tPointers[src * POINTER_LENGTH + i];
         }
@@ -364,11 +393,26 @@ public class SortGrouper implements IPushBasedGrouper {
             writeOutput(groupResultCacheAccessor, 0, writer);
             if (appender.getTupleCount() > 0) {
                 FrameUtils.flushFrame(outFrame, writer);
+                outFrameCounter++;
+                outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             }
         }
     }
 
     public void close() {
+
+        ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
+        ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
+        ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+
+        this.compCounter = 0;
+        this.inRecCounter = 0;
+        this.outRecCounter = 0;
+        this.outFrameCounter = 0;
+        this.recCopyCounter = 0;
+
         this.buffers.clear();
         aggregateState.close();
         this.outFrame = null;
@@ -390,6 +434,8 @@ public class SortGrouper implements IPushBasedGrouper {
 
         if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0, tupleBuilder.getSize())) {
             FrameUtils.flushFrame(outFrame, writer);
+            outFrameCounter++;
+            outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             appender.reset(outFrame, true);
             if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
                     tupleBuilder.getSize())) {

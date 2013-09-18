@@ -30,7 +30,7 @@ import edu.uci.ics.hyracks.dataflow.std.util.ReferenceEntry;
 import edu.uci.ics.hyracks.dataflow.std.util.ReferencedPriorityQueue;
 
 public class RunMergingFrameReader implements IFrameReader {
-    private final IHyracksTaskContext ctx;
+    protected final IHyracksTaskContext ctx;
     protected final IFrameReader[] runCursors;
     private final List<ByteBuffer> inFrames;
     protected final int[] sortFields;

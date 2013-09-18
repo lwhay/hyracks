@@ -41,6 +41,10 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
     private ArrayTupleBuilder tupleBuilder;
     private boolean hasResultInTupleBuilder;
 
+    // For debugging
+    private final String debugID;
+    private long compCounter = 0, inRecCounter = 0, outRecCounter = 0, outFrameCounter = 0, recCopyCounter = 0;
+
     public RumMergingGroupingFrameReader(IHyracksTaskContext ctx, IFrameReader[] runCursors, List<ByteBuffer> inFrames,
             int[] keyFields, int[] decorFields, IBinaryComparator[] comparators, IAggregatorDescriptor merger,
             AggregateState mergeState, RecordDescriptor inRecordDesc, RecordDescriptor outRecordDesc) {
@@ -51,6 +55,8 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
         this.outFrameAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDesc);
         this.tupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFieldCount());
         this.hasResultInTupleBuilder = false;
+
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     @Override
@@ -64,6 +70,8 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
             }
         }
         while (!topTuples.areRunsExhausted()) {
+            inRecCounter++;
+
             ReferenceEntry top = topTuples.peek();
             int runIndex = top.getRunid();
             FrameTupleAccessor fta = top.getAccessor();
@@ -90,6 +98,8 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
                     return true;
                 }
 
+                outRecCounter++;
+
             } else {
                 /**
                  * if new tuple is in the same group of the
@@ -114,6 +124,8 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
     }
 
     private int compareFrameTuples(IFrameTupleAccessor fta1, int j1, IFrameTupleAccessor fta2, int j2) {
+        compCounter++;
+
         byte[] b1 = fta1.getBuffer().array();
         byte[] b2 = fta2.getBuffer().array();
         for (int f = 0; f < sortFields.length; ++f) {
@@ -128,5 +140,20 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
             }
         }
         return 0;
+    }
+
+    @Override
+    public void close() throws HyracksDataException {
+        ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
+        ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
+        ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+        this.compCounter = 0;
+        this.inRecCounter = 0;
+        this.outRecCounter = 0;
+        this.outFrameCounter = 0;
+        this.recCopyCounter = 0;
+        super.close();
     }
 }

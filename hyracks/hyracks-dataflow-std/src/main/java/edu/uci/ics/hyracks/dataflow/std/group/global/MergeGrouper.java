@@ -46,6 +46,11 @@ public class MergeGrouper {
     int[] currentFrameIndexInRun, currentRunFrames, currentBucketInRun;
     int runFrameLimit = 1;
 
+    // For debugging
+    private final String debugID;
+    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter;
+    private boolean isDumpToFile = false;
+
     public MergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             IBinaryComparatorFactory[] comparatorFactories, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc)
@@ -64,9 +69,18 @@ public class MergeGrouper {
         this.outRecDesc = outRecDesc;
 
         this.mergeState = partialMerger.createAggregateStates();
+
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     public void process(List<RunFileReader> runFiles, IFrameWriter writer) throws HyracksDataException {
+
+        this.compCounter = 0;
+        this.inRecCounter = 0;
+        this.outRecCounter = 0;
+        this.outFrameCounter = 0;
+        this.recCopyCounter = 0;
+
         runs = runFiles;
 
         writer.open();
@@ -83,6 +97,7 @@ public class MergeGrouper {
                 while (runs.size() > maxMergeWidth) {
                     int generationSeparator = 0;
                     while (generationSeparator < runs.size() && runs.size() > maxMergeWidth) {
+                        isDumpToFile = true;
                         int mergeWidth = Math.min(Math.min(runs.size() - generationSeparator, maxMergeWidth),
                                 runs.size() - maxMergeWidth + 1);
                         FileReference newRun = ctx.createManagedWorkspaceFile(MergeGrouper.class.getSimpleName());
@@ -102,6 +117,7 @@ public class MergeGrouper {
                     for (int i = 0; i < runCursors.length; i++) {
                         runCursors[i] = runs.get(i);
                     }
+                    isDumpToFile = false;
                     merge(writer, runCursors, finalMerger);
                 }
             }
@@ -109,6 +125,17 @@ public class MergeGrouper {
             writer.fail();
             throw new HyracksDataException(e);
         } finally {
+            ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
+            ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
+            ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
+            ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
+            ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+            this.compCounter = 0;
+            this.inRecCounter = 0;
+            this.outRecCounter = 0;
+            this.outFrameCounter = 0;
+            this.recCopyCounter = 0;
+
             writer.close();
         }
     }
@@ -165,6 +192,10 @@ public class MergeGrouper {
             if (!writerAppender.append(flushTupleBuilder.getFieldEndOffsets(), flushTupleBuilder.getByteArray(), 0,
                     flushTupleBuilder.getSize())) {
                 FrameUtils.flushFrame(writerFrame, writer);
+
+                if (isDumpToFile)
+                    outFrameCounter++;
+
                 writerAppender.reset(writerFrame, true);
                 if (!writerAppender.append(flushTupleBuilder.getFieldEndOffsets(), flushTupleBuilder.getByteArray(), 0,
                         flushTupleBuilder.getSize())) {
