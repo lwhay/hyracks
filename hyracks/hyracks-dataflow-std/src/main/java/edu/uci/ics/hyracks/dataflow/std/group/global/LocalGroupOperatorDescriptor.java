@@ -134,7 +134,8 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                             break;
                         case SORT_GROUP_MERGE_GROUP:
                         default:
-                            throw new HyracksDataException("Failed to aggregate a tuple using " + algorithm.name());
+                            throw new HyracksDataException("Failed to aggregate a tuple using " + algorithm.name()
+                                    + ": nextFrame() should never return false for this algorithm.");
 
                     }
                 }
@@ -154,10 +155,15 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                         grouper.flush(writer);
                         break;
                     case SORT_GROUP:
+                        if (((SortGrouper) grouper).getFrameCount() > 0) {
+                            grouper.flush(writer);
+                        }
+                        break;
                     default:
                         break;
                 }
                 grouper.close();
+                writer.close();
             }
 
         };

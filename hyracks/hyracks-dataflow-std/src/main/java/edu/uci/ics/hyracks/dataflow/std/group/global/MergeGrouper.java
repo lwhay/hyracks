@@ -123,6 +123,10 @@ public class MergeGrouper {
                 flushOutFrame(mergeResultWriter, merger);
             }
         } finally {
+            if (writerAppender.getTupleCount() > 0) {
+                FrameUtils.flushFrame(writerFrame, mergeResultWriter);
+                writerAppender.reset(writerFrame, true);
+            }
             mergeFrameReader.close();
         }
     }
@@ -167,10 +171,6 @@ public class MergeGrouper {
                     throw new HyracksDataException("Aggregation output is too large to be fit into a frame.");
                 }
             }
-        }
-        if (writerAppender.getTupleCount() > 0) {
-            FrameUtils.flushFrame(writerFrame, writer);
-            writerAppender.reset(writerFrame, true);
         }
     }
 

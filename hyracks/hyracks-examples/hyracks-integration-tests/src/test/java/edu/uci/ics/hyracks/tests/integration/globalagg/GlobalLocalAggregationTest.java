@@ -43,7 +43,6 @@ import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IntegerParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
-import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFamily;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
@@ -62,7 +61,6 @@ import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorF
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MinMaxStringFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.external.ExternalGroupOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.global.HashFunctionFamilyFactoryAdapter;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldAggregateAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldFinalMergeAggregatorFactory;
@@ -76,11 +74,10 @@ import edu.uci.ics.hyracks.dataflow.std.sort.FrameSorter;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
 import edu.uci.ics.hyracks.tests.util.ResultSerializerFactoryProvider;
 
-public class GlobalAggregationTest extends AbstractIntegrationTest {
+public class GlobalLocalAggregationTest extends AbstractIntegrationTest {
 
-    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] {
-            new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/lineitem-part1.tbl"))),
-            new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/lineitem-part2.tbl"))) });
+    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
+            new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {
             UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -119,15 +116,22 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
     /**
      * <pre>
-     * select count(*), sum(L_PARTKEY), sum(L_LINENUMBER), sum(L_EXTENDEDPRICE) 
+     * select 
+     * count(*), 
+     * sum(L_PARTKEY), sum(L_LINENUMBER), sum(L_EXTENDEDPRICE), 
+     * avg(L_PARTKEY), 
+     * max(length(L_COMMENT)), min(length(L_COMMENT)) 
      * from LINEITEM;
      * </pre>
      * 
      * which should return
      * 
      * <pre>
-     * 6005, 615388, 17990, 152774398.38
+     * 6005, 615388, 17990, 152774398.38, 102.479267277269, 43, 10
      * </pre>
+     * 
+     * Note that there is no string-min or string-max function in SQL, so the SQL command here uses the min/max
+     * of the string length.
      * 
      * @throws Exception
      */
@@ -138,7 +142,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
                 desc);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -149,7 +153,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         int[] keyFields = new int[] {};
         int framesLimit = 8;
 
-        LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
+        LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
                         new CountFieldAggregatorFactory(false), new IntSumFieldAggregatorFactory(1, false),
@@ -170,58 +174,22 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
                         new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP);
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
-
-        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-
-        spec.connect(conn0, csvScanner, 0, grouper0, 0);
-
-        LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
                 LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
+        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        spec.connect(conn1, grouper0, 0, grouper1, 0);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeyLocalGroupTest");
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeyGlobalGroupTest");
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper1, 0, printer, 0);
+        spec.connect(conn2, grouper, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);
@@ -234,7 +202,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
                 desc);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -243,10 +211,9 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 1 };
-        int[] storedKeyFields = new int[] { 0 };
         int framesLimit = 8;
 
-        LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
+        LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null,
@@ -269,64 +236,22 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
                         new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP);
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
-
-        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-
-        spec.connect(conn0, csvScanner, 0, grouper0, 0);
-
-        LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, storedKeyFields, new int[] {},
-                framesLimit,
-                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null,
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
                 LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(
-                spec,
-                new FieldHashPartitionComputerFactory(
-                        storedKeyFields,
-                        new IBinaryHashFunctionFactory[] { HashFunctionFamilyFactoryAdapter
-                                .getFunctionFactoryFromFunctionFamily(MurmurHash3BinaryHashFunctionFamily.INSTANCE, 1) }));
+        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        spec.connect(conn1, grouper0, 0, grouper1, 0);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyLocalGroupTest");
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyGlobalGroupTest");
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper1, 0, printer, 0);
+        spec.connect(conn2, grouper, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);
@@ -339,7 +264,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
                 desc);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
 
         RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
                 UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -349,10 +274,9 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 8, 1 };
-        int[] storedKeyFields = new int[] { 0, 1 };
         int framesLimit = 8;
 
-        LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
+        LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, new IBinaryComparatorFactory[] {
                         PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
@@ -377,66 +301,22 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
                         new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP);
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
-
-        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-
-        spec.connect(conn0, csvScanner, 0, grouper0, 0);
-
-        LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, storedKeyFields, new int[] {},
-                framesLimit, new IBinaryComparatorFactory[] {
-                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
-                new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE,
-                        MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
-                        new IFieldAggregateDescriptorFactory[] {
-                                new IntSumFieldAggregatorFactory(keyFields.length, false),
-                                new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                                new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                                new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                                new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                                new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                                new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
-                        new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }),
-                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-                        new IntSumFieldAggregatorFactory(keyFields.length, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
-                        new IntSumFieldAggregatorFactory(keyFields.length + 2, false),
-                        new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
                 LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-                new FieldHashPartitionComputerFactory(storedKeyFields, new IBinaryHashFunctionFactory[] {
-                        HashFunctionFamilyFactoryAdapter.getFunctionFactoryFromFunctionFamily(
-                                MurmurHash3BinaryHashFunctionFamily.INSTANCE, 1),
-                        HashFunctionFamilyFactoryAdapter.getFunctionFactoryFromFunctionFamily(
-                                MurmurHash3BinaryHashFunctionFamily.INSTANCE, 1) }));
+        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
+        spec.connect(conn1, csvScanner, 0, grouper, 0);
 
-        spec.connect(conn1, grouper0, 0, grouper1, 0);
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyLocalGroupTest");
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyGlobalGroupTest");
-
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
         IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn2, grouper1, 0, printer, 0);
+        spec.connect(conn2, grouper, 0, printer, 0);
 
         spec.addRoot(printer);
         runTest(spec);

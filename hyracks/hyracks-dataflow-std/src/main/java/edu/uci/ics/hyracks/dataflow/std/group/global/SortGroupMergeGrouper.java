@@ -138,7 +138,6 @@ public class SortGroupMergeGrouper implements IPushBasedGrouper {
         this.mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, decorFields, framesLimit, comparatorFactories,
                 partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc);
         this.mergeGrouper.process(runsFromSortGrouper, writer);
-
     }
 
     /*
