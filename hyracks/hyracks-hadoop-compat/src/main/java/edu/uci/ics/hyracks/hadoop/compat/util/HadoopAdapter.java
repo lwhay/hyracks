@@ -168,7 +168,7 @@ public class HadoopAdapter {
 	public HadoopMapperOperatorDescriptor getMapper(JobConf conf,
 			JobSpecification spec, IOperatorDescriptor previousOp)
 			throws Exception {
-		boolean selfRead = previousOp == null;
+		boolean selfRead = (previousOp == null);
 		IHadoopClassFactory classFactory = new ClasspathBasedHadoopClassFactory();
 		HadoopMapperOperatorDescriptor mapOp = null;
 		if (selfRead) {
@@ -177,9 +177,9 @@ public class HadoopAdapter {
 					classFactory);
 			configurePartitionCountConstraint(spec, mapOp, splits.length);
 		} else {
+			mapOp = new HadoopMapperOperatorDescriptor(spec, conf, classFactory);
 			configurePartitionCountConstraint(spec, mapOp,
 					getInstanceCount(previousOp));
-			mapOp = new HadoopMapperOperatorDescriptor(spec, conf, classFactory);
 			spec.connect(new OneToOneConnectorDescriptor(spec), previousOp, 0,
 					mapOp, 0);
 		}
@@ -319,15 +319,21 @@ public class HadoopAdapter {
 	public JobSpecification getPipelinedSpec(List<JobConf> jobConfs)
 			throws Exception {
 		JobSpecification spec = new JobSpecification();
-		Iterator<JobConf> iterator = jobConfs.iterator();
-		JobConf firstMR = iterator.next();
+//		Iterator<JobConf> iterator = jobConfs.iterator();
+//		JobConf firstMR = iterator.next();
+		JobConf firstMR = jobConfs.get(0);
 		IOperatorDescriptor mrOutputOp = configureMapReduce(null, spec, firstMR);
-		while (iterator.hasNext())
-			for (JobConf currentJobConf : jobConfs) {
-				mrOutputOp = configureMapReduce(mrOutputOp, spec,
-						currentJobConf);
-			}
-		configureOutput(mrOutputOp, jobConfs.get(jobConfs.size() - 1), spec);
+		
+//		while (iterator.hasNext())
+//			for (JobConf currentJobConf : jobConfs) {
+		for (int i = 1; i < jobConfs.size(); i++) {
+			JobConf currentJobConf = jobConfs.get(i);
+			mrOutputOp = configureMapReduce(mrOutputOp, spec,
+					currentJobConf);
+		}
+		IOperatorDescriptor printer = configureOutput(mrOutputOp, jobConfs.get(jobConfs.size() - 1), spec);
+		spec.addRoot(printer);
+		System.out.println(spec);
 		return spec;
 	}
 

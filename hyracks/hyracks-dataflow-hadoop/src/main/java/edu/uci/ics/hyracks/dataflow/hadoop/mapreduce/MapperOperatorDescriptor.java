@@ -238,7 +238,8 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                     SortingRecordWriter recordWriter = new SortingRecordWriter();
                     InputSplit split = null;
                     int blockId = 0;
-                    while ((split = isp.next()) != null) {
+//                    while ((split = isp.next()) != null) {
+                    split = isp.next();
                         try {
                             RecordReader<K1, V1> recordReader = inputFormat.createRecordReader(split,
                                     taskAttemptContext);
@@ -261,7 +262,7 @@ public class MapperOperatorDescriptor<K1 extends Writable, V1 extends Writable, 
                         } catch (InterruptedException e) {
                             throw new HyracksDataException(e);
                         }
-                    }
+//                    }
                 } finally {
                     writer.close();
                 }

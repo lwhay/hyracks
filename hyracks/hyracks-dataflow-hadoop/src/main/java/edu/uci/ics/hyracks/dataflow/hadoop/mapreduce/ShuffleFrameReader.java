@@ -145,6 +145,7 @@ public class ShuffleFrameReader implements IFrameReader {
             try {
                 file = ctx.createManagedWorkspaceFile(ShuffleFrameReader.class.getName() + ".run");
                 rfw = new RunFileWriter(file, ctx.getIOManager());
+                rfw.open();
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }
