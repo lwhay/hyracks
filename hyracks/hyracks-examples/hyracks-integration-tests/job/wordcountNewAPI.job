@@ -1,0 +1,12 @@
+mapred.input.dir=data/file3.txt,data/file4.txt
+mapred.output.dir=output
+mapreduce.job.name=wordcount(static)
+mapreduce.map.class=edu.uci.ics.hyracks.tests.mapreduce.applications.NewWordCount$Map
+mapreduce.combine.class=edu.uci.ics.hyracks.tests.mapreduce.applications.NewWordCount$Reduce
+mapreduce.reduce.class=edu.uci.ics.hyracks.tests.mapreduce.applications.NewWordCount$Reduce
+mapreduce.inputformat.class=org.apache.hadoop.mapreduce.lib.input.TextInputFormat
+mapreduce.outputformat.class=org.apache.hadoop.mapreduce.lib.output.TextOutputFormat
+mapred.mapoutput.key.class=org.apache.hadoop.io.Text
+mapred.mapoutput.value.class=org.apache.hadoop.io.IntWritable
+mapred.output.key.class=org.apache.hadoop.io.Text
+mapred.output.value.class=org.apache.hadoop.io.IntWritable
