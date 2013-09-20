@@ -31,19 +31,16 @@ import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.data.std.accessors.MurmurHash3BinaryHashFunctionFamily;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
-import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
 import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
-import edu.uci.ics.hyracks.dataflow.common.data.normalizers.UTF8StringNormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.FloatParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IntegerParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
-import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFamily;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
@@ -54,33 +51,27 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.CountFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.FloatSumFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MinMaxStringFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.external.ExternalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.HashFunctionFamilyFactoryAdapter;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldAggregateAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldFinalMergeAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldPartialMergeAggregatorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.hash.HashGroupOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.group.preclustered.PreclusteredGroupOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.misc.PrinterOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.result.ResultWriterOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
-import edu.uci.ics.hyracks.dataflow.std.sort.FrameSorter;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
-import edu.uci.ics.hyracks.tests.util.ResultSerializerFactoryProvider;
 
 public class GlobalAggregationTest extends AbstractIntegrationTest {
 
-    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] {
-            new FileSplit(NC1_ID, new FileReference(new File("data/tpch0.001/lineitem-part1.tbl"))),
-            new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/lineitem-part2.tbl"))) });
+    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(
+            new FileSplit[] {
+                    new FileSplit(NC2_ID, new FileReference(new File(
+                            "/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl.part1"))),
+                    new FileSplit(NC2_ID, new FileReference(new File(
+                            "/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl.part2"))) });
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {
             UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
@@ -100,7 +91,10 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, }, '|');
 
-    int framesLimit = 8;
+    LocalGroupOperatorDescriptor.GroupAlgorithms localGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
+    LocalGroupOperatorDescriptor.GroupAlgorithms globalGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP_SORT_MERGE_GROUP;
+
+    int framesLimit = 512;
     int tableSize = 8171;
 
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
@@ -112,9 +106,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new FileSplit(NC1_ID, new FileReference(new File("/Volumes/Home/hyracks_tmp/" + prefix
                                 + "_nc1.log"))),
                         new FileSplit(NC2_ID, new FileReference(new File("/Volumes/Home/hyracks_tmp/" + prefix
-                                + "_nc2.log"))) }), ",");
-        //                new ResultWriterOperatorDescriptor(spec, rsId, true, false,
-        //                ResultSerializerFactoryProvider.INSTANCE.getResultSerializerFactoryProvider());
+                                + "_nc2.log"))) }), "|");
         spec.addResultSetId(rsId);
 
         return printer;
@@ -175,7 +167,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP, 0);
+                localGrouper, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
 
@@ -209,7 +201,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP, 1);
+                globalGrouper, 1);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
 
@@ -218,7 +210,8 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         spec.connect(conn1, grouper0, 0, grouper1, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "noKeyGlobalGroupTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "global_" + localGrouper.name() + "_"
+                + globalGrouper.name() + "_nokey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
 
@@ -273,7 +266,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP, 0);
+                localGrouper, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
 
@@ -309,7 +302,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP, 1);
+                globalGrouper, 1);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
 
@@ -322,7 +315,8 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         spec.connect(conn1, grouper0, 0, grouper1, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyGlobalGroupTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "global_" + localGrouper.name() + "_"
+                + globalGrouper.name() + "_singlekey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
 
@@ -380,7 +374,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldPartialMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP, 0);
+                localGrouper, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper0, NC1_ID, NC2_ID);
 
@@ -418,7 +412,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
-                LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP, 1);
+                globalGrouper, 1);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper1, NC1_ID, NC2_ID);
 
@@ -431,7 +425,8 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         spec.connect(conn1, grouper0, 0, grouper1, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyGlobalGroupTest");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "global_" + localGrouper.name() + "_"
+                + globalGrouper.name() + "_multikey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC1_ID, NC2_ID);
 
@@ -441,963 +436,4 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         spec.addRoot(printer);
         runTest(spec);
     }
-
-    //    @Test
-    //    public void noKeySumPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] {};
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] {}, new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(3, false),
-    //                                new FloatSumFieldAggregatorFactory(5, false) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void noKeySumExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] {};
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] {}, new UTF8StringNormalizedKeyComputerFactory(),
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false),
-    //                        new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(2, false),
-    //                                new FloatSumFieldAggregatorFactory(3, false) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] {}), tableSize), false);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {}));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeySumInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true), new IntSumFieldAggregatorFactory(3, true),
-    //                        new FloatSumFieldAggregatorFactory(5, true) }), outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeySumPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false),
-    //                        new FloatSumFieldAggregatorFactory(5, false) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeySumExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(3, false),
-    //                                new FloatSumFieldAggregatorFactory(5, false) }), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(2, false),
-    //                                new FloatSumFieldAggregatorFactory(3, false) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeySumExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyAvgInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true), new CountFieldAggregatorFactory(true),
-    //                        new AvgFieldGroupAggregatorFactory(1, true) }), outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyAvgPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new CountFieldAggregatorFactory(false),
-    //                        new AvgFieldGroupAggregatorFactory(1, false) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyAvgExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(),
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new CountFieldAggregatorFactory(false),
-    //                        new AvgFieldGroupAggregatorFactory(1, false) }), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(2, false),
-    //                                new AvgFieldMergeAggregatorFactory(3, false) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyMinMaxStringInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true),
-    //                        new MinMaxStringFieldAggregatorFactory(15, true, false) }), outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyMinMaxStringPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false),
-    //                        new MinMaxStringFieldAggregatorFactory(15, true, true) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void singleKeyMinMaxStringExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new MinMaxStringFieldAggregatorFactory(15, true, true) }),
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false),
-    //                        new MinMaxStringFieldAggregatorFactory(2, true, true) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] { PointableBinaryHashFunctionFactory
-    //                                .of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "singleKeyAvgExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeySumInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true), new IntSumFieldAggregatorFactory(3, true) }),
-    //                outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeySumPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new IntSumFieldAggregatorFactory(3, false) }),
-    //                outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeySumExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new IntSumFieldAggregatorFactory(3, false) }), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(2, false),
-    //                                new IntSumFieldAggregatorFactory(3, false) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] {
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeySumExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyAvgInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true), new CountFieldAggregatorFactory(true),
-    //                        new AvgFieldGroupAggregatorFactory(1, true) }), outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyAvgPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new CountFieldAggregatorFactory(false),
-    //                        new AvgFieldGroupAggregatorFactory(1, false) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyAvgInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyAvgExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-    //                FloatSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(),
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false), new CountFieldAggregatorFactory(false),
-    //                        new AvgFieldGroupAggregatorFactory(1, false) }), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(2, false),
-    //                                new IntSumFieldAggregatorFactory(3, false),
-    //                                new AvgFieldMergeAggregatorFactory(4, false) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] {
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyAvgExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyMinMaxStringInmemGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int tableSize = 8;
-    //
-    //        HashGroupOperatorDescriptor grouper = new HashGroupOperatorDescriptor(spec, keyFields,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }),
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, true),
-    //                        new MinMaxStringFieldAggregatorFactory(15, true, false) }), outputRec, tableSize);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxStringInmemGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyMinMaxStringPreClusterGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //
-    //        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, frameLimits, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) }, desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
-    //
-    //        IConnectorDescriptor conn0 = new OneToOneConnectorDescriptor(spec);
-    //
-    //        spec.connect(conn0, csvScanner, 0, sorter, 0);
-    //
-    //        PreclusteredGroupOperatorDescriptor grouper = new PreclusteredGroupOperatorDescriptor(spec, keyFields,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(1, false),
-    //                        new MinMaxStringFieldAggregatorFactory(15, true, true) }), outputRec);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, sorter, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxStringPreClusterGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-    //
-    //    @Test
-    //    public void multiKeyMinMaxStringExtGroupTest() throws Exception {
-    //        JobSpecification spec = new JobSpecification();
-    //
-    //        FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(spec, splitProvider, tupleParserFactory,
-    //                desc);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC2_ID);
-    //
-    //        RecordDescriptor outputRec = new RecordDescriptor(new ISerializerDeserializer[] {
-    //                UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE,
-    //                IntegerSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
-    //
-    //        int[] keyFields = new int[] { 8, 0 };
-    //        int frameLimits = 4;
-    //        int tableSize = 8;
-    //
-    //        ExternalGroupOperatorDescriptor grouper = new ExternalGroupOperatorDescriptor(spec, keyFields, frameLimits,
-    //                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY) },
-    //                new UTF8StringNormalizedKeyComputerFactory(), new MultiFieldsAggregatorFactory(
-    //                        new IFieldAggregateDescriptorFactory[] { new IntSumFieldAggregatorFactory(1, false),
-    //                                new MinMaxStringFieldAggregatorFactory(15, true, true) }),
-    //                new MultiFieldsAggregatorFactory(new int[] { 0, 1 }, new IFieldAggregateDescriptorFactory[] {
-    //                        new IntSumFieldAggregatorFactory(2, false),
-    //                        new MinMaxStringFieldAggregatorFactory(3, true, true) }), outputRec,
-    //                new HashSpillableTableFactory(new FieldHashPartitionComputerFactory(keyFields,
-    //                        new IBinaryHashFunctionFactory[] {
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                                PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }), tableSize), true);
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn1 = new MToNPartitioningConnectorDescriptor(spec,
-    //                new FieldHashPartitionComputerFactory(keyFields, new IBinaryHashFunctionFactory[] {
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY),
-    //                        PointableBinaryHashFunctionFactory.of(UTF8StringPointable.FACTORY) }));
-    //        spec.connect(conn1, csvScanner, 0, grouper, 0);
-    //
-    //        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "multiKeyMinMaxStringExtGroupTest");
-    //
-    //        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID, NC1_ID);
-    //
-    //        IConnectorDescriptor conn2 = new OneToOneConnectorDescriptor(spec);
-    //        spec.connect(conn2, grouper, 0, printer, 0);
-    //
-    //        spec.addRoot(printer);
-    //        runTest(spec);
-    //    }
-
 }

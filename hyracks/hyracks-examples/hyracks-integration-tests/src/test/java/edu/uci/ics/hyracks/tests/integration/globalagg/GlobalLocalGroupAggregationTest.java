@@ -60,7 +60,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldFinalMe
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldPartialMergeAggregatorFactory;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
 
-public class GlobalLocalHashGroupSortMergeGroupAggregationTest extends AbstractIntegrationTest {
+public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
 
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl"))) });

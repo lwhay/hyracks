@@ -114,11 +114,11 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
             public void open() throws HyracksDataException {
                 switch (algorithm) {
                     case SORT_GROUP:
-                        grouper = new SortGrouper(ctx, keyFields, decorFields, frameSize, firstNormalizerFactory,
+                        grouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, firstNormalizerFactory,
                                 comparatorFactories, aggregatorFactory, partialMergerFactory, inRecDesc, outRecDesc);
                         break;
                     case HASH_GROUP:
-                        grouper = new HashGrouper(ctx, frameSize, tableSize, keyFields, decorFields,
+                        grouper = new HashGrouper(ctx, framesLimit, tableSize, keyFields, decorFields,
                                 comparatorFactories, hashFunctionFactories, firstNormalizerFactory, aggregatorFactory,
                                 partialMergerFactory, inRecDesc, outRecDesc, false, false);
                         break;
