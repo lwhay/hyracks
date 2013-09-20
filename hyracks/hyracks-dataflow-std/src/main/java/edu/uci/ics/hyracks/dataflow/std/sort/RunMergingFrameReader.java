@@ -140,7 +140,7 @@ public class RunMergingFrameReader implements IFrameReader {
         }
     }
 
-    private Comparator<ReferenceEntry> createEntryComparator(final IBinaryComparator[] comparators) {
+    protected Comparator<ReferenceEntry> createEntryComparator(final IBinaryComparator[] comparators) {
         return new Comparator<ReferenceEntry>() {
             public int compare(ReferenceEntry tp1, ReferenceEntry tp2) {
                 FrameTupleAccessor fta1 = (FrameTupleAccessor) tp1.getAccessor();

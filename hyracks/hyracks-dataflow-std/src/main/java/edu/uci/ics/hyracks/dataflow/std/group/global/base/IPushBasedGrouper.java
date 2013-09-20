@@ -23,11 +23,11 @@ public interface IPushBasedGrouper {
 
     void init() throws HyracksDataException;
 
-    boolean nextFrame(ByteBuffer buffer) throws HyracksDataException;
+    boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException;
 
     int[] getDataDistHistogram() throws HyracksDataException;
 
-    void flush(IFrameWriter writer) throws HyracksDataException;
+    void flush(IFrameWriter writer, int flushOption) throws HyracksDataException;
 
     void reset() throws HyracksDataException;
 

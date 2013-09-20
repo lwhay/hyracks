@@ -9,6 +9,8 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
@@ -16,6 +18,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
@@ -46,15 +49,26 @@ public class MergeGrouper {
     int[] currentFrameIndexInRun, currentRunFrames, currentBucketInRun;
     int runFrameLimit = 1;
 
+    private final ITuplePartitionComputerFactory tuplePartitionComputerFactory;
+    private final int partitions;
+
     // For debugging
     private final String debugID;
-    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter;
+    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter, runFileCounter;
     private boolean isDumpToFile = false;
 
     public MergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             IBinaryComparatorFactory[] comparatorFactories, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc)
             throws HyracksDataException {
+        this(ctx, keyFields, decorFields, framesLimit, 1, comparatorFactories, null, partialMergerFactory,
+                finalMergerFactory, inRecDesc, outRecDesc);
+    }
+
+    public MergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit, int partitions,
+            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
+            IAggregatorDescriptorFactory partialMergerFactory, IAggregatorDescriptorFactory finalMergerFactory,
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc) throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
@@ -68,6 +82,10 @@ public class MergeGrouper {
         this.inRecDesc = inRecDesc;
         this.outRecDesc = outRecDesc;
 
+        this.tuplePartitionComputerFactory = (hashFunctionFactories == null) ? null
+                : new FieldHashPartitionComputerFactory(keyFields, hashFunctionFactories);
+        this.partitions = partitions;
+
         this.mergeState = partialMerger.createAggregateStates();
 
         this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
@@ -80,6 +98,7 @@ public class MergeGrouper {
         this.outRecCounter = 0;
         this.outFrameCounter = 0;
         this.recCopyCounter = 0;
+        this.runFileCounter = 0;
 
         runs = runFiles;
 
@@ -110,6 +129,8 @@ public class MergeGrouper {
                         merge(mergeResultWriter, runCursors, partialMerger);
                         runs.subList(generationSeparator, mergeWidth + generationSeparator).clear();
                         runs.add(generationSeparator++, ((RunFileWriter) mergeResultWriter).createReader());
+                        mergeResultWriter.close();
+                        runFileCounter++;
                     }
                 }
                 if (!runs.isEmpty()) {
@@ -130,11 +151,13 @@ public class MergeGrouper {
             ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
             ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
             ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+            ctx.getCounterContext().getCounter(debugID + ".runFiles", true).update(runFileCounter);
             this.compCounter = 0;
             this.inRecCounter = 0;
             this.outRecCounter = 0;
             this.outFrameCounter = 0;
             this.recCopyCounter = 0;
+            this.runFileCounter = 0;
 
             writer.close();
         }
@@ -143,7 +166,9 @@ public class MergeGrouper {
     protected void merge(IFrameWriter mergeResultWriter, IFrameReader[] runCursors, IAggregatorDescriptor merger)
             throws HyracksDataException {
         RumMergingGroupingFrameReader mergeFrameReader = new RumMergingGroupingFrameReader(ctx, runCursors, inFrames,
-                keyFields, decorFields, comparators, merger, mergeState, inRecDesc, outRecDesc);
+                keyFields, decorFields, comparators, (tuplePartitionComputerFactory == null) ? null
+                        : tuplePartitionComputerFactory.createPartitioner(), partitions, merger, mergeState, inRecDesc,
+                outRecDesc);
         mergeFrameReader.open();
         try {
             while (mergeFrameReader.nextFrame(outFrame)) {
@@ -151,6 +176,8 @@ public class MergeGrouper {
             }
         } finally {
             if (writerAppender.getTupleCount() > 0) {
+                if (isDumpToFile)
+                    outFrameCounter++;
                 FrameUtils.flushFrame(writerFrame, mergeResultWriter);
                 writerAppender.reset(writerFrame, true);
             }
@@ -171,13 +198,15 @@ public class MergeGrouper {
         if (writerAppender == null) {
             writerAppender = new FrameTupleAppender(ctx.getFrameSize());
         }
-        writerAppender.reset(writerFrame, true);
+        writerAppender.reset(writerFrame, false);
 
         if (outFrameAccessor == null) {
             outFrameAccessor = new FrameTupleAccessor(ctx.getFrameSize(), outRecDesc);
         }
 
         outFrameAccessor.reset(outFrame);
+
+        outRecCounter += outFrameAccessor.getTupleCount();
 
         for (int i = 0; i < outFrameAccessor.getTupleCount(); i++) {
 

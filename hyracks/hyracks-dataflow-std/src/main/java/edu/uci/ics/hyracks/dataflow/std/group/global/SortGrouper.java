@@ -33,18 +33,17 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.HistogramUtils;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
 
 /**
  * An implementation of aggregating each frame of the input data using sort-based approach.
  */
-public class SortGrouper implements IPushBasedGrouper {
+public class SortGrouper extends AbstractHistogramPushBasedGrouper {
 
     private static final int POINTER_LENGTH = 3;
     private static final int INT_SIZE = 4;
 
     private final IAggregatorDescriptor aggregator;
+    private final IAggregatorDescriptor finalMerger;
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
     protected final int[] decorFields;
@@ -66,9 +65,6 @@ public class SortGrouper implements IPushBasedGrouper {
     private int[] tPointersTemp;
     protected int tupleCount;
 
-    private int[] histogram;
-    private boolean enableHistogram = false;
-
     private AggregateState aggregateState;
     private byte[] groupResultCache;
     private ByteBuffer groupResultCacheBuffer;
@@ -76,13 +72,15 @@ public class SortGrouper implements IPushBasedGrouper {
     private FrameTupleAccessor groupResultCacheAccessor;
 
     // For debugging
-    private final String debugID;
-    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter;
+    private long compCounter, inRecCounter, outRecCounter, outFrameCounter, recCopyCounter, flushedRecCounter,
+            runsCounter;
 
     public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
-            IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor inRecordDescriptor,
-            RecordDescriptor outRecordDescriptor) throws HyracksDataException {
+            IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory finalMergeFactory,
+            RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor) throws HyracksDataException {
+        super(false);
+
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
@@ -95,12 +93,15 @@ public class SortGrouper implements IPushBasedGrouper {
         }
         this.aggregator = aggregatorFactory.createAggregator(ctx, inRecordDescriptor, outRecordDescriptor, keyFields,
                 keyFields);
+        int[] storedKeys = new int[keyFields.length];
+        for (int i = 0; i < storedKeys.length; i++) {
+            storedKeys[i] = i;
+        }
+        this.finalMerger = finalMergeFactory.createAggregator(ctx, outRecordDescriptor, outRecordDescriptor,
+                storedKeys, storedKeys);
         this.buffers = new ArrayList<ByteBuffer>();
         this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
         this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
-        this.histogram = new int[HistogramUtils.HISTOGRAM_SLOTS];
-
-        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     public void init() throws HyracksDataException {
@@ -112,23 +113,20 @@ public class SortGrouper implements IPushBasedGrouper {
         this.dataFrameCount = 0;
         this.tupleCount = 0;
 
-        for (int i = 0; i < this.histogram.length; i++) {
-            histogram[i] = 0;
-        }
+        resetHistogram();
 
         this.compCounter = 0;
         this.inRecCounter = 0;
         this.outRecCounter = 0;
         this.outFrameCounter = 0;
         this.recCopyCounter = 0;
+        this.flushedRecCounter = 0;
     }
 
     public void reset() throws HyracksDataException {
         this.dataFrameCount = 0;
         this.tupleCount = 0;
-        for (int i = 0; i < histogram.length; i++) {
-            histogram[i] = 0;
-        }
+        resetHistogram();
         this.aggregateState.reset();
         this.tupleBuilder.reset();
         if (this.groupResultCacheBuffer != null) {
@@ -143,19 +141,21 @@ public class SortGrouper implements IPushBasedGrouper {
         ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
         ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
         ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+        ctx.getCounterContext().getCounter(debugID + ".runFiles", true).update(runsCounter);
 
         this.compCounter = 0;
         this.inRecCounter = 0;
         this.outRecCounter = 0;
         this.outFrameCounter = 0;
         this.recCopyCounter = 0;
+        this.runsCounter = 0;
     }
 
     public int getFrameCount() {
         return dataFrameCount;
     }
 
-    public boolean nextFrame(ByteBuffer buffer) throws HyracksDataException {
+    public boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException {
         ByteBuffer copyFrame;
         if (dataFrameCount == buffers.size()) {
             if (dataFrameCount < framesLimit) {
@@ -192,9 +192,7 @@ public class SortGrouper implements IPushBasedGrouper {
             for (int j = 0; j < tCount; ++j) {
 
                 // do histogram update if needed
-                if (enableHistogram) {
-                    histogram[HistogramUtils.getHistogramBucketID(bufferTupleAccessor, j, keyFields)]++;
-                }
+                insertIntoHistogram(bufferTupleAccessor, j, keyFields);
 
                 tPointers[ptr * POINTER_LENGTH] = i;
                 tPointers[ptr * POINTER_LENGTH + 1] = j;
@@ -329,7 +327,7 @@ public class SortGrouper implements IPushBasedGrouper {
         }
     }
 
-    public void flush(IFrameWriter writer) throws HyracksDataException {
+    public void flush(IFrameWriter writer, int flushOption) throws HyracksDataException {
 
         // sort the data before flushing
         sortFrames();
@@ -355,7 +353,7 @@ public class SortGrouper implements IPushBasedGrouper {
                     continue;
                 } else {
                     // write the cached group into the final output
-                    writeOutput(groupResultCacheAccessor, 0, writer);
+                    writeOutput(groupResultCacheAccessor, 0, writer, flushOption == 1);
                 }
             }
 
@@ -390,9 +388,10 @@ public class SortGrouper implements IPushBasedGrouper {
         }
 
         if (groupResultCache != null && groupResultCacheAccessor.getTupleCount() > 0) {
-            writeOutput(groupResultCacheAccessor, 0, writer);
+            writeOutput(groupResultCacheAccessor, 0, writer, flushOption == 1);
             if (appender.getTupleCount() > 0) {
                 FrameUtils.flushFrame(outFrame, writer);
+                flushedRecCounter += appender.getTupleCount();
                 outFrameCounter++;
                 outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             }
@@ -406,20 +405,24 @@ public class SortGrouper implements IPushBasedGrouper {
         ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
         ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
         ctx.getCounterContext().getCounter(debugID + ".recordCopies", true).update(recCopyCounter);
+        ctx.getCounterContext().getCounter(debugID + ".flushedRecords", true).update(flushedRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".runFiles", true).update(runsCounter);
 
         this.compCounter = 0;
         this.inRecCounter = 0;
         this.outRecCounter = 0;
         this.outFrameCounter = 0;
         this.recCopyCounter = 0;
+        this.flushedRecCounter = 0;
+        this.runsCounter = 0;
 
         this.buffers.clear();
         aggregateState.close();
         this.outFrame = null;
     }
 
-    private void writeOutput(FrameTupleAccessor lastTupleAccessor, int lastTupleIndex, IFrameWriter writer)
-            throws HyracksDataException {
+    private void writeOutput(FrameTupleAccessor lastTupleAccessor, int lastTupleIndex, IFrameWriter writer,
+            boolean useFinalMerger) throws HyracksDataException {
 
         if (appender == null) {
             appender = new FrameTupleAppender(ctx.getFrameSize());
@@ -430,10 +433,16 @@ public class SortGrouper implements IPushBasedGrouper {
         for (int j = 0; j < keyFields.length + decorFields.length; j++) {
             tupleBuilder.addField(lastTupleAccessor, lastTupleIndex, j);
         }
-        aggregator.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
+
+        if (useFinalMerger) {
+            finalMerger.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
+        } else {
+            aggregator.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
+        }
 
         if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0, tupleBuilder.getSize())) {
             FrameUtils.flushFrame(outFrame, writer);
+            flushedRecCounter += appender.getTupleCount();
             outFrameCounter++;
             outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             appender.reset(outFrame, true);
@@ -443,10 +452,5 @@ public class SortGrouper implements IPushBasedGrouper {
             }
         }
 
-    }
-
-    @Override
-    public int[] getDataDistHistogram() throws HyracksDataException {
-        return histogram;
     }
 }
