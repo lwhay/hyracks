@@ -14,23 +14,17 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.group.global.base;
 
-import java.nio.ByteBuffer;
+import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 
-public interface IPushBasedGrouper {
+public interface IFrameWriterRunGenerator extends IFrameWriter {
 
-    void init() throws HyracksDataException;
+    List<RunFileReader> getOutputRunReaders() throws HyracksDataException;
 
-    boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException;
+    int getRunsCount();
 
-    int[] getDataDistHistogram() throws HyracksDataException;
-
-    void flush(IFrameWriter writer, int flushOption) throws HyracksDataException;
-
-    void reset() throws HyracksDataException;
-
-    void close() throws HyracksDataException;
-
+    void wrapup() throws HyracksDataException;
 }

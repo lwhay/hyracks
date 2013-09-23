@@ -15,7 +15,6 @@
 package edu.uci.ics.hyracks.dataflow.std.group.global;
 
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -26,15 +25,11 @@ import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
-import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
 
-public class HashGroupSortMergeGrouper implements IPushBasedGrouper {
+public class HashGroupSortMergeGrouper implements IFrameWriter {
 
     private HashGrouper hashGrouper;
-
-    private MergeGrouper mergeGrouper;
 
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
@@ -46,16 +41,14 @@ public class HashGroupSortMergeGrouper implements IPushBasedGrouper {
     private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IAggregatorDescriptorFactory aggregatorFactory, partialMergerFactory, finalMergerFactory;
     private final RecordDescriptor inRecordDesc, outRecordDesc;
-
-    private List<RunFileReader> runsFromHashGrouper;
-    private RunFileWriter currentRunWriter;
+    private final IFrameWriter outputWriter;
 
     public HashGroupSortMergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             int tableSize, INormalizedKeyComputerFactory firstKeyNormalizerFactory,
             IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecordDescriptor,
-            RecordDescriptor outRecordDescriptor) throws HyracksDataException {
+            RecordDescriptor outRecordDescriptor, IFrameWriter outputWriter) throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
@@ -66,6 +59,7 @@ public class HashGroupSortMergeGrouper implements IPushBasedGrouper {
         this.hashFunctionFactories = hashFunctionFactories;
         this.inRecordDesc = inRecordDescriptor;
         this.outRecordDesc = outRecordDescriptor;
+        this.outputWriter = outputWriter;
 
         this.aggregatorFactory = aggregatorFactory;
         this.partialMergerFactory = partialMergerFactory;
@@ -73,79 +67,44 @@ public class HashGroupSortMergeGrouper implements IPushBasedGrouper {
     }
 
     @Override
-    public void init() throws HyracksDataException {
-        this.hashGrouper = new HashGrouper(ctx, framesLimit, tableSize, keyFields, decorFields, comparatorFactories,
-                hashFunctionFactories, firstKeyNormalizerFactory, aggregatorFactory, finalMergerFactory, inRecordDesc,
-                outRecordDesc, true, false);
-        this.runsFromHashGrouper = new LinkedList<RunFileReader>();
-        this.hashGrouper.init();
+    public void open() throws HyracksDataException {
+        this.hashGrouper = new HashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
+                finalMergerFactory, inRecordDesc, outRecordDesc, false, outputWriter, tableSize, comparatorFactories,
+                hashFunctionFactories, firstKeyNormalizerFactory, true);
+        this.hashGrouper.open();
     }
 
     @Override
-    public boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException {
-        while (!hashGrouper.nextFrame(buffer, tupleIndexOffset)) {
-            int processedTupleCount = hashGrouper.getProcessedTupleCount();
-            tupleIndexOffset += processedTupleCount;
-            currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                    .getSimpleName() + "_sort"), ctx.getIOManager());
-            currentRunWriter.open();
-            try {
-                this.hashGrouper.flush(currentRunWriter, 0);
-                this.hashGrouper.reset();
-            } finally {
-                currentRunWriter.close();
-                runsFromHashGrouper.add(currentRunWriter.createReader());
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public int[] getDataDistHistogram() throws HyracksDataException {
-        return this.hashGrouper.getDataDistHistogram();
-    }
-
-    @Override
-    public void flush(IFrameWriter writer, int flushOption) throws HyracksDataException {
-        if (hashGrouper.getTuplesInHashTable() > 0) {
-            if (runsFromHashGrouper.size() == 0) {
-                // directly flush hash grouper into the writer
-                this.hashGrouper.setSortOutput(false);
-                this.hashGrouper.flush(writer, 1);
-            } else {
-                // create another run
-                currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                        .getSimpleName() + "_sort"), ctx.getIOManager());
-                currentRunWriter.open();
-                try {
-                    this.hashGrouper.flush(currentRunWriter, 0);
-                    this.hashGrouper.reset();
-                } finally {
-                    currentRunWriter.close();
-                    runsFromHashGrouper.add(currentRunWriter.createReader());
-                }
-            }
-        }
-        if (runsFromHashGrouper.size() > 0) {
-            int[] mergeKeyFields = new int[keyFields.length];
-            for (int i = 0; i < mergeKeyFields.length; i++) {
-                mergeKeyFields[i] = i;
-            }
-            this.mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, decorFields, framesLimit, tableSize,
-                    comparatorFactories, hashFunctionFactories, partialMergerFactory, finalMergerFactory,
-                    outRecordDesc, outRecordDesc);
-            this.mergeGrouper.process(runsFromHashGrouper, writer);
-        }
-    }
-
-    @Override
-    public void reset() throws HyracksDataException {
-        // TODO Auto-generated method stub
-
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        this.hashGrouper.nextFrame(buffer);
     }
 
     @Override
     public void close() throws HyracksDataException {
+        hashGrouper.wrapup();
+        if (hashGrouper.getRunsCount() == 0) {
+            hashGrouper.flushMemory(outputWriter);
+            hashGrouper.close();
+        } else {
+            List<RunFileReader> runs = hashGrouper.getOutputRunReaders();
+            hashGrouper.close();
+            int[] mergeKeyFields = new int[keyFields.length];
+            for (int i = 0; i < mergeKeyFields.length; i++) {
+                mergeKeyFields[i] = i;
+            }
+            int[] mergeDecorFields = new int[decorFields.length];
+            for (int i = 0; i < decorFields.length; i++) {
+                mergeDecorFields[i] = keyFields.length + i;
+            }
+            MergeGrouper mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, mergeDecorFields, framesLimit, tableSize,
+                    comparatorFactories, hashFunctionFactories, partialMergerFactory, finalMergerFactory,
+                    outRecordDesc, outRecordDesc);
+            mergeGrouper.process(runs, outputWriter);
+        }
+    }
+
+    @Override
+    public void fail() throws HyracksDataException {
 
     }
 

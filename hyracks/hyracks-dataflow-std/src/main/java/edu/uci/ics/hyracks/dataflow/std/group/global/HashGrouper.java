@@ -1,6 +1,7 @@
 package edu.uci.ics.hyracks.dataflow.std.group.global;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -17,9 +18,14 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
 
 /**
  * Hash grouper uses an internal hash table (linked-list-chain based) to support the group
@@ -30,25 +36,18 @@ import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
  */
 public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
-    protected static final int INT_SIZE = 4;
-
     protected static final int LIST_FRAME_REF_SIZE = 4;
     protected static final int LIST_TUPLE_REF_SIZE = 4;
     protected static final int POINTER_INIT_SIZE = 8;
     protected static final int POINTER_LENGTH = 3;
 
-    protected final int tableSize, framesLimit, frameSize;
+    protected final int tableSize;
 
     private final IAggregatorDescriptor aggregator, merger;
     private AggregateState aggState;
 
-    protected final IHyracksTaskContext ctx;
-    protected final int[] keyFields;
-    protected final int[] decorFields;
-
     private final INormalizedKeyComputer firstNormalizerComputer;
     private final IBinaryComparator[] comparators;
-    private final RecordDescriptor inRecordDesc, outRecordDesc;
 
     protected ByteBuffer[] headers;
     protected ByteBuffer[] contents;
@@ -81,39 +80,30 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
     private int currentWorkingFrame;
 
-    private int tuplesInHashTable;
-
     private long inRecCounter = 0, outRecCounter = 0, hashHitCompCounter = 0, hashMissCompCounter = 0,
             outFrameCounter = 0, compCounter = 0, sortCompCounter = 0;
     private int nonEmptySlotCount = 0;
 
-    public HashGrouper(IHyracksTaskContext ctx, int framesLimit, int tableSize, int[] keys, int[] decors,
-            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
-            INormalizedKeyComputerFactory firstNormalizerComputerFactory,
+    public HashGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
-            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc, boolean sortOutput, boolean enableHistogram)
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc, boolean enableHistorgram,
+            IFrameWriter outputWriter, int tableSize, IBinaryComparatorFactory[] comparatorFactories,
+            IBinaryHashFunctionFactory[] hashFunctionFactories,
+            INormalizedKeyComputerFactory firstNormalizerComputerFactory, boolean sortOutput)
             throws HyracksDataException {
-        super(enableHistogram);
-        this.ctx = ctx;
+        super(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, mergerFactory, inRecDesc, outRecDesc,
+                enableHistorgram, outputWriter);
 
         this.tableSize = tableSize;
-        this.framesLimit = framesLimit;
-        this.frameSize = ctx.getFrameSize();
-
-        this.keyFields = keys;
-        this.decorFields = decors;
 
         this.comparators = new IBinaryComparator[comparatorFactories.length];
         for (int i = 0; i < this.comparators.length; i++) {
             this.comparators[i] = comparatorFactories[i].createBinaryComparator();
         }
-        this.tuplePartitionComputer = new FieldHashPartitionComputerFactory(keys, hashFunctionFactories)
+        this.tuplePartitionComputer = new FieldHashPartitionComputerFactory(keyFields, hashFunctionFactories)
                 .createPartitioner();
         this.firstNormalizerComputer = firstNormalizerComputerFactory == null ? null : firstNormalizerComputerFactory
                 .createNormalizedKeyComputer();
-
-        this.inRecordDesc = inRecDesc;
-        this.outRecordDesc = outRecDesc;
 
         int[] storedKeys = new int[keyFields.length];
 
@@ -130,7 +120,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
      * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#init()
      */
     @Override
-    public void init() throws HyracksDataException {
+    public void open() throws HyracksDataException {
 
         // initialize the hash table
         // - headers
@@ -152,11 +142,11 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         }
 
         // initialize the accessors and appenders
-        this.inputFrameTupleAccessor = new FrameTupleAccessor(frameSize, inRecordDesc);
-        this.hashtableFrameAccessor = new FrameTupleAccessor(frameSize, outRecordDesc);
-        this.compFrameAccessor = new FrameTupleAccessor(frameSize, outRecordDesc);
+        this.inputFrameTupleAccessor = new FrameTupleAccessor(frameSize, inRecDesc);
+        this.hashtableFrameAccessor = new FrameTupleAccessor(frameSize, outRecDesc);
+        this.compFrameAccessor = new FrameTupleAccessor(frameSize, outRecDesc);
 
-        this.hashtableGroupTupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFieldCount());
+        this.hashtableGroupTupleBuilder = new ArrayTupleBuilder(outRecDesc.getFieldCount());
 
         this.hashtableFrameTupleAppender = new HashTableFrameTupleAppender(frameSize, LIST_FRAME_REF_SIZE
                 + LIST_TUPLE_REF_SIZE);
@@ -168,8 +158,6 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         this.lookupFrameIndex = -1;
         this.lookupTupleIndex = -1;
 
-        this.tuplesInHashTable = 0;
-
         resetHistogram();
     }
 
@@ -178,7 +166,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
      * otherwise a new group will be inserted into the hash table.
      */
     @Override
-    public boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException {
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         // reset the processed tuple count
         this.processedTuple = 0;
 
@@ -186,7 +174,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
         int tupleCount = inputFrameTupleAccessor.getTupleCount();
 
-        int tupleIndex = tupleIndexOffset;
+        int tupleIndex = 0;
 
         while (tupleIndex < tupleCount) {
 
@@ -223,7 +211,18 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                     currentWorkingFrame++;
                     if (currentWorkingFrame >= contents.length) {
                         // hash table is full
-                        return false;
+                        IFrameWriter dumpWriter = outputWriter;
+                        if (dumpWriter == null) {
+                            dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class
+                                    .getSimpleName()), ctx.getIOManager());
+                            dumpWriter.open();
+                        }
+                        flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
+                        if (outputWriter == null) {
+                            RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+                            this.runReaders.add(runReader);
+                            dumpWriter.close();
+                        }
                     }
                     if (contents[currentWorkingFrame] == null) {
                         contents[currentWorkingFrame] = ctx.allocateFrame();
@@ -239,8 +238,6 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
                 // reset the header reference
                 setSlotPointer(h, currentWorkingFrame, hashtableFrameTupleAppender.getTupleCount() - 1);
-
-                this.tuplesInHashTable++;
             }
 
             insertIntoHistogram(h);
@@ -249,8 +246,24 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
             inRecCounter++;
             tupleIndex++;
         }
+    }
 
-        return true;
+    public void wrapup() throws HyracksDataException {
+        if (currentWorkingFrame > 0) {
+            // hash table is full
+            IFrameWriter dumpWriter = outputWriter;
+            if (dumpWriter == null) {
+                dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class.getSimpleName()),
+                        ctx.getIOManager());
+                dumpWriter.open();
+            }
+            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
+            if (outputWriter == null) {
+                RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+                this.runReaders.add(runReader);
+                dumpWriter.close();
+            }
+        }
     }
 
     private void setSlotPointer(int h, int contentFrameIndex, int contentTupleIndex) {
@@ -456,20 +469,13 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#flush(edu.uci.ics.hyracks.api.comm.IFrameWriter
-     * )
-     */
-    @Override
-    public void flush(IFrameWriter writer, int flushOption) throws HyracksDataException {
+    private void flush(IFrameWriter writer, IGrouperFlushOption flushOption) throws HyracksDataException {
 
-        IAggregatorDescriptor aggregatorToFlush = (flushOption == 1) ? merger : aggregator;
+        IAggregatorDescriptor aggregatorToFlush = (flushOption.getOutputState() == GroupOutputState.RESULT_STATE) ? merger
+                : aggregator;
 
         if (outputTupleBuilder == null) {
-            outputTupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFieldCount());
+            outputTupleBuilder = new ArrayTupleBuilder(outRecDesc.getFieldCount());
         }
 
         if (outputAppender == null) {
@@ -577,7 +583,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         this.lookupFrameIndex = -1;
         this.lookupTupleIndex = -1;
 
-        this.tuplesInHashTable = 0;
+        this.runReaders.clear();
 
         // reset header pages
         resetHeaders();
@@ -592,6 +598,10 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                 headers[i].putInt(-1);
             }
         }
+    }
+
+    public void fail() throws HyracksDataException {
+
     }
 
     /*
@@ -613,7 +623,17 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         this.sortOutput = toSort;
     }
 
-    public int getTuplesInHashTable() {
-        return this.tuplesInHashTable;
+    public int getCurrentWorkingFrameIndex() {
+        return this.currentWorkingFrame;
+    }
+
+    @Override
+    public List<RunFileReader> getOutputRunReaders() throws HyracksDataException {
+        return this.runReaders;
+    }
+
+    @Override
+    public void flushMemory(IFrameWriter writer) throws HyracksDataException {
+        flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
     }
 }

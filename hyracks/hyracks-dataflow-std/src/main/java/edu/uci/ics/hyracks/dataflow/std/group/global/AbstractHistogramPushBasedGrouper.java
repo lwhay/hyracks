@@ -14,21 +14,63 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.group.global;
 
-import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.HistogramUtils;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
+import java.util.LinkedList;
+import java.util.List;
 
-public abstract class AbstractHistogramPushBasedGrouper implements IPushBasedGrouper {
+import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
+import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.HistogramUtils;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IFrameWriterRunGenerator;
+
+public abstract class AbstractHistogramPushBasedGrouper implements IFrameWriterRunGenerator {
+
+    public static final int INT_SIZE = 4;
 
     private int[] histogram;
     private boolean enableHistogram = false;
+
+    protected final IHyracksTaskContext ctx;
+
+    protected final int[] keyFields, decorFields;
+
+    protected final int framesLimit;
+
+    protected final int frameSize;
+
     protected final String debugID;
 
-    public AbstractHistogramPushBasedGrouper(boolean enableHistorgram) {
+    protected final IFrameWriter outputWriter;
+
+    protected final IAggregatorDescriptorFactory aggregatorFactory, mergerFactory;
+
+    protected final RecordDescriptor inRecDesc, outRecDesc;
+
+    protected final List<RunFileReader> runReaders;
+
+    public AbstractHistogramPushBasedGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields,
+            int framesLimit, IAggregatorDescriptorFactory aggregatorFactory,
+            IAggregatorDescriptorFactory mergerFactory, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc,
+            boolean enableHistorgram, IFrameWriter outputWriter) {
+        this.ctx = ctx;
+        this.keyFields = keyFields;
+        this.decorFields = decorFields;
+        this.framesLimit = framesLimit;
+        this.frameSize = ctx.getFrameSize();
+        this.aggregatorFactory = aggregatorFactory;
+        this.mergerFactory = mergerFactory;
+        this.inRecDesc = inRecDesc;
+        this.outRecDesc = outRecDesc;
+        this.outputWriter = outputWriter;
         this.histogram = new int[HistogramUtils.HISTOGRAM_SLOTS];
         this.enableHistogram = enableHistorgram;
         this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
+
+        this.runReaders = new LinkedList<RunFileReader>();
     }
 
     protected void insertIntoHistogram(IFrameTupleAccessor accessor, int tupleIndex, int[] keyFields)
@@ -52,6 +94,18 @@ public abstract class AbstractHistogramPushBasedGrouper implements IPushBasedGro
         for (int i = 0; i < histogram.length; i++) {
             histogram[i] = 0;
         }
+    }
+
+    abstract public void reset() throws HyracksDataException;
+
+    public List<RunFileReader> getOutputRunReaders() throws HyracksDataException {
+        return this.runReaders;
+    }
+
+    abstract public void flushMemory(IFrameWriter writer) throws HyracksDataException;
+
+    public int getRunsCount() {
+        return this.runReaders.size();
     }
 
 }

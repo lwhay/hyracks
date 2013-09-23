@@ -24,14 +24,12 @@ public class HashTableFrameTupleAccessor implements IFrameTupleAccessor {
 
     private final int frameSize;
     private final RecordDescriptor recordDescriptor;
-    private final int recordRefSize;
 
     private ByteBuffer buffer;
 
     public HashTableFrameTupleAccessor(int frameSize, RecordDescriptor recordDescriptor, int recordRefSize) {
         this.frameSize = frameSize;
         this.recordDescriptor = recordDescriptor;
-        this.recordRefSize = recordRefSize;
     }
 
     @Override

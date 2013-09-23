@@ -16,6 +16,7 @@ package edu.uci.ics.hyracks.dataflow.std.group.global;
 
 import java.nio.ByteBuffer;
 
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
@@ -30,7 +31,6 @@ import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper;
 
 public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
@@ -50,6 +50,10 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
     private final GroupAlgorithms algorithm;
 
+    private final long inputRecordCount, outputGroupCount;
+    private final int groupStateSizeInBytes;
+    private final double fudgeFactor;
+
     public enum GroupAlgorithms {
         SORT_GROUP,
         SORT_GROUP_MERGE_GROUP,
@@ -60,7 +64,8 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
     }
 
     public LocalGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int[] decorFields,
-            int framesLimit, int tableSize, IBinaryComparatorFactory[] comparatorFactories,
+            int framesLimit, int tableSize, long inputRecordCount, long outputGroupCount, int groupStateSizeInBytes,
+            double fudgeFactor, IBinaryComparatorFactory[] comparatorFactories,
             IBinaryHashFunctionFamily[] hashFamilies, INormalizedKeyComputerFactory firstNormalizerFactory,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor outRecDesc, GroupAlgorithms algorithm,
@@ -83,6 +88,11 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
         this.hashFamilies = hashFamilies;
         recordDescriptors[0] = outRecDesc;
         this.algorithm = algorithm;
+
+        this.inputRecordCount = inputRecordCount;
+        this.outputGroupCount = outputGroupCount;
+        this.groupStateSizeInBytes = groupStateSizeInBytes;
+        this.fudgeFactor = fudgeFactor;
     }
 
     @Override
@@ -98,8 +108,6 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
         final RecordDescriptor outRecDesc = recordDescriptors[0];
 
-        final int frameSize = ctx.getFrameSize();
-
         final IBinaryHashFunctionFactory[] hashFunctionFactories = new IBinaryHashFunctionFactory[this.hashFamilies.length];
         for (int i = 0; i < hashFunctionFactories.length; i++) {
             hashFunctionFactories[i] = HashFunctionFamilyFactoryAdapter.getFunctionFactoryFromFunctionFamily(
@@ -108,64 +116,52 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
         return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
 
-            private IPushBasedGrouper grouper = null;
+            private IFrameWriter grouper = null;
 
             @Override
             public void open() throws HyracksDataException {
                 switch (algorithm) {
                     case SORT_GROUP:
-                        grouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, firstNormalizerFactory,
-                                comparatorFactories, aggregatorFactory, partialMergerFactory, inRecDesc, outRecDesc);
+                        grouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
+                                finalMergerFactory, inRecDesc, outRecDesc, firstNormalizerFactory, comparatorFactories,
+                                writer);
                         break;
                     case HASH_GROUP:
-                        grouper = new HashGrouper(ctx, framesLimit, tableSize, keyFields, decorFields,
-                                comparatorFactories, hashFunctionFactories, firstNormalizerFactory, aggregatorFactory,
-                                partialMergerFactory, inRecDesc, outRecDesc, false, false);
+                        grouper = new HashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
+                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, tableSize,
+                                comparatorFactories, hashFunctionFactories, firstNormalizerFactory, false);
                         break;
                     case HASH_GROUP_SORT_MERGE_GROUP:
                         grouper = new HashGroupSortMergeGrouper(ctx, keyFields, decorFields, framesLimit, tableSize,
                                 firstNormalizerFactory, comparatorFactories, hashFunctionFactories, aggregatorFactory,
-                                partialMergerFactory, finalMergerFactory, inRecDesc, outRecDesc);
+                                partialMergerFactory, finalMergerFactory, inRecDesc, outRecDesc, writer);
+                        break;
+                    case SIMPLE_HYBRID_HASH:
+                        grouper = new HybridHashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
+                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, tableSize,
+                                comparatorFactories, hashFunctionFactories, 1, true);
+                        break;
+                    case RECURSIVE_HYBRID_HASH:
+                        grouper = new RecursiveHybridHashGrouper(ctx, keyFields, decorFields, framesLimit, tableSize,
+                                inputRecordCount, outputGroupCount, groupStateSizeInBytes, fudgeFactor,
+                                firstNormalizerFactory, comparatorFactories, hashFamilies, aggregatorFactory,
+                                partialMergerFactory, finalMergerFactory, inRecDesc, outRecDesc, 0, writer);
                         break;
                     case SORT_GROUP_MERGE_GROUP:
                     default:
                         grouper = new SortGroupMergeGrouper(ctx, keyFields, decorFields, framesLimit,
                                 firstNormalizerFactory, comparatorFactories, aggregatorFactory, partialMergerFactory,
-                                finalMergerFactory, inRecDesc, outRecDesc);
+                                finalMergerFactory, inRecDesc, outRecDesc, writer);
                         break;
 
                 }
-                grouper.init();
                 writer.open();
+                grouper.open();
             }
 
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-                if (!grouper.nextFrame(buffer, 0)) {
-                    switch (algorithm) {
-                        case SORT_GROUP:
-                            grouper.flush(writer, 0);
-                            grouper.reset();
-                            if (!grouper.nextFrame(buffer, 0)) {
-                                throw new HyracksDataException("Failed to aggregate a tuple using SortGrouper.");
-                            }
-                            break;
-                        case HASH_GROUP:
-                            int tupleProcessed = 0;
-                            do {
-                                tupleProcessed += ((HashGrouper) grouper).getProcessedTupleCount();
-                                grouper.flush(writer, 0);
-                                grouper.reset();
-                            } while (!grouper.nextFrame(buffer, tupleProcessed));
-                            break;
-                        case HASH_GROUP_SORT_MERGE_GROUP:
-                        case SORT_GROUP_MERGE_GROUP:
-                        default:
-                            throw new HyracksDataException("Failed to aggregate a tuple using " + algorithm.name()
-                                    + ": nextFrame() should never return false for this algorithm.");
-
-                    }
-                }
+                grouper.nextFrame(buffer);
             }
 
             @Override
@@ -176,25 +172,6 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
             @Override
             public void close() throws HyracksDataException {
-                // process before the close
-                switch (algorithm) {
-                    case HASH_GROUP_SORT_MERGE_GROUP:
-                    case SORT_GROUP_MERGE_GROUP:
-                        grouper.flush(writer, 0);
-                        break;
-                    case HASH_GROUP:
-                        if (((HashGrouper) grouper).getTuplesInHashTable() > 0) {
-                            grouper.flush(writer, 0);
-                        }
-                        break;
-                    case SORT_GROUP:
-                        if (((SortGrouper) grouper).getFrameCount() > 0) {
-                            grouper.flush(writer, 0);
-                        }
-                        break;
-                    default:
-                        break;
-                }
                 grouper.close();
                 writer.close();
             }

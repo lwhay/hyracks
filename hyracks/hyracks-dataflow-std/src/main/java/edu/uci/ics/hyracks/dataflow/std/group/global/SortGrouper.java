@@ -30,9 +30,14 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
+import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption;
+import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
 
 /**
  * An implementation of aggregating each frame of the input data using sort-based approach.
@@ -42,19 +47,12 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
     private static final int POINTER_LENGTH = 3;
     private static final int INT_SIZE = 4;
 
-    private final IAggregatorDescriptor aggregator;
-    private final IAggregatorDescriptor finalMerger;
-    protected final IHyracksTaskContext ctx;
-    protected final int[] keyFields;
-    protected final int[] decorFields;
-    private final int framesLimit;
     private final INormalizedKeyComputer nkc;
     private final IBinaryComparator[] comparators;
-    private final RecordDescriptor outRecordDesc;
 
-    protected final List<ByteBuffer> buffers;
-    protected final FrameTupleAccessor bufferTupleAccessor;
-    private final FrameTupleAccessor bufferTupleAccessorForComparison;
+    protected List<ByteBuffer> buffers;
+    protected FrameTupleAccessor bufferTupleAccessor;
+    private FrameTupleAccessor bufferTupleAccessorForComparison;
 
     private ByteBuffer outFrame;
     private ArrayTupleBuilder tupleBuilder;
@@ -65,7 +63,10 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
     private int[] tPointersTemp;
     protected int tupleCount;
 
+    private IAggregatorDescriptor aggregator;
+    private IAggregatorDescriptor merger;
     private AggregateState aggregateState;
+
     private byte[] groupResultCache;
     private ByteBuffer groupResultCacheBuffer;
     private FrameTupleAppender groupResultCacheAppender;
@@ -76,40 +77,37 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             runsCounter;
 
     public SortGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
+            IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
-            IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory finalMergeFactory,
-            RecordDescriptor inRecordDescriptor, RecordDescriptor outRecordDescriptor) throws HyracksDataException {
-        super(false);
+            IFrameWriter outputWriter) throws HyracksDataException {
+        super(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, mergerFactory, inRecDesc, outRecDesc, false,
+                outputWriter);
 
-        this.ctx = ctx;
-        this.keyFields = keyFields;
-        this.decorFields = decorFields;
-        this.framesLimit = framesLimit;
         this.nkc = (firstKeyNormalizerFactory == null) ? null : firstKeyNormalizerFactory.createNormalizedKeyComputer();
-        this.outRecordDesc = outRecordDescriptor;
         this.comparators = new IBinaryComparator[comparatorFactories.length];
         for (int i = 0; i < comparators.length; i++) {
             this.comparators[i] = comparatorFactories[i].createBinaryComparator();
         }
-        this.aggregator = aggregatorFactory.createAggregator(ctx, inRecordDescriptor, outRecordDescriptor, keyFields,
-                keyFields);
+    }
+
+    public void open() throws HyracksDataException {
+
+        this.buffers = new ArrayList<ByteBuffer>();
+        this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecDesc);
+        this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecDesc);
+
+        this.aggregator = aggregatorFactory.createAggregator(ctx, inRecDesc, outRecDesc, keyFields, keyFields);
         int[] storedKeys = new int[keyFields.length];
         for (int i = 0; i < storedKeys.length; i++) {
             storedKeys[i] = i;
         }
-        this.finalMerger = finalMergeFactory.createAggregator(ctx, outRecordDescriptor, outRecordDescriptor,
-                storedKeys, storedKeys);
-        this.buffers = new ArrayList<ByteBuffer>();
-        this.bufferTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
-        this.bufferTupleAccessorForComparison = new FrameTupleAccessor(ctx.getFrameSize(), inRecordDescriptor);
-    }
-
-    public void init() throws HyracksDataException {
+        this.merger = mergerFactory.createAggregator(ctx, outRecDesc, outRecDesc, storedKeys, storedKeys);
 
         this.aggregateState = this.aggregator.createAggregateStates();
 
         this.outFrame = ctx.allocateFrame();
-        this.tupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFieldCount());
+        this.tupleBuilder = new ArrayTupleBuilder(outRecDesc.getFieldCount());
         this.dataFrameCount = 0;
         this.tupleCount = 0;
 
@@ -136,6 +134,8 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             this.appender.reset(outFrame, true);
         }
 
+        this.runReaders.clear();
+
         ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
         ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
         ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
@@ -155,21 +155,31 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         return dataFrameCount;
     }
 
-    public boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException {
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         ByteBuffer copyFrame;
         if (dataFrameCount == buffers.size()) {
             if (dataFrameCount < framesLimit) {
                 copyFrame = ctx.allocateFrame();
                 buffers.add(copyFrame);
             } else {
-                return false;
+                IFrameWriter dumpWriter = outputWriter;
+                if (dumpWriter == null) {
+                    dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class.getSimpleName()),
+                            ctx.getIOManager());
+                    dumpWriter.open();
+                }
+                flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
+                if (outputWriter == null) {
+                    RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+                    this.runReaders.add(runReader);
+                    dumpWriter.close();
+                }
             }
-        } else {
-            copyFrame = buffers.get(dataFrameCount);
         }
+
+        copyFrame = buffers.get(dataFrameCount);
         FrameUtils.copy(buffer, copyFrame);
         ++dataFrameCount;
-        return true;
     }
 
     private void sortFrames() throws HyracksDataException {
@@ -327,7 +337,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
-    public void flush(IFrameWriter writer, int flushOption) throws HyracksDataException {
+    private void flush(IFrameWriter writer, IGrouperFlushOption flushOption) throws HyracksDataException {
 
         // sort the data before flushing
         sortFrames();
@@ -353,7 +363,8 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
                     continue;
                 } else {
                     // write the cached group into the final output
-                    writeOutput(groupResultCacheAccessor, 0, writer, flushOption == 1);
+                    writeOutput(groupResultCacheAccessor, 0, writer,
+                            flushOption.getOutputState() == GroupOutputState.RESULT_STATE);
                 }
             }
 
@@ -375,7 +386,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
                 groupResultCache = new byte[requiredSize];
                 groupResultCacheAppender = new FrameTupleAppender(groupResultCache.length);
                 groupResultCacheBuffer = ByteBuffer.wrap(groupResultCache);
-                groupResultCacheAccessor = new FrameTupleAccessor(groupResultCache.length, outRecordDesc);
+                groupResultCacheAccessor = new FrameTupleAccessor(groupResultCache.length, outRecDesc);
             }
 
             groupResultCacheAppender.reset(groupResultCacheBuffer, true);
@@ -388,7 +399,8 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         }
 
         if (groupResultCache != null && groupResultCacheAccessor.getTupleCount() > 0) {
-            writeOutput(groupResultCacheAccessor, 0, writer, flushOption == 1);
+            writeOutput(groupResultCacheAccessor, 0, writer,
+                    flushOption.getOutputState() == GroupOutputState.RESULT_STATE);
             if (appender.getTupleCount() > 0) {
                 FrameUtils.flushFrame(outFrame, writer);
                 flushedRecCounter += appender.getTupleCount();
@@ -398,7 +410,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
-    public void close() {
+    public void close() throws HyracksDataException {
 
         ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
         ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
@@ -435,7 +447,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         }
 
         if (useFinalMerger) {
-            finalMerger.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
+            merger.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
         } else {
             aggregator.outputFinalResult(tupleBuilder, lastTupleAccessor, lastTupleIndex, aggregateState);
         }
@@ -452,5 +464,50 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             }
         }
 
+    }
+
+    @Override
+    public void fail() throws HyracksDataException {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void wrapup() throws HyracksDataException {
+        // flush the records if there are any left in the memory
+        if (runReaders.size() > 0 && tupleCount > 0) {
+            IFrameWriter dumpWriter = outputWriter;
+            if (dumpWriter == null) {
+                dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class.getSimpleName()),
+                        ctx.getIOManager());
+                dumpWriter.open();
+            }
+            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
+            if (outputWriter == null) {
+                RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+                this.runReaders.add(runReader);
+                dumpWriter.close();
+            }
+        }
+    }
+
+    @Override
+    public List<RunFileReader> getOutputRunReaders() throws HyracksDataException {
+        return runReaders;
+    }
+
+    /**
+     * Flush the records in the memory, if there is no runs generated and all records can be maintained in memory.
+     * 
+     * @param writer
+     * @throws HyracksDataException
+     */
+    public void flushMemory(IFrameWriter writer) throws HyracksDataException {
+        flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
+    }
+
+    @Override
+    public int getRunsCount() {
+        return this.runReaders.size();
     }
 }

@@ -97,6 +97,10 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
     int framesLimit = 512;
     int tableSize = 8171;
 
+    int inputCount = 600571;
+    int groupStateInBytes = 64;
+    double fudgeFactor = 1.4;
+
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
             throws IOException {
 
@@ -142,9 +146,11 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] {};
+        int groupCount = 1;
 
         LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
                         new CountFieldAggregatorFactory(false), new IntSumFieldAggregatorFactory(1, false),
                         new IntSumFieldAggregatorFactory(3, false), new FloatSumFieldAggregatorFactory(5, false),
@@ -176,7 +182,8 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         spec.connect(conn0, csvScanner, 0, grouper0, 0);
 
         LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
                         new IntSumFieldAggregatorFactory(keyFields.length, false),
                         new IntSumFieldAggregatorFactory(keyFields.length + 1, false),
@@ -239,9 +246,10 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         int[] keyFields = new int[] { 1 };
         int[] storedKeyFields = new int[] { 0 };
+        int groupCount = 20000;
 
         LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
@@ -275,7 +283,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         spec.connect(conn0, csvScanner, 0, grouper0, 0);
 
         LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, storedKeyFields, new int[] {},
-                framesLimit, tableSize,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
@@ -345,10 +353,11 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
         int[] keyFields = new int[] { 8, 1 };
         int[] storedKeyFields = new int[] { 0, 1 };
+        int groupCount = 59975;
 
         LocalGroupOperatorDescriptor grouper0 = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {
-                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE,
                         MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
@@ -383,8 +392,8 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
         spec.connect(conn0, csvScanner, 0, grouper0, 0);
 
         LocalGroupOperatorDescriptor grouper1 = new LocalGroupOperatorDescriptor(spec, storedKeyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {
-                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE,
                         MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(

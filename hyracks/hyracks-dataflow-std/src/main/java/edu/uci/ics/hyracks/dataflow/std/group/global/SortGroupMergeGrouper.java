@@ -15,7 +15,6 @@
 package edu.uci.ics.hyracks.dataflow.std.group.global;
 
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -25,14 +24,9 @@ import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
-import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
-public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
-
-    private SortGrouper sortGrouper;
-
-    private MergeGrouper mergeGrouper;
+public class SortGroupMergeGrouper implements IFrameWriter {
 
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
@@ -42,16 +36,15 @@ public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
     private final IBinaryComparatorFactory[] comparatorFactories;
     private final IAggregatorDescriptorFactory aggregatorFactory, partialMergerFactory, finalMergerFactory;
     private final RecordDescriptor inRecordDesc, outRecordDesc;
+    private final IFrameWriter outputWriter;
 
-    private List<RunFileReader> runsFromSortGrouper;
-    private RunFileWriter currentRunWriter;
+    private SortGrouper sortGrouper;
 
     public SortGroupMergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecordDescriptor,
-            RecordDescriptor outRecordDescriptor) throws HyracksDataException {
-        super(false);
+            RecordDescriptor outRecordDescriptor, IFrameWriter outputWriter) throws HyracksDataException {
         this.ctx = ctx;
         this.keyFields = keyFields;
         this.decorFields = decorFields;
@@ -60,6 +53,7 @@ public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
         this.comparatorFactories = comparatorFactories;
         this.inRecordDesc = inRecordDescriptor;
         this.outRecordDesc = outRecordDescriptor;
+        this.outputWriter = outputWriter;
 
         this.aggregatorFactory = aggregatorFactory;
         this.partialMergerFactory = partialMergerFactory;
@@ -72,11 +66,10 @@ public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
      * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#init()
      */
     @Override
-    public void init() throws HyracksDataException {
-        this.sortGrouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, firstKeyNormalizerFactory,
-                comparatorFactories, aggregatorFactory, finalMergerFactory, inRecordDesc, outRecordDesc);
-        this.runsFromSortGrouper = new LinkedList<RunFileReader>();
-        sortGrouper.init();
+    public void open() throws HyracksDataException {
+        sortGrouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, finalMergerFactory,
+                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, outputWriter);
+        sortGrouper.open();
     }
 
     /*
@@ -85,76 +78,8 @@ public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
      * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#nextFrame(java.nio.ByteBuffer)
      */
     @Override
-    public boolean nextFrame(ByteBuffer buffer, int tupleIndexOffset) throws HyracksDataException {
-        if (!sortGrouper.nextFrame(buffer, tupleIndexOffset)) {
-            currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                    .getSimpleName() + "_sort"), ctx.getIOManager());
-            currentRunWriter.open();
-            try {
-                this.sortGrouper.flush(currentRunWriter, 0);
-                this.sortGrouper.reset();
-            } finally {
-                currentRunWriter.close();
-                runsFromSortGrouper.add(currentRunWriter.createReader());
-            }
-            return sortGrouper.nextFrame(buffer, tupleIndexOffset);
-        }
-        return true;
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#getDataDistHistogram()
-     */
-    @Override
-    public int[] getDataDistHistogram() throws HyracksDataException {
-        return this.sortGrouper.getDataDistHistogram();
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#flush(edu.uci.ics.hyracks.api.comm.IFrameWriter
-     * )
-     */
-    @Override
-    public void flush(IFrameWriter writer, int flushOption) throws HyracksDataException {
-        if (sortGrouper.getFrameCount() > 0) {
-            if (runsFromSortGrouper.size() > 0) {
-                currentRunWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGroupMergeGrouper.class
-                        .getSimpleName() + "_sort"), ctx.getIOManager());
-                currentRunWriter.open();
-                this.sortGrouper.flush(currentRunWriter, 0);
-                currentRunWriter.close();
-                runsFromSortGrouper.add(currentRunWriter.createReader());
-                currentRunWriter = null;
-            } else {
-                this.sortGrouper.flush(writer, 1);
-            }
-            this.sortGrouper.close();
-        }
-        ctx.getCounterContext().getCounter(debugID + ".runFiles", true).update(runsFromSortGrouper.size());
-        if (runsFromSortGrouper.size() > 0) {
-            int[] mergeKeyFields = new int[keyFields.length];
-            for (int i = 0; i < mergeKeyFields.length; i++) {
-                mergeKeyFields[i] = i;
-            }
-            this.mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, decorFields, framesLimit, comparatorFactories,
-                    partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc);
-            this.mergeGrouper.process(runsFromSortGrouper, writer);
-        }
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#reset()
-     */
-    @Override
-    public void reset() throws HyracksDataException {
-        // do nothing
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        sortGrouper.nextFrame(buffer);
     }
 
     /*
@@ -164,7 +89,33 @@ public class SortGroupMergeGrouper extends AbstractHistogramPushBasedGrouper {
      */
     @Override
     public void close() throws HyracksDataException {
-        // do nothing
+        sortGrouper.wrapup();
+        if (sortGrouper.getRunsCount() == 0) {
+            // no run file has been generated in the sort grouper, so the content can be directly outputted
+            sortGrouper.flushMemory(outputWriter);
+            sortGrouper.close();
+        } else {
+            List<RunFileReader> runs = sortGrouper.getOutputRunReaders();
+            sortGrouper.close();
+            int[] mergeKeyFields = new int[keyFields.length];
+            for (int i = 0; i < keyFields.length; i++) {
+                mergeKeyFields[i] = i;
+            }
+            int[] mergeDecorFields = new int[decorFields.length];
+            for (int i = 0; i < decorFields.length; i++) {
+                mergeDecorFields[i] = keyFields.length + i;
+            }
+            MergeGrouper mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, mergeDecorFields, framesLimit,
+                    comparatorFactories, partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc);
+            mergeGrouper.process(runs, outputWriter);
+        }
+
+    }
+
+    @Override
+    public void fail() throws HyracksDataException {
+        // TODO Auto-generated method stub
+
     }
 
 }

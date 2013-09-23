@@ -86,7 +86,11 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
     int framesLimit = 1024;
     int tableSize = 8171;
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms algo = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP_SORT_MERGE_GROUP;
+    int inputCount = 600571;
+    int groupStateInBytes = 64;
+    double fudgeFactor = 1.4;
+
+    LocalGroupOperatorDescriptor.GroupAlgorithms algo = LocalGroupOperatorDescriptor.GroupAlgorithms.RECURSIVE_HYBRID_HASH;
 
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
             throws IOException {
@@ -140,9 +144,11 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] {};
+        int groupCount = 1;
 
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
                         new CountFieldAggregatorFactory(false), new IntSumFieldAggregatorFactory(1, false),
                         new IntSumFieldAggregatorFactory(3, false), new FloatSumFieldAggregatorFactory(5, false),
@@ -199,9 +205,10 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE, UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 1 };
+        int groupCount = 20000;
 
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize,
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null,
                 new MultiFieldsAggregatorFactory(new IFieldAggregateDescriptorFactory[] {
@@ -261,10 +268,11 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                 UTF8StringSerializerDeserializer.INSTANCE });
 
         int[] keyFields = new int[] { 8, 1 };
+        int groupCount = 59975;
 
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
-                framesLimit, tableSize, new IBinaryComparatorFactory[] {
-                        PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
                         PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
                 new IBinaryHashFunctionFamily[] { MurmurHash3BinaryHashFunctionFamily.INSTANCE,
                         MurmurHash3BinaryHashFunctionFamily.INSTANCE }, null, new MultiFieldsAggregatorFactory(
