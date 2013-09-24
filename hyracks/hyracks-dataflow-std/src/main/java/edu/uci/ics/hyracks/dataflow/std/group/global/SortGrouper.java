@@ -134,8 +134,6 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             this.appender.reset(outFrame, true);
         }
 
-        this.runReaders.clear();
-
         ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
         ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
         ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
@@ -159,8 +157,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         ByteBuffer copyFrame;
         if (dataFrameCount == buffers.size()) {
             if (dataFrameCount < framesLimit) {
-                copyFrame = ctx.allocateFrame();
-                buffers.add(copyFrame);
+                buffers.add(ctx.allocateFrame());
             } else {
                 IFrameWriter dumpWriter = outputWriter;
                 if (dumpWriter == null) {
@@ -174,9 +171,10 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
                     this.runReaders.add(runReader);
                     dumpWriter.close();
                 }
+                // reset the data frame count
+                reset();
             }
         }
-
         copyFrame = buffers.get(dataFrameCount);
         FrameUtils.copy(buffer, copyFrame);
         ++dataFrameCount;
@@ -475,19 +473,14 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
     @Override
     public void wrapup() throws HyracksDataException {
         // flush the records if there are any left in the memory
-        if (runReaders.size() > 0 && tupleCount > 0) {
-            IFrameWriter dumpWriter = outputWriter;
-            if (dumpWriter == null) {
-                dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class.getSimpleName()),
-                        ctx.getIOManager());
-                dumpWriter.open();
-            }
+        if (runReaders.size() > 0 && dataFrameCount > 0 && outputWriter == null) {
+            IFrameWriter dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class
+                    .getSimpleName()), ctx.getIOManager());
+            dumpWriter.open();
             flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-            if (outputWriter == null) {
-                RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
-                this.runReaders.add(runReader);
-                dumpWriter.close();
-            }
+            RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+            this.runReaders.add(runReader);
+            dumpWriter.close();
         }
     }
 

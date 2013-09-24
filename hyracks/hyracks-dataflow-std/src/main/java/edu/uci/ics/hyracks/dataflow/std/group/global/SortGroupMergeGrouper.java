@@ -68,7 +68,7 @@ public class SortGroupMergeGrouper implements IFrameWriter {
     @Override
     public void open() throws HyracksDataException {
         sortGrouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, finalMergerFactory,
-                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, outputWriter);
+                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, null);
         sortGrouper.open();
     }
 

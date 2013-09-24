@@ -90,7 +90,7 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
     int groupStateInBytes = 64;
     double fudgeFactor = 1.4;
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms algo = LocalGroupOperatorDescriptor.GroupAlgorithms.RECURSIVE_HYBRID_HASH;
+    LocalGroupOperatorDescriptor.GroupAlgorithms algo = LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP;
 
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
             throws IOException {
