@@ -115,11 +115,11 @@ public class HybridHashGrouper extends AbstractHistogramPushBasedGrouper {
     public HybridHashGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
             RecordDescriptor inRecDesc, RecordDescriptor outRecDesc, boolean enableHistorgram,
-            IFrameWriter outputWriter, int tableSize, IBinaryComparatorFactory[] comparatorFactories,
-            IBinaryHashFunctionFactory[] hashFunctionFactories, int partitions, boolean useBloomFilter)
-            throws HyracksDataException {
+            IFrameWriter outputWriter, boolean isGenerateRuns, int tableSize,
+            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
+            int partitions, boolean useBloomFilter) throws HyracksDataException {
         super(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, mergerFactory, inRecDesc, outRecDesc,
-                enableHistorgram, outputWriter);
+                enableHistorgram, outputWriter, isGenerateRuns);
 
         this.tableSize = tableSize;
 
@@ -317,17 +317,19 @@ public class HybridHashGrouper extends AbstractHistogramPushBasedGrouper {
         }
         spillFrameTupleAppender.reset(spilledPartitionBuffers[partitionToSpill], false);
         if (!spillFrameTupleAppender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-            IFrameWriter dumpWriter = outputWriter;
-            if (dumpWriter == null) {
+            if (isGenerateRuns) {
                 // the buffer for this spilled partition is full
                 if (spillingPartitionRunWriters[partitionToSpill] == null) {
                     spillingPartitionRunWriters[partitionToSpill] = new RunFileWriter(
                             ctx.createManagedWorkspaceFile(HybridHashGrouper.class.getSimpleName()), ctx.getIOManager());
                     spillingPartitionRunWriters[partitionToSpill].open();
                 }
-                dumpWriter = spillingPartitionRunWriters[partitionToSpill];
+                flush(spillingPartitionRunWriters[partitionToSpill], GrouperFlushOption.FLUSH_FOR_GROUP_STATE,
+                        partitionToSpill);
+            } else {
+                flush(outputWriter, GrouperFlushOption.FLUSH_FOR_RESULT_STATE, partitionToSpill);
             }
-            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE, partitionToSpill);
+            spillFrameTupleAppender.reset(spilledPartitionBuffers[partitionToSpill], true);
             if (!spillFrameTupleAppender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 throw new HyracksDataException("Failed to flush a tuple of a spilling partition");
             }
@@ -495,6 +497,7 @@ public class HybridHashGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
+    @Override
     public void wrapup() throws HyracksDataException {
         if (outputBuffer == null) {
             outputBuffer = ctx.allocateFrame();
@@ -512,14 +515,24 @@ public class HybridHashGrouper extends AbstractHistogramPushBasedGrouper {
             if (groupFrameAccessor.getTupleCount() == 0) {
                 continue;
             }
-            if (spillingPartitionRunWriters[i] != null) {
-                // flush the records in the spilling buffer
+            if (isGenerateRuns) {
+                if (spillingPartitionRunWriters[i] == null) {
+                    spillingPartitionRunWriters[i] = new RunFileWriter(
+                            ctx.createManagedWorkspaceFile(HybridHashGrouper.class.getSimpleName()), ctx.getIOManager());
+                    spillingPartitionRunWriters[i].open();
+                }
                 flush(spillingPartitionRunWriters[i], GrouperFlushOption.FLUSH_FOR_GROUP_STATE, i);
-                runReaders.add(spillingPartitionRunWriters[i].createReader());
-                recordsInRuns.add(rawRecordsInSpillingPartitions[i]);
-                spillingPartitionRunWriters[i].close();
+            } else {
+                flush(outputWriter, GrouperFlushOption.FLUSH_FOR_RESULT_STATE, i);
             }
         }
+
+        // flush the resident partition
+        flush(outputWriter, GrouperFlushOption.FLUSH_FOR_RESULT_STATE, -1);
+    }
+
+    @Override
+    protected void flush(IFrameWriter writer, GrouperFlushOption flushOption) throws HyracksDataException {
     }
 
     /*
@@ -609,22 +622,6 @@ public class HybridHashGrouper extends AbstractHistogramPushBasedGrouper {
     public void fail() throws HyracksDataException {
         // TODO Auto-generated method stub
 
-    }
-
-    @Override
-    public void flushMemory(IFrameWriter writer) throws HyracksDataException {
-        // flush the resident partition (hash table)
-        flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE, -1);
-
-        for (int i = 0; i < partitions; i++) {
-            if (spillingPartitionRunWriters[i] != null || spilledPartitionBuffers[i] == null) {
-                continue;
-            }
-            groupFrameAccessor.reset(spilledPartitionBuffers[i]);
-            if (groupFrameAccessor.getTupleCount() > 0) {
-                flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE, i);
-            }
-        }
     }
 
     public int getRawRecordsInResidentPartition() {

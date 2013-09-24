@@ -24,7 +24,6 @@ import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
 
 /**
@@ -87,12 +86,12 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
     public HashGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
             RecordDescriptor inRecDesc, RecordDescriptor outRecDesc, boolean enableHistorgram,
-            IFrameWriter outputWriter, int tableSize, IBinaryComparatorFactory[] comparatorFactories,
-            IBinaryHashFunctionFactory[] hashFunctionFactories,
+            IFrameWriter outputWriter, boolean isGenerateRuns, int tableSize,
+            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
             INormalizedKeyComputerFactory firstNormalizerComputerFactory, boolean sortOutput)
             throws HyracksDataException {
         super(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, mergerFactory, inRecDesc, outRecDesc,
-                enableHistorgram, outputWriter);
+                enableHistorgram, outputWriter, isGenerateRuns);
 
         this.tableSize = tableSize;
 
@@ -211,17 +210,17 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                     currentWorkingFrame++;
                     if (currentWorkingFrame >= contents.length) {
                         // hash table is full
-                        IFrameWriter dumpWriter = outputWriter;
-                        if (dumpWriter == null) {
-                            dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class
-                                    .getSimpleName()), ctx.getIOManager());
+                        if (isGenerateRuns) {
+                            IFrameWriter dumpWriter = new RunFileWriter(
+                                    ctx.createManagedWorkspaceFile(HashGrouper.class.getSimpleName()),
+                                    ctx.getIOManager());
                             dumpWriter.open();
-                        }
-                        flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-                        if (outputWriter == null) {
+                            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
                             RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
                             this.runReaders.add(runReader);
                             dumpWriter.close();
+                        } else {
+                            flush(outputWriter, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
                         }
                         reset();
                     }
@@ -246,19 +245,6 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
             inRecCounter++;
             tupleIndex++;
-        }
-    }
-
-    public void wrapup() throws HyracksDataException {
-        if (currentWorkingFrame > 0 && runReaders.size() > 0 && outputWriter == null) {
-            // hash table is full
-            IFrameWriter dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class
-                    .getSimpleName()), ctx.getIOManager());
-            dumpWriter.open();
-            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-            RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
-            this.runReaders.add(runReader);
-            dumpWriter.close();
         }
     }
 
@@ -465,7 +451,8 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
-    private void flush(IFrameWriter writer, IGrouperFlushOption flushOption) throws HyracksDataException {
+    @Override
+    protected void flush(IFrameWriter writer, GrouperFlushOption flushOption) throws HyracksDataException {
 
         IAggregatorDescriptor aggregatorToFlush = (flushOption.getOutputState() == GroupOutputState.RESULT_STATE) ? merger
                 : aggregator;
@@ -624,10 +611,5 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
     @Override
     public List<RunFileReader> getOutputRunReaders() throws HyracksDataException {
         return this.runReaders;
-    }
-
-    @Override
-    public void flushMemory(IFrameWriter writer) throws HyracksDataException {
-        flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
     }
 }

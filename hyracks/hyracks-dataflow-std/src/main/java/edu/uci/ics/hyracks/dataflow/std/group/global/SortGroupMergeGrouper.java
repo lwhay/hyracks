@@ -68,7 +68,7 @@ public class SortGroupMergeGrouper implements IFrameWriter {
     @Override
     public void open() throws HyracksDataException {
         sortGrouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, finalMergerFactory,
-                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, null);
+                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, outputWriter, true);
         sortGrouper.open();
     }
 
@@ -92,7 +92,6 @@ public class SortGroupMergeGrouper implements IFrameWriter {
         sortGrouper.wrapup();
         if (sortGrouper.getRunsCount() == 0) {
             // no run file has been generated in the sort grouper, so the content can be directly outputted
-            sortGrouper.flushMemory(outputWriter);
             sortGrouper.close();
         } else {
             List<RunFileReader> runs = sortGrouper.getOutputRunReaders();

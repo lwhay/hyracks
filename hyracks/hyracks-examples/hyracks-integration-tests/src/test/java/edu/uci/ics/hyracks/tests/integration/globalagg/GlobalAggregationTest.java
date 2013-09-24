@@ -92,7 +92,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
             UTF8StringParserFactory.INSTANCE, }, '|');
 
     LocalGroupOperatorDescriptor.GroupAlgorithms localGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
-    LocalGroupOperatorDescriptor.GroupAlgorithms globalGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP_SORT_MERGE_GROUP;
+    LocalGroupOperatorDescriptor.GroupAlgorithms globalGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.RECURSIVE_HYBRID_HASH;
 
     int framesLimit = 512;
     int tableSize = 8171;

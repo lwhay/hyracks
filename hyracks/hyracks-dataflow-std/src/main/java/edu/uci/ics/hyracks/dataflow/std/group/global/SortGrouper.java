@@ -36,7 +36,6 @@ import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
-import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
 
 /**
@@ -80,9 +79,9 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory mergerFactory,
             RecordDescriptor inRecDesc, RecordDescriptor outRecDesc,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
-            IFrameWriter outputWriter) throws HyracksDataException {
+            IFrameWriter outputWriter, boolean isGenerateRuns) throws HyracksDataException {
         super(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, mergerFactory, inRecDesc, outRecDesc, false,
-                outputWriter);
+                outputWriter, isGenerateRuns);
 
         this.nkc = (firstKeyNormalizerFactory == null) ? null : firstKeyNormalizerFactory.createNormalizedKeyComputer();
         this.comparators = new IBinaryComparator[comparatorFactories.length];
@@ -159,17 +158,16 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             if (dataFrameCount < framesLimit) {
                 buffers.add(ctx.allocateFrame());
             } else {
-                IFrameWriter dumpWriter = outputWriter;
-                if (dumpWriter == null) {
-                    dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class.getSimpleName()),
-                            ctx.getIOManager());
+                if (isGenerateRuns) {
+                    IFrameWriter dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class
+                            .getSimpleName()), ctx.getIOManager());
                     dumpWriter.open();
-                }
-                flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-                if (outputWriter == null) {
+                    flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
                     RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
                     this.runReaders.add(runReader);
                     dumpWriter.close();
+                } else {
+                    flush(outputWriter, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
                 }
                 // reset the data frame count
                 reset();
@@ -335,7 +333,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         }
     }
 
-    private void flush(IFrameWriter writer, IGrouperFlushOption flushOption) throws HyracksDataException {
+    protected void flush(IFrameWriter writer, GrouperFlushOption flushOption) throws HyracksDataException {
 
         // sort the data before flushing
         sortFrames();
@@ -471,32 +469,8 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
     }
 
     @Override
-    public void wrapup() throws HyracksDataException {
-        // flush the records if there are any left in the memory
-        if (runReaders.size() > 0 && dataFrameCount > 0 && outputWriter == null) {
-            IFrameWriter dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(SortGrouper.class
-                    .getSimpleName()), ctx.getIOManager());
-            dumpWriter.open();
-            flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-            RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
-            this.runReaders.add(runReader);
-            dumpWriter.close();
-        }
-    }
-
-    @Override
     public List<RunFileReader> getOutputRunReaders() throws HyracksDataException {
         return runReaders;
-    }
-
-    /**
-     * Flush the records in the memory, if there is no runs generated and all records can be maintained in memory.
-     * 
-     * @param writer
-     * @throws HyracksDataException
-     */
-    public void flushMemory(IFrameWriter writer) throws HyracksDataException {
-        flush(writer, GrouperFlushOption.FLUSH_FOR_RESULT_STATE);
     }
 
     @Override

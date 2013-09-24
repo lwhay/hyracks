@@ -69,8 +69,8 @@ public class HashGroupSortMergeGrouper implements IFrameWriter {
     @Override
     public void open() throws HyracksDataException {
         this.hashGrouper = new HashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
-                finalMergerFactory, inRecordDesc, outRecordDesc, false, outputWriter, tableSize, comparatorFactories,
-                hashFunctionFactories, firstKeyNormalizerFactory, true);
+                finalMergerFactory, inRecordDesc, outRecordDesc, false, outputWriter, true, tableSize,
+                comparatorFactories, hashFunctionFactories, firstKeyNormalizerFactory, true);
         this.hashGrouper.open();
     }
 
@@ -83,7 +83,6 @@ public class HashGroupSortMergeGrouper implements IFrameWriter {
     public void close() throws HyracksDataException {
         hashGrouper.wrapup();
         if (hashGrouper.getRunsCount() == 0) {
-            hashGrouper.flushMemory(outputWriter);
             hashGrouper.close();
         } else {
             List<RunFileReader> runs = hashGrouper.getOutputRunReaders();

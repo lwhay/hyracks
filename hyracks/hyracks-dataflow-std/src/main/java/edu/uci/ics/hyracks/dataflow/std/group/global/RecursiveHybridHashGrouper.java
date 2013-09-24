@@ -110,8 +110,8 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
                     inRecordDesc);
         } else {
             grouper = new HybridHashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
-                    finalMergerFactory, inRecordDesc, outRecordDesc, false, null, tableSize, comparatorFactories,
-                    hashFunctionFactories, hybridHashPartitions, true);
+                    finalMergerFactory, inRecordDesc, outRecordDesc, false, outputWriter, true, tableSize,
+                    comparatorFactories, hashFunctionFactories, hybridHashPartitions, true);
         }
         grouper.open();
     }
@@ -163,9 +163,6 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
     @Override
     public void close() throws HyracksDataException {
         grouper.wrapup();
-        if (grouper instanceof HybridHashGrouper) {
-            ((HybridHashGrouper) grouper).flushMemory(outputWriter);
-        }
         List<RunFileReader> runs = grouper.getOutputRunReaders();
 
         if (runs.size() <= 0) {
@@ -225,7 +222,7 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
 
             HybridHashGrouper hybridHashGrouper = new HybridHashGrouper(ctx, keyFieldsInGroupState,
                     decorFieldsInGroupState, framesLimit, partialMergerFactory, finalMergerFactory, inRecordDesc,
-                    outRecordDesc, true, outputWriter, tableSize, comparatorFactories, hashFunctionFactories,
+                    outRecordDesc, true, outputWriter, true, tableSize, comparatorFactories, hashFunctionFactories,
                     runPartition, true);
 
             hybridHashGrouper.open();

@@ -124,11 +124,11 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                     case SORT_GROUP:
                         grouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
                                 finalMergerFactory, inRecDesc, outRecDesc, firstNormalizerFactory, comparatorFactories,
-                                writer);
+                                writer, false);
                         break;
                     case HASH_GROUP:
                         grouper = new HashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
-                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, tableSize,
+                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, false, tableSize,
                                 comparatorFactories, hashFunctionFactories, firstNormalizerFactory, false);
                         break;
                     case HASH_GROUP_SORT_MERGE_GROUP:
@@ -138,7 +138,7 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                         break;
                     case SIMPLE_HYBRID_HASH:
                         grouper = new HybridHashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
-                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, tableSize,
+                                finalMergerFactory, inRecDesc, outRecDesc, false, writer, false, tableSize,
                                 comparatorFactories, hashFunctionFactories, 1, true);
                         break;
                     case RECURSIVE_HYBRID_HASH:
@@ -172,6 +172,15 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
             @Override
             public void close() throws HyracksDataException {
+                switch (algorithm) {
+                    case SORT_GROUP:
+                    case HASH_GROUP:
+                    case SIMPLE_HYBRID_HASH:
+                        ((AbstractHistogramPushBasedGrouper) grouper).wrapup();
+                        break;
+                    default:
+                        break;
+                }
                 grouper.close();
                 writer.close();
             }
