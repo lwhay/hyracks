@@ -223,6 +223,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                             this.runReaders.add(runReader);
                             dumpWriter.close();
                         }
+                        reset();
                     }
                     if (contents[currentWorkingFrame] == null) {
                         contents[currentWorkingFrame] = ctx.allocateFrame();
@@ -249,20 +250,15 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
     }
 
     public void wrapup() throws HyracksDataException {
-        if (currentWorkingFrame > 0) {
+        if (currentWorkingFrame > 0 && runReaders.size() > 0 && outputWriter == null) {
             // hash table is full
-            IFrameWriter dumpWriter = outputWriter;
-            if (dumpWriter == null) {
-                dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class.getSimpleName()),
-                        ctx.getIOManager());
-                dumpWriter.open();
-            }
+            IFrameWriter dumpWriter = new RunFileWriter(ctx.createManagedWorkspaceFile(HashGrouper.class
+                    .getSimpleName()), ctx.getIOManager());
+            dumpWriter.open();
             flush(dumpWriter, GrouperFlushOption.FLUSH_FOR_GROUP_STATE);
-            if (outputWriter == null) {
-                RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
-                this.runReaders.add(runReader);
-                dumpWriter.close();
-            }
+            RunFileReader runReader = ((RunFileWriter) dumpWriter).createReader();
+            this.runReaders.add(runReader);
+            dumpWriter.close();
         }
     }
 
@@ -582,8 +578,6 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         // reset the lookup reference
         this.lookupFrameIndex = -1;
         this.lookupTupleIndex = -1;
-
-        this.runReaders.clear();
 
         // reset header pages
         resetHeaders();
