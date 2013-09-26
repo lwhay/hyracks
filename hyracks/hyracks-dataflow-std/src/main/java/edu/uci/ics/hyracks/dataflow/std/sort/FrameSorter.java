@@ -96,7 +96,7 @@ public class FrameSorter {
             fta1.reset(buffers.get(i));
             tupleCount += fta1.getTupleCount();
         }
-        int sfIdx = sortFields[0];
+
         tPointers = tPointers == null || tPointers.length < tupleCount * 4 ? new int[tupleCount * 4] : tPointers;
         int ptr = 0;
         for (int i = 0; i < nBuffers; ++i) {
@@ -109,10 +109,14 @@ public class FrameSorter {
                 tPointers[ptr * 4] = i;
                 tPointers[ptr * 4 + 1] = tStart;
                 tPointers[ptr * 4 + 2] = tEnd;
-                int f0StartRel = fta1.getFieldStartOffset(j, sfIdx);
-                int f0EndRel = fta1.getFieldEndOffset(j, sfIdx);
-                int f0Start = f0StartRel + tStart + fta1.getFieldSlotsLength();
-                tPointers[ptr * 4 + 3] = nkc == null ? 0 : nkc.normalize(array, f0Start, f0EndRel - f0StartRel);
+                if (sortFields.length > 0) {
+                    int f0StartRel = fta1.getFieldStartOffset(j, sortFields[0]);
+                    int f0EndRel = fta1.getFieldEndOffset(j, sortFields[0]);
+                    int f0Start = f0StartRel + tStart + fta1.getFieldSlotsLength();
+                    tPointers[ptr * 4 + 3] = nkc == null ? 0 : nkc.normalize(array, f0Start, f0EndRel - f0StartRel);
+                } else {
+                    tPointers[ptr * 4 + 3] = 0;
+                }
                 ++ptr;
             }
         }
@@ -167,7 +171,7 @@ public class FrameSorter {
         }
     }
 
-    /** Merge two subarrays into one*/
+    /** Merge two subarrays into one */
     private void merge(int start1, int start2, int len1, int len2) {
         int targetPos = start1;
         int pos1 = start1;

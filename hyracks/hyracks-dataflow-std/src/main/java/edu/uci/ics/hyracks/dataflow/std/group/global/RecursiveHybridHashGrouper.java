@@ -59,6 +59,8 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
 
     private int maxRecursionLevel;
 
+    private final String debugID;
+
     public RecursiveHybridHashGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
             int tableSize, long inputRecordCount, long outputGroupCount, int groupStateSizeInBytes, double fudgeFactor,
             INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
@@ -88,6 +90,8 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
         this.outputGroupCount = outputGroupCount;
         this.groupStateSizeInBytes = groupStateSizeInBytes;
         this.fudgeFactor = fudgeFactor;
+
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     @Override
@@ -104,6 +108,11 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
         hybridHashPartitions = computeHybridHashPartitions(framesLimit, inputRecordCount, outputGroupCount,
                 groupStateSizeInBytes, gracePartitions, fudgeFactor);
         maxRecursionLevel = getMaxLevelsIfUsingSortGrouper(framesLimit, inputRecordCount, groupStateSizeInBytes);
+
+        ctx.getCounterContext().getCounter(debugID + ".gracePartitions", true).update(gracePartitions);
+        ctx.getCounterContext().getCounter(debugID + ".hybridHash.0.hybridHashPartitions", true)
+                .update(hybridHashPartitions);
+        ctx.getCounterContext().getCounter(debugID + ".maxRecursionLevel", true).update(maxRecursionLevel);
 
         if (gracePartitions > 1) {
             grouper = new GracePartitioner(ctx, framesLimit, gracePartitions, keyFields, hashFunctionFactories,
@@ -165,6 +174,8 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
         grouper.wrapup();
         List<RunFileReader> runs = grouper.getOutputRunReaders();
 
+        grouper.close();
+
         if (runs.size() <= 0) {
             return;
         }
@@ -197,7 +208,7 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
             }
         }
 
-        int hashLevel = runLevels.remove(0);
+        int hashLevel = runLevels.get(0);
 
         IBinaryHashFunctionFactory[] hashFunctionFactories = new IBinaryHashFunctionFactory[this.hashFunctionFamilies.length];
         for (int i = 0; i < hashFunctionFactories.length; i++) {
@@ -220,15 +231,27 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
                 }
             }
 
+            ctx.getCounterContext().getCounter(debugID + ".hybridHash." + runLevel + ".runs", true).update(1);
+            ctx.getCounterContext().getCounter(debugID + ".hybridHash." + runLevel + ".partitions", true)
+                    .update(runPartition);
+
             HybridHashGrouper hybridHashGrouper = new HybridHashGrouper(ctx, keyFieldsInGroupState,
-                    decorFieldsInGroupState, framesLimit, partialMergerFactory, finalMergerFactory, inRecordDesc,
+                    decorFieldsInGroupState, framesLimit, partialMergerFactory, finalMergerFactory, outRecordDesc,
                     outRecordDesc, true, outputWriter, true, tableSize, comparatorFactories, hashFunctionFactories,
                     runPartition, true);
 
+            long framesProcessed = 0;
+
             hybridHashGrouper.open();
+            runReader.open();
+
             while (runReader.nextFrame(inputBuffer)) {
+                framesProcessed++;
                 hybridHashGrouper.nextFrame(inputBuffer);
             }
+
+            ctx.getCounterContext().getCounter(debugID + ".hybridHash." + runLevel + ".processedFrames", true)
+                    .update(framesProcessed);
 
             hybridHashGrouper.wrapup();
 
@@ -247,12 +270,22 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
                     HashGroupSortMergeGrouper hashSortGrouper = new HashGroupSortMergeGrouper(ctx,
                             keyFieldsInGroupState, decorFieldsInGroupState, framesLimit, tableSize,
                             firstKeyNormalizerFactory, comparatorFactories, hashFunctionFactories, aggregatorFactory,
-                            partialMergerFactory, finalMergerFactory, inRecordDesc, outRecordDesc, outputWriter);
+                            partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc, outputWriter);
                     hashSortGrouper.open();
                     runReaderFromHybridHash.open();
+
+                    ctx.getCounterContext().getCounter(debugID + ".hashsortFallback.processedRuns", true).update(1);
+
+                    framesProcessed = 0;
+
                     while (runReaderFromHybridHash.nextFrame(inputBuffer)) {
+                        framesProcessed++;
                         hashSortGrouper.nextFrame(inputBuffer);
                     }
+
+                    ctx.getCounterContext().getCounter(debugID + ".hashsortFallback.processedFrames", true)
+                            .update(framesProcessed);
+
                     hashSortGrouper.close();
                     continue;
                 }

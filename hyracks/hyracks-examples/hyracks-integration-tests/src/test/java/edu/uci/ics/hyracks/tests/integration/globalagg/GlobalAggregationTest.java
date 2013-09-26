@@ -68,7 +68,7 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
 
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(
             new FileSplit[] {
-                    new FileSplit(NC2_ID, new FileReference(new File(
+                    new FileSplit(NC1_ID, new FileReference(new File(
                             "/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl.part1"))),
                     new FileSplit(NC2_ID, new FileReference(new File(
                             "/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl.part2"))) });
@@ -91,10 +91,10 @@ public class GlobalAggregationTest extends AbstractIntegrationTest {
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, }, '|');
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms localGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
+    LocalGroupOperatorDescriptor.GroupAlgorithms localGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.SIMPLE_HYBRID_HASH;
     LocalGroupOperatorDescriptor.GroupAlgorithms globalGrouper = LocalGroupOperatorDescriptor.GroupAlgorithms.RECURSIVE_HYBRID_HASH;
 
-    int framesLimit = 512;
+    int framesLimit = 64;
     int tableSize = 8171;
 
     int inputCount = 600571;

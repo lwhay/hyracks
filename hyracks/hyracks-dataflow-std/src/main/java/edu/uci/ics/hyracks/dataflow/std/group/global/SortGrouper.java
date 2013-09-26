@@ -120,7 +120,10 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
         this.flushedRecCounter = 0;
     }
 
+    @Override
     public void reset() throws HyracksDataException {
+        super.reset();
+
         this.dataFrameCount = 0;
         this.tupleCount = 0;
         resetHistogram();
@@ -277,6 +280,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
     protected int compare(int tp1, int tp2) {
 
         compCounter++;
+        cpuCounter++;
 
         int buf1 = tPointers[tp1 * POINTER_LENGTH];
         int tid1 = tPointers[tp1 * POINTER_LENGTH + 1];
@@ -313,6 +317,7 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
 
     protected boolean sameGroup(FrameTupleAccessor a1, int t1Idx, FrameTupleAccessor a2, int t2Idx) {
         compCounter++;
+        cpuCounter++;
         for (int i = 0; i < comparators.length; ++i) {
             int fIdx = keyFields[i];
             int s1 = a1.getTupleStartOffset(t1Idx) + a1.getFieldSlotsLength() + a1.getFieldStartOffset(t1Idx, fIdx);
@@ -401,12 +406,24 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
                 FrameUtils.flushFrame(outFrame, writer);
                 flushedRecCounter += appender.getTupleCount();
                 outFrameCounter++;
+                if (flushOption == GrouperFlushOption.FLUSH_FOR_GROUP_STATE) {
+                    ioCounter++;
+                } else {
+                    dumpCounter++;
+                }
                 outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             }
         }
     }
 
     public void close() throws HyracksDataException {
+
+        ctx.getCounterContext().getCounter("costmodel.io", true).update(ioCounter);
+        ctx.getCounterContext().getCounter("costmodel.cpu", true).update(cpuCounter);
+        ctx.getCounterContext().getCounter("costmodel.network", true).update(dumpCounter);
+        ioCounter = 0;
+        cpuCounter = 0;
+        dumpCounter = 0;
 
         ctx.getCounterContext().getCounter(debugID + ".comparisons", true).update(compCounter);
         ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
@@ -452,6 +469,11 @@ public class SortGrouper extends AbstractHistogramPushBasedGrouper {
             FrameUtils.flushFrame(outFrame, writer);
             flushedRecCounter += appender.getTupleCount();
             outFrameCounter++;
+            if (!useFinalMerger) {
+                ioCounter++;
+            } else {
+                dumpCounter++;
+            }
             outRecCounter += outFrame.getInt(outFrame.capacity() - INT_SIZE);
             appender.reset(outFrame, true);
             if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,

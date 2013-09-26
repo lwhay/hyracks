@@ -60,7 +60,8 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
         HASH_GROUP,
         HASH_GROUP_SORT_MERGE_GROUP,
         SIMPLE_HYBRID_HASH,
-        RECURSIVE_HYBRID_HASH
+        RECURSIVE_HYBRID_HASH,
+        PRECLUSTER
     }
 
     public LocalGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int[] decorFields,
@@ -97,7 +98,8 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
+            IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions)
+            throws HyracksDataException {
 
         final IBinaryComparator[] comparators = new IBinaryComparator[comparatorFactories.length];
         for (int i = 0; i < comparators.length; i++) {
@@ -117,6 +119,8 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
         return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
 
             private IFrameWriter grouper = null;
+
+            private long inputFrameCount = 0;
 
             @Override
             public void open() throws HyracksDataException {
@@ -147,6 +151,10 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                                 firstNormalizerFactory, comparatorFactories, hashFamilies, aggregatorFactory,
                                 partialMergerFactory, finalMergerFactory, inRecDesc, outRecDesc, 0, writer);
                         break;
+                    case PRECLUSTER:
+                        grouper = new PreCluster(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
+                                finalMergerFactory, inRecDesc, outRecDesc, comparatorFactories, writer);
+                        break;
                     case SORT_GROUP_MERGE_GROUP:
                     default:
                         grouper = new SortGroupMergeGrouper(ctx, keyFields, decorFields, framesLimit,
@@ -161,6 +169,7 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                inputFrameCount++;
                 grouper.nextFrame(buffer);
             }
 
@@ -176,6 +185,7 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                     case SORT_GROUP:
                     case HASH_GROUP:
                     case SIMPLE_HYBRID_HASH:
+                    case PRECLUSTER:
                         ((AbstractHistogramPushBasedGrouper) grouper).wrapup();
                         break;
                     default:
@@ -183,6 +193,10 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                 }
                 grouper.close();
                 writer.close();
+                ctx.getCounterContext()
+                        .getCounter(
+                                LocalGroupOperatorDescriptor.class.getName() + "." + partition + ".inputFrameCount",
+                                true).update(inputFrameCount);
             }
 
         };

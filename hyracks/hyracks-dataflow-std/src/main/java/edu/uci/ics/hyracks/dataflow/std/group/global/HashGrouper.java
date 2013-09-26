@@ -286,6 +286,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
     protected boolean sameGroup(FrameTupleAccessor a1, int t1Idx, FrameTupleAccessor a2, int t2Idx) {
         compCounter++;
+        cpuCounter++;
         for (int i = 0; i < comparators.length; ++i) {
             int fIdx = keyFields[i];
             int s1 = a1.getTupleStartOffset(t1Idx) + a1.getFieldSlotsLength() + a1.getFieldStartOffset(t1Idx, fIdx);
@@ -413,6 +414,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
     private int compare(FrameTupleAccessor accessor1, int tupleIndex1, FrameTupleAccessor accessor2, int tupleIndex2) {
         sortCompCounter++;
+        cpuCounter++;
         int tStart1 = accessor1.getTupleStartOffset(tupleIndex1);
         int fStartOffset1 = accessor1.getFieldSlotsLength() + tStart1;
 
@@ -492,6 +494,11 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                     if (!outputAppender.append(outputTupleBuilder.getFieldEndOffsets(),
                             outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
                         FrameUtils.flushFrame(outputBuffer, writer);
+                        if (flushOption == GrouperFlushOption.FLUSH_FOR_GROUP_STATE) {
+                            ioCounter++;
+                        } else {
+                            dumpCounter++;
+                        }
                         outputAppender.reset(outputBuffer, true);
                         if (!outputAppender.append(outputTupleBuilder.getFieldEndOffsets(),
                                 outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
@@ -504,7 +511,7 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
             }
         } else {
             // directly flush the hash table contents
-            for (int i = 0; i <= currentWorkingFrame; i++) {
+            for (int i = 0; i <= currentWorkingFrame && i < contents.length; i++) {
                 hashtableFrameAccessor.reset(contents[i]);
                 int tupleCount = hashtableFrameAccessor.getTupleCount();
                 for (int j = 0; j < tupleCount; j++) {
@@ -519,6 +526,11 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
                     if (!outputAppender.append(outputTupleBuilder.getFieldEndOffsets(),
                             outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
                         FrameUtils.flushFrame(outputBuffer, writer);
+                        if (flushOption == GrouperFlushOption.FLUSH_FOR_GROUP_STATE) {
+                            ioCounter++;
+                        } else {
+                            dumpCounter++;
+                        }
                         outputAppender.reset(outputBuffer, true);
                         if (!outputAppender.append(outputTupleBuilder.getFieldEndOffsets(),
                                 outputTupleBuilder.getByteArray(), 0, outputTupleBuilder.getSize())) {
@@ -531,6 +543,11 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
         }
         if (outputAppender.getTupleCount() > 0) {
             FrameUtils.flushFrame(outputBuffer, writer);
+            if (flushOption == GrouperFlushOption.FLUSH_FOR_GROUP_STATE) {
+                ioCounter++;
+            } else {
+                dumpCounter++;
+            }
         }
     }
 
@@ -541,6 +558,8 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
      */
     @Override
     public void reset() throws HyracksDataException {
+
+        super.reset();
 
         ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
         ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
@@ -568,8 +587,6 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
 
         // reset header pages
         resetHeaders();
-
-        resetHistogram();
     }
 
     private void resetHeaders() {
@@ -592,6 +609,31 @@ public class HashGrouper extends AbstractHistogramPushBasedGrouper {
      */
     @Override
     public void close() throws HyracksDataException {
+
+        ctx.getCounterContext().getCounter("costmodel.io", true).update(ioCounter);
+        ctx.getCounterContext().getCounter("costmodel.cpu", true).update(cpuCounter);
+        ctx.getCounterContext().getCounter("costmodel.network", true).update(dumpCounter);
+        ioCounter = 0;
+        cpuCounter = 0;
+        dumpCounter = 0;
+
+        ctx.getCounterContext().getCounter(debugID + ".inputRecords", true).update(inRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputRecords", true).update(outRecCounter);
+        ctx.getCounterContext().getCounter(debugID + ".comparisons.hashhit", true).update(hashHitCompCounter);
+        ctx.getCounterContext().getCounter(debugID + ".comparisons.hashmiss", true).update(hashMissCompCounter);
+        ctx.getCounterContext().getCounter(debugID + ".outputFrames", true).update(outFrameCounter);
+        ctx.getCounterContext().getCounter(debugID + ".usedSlots", true).update(nonEmptySlotCount);
+        ctx.getCounterContext().getCounter(debugID + ".comparisons.sort", true).update(sortCompCounter);
+
+        inRecCounter = 0;
+        outRecCounter = 0;
+        hashHitCompCounter = 0;
+        hashMissCompCounter = 0;
+        outFrameCounter = 0;
+        compCounter = 0;
+        nonEmptySlotCount = 0;
+        sortCompCounter = 0;
+
         this.headers = null;
         this.contents = null;
     }

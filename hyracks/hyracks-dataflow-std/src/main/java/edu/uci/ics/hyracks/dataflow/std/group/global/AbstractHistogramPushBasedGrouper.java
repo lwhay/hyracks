@@ -56,6 +56,8 @@ public abstract class AbstractHistogramPushBasedGrouper implements IFrameWriterR
 
     protected final boolean isGenerateRuns;
 
+    protected long ioCounter = 0, cpuCounter = 0, dumpCounter = 0;
+
     public AbstractHistogramPushBasedGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields,
             int framesLimit, IAggregatorDescriptorFactory aggregatorFactory,
             IAggregatorDescriptorFactory mergerFactory, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc,
@@ -96,12 +98,24 @@ public abstract class AbstractHistogramPushBasedGrouper implements IFrameWriterR
     }
 
     protected void resetHistogram() {
-        for (int i = 0; i < histogram.length; i++) {
-            histogram[i] = 0;
+        if (enableHistogram) {
+            for (int i = 0; i < histogram.length; i++) {
+                histogram[i] = 0;
+            }
         }
     }
 
-    abstract public void reset() throws HyracksDataException;
+    public void reset() throws HyracksDataException {
+        if (enableHistogram) {
+            resetHistogram();
+        }
+        ctx.getCounterContext().getCounter("costmodel.io", true).update(ioCounter);
+        ctx.getCounterContext().getCounter("costmodel.cpu", true).update(cpuCounter);
+        ctx.getCounterContext().getCounter("costmodel.network", true).update(dumpCounter);
+        ioCounter = 0;
+        cpuCounter = 0;
+        dumpCounter = 0;
+    }
 
     abstract protected void flush(IFrameWriter writer, GrouperFlushOption flushOption) throws HyracksDataException;
 

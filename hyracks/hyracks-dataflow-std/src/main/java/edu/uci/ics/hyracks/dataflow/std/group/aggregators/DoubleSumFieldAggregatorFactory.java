@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
  * 
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,12 +22,12 @@ import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
 
-public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFactory {
+public class DoubleSumFieldAggregatorFactory implements IFieldAggregateDescriptorFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -35,7 +35,7 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
 
     private final boolean useObjectState;
 
-    public IntSumFieldAggregatorFactory(int aggField, boolean useObjState) {
+    public DoubleSumFieldAggregatorFactory(int aggField, boolean useObjState) {
         this.aggField = aggField;
         this.useObjectState = useObjState;
     }
@@ -43,10 +43,9 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
     /*
      * (non-Javadoc)
      * 
-     * @see edu.uci.ics.hyracks.dataflow.std.aggregations.
-     * IFieldAggregateDescriptorFactory
-     * #createAggregator(edu.uci.ics.hyracks.api.context.IHyracksTaskContext,
-     * edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor,
+     * @see
+     * edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory#createAggregator(edu.uci.ics.hyracks.
+     * api.context.IHyracksTaskContext, edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor,
      * edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor)
      */
     @Override
@@ -62,14 +61,14 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
             @Override
             public void outputPartialResult(DataOutput fieldOutput, byte[] data, int offset, AggregateState state)
                     throws HyracksDataException {
-                int sum;
+                double sum;
                 if (!useObjectState) {
-                    sum = IntegerSerializerDeserializer.getInt(data, offset);
+                    sum = DoubleSerializerDeserializer.getDouble(data, offset);
                 } else {
-                    sum = (Integer) state.state;
+                    sum = (Double) state.state;
                 }
                 try {
-                    fieldOutput.writeInt(sum);
+                    fieldOutput.writeDouble(sum);
                 } catch (IOException e) {
                     throw new HyracksDataException("I/O exception when writing aggregation to the output buffer.");
                 }
@@ -78,14 +77,14 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
             @Override
             public void outputFinalResult(DataOutput fieldOutput, byte[] data, int offset, AggregateState state)
                     throws HyracksDataException {
-                int sum;
+                double sum;
                 if (!useObjectState) {
-                    sum = IntegerSerializerDeserializer.getInt(data, offset);
+                    sum = DoubleSerializerDeserializer.getDouble(data, offset);
                 } else {
-                    sum = (Integer) state.state;
+                    sum = (Double) state.state;
                 }
                 try {
-                    fieldOutput.writeInt(sum);
+                    fieldOutput.writeDouble(sum);
                 } catch (IOException e) {
                     throw new HyracksDataException("I/O exception when writing aggregation to the output buffer.");
                 }
@@ -95,16 +94,16 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
             public void init(IFrameTupleAccessor accessor, int tIndex, DataOutput fieldOutput, AggregateState state)
                     throws HyracksDataException {
 
-                int sum = 0;
+                double sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
 
-                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                sum += DoubleSerializerDeserializer.getDouble(accessor.getBuffer().array(),
                         tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
 
                 if (!useObjectState) {
                     try {
-                        fieldOutput.writeInt(sum);
+                        fieldOutput.writeDouble(sum);
                     } catch (IOException e) {
                         throw new HyracksDataException("I/O exception when initializing the aggregator.");
                     }
@@ -133,18 +132,18 @@ public class IntSumFieldAggregatorFactory implements IFieldAggregateDescriptorFa
             @Override
             public void aggregate(IFrameTupleAccessor accessor, int tIndex, byte[] data, int offset,
                     AggregateState state) throws HyracksDataException {
-                int sum = 0;
+                double sum = 0;
                 int tupleOffset = accessor.getTupleStartOffset(tIndex);
                 int fieldStart = accessor.getFieldStartOffset(tIndex, aggField);
-                sum += IntegerSerializerDeserializer.getInt(accessor.getBuffer().array(),
+                sum += DoubleSerializerDeserializer.getDouble(accessor.getBuffer().array(),
                         tupleOffset + accessor.getFieldSlotsLength() + fieldStart);
 
                 if (!useObjectState) {
                     ByteBuffer buf = ByteBuffer.wrap(data);
-                    sum += buf.getInt(offset);
-                    buf.putInt(offset, sum);
+                    sum += buf.getDouble(offset);
+                    buf.putDouble(offset, sum);
                 } else {
-                    sum += (Integer) state.state;
+                    sum += (Double) state.state;
                     state.state = sum;
                 }
             }

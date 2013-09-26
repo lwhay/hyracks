@@ -4,7 +4,7 @@
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
  * 
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,12 +55,14 @@ import edu.uci.ics.hyracks.dataflow.std.group.aggregators.IntSumFieldAggregatorF
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MinMaxStringFieldAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor.GroupAlgorithms;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldAggregateAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldFinalMergeAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.aggregators.AvgFieldPartialMergeAggregatorFactory;
+import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.tests.integration.AbstractIntegrationTest;
 
-public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
+public class NoCopyPreClusterGrouperTest extends AbstractIntegrationTest {
 
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] { new FileSplit(NC2_ID,
             new FileReference(new File("/Volumes/Home/Datasets/tpch/tpch0.1/lineitem.tbl"))) });
@@ -89,8 +91,6 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
     int inputCount = 600571;
     int groupStateInBytes = 64;
     double fudgeFactor = 1.4;
-
-    LocalGroupOperatorDescriptor.GroupAlgorithms algo = LocalGroupOperatorDescriptor.GroupAlgorithms.RECURSIVE_HYBRID_HASH;
 
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
             throws IOException {
@@ -146,6 +146,14 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
         int[] keyFields = new int[] {};
         int groupCount = 1;
 
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, keyFields,
+                new IBinaryComparatorFactory[] {}, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor scanSortConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(scanSortConn, csvScanner, 0, sorter, 0);
+
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] {}, new IBinaryHashFunctionFamily[] {}, null,
@@ -170,15 +178,15 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec, algo,
-                0);
+                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
+                GroupAlgorithms.PRECLUSTER, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        IConnectorDescriptor connSorterGrouper = new OneToOneConnectorDescriptor(spec);
+        spec.connect(connSorterGrouper, sorter, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_" + algo.name() + "_nokey");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_precluster_nokey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
@@ -207,6 +215,14 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
         int[] keyFields = new int[] { 1 };
         int groupCount = 20000;
 
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) }, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor scanSortConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(scanSortConn, csvScanner, 0, sorter, 0);
+
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) },
@@ -232,15 +248,15 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec, algo,
-                0);
+                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
+                GroupAlgorithms.PRECLUSTER, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        IConnectorDescriptor connSorterGrouper = new OneToOneConnectorDescriptor(spec);
+        spec.connect(connSorterGrouper, sorter, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_" + algo.name() + "_singlekey");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_precluster_singlekey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
@@ -270,6 +286,15 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
         int[] keyFields = new int[] { 8, 1 };
         int groupCount = 59975;
 
+        ExternalSortOperatorDescriptor sorter = new ExternalSortOperatorDescriptor(spec, framesLimit, keyFields,
+                new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
+                        PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) }, desc);
+
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, sorter, NC2_ID);
+
+        IConnectorDescriptor scanSortConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(scanSortConn, csvScanner, 0, sorter, 0);
+
         LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keyFields, new int[] {},
                 framesLimit, tableSize, inputCount, groupCount, groupStateInBytes, fudgeFactor,
                 new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory.of(UTF8StringPointable.FACTORY),
@@ -297,15 +322,15 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
                         new FloatSumFieldAggregatorFactory(keyFields.length + 3, false),
                         new AvgFieldFinalMergeAggregatorFactory(keyFields.length + 4, false),
                         new MinMaxStringFieldAggregatorFactory(keyFields.length + 5, true, true),
-                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec, algo,
-                0);
+                        new MinMaxStringFieldAggregatorFactory(keyFields.length + 6, false, true) }), outputRec,
+                GroupAlgorithms.PRECLUSTER, 0);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, NC2_ID);
 
-        IConnectorDescriptor conn1 = new OneToOneConnectorDescriptor(spec);
-        spec.connect(conn1, csvScanner, 0, grouper, 0);
+        IConnectorDescriptor connSorterGrouper = new OneToOneConnectorDescriptor(spec);
+        spec.connect(connSorterGrouper, sorter, 0, grouper, 0);
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_" + algo.name() + "_multikey");
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, "local_precluster_multikey");
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, NC2_ID);
 
@@ -315,4 +340,5 @@ public class GlobalLocalGroupAggregationTest extends AbstractIntegrationTest {
         spec.addRoot(printer);
         runTest(spec);
     }
+
 }

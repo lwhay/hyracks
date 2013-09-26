@@ -53,6 +53,9 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
     private final int frameSize;
     private final RecordDescriptor inRecordDesc;
 
+    private final String debugID;
+    private long writeFrameCount = 0, readFrameCount = 0, runFileCount = 0;
+
     public GracePartitioner(IHyracksTaskContext ctx, int framesLimit, int partitions, int[] keys,
             IBinaryHashFunctionFactory[] hashFunctionFactories, RecordDescriptor inRecDesc) {
         this.ctx = ctx;
@@ -63,6 +66,8 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
         this.bufs = new ByteBuffer[partitions];
         this.tuplePartitionComputer = new FieldHashPartitionComputerFactory(keys, hashFunctionFactories)
                 .createPartitioner();
+
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
     }
 
     /*
@@ -101,9 +106,11 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
                 if (runsForBufs[partitionIndex] == null) {
                     runsForBufs[partitionIndex] = new RunFileWriter(
                             ctx.createManagedWorkspaceFile(GracePartitioner.class.getSimpleName()), ctx.getIOManager());
+                    runFileCount++;
                     runsForBufs[partitionIndex].open();
                 }
                 FrameUtils.flushFrame(bufs[partitionIndex], runsForBufs[partitionIndex]);
+                writeFrameCount++;
                 if (!outputFrameAppender.append(inputFrameTupleAccessor, processedTuple)) {
                     throw new HyracksDataException("Failed to insert a tuple into a frame");
                 }
@@ -126,6 +133,7 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
                     runsForBufs[i] = new RunFileWriter(ctx.createManagedWorkspaceFile(GracePartitioner.class
                             .getSimpleName()), ctx.getIOManager());
                     runsForBufs[i].open();
+                    runFileCount++;
                 }
                 FrameUtils.flushFrame(bufs[i], runsForBufs[i]);
             }
@@ -144,12 +152,18 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
             }
             partitionsPerRun /= framesLimit;
         }
+
+        ctx.getCounterContext().getCounter(debugID + ".readFrames", true).update(readFrameCount);
+        ctx.getCounterContext().getCounter(debugID + ".writeFrames", true).update(writeFrameCount);
+        ctx.getCounterContext().getCounter(debugID + ".runsCreated", true).update(runFileCount);
+        ctx.getCounterContext().getCounter("costmodel.io", true).update(readFrameCount + writeFrameCount);
     }
 
     private void recursivePartition(RunFileReader runReader, int recursionLevel) throws HyracksDataException {
         ByteBuffer inputBuf = ctx.allocateFrame();
         runReader.open();
         while (runReader.nextFrame(inputBuf)) {
+            readFrameCount++;
             inputFrameTupleAccessor.reset(inputBuf);
             int tupleCount = inputFrameTupleAccessor.getTupleCount();
             for (int i = 0; i < tupleCount; i++) {
@@ -168,8 +182,10 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
                                 ctx.createManagedWorkspaceFile(GracePartitioner.class.getSimpleName()),
                                 ctx.getIOManager());
                         runsForBufs[partitionIndex].open();
+                        runFileCount++;
                     }
                     FrameUtils.flushFrame(bufs[partitionIndex], runsForBufs[partitionIndex]);
+                    writeFrameCount++;
                     if (!outputFrameAppender.append(inputFrameTupleAccessor, i)) {
                         throw new HyracksDataException("Failed to insert a tuple into a frame");
                     }
@@ -185,8 +201,10 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
                     runsForBufs[i] = new RunFileWriter(ctx.createManagedWorkspaceFile(GracePartitioner.class
                             .getSimpleName()), ctx.getIOManager());
                     runsForBufs[i].open();
+                    runFileCount++;
                 }
                 FrameUtils.flushFrame(bufs[i], runsForBufs[i]);
+                writeFrameCount++;
             }
             if (runsForBufs[i] != null) {
                 partitionRuns.add(runsForBufs[i].createReader());
@@ -211,7 +229,6 @@ public class GracePartitioner implements IFrameWriterRunGenerator {
 
     @Override
     public void wrapup() throws HyracksDataException {
-        // TODO Auto-generated method stub
 
     }
 
