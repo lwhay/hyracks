@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.dataflow.std.group.global.costmodels;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -52,7 +53,6 @@ import edu.uci.ics.hyracks.dataflow.std.file.PlainFileWriterOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor.GroupAlgorithms;
-import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.GrouperProperty.Property;
 import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashFunctionFamilyFactoryAdapter;
 
 public class LocalGroupCostDescriptor {
@@ -92,27 +92,20 @@ public class LocalGroupCostDescriptor {
         int[] keys, decors;
         IAggregatorDescriptorFactory inputAggFactory;
 
-        if (localGrouperAlgo == GroupAlgorithms.NO_OPERATION) {
-            prevGrouper = inputScanner;
-            keys = keyFields;
-            decors = decorFields;
-            inputAggFactory = aggregateFactory;
-        } else {
-            LocalGroupOperatorDescriptor localGrouper = new LocalGroupOperatorDescriptor(spec, keyFields, decorFields,
-                    framesLimit, tableSize, inputCount, outputCount, groupStateSize, fudgeFactor, comparatorFactories,
-                    hashFamilies, firstNormalizerFactory, aggregateFactory, partialMergeFactory, finalMergeFactory,
-                    outRecDesc, localGrouperAlgo, 0);
+        LocalGroupOperatorDescriptor localGrouper = new LocalGroupOperatorDescriptor(spec, keyFields, decorFields,
+                framesLimit, tableSize, inputCount, outputCount, groupStateSize, fudgeFactor, comparatorFactories,
+                hashFamilies, firstNormalizerFactory, aggregateFactory, partialMergeFactory, finalMergeFactory,
+                outRecDesc, localGrouperAlgo, 0);
 
-            IConnectorDescriptor localConn = new OneToOneConnectorDescriptor(spec);
-            spec.connect(localConn, inputScanner, 0, localGrouper, 0);
+        IConnectorDescriptor localConn = new OneToOneConnectorDescriptor(spec);
+        spec.connect(localConn, inputScanner, 0, localGrouper, 0);
 
-            outputLabel.append('_').append(localGrouperAlgo.name());
+        outputLabel.append('_').append(localGrouperAlgo.name());
 
-            prevGrouper = localGrouper;
-            keys = storedKeyFields;
-            decors = storedDecorFields;
-            inputAggFactory = partialMergeFactory;
-        }
+        prevGrouper = localGrouper;
+        keys = storedKeyFields;
+        decors = storedDecorFields;
+        inputAggFactory = partialMergeFactory;
 
         for (int i = 0; i < globalGrouperAlgos.length; i++) {
             LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keys, decors, framesLimit,
@@ -169,11 +162,21 @@ public class LocalGroupCostDescriptor {
         return printer;
     }
 
-    public static List<GlobalAggregationPlan> exploreForNonDominatedGlobalAggregationPlans(int framesLimit,
-            int frameSize, long inputCount, long outputCount, int groupStateSize, double fudgeFactor, int tableSize,
-            String[] nodes, String[] inputNodes, double htCapRatio, int htSlotSize, int htRefSize, double bfErrorRatio)
-            throws HyracksDataException {
-        List<GlobalAggregationPlan> plans = new LinkedList<GlobalAggregationPlan>();
+    public static Map<GrouperProperty, List<GlobalAggregationPlan>> exploreForNonDominatedGlobalAggregationPlans(
+            int framesLimit, int frameSize, long inputCount, long outputCount, int groupStateSize, double fudgeFactor,
+            int tableSize, String[] nodes, String[] inputNodes, double htCapRatio, int htSlotSize, int htRefSize,
+            double bfErrorRatio) throws HyracksDataException {
+
+        // used to track the usage of nodes
+        boolean[] usedNodes = new boolean[nodes.length];
+        for (int i = 0; i < inputNodes.length; i++) {
+            for (int j = 0; j < nodes.length; j++) {
+                if (nodes[j].equalsIgnoreCase(inputNodes[i])) {
+                    usedNodes[j] = true;
+                    break;
+                }
+            }
+        }
 
         Map<Integer, Map<GrouperProperty, List<GlobalAggregationPlan>>> allSubPlans = new HashMap<>();
 
@@ -198,7 +201,7 @@ public class LocalGroupCostDescriptor {
 
             for (PartitionNodeMap nodeMap : validLocalNodeMaps) {
                 CostVector currentCostVector = new CostVector();
-                conn.computeCostVector(currentCostVector, currentDataStat, groupStateSize, frameSize, nodeMap);
+                conn.computeCostVector(currentCostVector, currentDataStat, frameSize, nodeMap);
                 GrouperProperty currentOutputProperty = currentDataProperty.createCopy();
                 conn.computeOutputProperty(nodeMap, currentOutputProperty);
 
@@ -206,10 +209,18 @@ public class LocalGroupCostDescriptor {
                     if (!currentOutputProperty.isCompatibleWithMask(algo.getRequiredProperty())) {
                         continue;
                     }
-                    GlobalAggregationPlan plan = new GlobalAggregationPlan();
+                    GlobalAggregationPlan plan = new GlobalAggregationPlan(nodes, inputNodes);
+
+                    // set the local connector
+                    plan.setLocalConnector(conn);
+                    // set the node map for local connector
+                    plan.setLocalConnNodeMap((BitSet) nodeMap.getNodeMap().clone());
+
+                    // set the local grouper
                     plan.setLocalGrouperAlgo(algo);
-                    plan.setLocalPartition(inputNodes);
-                    plan.setLocalPartitionMap((BitSet) nodeMap.getNodeMap().clone());
+                    // set the local grouper partition constraint
+                    plan.setLocalGrouperPartition(inputNodes);
+
                     // added cost from the local connector
                     plan.getCostVector().updateWithCostVector(currentCostVector);
                     // reset the dataset stats with the output of the connector
@@ -219,8 +230,8 @@ public class LocalGroupCostDescriptor {
                             tableSize, fudgeFactor, htCapRatio, htSlotSize, htRefSize, bfErrorRatio);
                     // compute the output property, which will be used as the key for this subplan in the map
                     GrouperProperty planOutputProperty = currentOutputProperty.createCopy();
-                    algo.computeOutputProperty(currentOutputProperty);
-                    
+                    algo.computeOutputProperty(planOutputProperty);
+
                     if (localSubplans.get(planOutputProperty) == null) {
                         localSubplans.put(planOutputProperty, new ArrayList<GlobalAggregationPlan>());
                     }
@@ -230,21 +241,221 @@ public class LocalGroupCostDescriptor {
         }
         allSubPlans.put(inputNodes.length, localSubplans);
 
-        // start to compute the subplans recursively.
-        
-        return plans;
+        // start to compute the subplans recursively, by firstly setting the final aggregation nodes.
+        for (int finalGrouperNodes = 1; finalGrouperNodes <= nodes.length - inputNodes.length; finalGrouperNodes++) {
+            int subplanNodes = nodes.length - finalGrouperNodes;
+
+            boolean[] usedNodesCopy = Arrays.copyOfRange(usedNodes, 0, usedNodes.length);
+            String[] grouperPartitionConstraint = getGrouperPartitionConstraint(finalGrouperNodes, nodes, usedNodesCopy);
+
+            exploreSubplans(allSubPlans, subplanNodes, framesLimit, frameSize, inputCount, outputCount, groupStateSize,
+                    fudgeFactor, tableSize, htCapRatio, htSlotSize, htRefSize, bfErrorRatio, nodes, inputNodes,
+                    usedNodesCopy);
+            Map<GrouperProperty, List<GlobalAggregationPlan>> subplanSets = allSubPlans.get(subplanNodes);
+            if (subplanSets == null || subplanSets.size() == 0) {
+                continue;
+            }
+            // for each output property, generate the possible plan
+            for (GrouperProperty subplanProp : subplanSets.keySet()) {
+                // firstly, add the proper connector
+                for (GrouperConnector newConn : GrouperConnector.values()) {
+                    // check whether the connector can handle the data outputted from the subplan
+                    if (!subplanProp.isCompatibleWithMask(newConn.getRequiredProperty())) {
+                        continue;
+                    }
+                    for (GlobalAggregationPlan subplan : subplanSets.get(subplanProp)) {
+                        String[] subplanFinalGrouperPartitionConstraint;
+                        if (subplan.getGlobalGrouperAlgos().size() > 0) {
+                            subplanFinalGrouperPartitionConstraint = subplan.getGlobalGroupersPartitions().get(
+                                    subplan.getGlobalGrouperAlgos().size() - 1);
+                        } else {
+                            subplanFinalGrouperPartitionConstraint = subplan.getLocalGrouperPartition();
+                        }
+                        List<PartitionNodeMap> validConnNodeMaps = getValidNodeMaps(
+                                subplanFinalGrouperPartitionConstraint.length, finalGrouperNodes);
+                        for (PartitionNodeMap connNodeMap : validConnNodeMaps) {
+                            GrouperProperty propertyForConnectorOutput = subplanProp.createCopy();
+                            newConn.computeOutputProperty(connNodeMap, propertyForConnectorOutput);
+                            // check all possible terminal groupers
+                            for (GroupAlgorithms terminal : GroupAlgorithms.values()) {
+                                // check whether the grouper can be a terminal
+                                if (!terminal.canBeTerminal()) {
+                                    continue;
+                                }
+                                // check whether  the grouper can handle the data outputted from the connector
+                                if (!propertyForConnectorOutput.isCompatibleWithMask(terminal.getRequiredProperty())) {
+                                    continue;
+                                }
+
+                                // create a new plan by copying the old plan
+                                GlobalAggregationPlan subplanCopy = subplan.createCopy();
+
+                                // add a new connector
+                                subplanCopy.getGlobalConnectors().add(newConn);
+                                subplanCopy.getGlobalConnNodeMaps().add((BitSet) connNodeMap.getNodeMap().clone());
+
+                                // update the cost after adding the new connector 
+                                // TODO similar to the update constraint function in algebrics?
+                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                        frameSize, connNodeMap);
+
+                                // add a new grouper
+                                subplanCopy.getGlobalGrouperAlgos().add(terminal);
+                                subplanCopy.getGlobalGroupersPartitions().add(grouperPartitionConstraint);
+
+                                // update the cost after adding the new grouper
+                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                        framesLimit, frameSize, tableSize, fudgeFactor, htCapRatio, htSlotSize,
+                                        htRefSize, bfErrorRatio);
+
+                                // get the output property
+                                GrouperProperty subplanOutputProp = propertyForConnectorOutput.createCopy();
+                                terminal.computeOutputProperty(subplanOutputProp);
+
+                                if (!subplanOutputProp.isAggregationDone()) {
+                                    continue;
+                                }
+
+                                // add the new plan into the subplan map
+                                Map<GrouperProperty, List<GlobalAggregationPlan>> planSets = allSubPlans
+                                        .get(nodes.length);
+                                if (planSets == null) {
+                                    planSets = new HashMap<>();
+                                    allSubPlans.put(nodes.length, planSets);
+                                }
+                                List<GlobalAggregationPlan> plansForProp = planSets.get(subplanOutputProp);
+                                if (plansForProp == null) {
+                                    plansForProp = new LinkedList<>();
+                                    planSets.put(subplanOutputProp, plansForProp);
+                                }
+                                plansForProp.add(subplanCopy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return allSubPlans.get(nodes.length);
     }
 
-    private static void exploreSubplans(Map<Integer, Map<GrouperProperty, List<GlobalAggregationPlan>>> subplans,
-            int subplanNodes, int framesLimit, long inputCount, long outputCount, int groupStateSize,
-            double fudgeFactor, int tableSize, String[] nodes, String[] inputNodes) throws HyracksDataException {
-        if (subplans.containsKey(subplanNodes)) {
+    private static String[] getGrouperPartitionConstraint(int nodes, String[] allNodes, boolean[] usedNodes) {
+        String[] partConstraint = new String[nodes];
+        int j = 0;
+        for (int i = 0; i < allNodes.length; i++) {
+            if (usedNodes[i]) {
+                continue;
+            }
+            partConstraint[j] = allNodes[i];
+            usedNodes[i] = true;
+            j++;
+            if (j >= partConstraint.length) {
+                break;
+            }
+        }
+        return partConstraint;
+    }
+
+    private static void exploreSubplans(Map<Integer, Map<GrouperProperty, List<GlobalAggregationPlan>>> allSubPlans,
+            int nodesToUse, int framesLimit, int frameSize, long inputCount, long outputCount, int groupStateSize,
+            double fudgeFactor, int tableSize, double htCapRatio, int htSlotSize, int htRefSize, double bfErrorRatio,
+            String[] nodes, String[] inputNodes, boolean[] usedNodes) throws HyracksDataException {
+        if (allSubPlans.containsKey(nodesToUse)) {
             // if the subplans for subplanNodes are already being explored, no further search is needed
             return;
         }
-        Map<GrouperProperty, List<GlobalAggregationPlan>> foundSubplans = new HashMap<GrouperProperty, List<GlobalAggregationPlan>>();
 
-        subplans.put(subplanNodes, foundSubplans);
+        // start to compute the subplans recursively, by firstly setting the final aggregation nodes.
+        for (int finalGrouperNodes = 1; finalGrouperNodes <= nodesToUse - inputNodes.length; finalGrouperNodes++) {
+            int subplanNodes = nodesToUse - finalGrouperNodes;
+
+            boolean[] usedNodesCopy = Arrays.copyOfRange(usedNodes, 0, usedNodes.length);
+            String[] grouperPartitionConstraint = getGrouperPartitionConstraint(finalGrouperNodes, nodes, usedNodesCopy);
+
+            exploreSubplans(allSubPlans, subplanNodes, framesLimit, frameSize, inputCount, outputCount, groupStateSize,
+                    fudgeFactor, tableSize, htCapRatio, htSlotSize, htRefSize, bfErrorRatio, nodes, inputNodes,
+                    usedNodesCopy);
+            Map<GrouperProperty, List<GlobalAggregationPlan>> subplanSets = allSubPlans.get(subplanNodes);
+            if (subplanSets == null || subplanSets.size() == 0) {
+                continue;
+            }
+            // for each output property, generate the possible plan
+            for (GrouperProperty subplanProp : subplanSets.keySet()) {
+                // firstly, add the proper connector
+                for (GrouperConnector newConn : GrouperConnector.values()) {
+                    // check whether the connector can handle the data outputted from the subplan
+                    if (!subplanProp.isCompatibleWithMask(newConn.getRequiredProperty())) {
+                        continue;
+                    }
+                    for (GlobalAggregationPlan subplan : subplanSets.get(subplanProp)) {
+                        String[] subplanFinalGrouperPartitionConstraint;
+                        if (subplan.getGlobalGrouperAlgos().size() > 0) {
+                            subplanFinalGrouperPartitionConstraint = subplan.getGlobalGroupersPartitions().get(
+                                    subplan.getGlobalGrouperAlgos().size() - 1);
+                        } else {
+                            subplanFinalGrouperPartitionConstraint = subplan.getLocalGrouperPartition();
+                        }
+                        List<PartitionNodeMap> validConnNodeMaps = getValidNodeMaps(
+                                subplanFinalGrouperPartitionConstraint.length, finalGrouperNodes);
+                        for (PartitionNodeMap connNodeMap : validConnNodeMaps) {
+                            GrouperProperty propertyForConnectorOutput = subplanProp.createCopy();
+                            newConn.computeOutputProperty(connNodeMap, propertyForConnectorOutput);
+                            // check all possible terminal groupers
+                            for (GroupAlgorithms terminal : GroupAlgorithms.values()) {
+
+                                // check whether  the grouper can handle the data outputted from the connector
+                                if (!propertyForConnectorOutput.isCompatibleWithMask(terminal.getRequiredProperty())) {
+                                    continue;
+                                }
+
+                                // get the output property
+                                GrouperProperty subplanOutputProp = propertyForConnectorOutput.createCopy();
+                                terminal.computeOutputProperty(subplanOutputProp);
+
+                                if (subplanOutputProp.isAggregationDone()) {
+                                    continue;
+                                }
+
+                                // create a new plan by copying the old plan
+                                GlobalAggregationPlan subplanCopy = subplan.createCopy();
+
+                                // add a new connector
+                                subplanCopy.getGlobalConnectors().add(newConn);
+                                subplanCopy.getGlobalConnNodeMaps().add((BitSet) connNodeMap.getNodeMap().clone());
+
+                                // update the cost after adding the new connector 
+                                // TODO similar to the update constraint function in algebrics?
+                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                        frameSize, connNodeMap);
+
+                                // add a new grouper
+                                subplanCopy.getGlobalGrouperAlgos().add(terminal);
+                                subplanCopy.getGlobalGroupersPartitions().add(grouperPartitionConstraint);
+
+                                // update the cost after adding the new grouper
+                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                        framesLimit, frameSize, tableSize, fudgeFactor, htCapRatio, htSlotSize,
+                                        htRefSize, bfErrorRatio);
+
+                                // add the new plan into the subplan map
+                                Map<GrouperProperty, List<GlobalAggregationPlan>> planSets = allSubPlans
+                                        .get(nodesToUse);
+                                if (planSets == null) {
+                                    planSets = new HashMap<>();
+                                    allSubPlans.put(nodesToUse, planSets);
+                                }
+                                List<GlobalAggregationPlan> plansForProp = planSets.get(subplanOutputProp);
+                                if (plansForProp == null) {
+                                    plansForProp = new LinkedList<>();
+                                    planSets.put(subplanOutputProp, plansForProp);
+                                }
+                                plansForProp.add(subplanCopy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static List<PartitionNodeMap> getValidNodeMaps(int fromNodes, int toNodes) throws HyracksDataException {

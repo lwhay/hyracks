@@ -69,7 +69,6 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
     private final double fudgeFactor;
 
     public enum GroupAlgorithms {
-        NO_OPERATION,
         SORT_GROUP,
         SORT_GROUP_MERGE_GROUP,
         HASH_GROUP,
@@ -83,7 +82,6 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
 
         public GrouperProperty getRequiredProperty() throws HyracksDataException {
             switch (this) {
-                case NO_OPERATION:
                 case SORT_GROUP:
                 case SORT_GROUP_MERGE_GROUP:
                 case HASH_GROUP:
@@ -102,7 +100,6 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                 case SORT_GROUP:
                 case HASH_GROUP:
                 case SIMPLE_HYBRID_HASH:
-                case NO_OPERATION:
                     break;
                 case SORT_GROUP_MERGE_GROUP:
                 case HASH_GROUP_SORT_MERGE_GROUP:
@@ -145,9 +142,22 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                 case PRECLUSTER:
                     CommonCompoents.preclusterCost(costVect, outputStat);
                     break;
-                case NO_OPERATION:
-                    break;
             }
+        }
+
+        public boolean canBeTerminal() throws HyracksDataException {
+            switch (this) {
+                case SORT_GROUP:
+                case HASH_GROUP:
+                case SIMPLE_HYBRID_HASH:
+                    return false;
+                case SORT_GROUP_MERGE_GROUP:
+                case HASH_GROUP_SORT_MERGE_GROUP:
+                case RECURSIVE_HYBRID_HASH:
+                case PRECLUSTER:
+                    return true;
+            }
+            throw new HyracksDataException("Unsupported grouper: " + this.name());
         }
     }
 

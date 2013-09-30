@@ -35,6 +35,12 @@ public class GrouperProperty {
         }
     }
 
+    public String toString() {
+        return (hasProperty(Property.SORTED) ? "SORTED, " : "")
+                + (hasProperty(Property.AGGREGATED) ? "AGGREGATED, " : "")
+                + (hasProperty(Property.GLOBALLY_PARTITIONED) ? "GLOBALLY_PARTITIONED, " : "");
+    }
+
     public GrouperProperty createCopy() {
         GrouperProperty copy = new GrouperProperty();
         copy.grouperProperty = this.grouperProperty;

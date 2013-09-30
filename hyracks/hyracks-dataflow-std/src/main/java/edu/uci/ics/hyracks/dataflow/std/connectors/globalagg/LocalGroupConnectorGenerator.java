@@ -58,6 +58,9 @@ public class LocalGroupConnectorGenerator {
                     if (nodeMap.isFullyPartitionNodeMap()) {
                         prop.setProperty(Property.GLOBALLY_PARTITIONED);
                     }
+                    if (prop.hasProperty(Property.SORTED)) {
+                        prop.setProperty(Property.SORTED, false);
+                    }
                     break;
                 case HASH_MERGE_CONN:
                     prop.setProperty(Property.SORTED);
@@ -65,7 +68,7 @@ public class LocalGroupConnectorGenerator {
             }
         }
 
-        public void computeCostVector(CostVector costVect, DatasetStats outputStat, int recordSize, int frameSize,
+        public void computeCostVector(CostVector costVect, DatasetStats outputStat, int frameSize,
                 PartitionNodeMap nodeMap) {
             switch (this) {
                 case HASH_MERGE_CONN:
