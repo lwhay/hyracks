@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.dataflow.std.group.global;
+package edu.uci.ics.hyracks.dataflow.std.group.global.groupers;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -25,6 +25,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
+import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashTableFrameTupleAppender;
 
 /**
  * Hash grouper uses an internal hash table (linked-list-chain based) to support the group

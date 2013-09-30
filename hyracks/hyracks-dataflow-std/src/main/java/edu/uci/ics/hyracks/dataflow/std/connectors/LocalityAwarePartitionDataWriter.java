@@ -33,9 +33,21 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
     private final FrameTupleAccessor tupleAccessor;
     private final ITuplePartitionComputer tpc;
 
+    // for profiling
+    private final int senderIndex;
+    private final String debugID;
+    private final IHyracksTaskContext ctx;
+    private long remoteFrames;
+    private long hashCount;
+
     public LocalityAwarePartitionDataWriter(IHyracksTaskContext ctx, IPartitionWriterFactory pwFactory,
             RecordDescriptor recordDescriptor, ITuplePartitionComputer tpc, int nConsumerPartitions,
             ILocalityMap localityMap, int senderIndex) throws HyracksDataException {
+        // for profiling
+        this.senderIndex = senderIndex;
+        this.debugID = this.getClass().getSimpleName() + "." + String.valueOf(Thread.currentThread().getId());
+        this.ctx = ctx;
+
         int[] consumerPartitions = localityMap.getConsumers(senderIndex, nConsumerPartitions);
         pWriters = new IFrameWriter[consumerPartitions.length];
         appenders = new FrameTupleAppender[consumerPartitions.length];
@@ -63,6 +75,8 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
             pWriters[i].open();
             appenders[i].reset(appenders[i].getBuffer(), true);
         }
+        this.remoteFrames = 0;
+        this.hashCount = 0;
     }
 
     /*
@@ -77,13 +91,19 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
         int tupleCount = tupleAccessor.getTupleCount();
         for (int i = 0; i < tupleCount; ++i) {
             int h = (pWriters.length <= 1) ? 0 : tpc.partition(tupleAccessor, i, pWriters.length);
+            hashCount += (pWriters.length <= 1) ? 0 : 1;
             FrameTupleAppender appender = appenders[h];
             if (!appender.append(tupleAccessor, i)) {
                 ByteBuffer appenderBuffer = appender.getBuffer();
                 flushFrame(appenderBuffer, pWriters[h]);
+                if (h != senderIndex) {
+                    this.remoteFrames++;
+                }
                 appender.reset(appenderBuffer, true);
                 if (!appender.append(tupleAccessor, i)) {
-                    throw new HyracksDataException("Record size (" + (tupleAccessor.getTupleEndOffset(i) - tupleAccessor.getTupleStartOffset(i)) + ") larger than frame size (" + appender.getBuffer().capacity() + ")");
+                    throw new HyracksDataException("Record size ("
+                            + (tupleAccessor.getTupleEndOffset(i) - tupleAccessor.getTupleStartOffset(i))
+                            + ") larger than frame size (" + appender.getBuffer().capacity() + ")");
                 }
             }
         }
@@ -117,9 +137,14 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
         for (int i = 0; i < pWriters.length; ++i) {
             if (appenders[i].getTupleCount() > 0) {
                 flushFrame(appenders[i].getBuffer(), pWriters[i]);
+                if (i != senderIndex) {
+                    this.remoteFrames++;
+                }
             }
             pWriters[i].close();
         }
+        ctx.getCounterContext().getCounter("profile." + debugID + ".remoteFrames", true).update(this.remoteFrames);
+        ctx.getCounterContext().getCounter("profile." + debugID + ".cpu.hash", true).update(this.hashCount);
     }
 
 }

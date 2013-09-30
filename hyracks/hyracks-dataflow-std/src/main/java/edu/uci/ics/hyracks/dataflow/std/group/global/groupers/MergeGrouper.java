@@ -1,4 +1,4 @@
-package edu.uci.ics.hyracks.dataflow.std.group.global;
+package edu.uci.ics.hyracks.dataflow.std.group.global.groupers;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.RumMergingGroupingFrameReader;
 
 public class MergeGrouper {
 

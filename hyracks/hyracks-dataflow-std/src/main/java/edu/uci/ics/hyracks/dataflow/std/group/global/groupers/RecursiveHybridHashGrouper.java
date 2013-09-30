@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.global;
+package edu.uci.ics.hyracks.dataflow.std.group.global.groupers;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -29,6 +29,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IFrameWriterRunGenerator;
+import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashFunctionFamilyFactoryAdapter;
 
 public class RecursiveHybridHashGrouper implements IFrameWriter {
 
@@ -105,7 +106,7 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
 
         gracePartitions = computeGracePartitions(framesLimit, inputRecordCount, outputGroupCount,
                 groupStateSizeInBytes, fudgeFactor);
-        hybridHashPartitions = computeHybridHashPartitions(framesLimit, inputRecordCount, outputGroupCount,
+        hybridHashPartitions = computeHybridHashPartitions(framesLimit, frameSize, outputGroupCount,
                 groupStateSizeInBytes, gracePartitions, fudgeFactor);
         maxRecursionLevel = getMaxLevelsIfUsingSortGrouper(framesLimit, inputRecordCount, groupStateSizeInBytes);
 
@@ -142,7 +143,7 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
                 / Math.pow(framesLimit, 2)));
     }
 
-    protected int computeHybridHashPartitions(int framesLimit, long inputRecordCount, long outputGroupCount,
+    public static int computeHybridHashPartitions(int framesLimit, int frameSize, long outputGroupCount,
             int groupStateSizeInBytes, int gracePartitions, double fudgeFactor) {
         double partitionGroupSizeInFrames = (double) outputGroupCount / gracePartitions * groupStateSizeInBytes
                 / frameSize;
@@ -291,7 +292,7 @@ public class RecursiveHybridHashGrouper implements IFrameWriter {
                 }
 
                 int rawRecordsInRun = rawRecordsInSpillingPartitions.remove(0);
-                int recursivePartition = computeHybridHashPartitions(framesLimit, rawRecordsInRun,
+                int recursivePartition = computeHybridHashPartitions(framesLimit, frameSize,
                         (int) ((double) rawRecordsInResidentPartition / groupsInResidentPartition * rawRecordsInRun),
                         groupStateSizeInBytes, 1, fudgeFactor);
                 runs.add(runReaderFromHybridHash);

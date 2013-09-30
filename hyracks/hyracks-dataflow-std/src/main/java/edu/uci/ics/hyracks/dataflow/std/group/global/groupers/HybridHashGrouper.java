@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.global;
+package edu.uci.ics.hyracks.dataflow.std.group.global.groupers;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -38,6 +38,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.GrouperFlushOption;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IGrouperFlushOption.GroupOutputState;
+import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashTableFrameTupleAppender;
 
 /**
  * A hybrid-hash grouper groups records so that an in-memory hash table is built to complete the aggregation

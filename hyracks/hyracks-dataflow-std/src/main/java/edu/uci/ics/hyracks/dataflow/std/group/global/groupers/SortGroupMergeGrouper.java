@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.hyracks.dataflow.std.group.global;
+package edu.uci.ics.hyracks.dataflow.std.group.global.groupers;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -20,32 +20,28 @@ import java.util.List;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.io.RunFileReader;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 
-public class HashGroupSortMergeGrouper implements IFrameWriter {
-
-    private HashGrouper hashGrouper;
+public class SortGroupMergeGrouper implements IFrameWriter {
 
     protected final IHyracksTaskContext ctx;
     protected final int[] keyFields;
     protected final int[] decorFields;
     private final int framesLimit;
-    private final int tableSize;
     private final INormalizedKeyComputerFactory firstKeyNormalizerFactory;
     private final IBinaryComparatorFactory[] comparatorFactories;
-    private final IBinaryHashFunctionFactory[] hashFunctionFactories;
     private final IAggregatorDescriptorFactory aggregatorFactory, partialMergerFactory, finalMergerFactory;
     private final RecordDescriptor inRecordDesc, outRecordDesc;
     private final IFrameWriter outputWriter;
 
-    public HashGroupSortMergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
-            int tableSize, INormalizedKeyComputerFactory firstKeyNormalizerFactory,
-            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFactory[] hashFunctionFactories,
+    private SortGrouper sortGrouper;
+
+    public SortGroupMergeGrouper(IHyracksTaskContext ctx, int[] keyFields, int[] decorFields, int framesLimit,
+            INormalizedKeyComputerFactory firstKeyNormalizerFactory, IBinaryComparatorFactory[] comparatorFactories,
             IAggregatorDescriptorFactory aggregatorFactory, IAggregatorDescriptorFactory partialMergerFactory,
             IAggregatorDescriptorFactory finalMergerFactory, RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor, IFrameWriter outputWriter) throws HyracksDataException {
@@ -53,10 +49,8 @@ public class HashGroupSortMergeGrouper implements IFrameWriter {
         this.keyFields = keyFields;
         this.decorFields = decorFields;
         this.framesLimit = framesLimit;
-        this.tableSize = tableSize;
         this.firstKeyNormalizerFactory = firstKeyNormalizerFactory;
         this.comparatorFactories = comparatorFactories;
-        this.hashFunctionFactories = hashFunctionFactories;
         this.inRecordDesc = inRecordDescriptor;
         this.outRecordDesc = outRecordDescriptor;
         this.outputWriter = outputWriter;
@@ -66,44 +60,60 @@ public class HashGroupSortMergeGrouper implements IFrameWriter {
         this.finalMergerFactory = finalMergerFactory;
     }
 
+    /*
+     * (non-Javadoc)
+     * 
+     * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#init()
+     */
     @Override
     public void open() throws HyracksDataException {
-        this.hashGrouper = new HashGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory,
-                finalMergerFactory, inRecordDesc, outRecordDesc, false, outputWriter, true, tableSize,
-                comparatorFactories, hashFunctionFactories, firstKeyNormalizerFactory, true);
-        this.hashGrouper.open();
+        sortGrouper = new SortGrouper(ctx, keyFields, decorFields, framesLimit, aggregatorFactory, finalMergerFactory,
+                inRecordDesc, outRecordDesc, firstKeyNormalizerFactory, comparatorFactories, outputWriter, true);
+        sortGrouper.open();
     }
 
+    /*
+     * (non-Javadoc)
+     * 
+     * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#nextFrame(java.nio.ByteBuffer)
+     */
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-        this.hashGrouper.nextFrame(buffer);
+        sortGrouper.nextFrame(buffer);
     }
 
+    /*
+     * (non-Javadoc)
+     * 
+     * @see edu.uci.ics.hyracks.dataflow.std.group.global.base.IPushBasedGrouper#close()
+     */
     @Override
     public void close() throws HyracksDataException {
-        hashGrouper.wrapup();
-        if (hashGrouper.getRunsCount() == 0) {
-            hashGrouper.close();
+        sortGrouper.wrapup();
+        if (sortGrouper.getRunsCount() == 0) {
+            // no run file has been generated in the sort grouper, so the content can be directly outputted
+            sortGrouper.close();
         } else {
-            List<RunFileReader> runs = hashGrouper.getOutputRunReaders();
-            hashGrouper.close();
+            List<RunFileReader> runs = sortGrouper.getOutputRunReaders();
+            sortGrouper.close();
             int[] mergeKeyFields = new int[keyFields.length];
-            for (int i = 0; i < mergeKeyFields.length; i++) {
+            for (int i = 0; i < keyFields.length; i++) {
                 mergeKeyFields[i] = i;
             }
             int[] mergeDecorFields = new int[decorFields.length];
             for (int i = 0; i < decorFields.length; i++) {
                 mergeDecorFields[i] = keyFields.length + i;
             }
-            MergeGrouper mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, mergeDecorFields, framesLimit, tableSize,
-                    comparatorFactories, hashFunctionFactories, partialMergerFactory, finalMergerFactory,
-                    outRecordDesc, outRecordDesc);
+            MergeGrouper mergeGrouper = new MergeGrouper(ctx, mergeKeyFields, mergeDecorFields, framesLimit,
+                    comparatorFactories, partialMergerFactory, finalMergerFactory, outRecordDesc, outRecordDesc);
             mergeGrouper.process(runs, outputWriter);
         }
+
     }
 
     @Override
     public void fail() throws HyracksDataException {
+        // TODO Auto-generated method stub
 
     }
 

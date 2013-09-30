@@ -47,7 +47,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescripto
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPv6MarkStringParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.LocalGroupCostDescriptor;
 
-public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTest {
+public class GlobalAggregationSample3Test extends AbstractGlobalAggIntegrationTest {
 
     final String DATA_FOLDER = "/Volumes/Home/Datasets/AggBench/global/small_sample";
 
@@ -110,7 +110,7 @@ public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTes
     int groupStateInBytes = 64;
     double fudgeFactor = 1.4;
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
+    LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo = LocalGroupOperatorDescriptor.GroupAlgorithms.NO_OPERATION;
     String[] localPartition = new String[] { NC_IDS[0], NC_IDS[1], NC_IDS[2], NC_IDS[3] };
 
     LocalGroupOperatorDescriptor.GroupAlgorithms[] grouperAlgos = new LocalGroupOperatorDescriptor.GroupAlgorithms[] { LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP };
@@ -129,7 +129,7 @@ public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTes
         }
 
         // set each partition maps
-        partitionMaps[0].set(0, localPartition.length * partitionConstraints[0].length);
+        partitionMaps[0].set(0, partitionConstraints[0].length * localPartition.length);
     }
 
     @Test

@@ -31,6 +31,20 @@ import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.CommonCompoents;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.CostVector;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.DatasetStats;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.GrouperProperty;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.GrouperProperty.Property;
+import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashFunctionFamilyFactoryAdapter;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.AbstractHistogramPushBasedGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.HashGroupSortMergeGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.HashGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.HybridHashGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.PreCluster;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.RecursiveHybridHashGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.SortGroupMergeGrouper;
+import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.SortGrouper;
 
 public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
@@ -55,13 +69,86 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
     private final double fudgeFactor;
 
     public enum GroupAlgorithms {
+        NO_OPERATION,
         SORT_GROUP,
         SORT_GROUP_MERGE_GROUP,
         HASH_GROUP,
         HASH_GROUP_SORT_MERGE_GROUP,
         SIMPLE_HYBRID_HASH,
         RECURSIVE_HYBRID_HASH,
-        PRECLUSTER
+        PRECLUSTER;
+
+        static final GrouperProperty PROP_NO_REQUIREMENT = new GrouperProperty();
+        static final GrouperProperty PROP_SORTED = new GrouperProperty(Property.SORTED);
+
+        public GrouperProperty getRequiredProperty() throws HyracksDataException {
+            switch (this) {
+                case NO_OPERATION:
+                case SORT_GROUP:
+                case SORT_GROUP_MERGE_GROUP:
+                case HASH_GROUP:
+                case HASH_GROUP_SORT_MERGE_GROUP:
+                case SIMPLE_HYBRID_HASH:
+                case RECURSIVE_HYBRID_HASH:
+                    return PROP_NO_REQUIREMENT;
+                case PRECLUSTER:
+                    return PROP_SORTED;
+            }
+            throw new HyracksDataException("Unsupported grouper: " + this.name());
+        }
+
+        public void computeOutputProperty(GrouperProperty prop) throws HyracksDataException {
+            switch (this) {
+                case SORT_GROUP:
+                case HASH_GROUP:
+                case SIMPLE_HYBRID_HASH:
+                case NO_OPERATION:
+                    break;
+                case SORT_GROUP_MERGE_GROUP:
+                case HASH_GROUP_SORT_MERGE_GROUP:
+                case PRECLUSTER:
+                    prop.setProperty(Property.SORTED);
+                    prop.setProperty(Property.AGGREGATED);
+                    break;
+                case RECURSIVE_HYBRID_HASH:
+                    prop.setProperty(Property.AGGREGATED);
+                    break;
+            }
+        }
+
+        public void computeCostVector(CostVector costVect, DatasetStats outputStat, int framesLimit, int frameSize,
+                int tableSize, double fudgeFactor, double htCapRatio, int htSlotSize, int htRefSize, double bfErrorRatio) {
+            switch (this) {
+                case SORT_GROUP:
+                    CommonCompoents
+                            .sortGroupMergeGroupCostComputer(costVect, outputStat, framesLimit, frameSize, false);
+                    break;
+                case SORT_GROUP_MERGE_GROUP:
+                    CommonCompoents.sortGroupMergeGroupCostComputer(costVect, outputStat, framesLimit, frameSize, true);
+                    break;
+                case HASH_GROUP:
+                    CommonCompoents.hashGroupSortMergeGroupCostComputer(costVect, outputStat, framesLimit, frameSize,
+                            htCapRatio, htSlotSize, htRefSize, false);
+                    break;
+                case HASH_GROUP_SORT_MERGE_GROUP:
+                    CommonCompoents.hashGroupSortMergeGroupCostComputer(costVect, outputStat, framesLimit, frameSize,
+                            htCapRatio, htSlotSize, htRefSize, true);
+                    break;
+                case SIMPLE_HYBRID_HASH:
+                    CommonCompoents.simpleHybridHashCost(costVect, outputStat, framesLimit, frameSize, htCapRatio,
+                            fudgeFactor, htSlotSize, htRefSize, bfErrorRatio);
+                    break;
+                case RECURSIVE_HYBRID_HASH:
+                    CommonCompoents.recursiveHybridHashCostComputer(costVect, outputStat, framesLimit, frameSize,
+                            htCapRatio, fudgeFactor, htSlotSize, htRefSize, bfErrorRatio);
+                    break;
+                case PRECLUSTER:
+                    CommonCompoents.preclusterCost(costVect, outputStat);
+                    break;
+                case NO_OPERATION:
+                    break;
+            }
+        }
     }
 
     public LocalGroupOperatorDescriptor(IOperatorDescriptorRegistry spec, int[] keyFields, int[] decorFields,
@@ -116,6 +203,12 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                     this.hashFamilies[i], levelSeed);
         }
 
+        // compute the number of records and groups in this partition
+        final long recordsInPartition = inputRecordCount / nPartitions;
+
+        final long groupsInPartitions = (long) CommonCompoents.getKeysInRecords(recordsInPartition, inputRecordCount,
+                outputGroupCount);
+
         return new AbstractUnaryInputUnaryOutputOperatorNodePushable() {
 
             private IFrameWriter grouper = null;
@@ -147,7 +240,7 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                         break;
                     case RECURSIVE_HYBRID_HASH:
                         grouper = new RecursiveHybridHashGrouper(ctx, keyFields, decorFields, framesLimit, tableSize,
-                                inputRecordCount, outputGroupCount, groupStateSizeInBytes, fudgeFactor,
+                                recordsInPartition, groupsInPartitions, groupStateSizeInBytes, fudgeFactor,
                                 firstNormalizerFactory, comparatorFactories, hashFamilies, aggregatorFactory,
                                 partialMergerFactory, finalMergerFactory, inRecDesc, outRecDesc, 0, writer);
                         break;

@@ -47,7 +47,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescripto
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPv6MarkStringParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.LocalGroupCostDescriptor;
 
-public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTest {
+public class GlobalAggregationSample2Test extends AbstractGlobalAggIntegrationTest {
 
     final String DATA_FOLDER = "/Volumes/Home/Datasets/AggBench/global/small_sample";
 
@@ -113,9 +113,12 @@ public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTes
     LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
     String[] localPartition = new String[] { NC_IDS[0], NC_IDS[1], NC_IDS[2], NC_IDS[3] };
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms[] grouperAlgos = new LocalGroupOperatorDescriptor.GroupAlgorithms[] { LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP };
+    LocalGroupOperatorDescriptor.GroupAlgorithms[] grouperAlgos = new LocalGroupOperatorDescriptor.GroupAlgorithms[] {
+            LocalGroupOperatorDescriptor.GroupAlgorithms.SIMPLE_HYBRID_HASH,
+            LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP };
 
-    String[][] partitionConstraints = new String[][] { new String[] { NC_IDS[4], NC_IDS[5], NC_IDS[6], NC_IDS[7] } };
+    String[][] partitionConstraints = new String[][] { new String[] { NC_IDS[4], NC_IDS[5] },
+            new String[] { NC_IDS[6], NC_IDS[7] } };
 
     BitSet[] partitionMaps = new BitSet[grouperAlgos.length];
 
@@ -129,7 +132,11 @@ public class GlobalAggregationSampleTest extends AbstractGlobalAggIntegrationTes
         }
 
         // set each partition maps
-        partitionMaps[0].set(0, localPartition.length * partitionConstraints[0].length);
+        partitionMaps[0].set(0);
+        partitionMaps[0].set(2);
+        partitionMaps[0].set(5);
+        partitionMaps[0].set(7);
+        partitionMaps[1].set(0, partitionConstraints[0].length * partitionConstraints[1].length);
     }
 
     @Test
