@@ -9,6 +9,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class LocalGroupCostDescriptorTest {
 
+    final String DATA_FOLDER = "/Volumes/Home/Datasets/AggBench/global/small_sample";
+
+    final String DATA_LABEL = "z0_1000000000_1000000000";
+
+    final String DATA_SUFFIX = ".dat.small.part.";
+
     @Test
     public void test() throws HyracksDataException {
 
@@ -21,6 +27,10 @@ public class LocalGroupCostDescriptorTest {
         int tableSize = 8171;
         String[] nodes = new String[] { "nc1", "nc2", "nc3", "nc4", "nc5", "nc6", "nc7", "nc8" };
         String[] inputNodes = new String[] { "nc1", "nc2", "nc3", "nc4" };
+        String[] filePaths = new String[inputNodes.length];
+        for (int i = 0; i < filePaths.length; i++) {
+            filePaths[i] = DATA_FOLDER + "/" + DATA_LABEL + DATA_SUFFIX + i;
+        }
 
         double htCapRatio = 1.0;
         int htSlotSize = 8;
@@ -29,8 +39,8 @@ public class LocalGroupCostDescriptorTest {
 
         Map<GrouperProperty, List<GlobalAggregationPlan>> planSets = LocalGroupCostDescriptor
                 .exploreForNonDominatedGlobalAggregationPlans(framesLimit, frameSize, inputCount, outputCount,
-                        groupStateSize, fudgeFactor, tableSize, nodes, inputNodes, htCapRatio, htSlotSize, htRefSize,
-                        bfErrorRatio);
+                        groupStateSize, fudgeFactor, tableSize, nodes, inputNodes, filePaths, htCapRatio, htSlotSize,
+                        htRefSize, bfErrorRatio);
 
         for (GrouperProperty prop : planSets.keySet()) {
             System.out.println(prop.toString());
@@ -38,7 +48,7 @@ public class LocalGroupCostDescriptorTest {
                 System.out.println(plan.toString());
                 System.out.println();
             }
-            
+
         }
     }
 

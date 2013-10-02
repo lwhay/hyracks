@@ -46,7 +46,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPv6MarkStringParserFa
 import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.GlobalAggregationPlan;
 import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.LocalGroupCostDescriptor;
 
-public class GlobalAggregationSample3Test extends AbstractGlobalAggIntegrationTest {
+public class GlobalAggregationSample4Test extends AbstractGlobalAggIntegrationTest {
 
     final String DATA_FOLDER = "/Volumes/Home/Datasets/AggBench/global/small_sample";
 
@@ -109,17 +109,32 @@ public class GlobalAggregationSample3Test extends AbstractGlobalAggIntegrationTe
     LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo = LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP;
     String[] localPartition = new String[] { NC_IDS[0], NC_IDS[1], NC_IDS[2], NC_IDS[3] };
 
+    GrouperConnector localConnector = GrouperConnector.HASH_CONN;
+    BitSet localConnNodeMap = new BitSet(16);
+    {
+        localConnNodeMap.set(0);
+        localConnNodeMap.set(5);
+        localConnNodeMap.set(10);
+        localConnNodeMap.set(15);
+    }
+
     List<LocalGroupOperatorDescriptor.GroupAlgorithms> grouperAlgos = new LinkedList<>();
-
-    LinkedList<String[]> partitionConstraints = new LinkedList<>();
-
-    List<BitSet> partitionMaps = new LinkedList<>();
+    List<String[]> globalPartitionConstraints = new LinkedList<>();
 
     List<GrouperConnector> globalConnectors = new LinkedList<>();
+    List<BitSet> globalConnNodeMaps = new LinkedList<>();
+    {
+        grouperAlgos.add(LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
+        globalPartitionConstraints.add(new String[] { NC_IDS[4], NC_IDS[5], NC_IDS[6], NC_IDS[7] });
+
+        globalConnectors.add(GrouperConnector.HASH_MERGE_CONN);
+        BitSet globalConnNodeMap0 = new BitSet(16);
+        globalConnNodeMap0.set(0, 16);
+        globalConnNodeMaps.add(globalConnNodeMap0);
+    }
 
     @Test
     public void twoLevelsTest() throws Exception {
-
         GlobalAggregationPlan plan = new GlobalAggregationPlan(NC_IDS, inputNodeIDs, filePaths);
 
         plan.setLocalGrouperAlgo(localGrouperAlgo);
@@ -131,16 +146,15 @@ public class GlobalAggregationSample3Test extends AbstractGlobalAggIntegrationTe
         plan.setLocalConnNodeMap(localConnNodeMap);
 
         plan.setGlobalGrouperAlgos(grouperAlgos);
-        plan.setGlobalGroupersPartitions(partitionConstraints);
+        plan.setGlobalGroupersPartitions(globalPartitionConstraints);
 
         plan.setGlobalConnectors(globalConnectors);
-        plan.setGlobalConnNodeMaps(partitionMaps);
+        plan.setGlobalConnNodeMaps(globalConnNodeMaps);
 
         JobSpecification spec = LocalGroupCostDescriptor.createHyracksJobSpec(framesLimit, keyFields, decorFields,
                 inputCount, outputCount, groupStateInBytes, fudgeFactor, tableSize, inputRecordDescriptor,
                 outputRecordDescriptor, tupleParserFactory, aggregateFactory, partialMergeFactory, finalMergeFactory,
                 comparatorFactories, hashFamilies, firstNormalizerFactory, plan);
         runTest(spec);
-
     }
 }

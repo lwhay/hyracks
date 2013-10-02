@@ -14,8 +14,9 @@
  */
 package edu.uci.ics.hyracks.tests.integration.globalagg;
 
-import java.io.File;
 import java.util.BitSet;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.junit.Test;
 
@@ -24,7 +25,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryHashFunctionFamily;
 import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
-import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.data.std.accessors.MurmurHash3BinaryHashFunctionFamily;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
@@ -34,10 +34,8 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializer
 import edu.uci.ics.hyracks.dataflow.common.data.normalizers.UTF8StringNormalizedKeyComputerFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.DoubleParserFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
-import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
+import edu.uci.ics.hyracks.dataflow.std.connectors.globalagg.LocalGroupConnectorGenerator.GrouperConnector;
 import edu.uci.ics.hyracks.dataflow.std.file.DelimitedDataTupleParserFactory;
-import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
-import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IFieldAggregateDescriptorFactory;
@@ -45,6 +43,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.aggregators.DoubleSumFieldAggregat
 import edu.uci.ics.hyracks.dataflow.std.group.aggregators.MultiFieldsAggregatorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.global.base.IPv6MarkStringParserFactory;
+import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.GlobalAggregationPlan;
 import edu.uci.ics.hyracks.dataflow.std.group.global.costmodels.LocalGroupCostDescriptor;
 
 public class GlobalAggregationSample2Test extends AbstractGlobalAggIntegrationTest {
@@ -58,18 +57,15 @@ public class GlobalAggregationSample2Test extends AbstractGlobalAggIntegrationTe
     final int IPMARSK = 4;
 
     final String[] inputNodeIDs = new String[4];
-    final FileSplit[] inputSplits = new FileSplit[4];
+    final String[] filePaths = new String[4];
 
     {
         // initialize the input partitions
-        for (int i = 0; i < inputSplits.length; i++) {
-            inputSplits[i] = new FileSplit(NC_IDS[i], new FileReference(new File(DATA_FOLDER + "/" + DATA_LABEL
-                    + DATA_SUFFIX + i)));
+        for (int i = 0; i < filePaths.length; i++) {
+            filePaths[i] = DATA_FOLDER + "/" + DATA_LABEL + DATA_SUFFIX + i;
             inputNodeIDs[i] = NC_IDS[i];
         }
     }
-
-    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(inputSplits);
 
     final RecordDescriptor inputRecordDescriptor = new RecordDescriptor(new ISerializerDeserializer[] {
             // IP
@@ -113,39 +109,71 @@ public class GlobalAggregationSample2Test extends AbstractGlobalAggIntegrationTe
     LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo = LocalGroupOperatorDescriptor.GroupAlgorithms.HASH_GROUP;
     String[] localPartition = new String[] { NC_IDS[0], NC_IDS[1], NC_IDS[2], NC_IDS[3] };
 
-    LocalGroupOperatorDescriptor.GroupAlgorithms[] grouperAlgos = new LocalGroupOperatorDescriptor.GroupAlgorithms[] {
-            LocalGroupOperatorDescriptor.GroupAlgorithms.SIMPLE_HYBRID_HASH,
-            LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP };
+    GrouperConnector localConn = GrouperConnector.HASH_CONN;
+    BitSet localConnNodeMap = new BitSet(8);
 
-    String[][] partitionConstraints = new String[][] { new String[] { NC_IDS[4], NC_IDS[5] },
-            new String[] { NC_IDS[6], NC_IDS[7] } };
+    {
+        localConnNodeMap.set(0);
+        localConnNodeMap.set(2);
+        localConnNodeMap.set(5);
+        localConnNodeMap.set(7);
+    }
 
-    BitSet[] partitionMaps = new BitSet[grouperAlgos.length];
+    List<LocalGroupOperatorDescriptor.GroupAlgorithms> grouperAlgos = new LinkedList<>();
+    List<String[]> partitionConstraints = new LinkedList<>();
+
+    {
+        grouperAlgos.add(LocalGroupOperatorDescriptor.GroupAlgorithms.SIMPLE_HYBRID_HASH);
+        grouperAlgos.add(LocalGroupOperatorDescriptor.GroupAlgorithms.SORT_GROUP_MERGE_GROUP);
+        partitionConstraints.add(new String[] { NC_IDS[4], NC_IDS[5] });
+        partitionConstraints.add(new String[] { NC_IDS[6], NC_IDS[7] });
+    }
+
+    List<BitSet> globalConnNodeMaps = new LinkedList<>();
+    List<GrouperConnector> globalConnectors = new LinkedList<>();
 
     {
 
         // initialize the partition maps 
-        int previousPartitions = localPartition.length;
-        for (int i = 0; i < partitionMaps.length; i++) {
-            partitionMaps[i] = new BitSet(previousPartitions * partitionConstraints[i].length);
-            previousPartitions = partitionConstraints[i].length;
-        }
+        BitSet globalPartitionConstraint0 = new BitSet(4 * 2);
+        globalPartitionConstraint0.set(0);
+        globalPartitionConstraint0.set(2);
+        globalPartitionConstraint0.set(5);
+        globalPartitionConstraint0.set(7);
 
-        // set each partition maps
-        partitionMaps[0].set(0);
-        partitionMaps[0].set(2);
-        partitionMaps[0].set(5);
-        partitionMaps[0].set(7);
-        partitionMaps[1].set(0, partitionConstraints[0].length * partitionConstraints[1].length);
+        globalConnNodeMaps.add(globalPartitionConstraint0);
+        globalConnectors.add(GrouperConnector.HASH_CONN);
+
+        BitSet globalPartitionConstraint1 = new BitSet(2 * 2);
+        globalPartitionConstraint1.set(0, 4);
+
+        globalConnNodeMaps.add(globalPartitionConstraint1);
+        globalConnectors.add(GrouperConnector.HASH_CONN);
     }
 
     @Test
     public void twoLevelsTest() throws Exception {
-        JobSpecification spec = LocalGroupCostDescriptor.createHyracksJobSpec(framesLimit, keyFields,
-                decorFields, inputCount, outputCount, groupStateInBytes, fudgeFactor, tableSize, NC_IDS, inputNodeIDs,
-                inputSplits, inputRecordDescriptor, outputRecordDescriptor, tupleParserFactory, aggregateFactory,
-                partialMergeFactory, finalMergeFactory, comparatorFactories, hashFamilies, firstNormalizerFactory,
-                localGrouperAlgo, grouperAlgos, localPartition, partitionConstraints, partitionMaps);
+
+        GlobalAggregationPlan plan = new GlobalAggregationPlan(NC_IDS, inputNodeIDs, filePaths);
+
+        plan.setLocalGrouperAlgo(localGrouperAlgo);
+        plan.setLocalGrouperPartition(inputNodeIDs);
+
+        plan.setLocalConnector(GrouperConnector.HASH_CONN);
+        BitSet localConnNodeMap = new BitSet(16);
+        localConnNodeMap.set(0, 16);
+        plan.setLocalConnNodeMap(localConnNodeMap);
+
+        plan.setGlobalGrouperAlgos(grouperAlgos);
+        plan.setGlobalGroupersPartitions(partitionConstraints);
+
+        plan.setGlobalConnectors(globalConnectors);
+        plan.setGlobalConnNodeMaps(globalConnNodeMaps);
+
+        JobSpecification spec = LocalGroupCostDescriptor.createHyracksJobSpec(framesLimit, keyFields, decorFields,
+                inputCount, outputCount, groupStateInBytes, fudgeFactor, tableSize, inputRecordDescriptor,
+                outputRecordDescriptor, tupleParserFactory, aggregateFactory, partialMergeFactory, finalMergeFactory,
+                comparatorFactories, hashFamilies, firstNormalizerFactory, plan);
         runTest(spec);
 
     }

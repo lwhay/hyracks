@@ -59,6 +59,10 @@ public class CostVector {
         this.network += cv.network;
     }
 
+    public String toString() {
+        return "[" + this.cpu + ", " + this.io + ", " + this.network + "]";
+    }
+
     public CostVector() {
         this.cpu = 0;
         this.io = 0;

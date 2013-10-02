@@ -23,11 +23,11 @@ import edu.uci.ics.hyracks.dataflow.std.connectors.globalagg.LocalGroupConnector
 import edu.uci.ics.hyracks.dataflow.std.group.global.LocalGroupOperatorDescriptor;
 
 /**
- * 
+ * A logical representation of a global aggregation plan
  */
 public class GlobalAggregationPlan {
 
-    private final String[] nodes, inputNodes;
+    private final String[] nodes, inputNodes, dataFilePaths;
 
     private LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo;
     private String[] localGrouperPartition;
@@ -45,9 +45,10 @@ public class GlobalAggregationPlan {
 
     private DatasetStats outputStat;
 
-    public GlobalAggregationPlan(String[] nodes, String[] inputNodes) {
+    public GlobalAggregationPlan(String[] nodes, String[] inputNodes, String[] dataFilePaths) {
         this.nodes = nodes;
         this.inputNodes = inputNodes;
+        this.dataFilePaths = dataFilePaths;
         this.globalGrouperAlgos = new LinkedList<>();
         this.globalGroupersPartitions = new LinkedList<>();
         this.globalConnNodeMaps = new LinkedList<>();
@@ -57,7 +58,7 @@ public class GlobalAggregationPlan {
     }
 
     public GlobalAggregationPlan createCopy() {
-        GlobalAggregationPlan copy = new GlobalAggregationPlan(nodes, inputNodes);
+        GlobalAggregationPlan copy = new GlobalAggregationPlan(nodes, inputNodes, dataFilePaths);
 
         // copy local grouper
         copy.localGrouperAlgo = localGrouperAlgo;
@@ -103,7 +104,7 @@ public class GlobalAggregationPlan {
 
         boolean isFirst = true;
 
-        planStringBuilder.append("Plan:\nInputs:");
+        planStringBuilder.append("Plan:").append(costVector.toString()).append("\nInputs:");
 
         // print input nodes
         for (int i = 0; i < inputNodes.length; i++) {
@@ -256,5 +257,19 @@ public class GlobalAggregationPlan {
     public void setOutputStat(DatasetStats outputStat) {
         this.outputStat = outputStat;
     }
+
+    public String[] getNodes() {
+        return nodes;
+    }
+
+    public String[] getInputNodes() {
+        return inputNodes;
+    }
+
+    public String[] getDataFilePaths() {
+        return dataFilePaths;
+    }
+    
+    
 
 }

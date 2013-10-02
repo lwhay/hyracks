@@ -58,15 +58,12 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.data.HashFunctionFamilyFact
 public class LocalGroupCostDescriptor {
 
     public static JobSpecification createHyracksJobSpec(int framesLimit, int[] keyFields, int[] decorFields,
-            long inputCount, long outputCount, int groupStateSize, double fudgeFactor, int tableSize, String[] nodes,
-            String[] inputNodes, FileSplit[] inputSplits, RecordDescriptor inRecDesc, RecordDescriptor outRecDesc,
-            ITupleParserFactory parserFactory, IAggregatorDescriptorFactory aggregateFactory,
-            IAggregatorDescriptorFactory partialMergeFactory, IAggregatorDescriptorFactory finalMergeFactory,
-            IBinaryComparatorFactory[] comparatorFactories, IBinaryHashFunctionFamily[] hashFamilies,
-            INormalizedKeyComputerFactory firstNormalizerFactory,
-            LocalGroupOperatorDescriptor.GroupAlgorithms localGrouperAlgo,
-            LocalGroupOperatorDescriptor.GroupAlgorithms[] globalGrouperAlgos, String[] localPartition,
-            String[][] globalPartitions, BitSet[] partitionMaps) throws IOException, HyracksDataException {
+            long inputCount, long outputCount, int groupStateSize, double fudgeFactor, int tableSize,
+            RecordDescriptor inRecDesc, RecordDescriptor outRecDesc, ITupleParserFactory parserFactory,
+            IAggregatorDescriptorFactory aggregateFactory, IAggregatorDescriptorFactory partialMergeFactory,
+            IAggregatorDescriptorFactory finalMergeFactory, IBinaryComparatorFactory[] comparatorFactories,
+            IBinaryHashFunctionFamily[] hashFamilies, INormalizedKeyComputerFactory firstNormalizerFactory,
+            GlobalAggregationPlan aggPlan) throws IOException, HyracksDataException {
 
         JobSpecification spec = new JobSpecification();
 
@@ -79,13 +76,20 @@ public class LocalGroupCostDescriptor {
             storedDecorFields[i] = i;
         }
 
+        FileSplit[] inputSplits = new FileSplit[aggPlan.getDataFilePaths().length];
+
+        for (int i = 0; i < inputSplits.length; i++) {
+            inputSplits[i] = new FileSplit(aggPlan.getInputNodes()[i], new FileReference(new File(
+                    aggPlan.getDataFilePaths()[i])));
+        }
+
         StringBuilder outputLabel = new StringBuilder();
 
         IFileSplitProvider inputSplitProvider = new ConstantFileSplitProvider(inputSplits);
         FileScanOperatorDescriptor inputScanner = new FileScanOperatorDescriptor(spec, inputSplitProvider,
                 parserFactory, inRecDesc);
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, inputScanner, inputNodes);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, inputScanner, aggPlan.getInputNodes());
 
         IOperatorDescriptor prevGrouper;
 
@@ -95,47 +99,57 @@ public class LocalGroupCostDescriptor {
         LocalGroupOperatorDescriptor localGrouper = new LocalGroupOperatorDescriptor(spec, keyFields, decorFields,
                 framesLimit, tableSize, inputCount, outputCount, groupStateSize, fudgeFactor, comparatorFactories,
                 hashFamilies, firstNormalizerFactory, aggregateFactory, partialMergeFactory, finalMergeFactory,
-                outRecDesc, localGrouperAlgo, 0);
+                outRecDesc, aggPlan.getLocalGrouperAlgo(), 0);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, localGrouper, aggPlan.getLocalGrouperPartition());
 
-        IConnectorDescriptor localConn = new OneToOneConnectorDescriptor(spec);
+        IConnectorDescriptor localConn = new LocalityAwareMToNPartitioningConnectorDescriptor(
+                spec,
+                new FieldHashPartitionComputerFactory(
+                        keyFields,
+                        new IBinaryHashFunctionFactory[] { HashFunctionFamilyFactoryAdapter
+                                .getFunctionFactoryFromFunctionFamily(MurmurHash3BinaryHashFunctionFamily.INSTANCE, 0) }),
+                new HashtableLocalityMap(aggPlan.getLocalConnNodeMap()));
         spec.connect(localConn, inputScanner, 0, localGrouper, 0);
 
-        outputLabel.append('_').append(localGrouperAlgo.name());
+        outputLabel.append('_').append(aggPlan.getLocalGrouperAlgo().name());
 
         prevGrouper = localGrouper;
         keys = storedKeyFields;
         decors = storedDecorFields;
         inputAggFactory = partialMergeFactory;
 
-        for (int i = 0; i < globalGrouperAlgos.length; i++) {
+        String[] prevPartitions = aggPlan.getInputNodes();
+
+        for (int i = 0; i < aggPlan.getGlobalGrouperAlgos().size(); i++) {
             LocalGroupOperatorDescriptor grouper = new LocalGroupOperatorDescriptor(spec, keys, decors, framesLimit,
                     tableSize, inputCount, outputCount, groupStateSize, fudgeFactor, comparatorFactories, hashFamilies,
                     firstNormalizerFactory, inputAggFactory, partialMergeFactory, finalMergeFactory, outRecDesc,
-                    globalGrouperAlgos[i], i + 1);
+                    aggPlan.getGlobalGrouperAlgos().get(i), i + 1);
 
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, globalPartitions[i]);
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, grouper, aggPlan
+                    .getGlobalGroupersPartitions().get(i));
 
             IConnectorDescriptor conn = new LocalityAwareMToNPartitioningConnectorDescriptor(spec,
                     new FieldHashPartitionComputerFactory(keyFields,
                             new IBinaryHashFunctionFactory[] { HashFunctionFamilyFactoryAdapter
                                     .getFunctionFactoryFromFunctionFamily(MurmurHash3BinaryHashFunctionFamily.INSTANCE,
-                                            i) }), new HashtableLocalityMap(partitionMaps[i]));
+                                            i) }), new HashtableLocalityMap(aggPlan.getGlobalConnNodeMaps().get(i)));
 
             spec.connect(conn, prevGrouper, 0, grouper, 0);
 
-            outputLabel.append('_').append(globalGrouperAlgos[i].name());
+            outputLabel.append('_').append(aggPlan.getGlobalGrouperAlgos().get(i).name());
 
             prevGrouper = grouper;
             keys = storedKeyFields;
             decors = storedDecorFields;
             inputAggFactory = partialMergeFactory;
+            prevPartitions = aggPlan.getGlobalGroupersPartitions().get(i);
         }
 
-        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec,
-                globalPartitions[globalPartitions.length - 1], "global" + outputLabel.toString());
+        AbstractSingleActivityOperatorDescriptor printer = getPrinter(spec, prevPartitions,
+                "global" + outputLabel.toString());
 
-        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer,
-                globalPartitions[globalPartitions.length - 1]);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, printer, prevPartitions);
 
         IConnectorDescriptor printConn = new OneToOneConnectorDescriptor(spec);
         spec.connect(printConn, prevGrouper, 0, printer, 0);
@@ -164,8 +178,8 @@ public class LocalGroupCostDescriptor {
 
     public static Map<GrouperProperty, List<GlobalAggregationPlan>> exploreForNonDominatedGlobalAggregationPlans(
             int framesLimit, int frameSize, long inputCount, long outputCount, int groupStateSize, double fudgeFactor,
-            int tableSize, String[] nodes, String[] inputNodes, double htCapRatio, int htSlotSize, int htRefSize,
-            double bfErrorRatio) throws HyracksDataException {
+            int tableSize, String[] nodes, String[] inputNodes, String[] dataFilePaths, double htCapRatio,
+            int htSlotSize, int htRefSize, double bfErrorRatio) throws HyracksDataException {
 
         // used to track the usage of nodes
         boolean[] usedNodes = new boolean[nodes.length];
@@ -209,7 +223,7 @@ public class LocalGroupCostDescriptor {
                     if (!currentOutputProperty.isCompatibleWithMask(algo.getRequiredProperty())) {
                         continue;
                     }
-                    GlobalAggregationPlan plan = new GlobalAggregationPlan(nodes, inputNodes);
+                    GlobalAggregationPlan plan = new GlobalAggregationPlan(nodes, inputNodes, dataFilePaths);
 
                     // set the local connector
                     plan.setLocalConnector(conn);
