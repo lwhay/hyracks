@@ -32,6 +32,12 @@ public class DatasetStats {
         this.recordSize = recordSize;
     }
 
+    public DatasetStats(DatasetStats statToCopy) {
+        this.recordCount = statToCopy.recordCount;
+        this.groupCount = statToCopy.groupCount;
+        this.recordSize = statToCopy.recordSize;
+    }
+
     public long getRecordCount() {
         return recordCount;
     }

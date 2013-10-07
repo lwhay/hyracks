@@ -29,6 +29,12 @@ public class PartitionNodeMap {
         this.nodeMap.clear(0, fromNodes * toNodes);
     }
 
+    public PartitionNodeMap(int fromNodes, int toNodes, BitSet nodeMap) {
+        this.fromNodes = fromNodes;
+        this.toNodes = toNodes;
+        this.nodeMap = nodeMap;
+    }
+
     public int getFromNodes() {
         return fromNodes;
     }

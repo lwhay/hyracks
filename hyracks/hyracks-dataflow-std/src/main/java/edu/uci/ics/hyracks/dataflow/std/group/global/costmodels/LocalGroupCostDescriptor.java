@@ -159,6 +159,62 @@ public class LocalGroupCostDescriptor {
         return spec;
     }
 
+    public static void computePlanCost(GlobalAggregationPlan plan, GlobalAggregationPlanCost planCost, int framesLimit,
+            int frameSize, double fudgeFactor, int tableSize, double htCapRatio, int htSlotSize, int htRefSize,
+            double bfErrorRatio) throws HyracksDataException {
+
+        // compute local connector cost
+        plan.getLocalConnector().computeCostVector(
+                planCost.getLocalConnCostVector(),
+                plan.getInputDataStat(),
+                frameSize,
+                new PartitionNodeMap(plan.getInputNodes().length, plan.getInputNodes().length, plan
+                        .getLocalConnNodeMap()));
+
+        // compute local grouper cost
+        planCost.getLocalGrouperOutputStats().setGroupCount(plan.getInputDataStat().getGroupCount());
+        planCost.getLocalGrouperOutputStats().setRecordCount(plan.getInputDataStat().getRecordCount());
+        planCost.getLocalGrouperOutputStats().setRecordSize(plan.getInputDataStat().getRecordSize());
+        plan.getLocalGrouperAlgo().computeCostVector(planCost.getLocalCostVector(),
+                planCost.getLocalGrouperOutputStats(), framesLimit, frameSize, tableSize, fudgeFactor, htCapRatio,
+                htSlotSize, htRefSize, bfErrorRatio);
+
+        // compute global groups and connectors cost
+        DatasetStats prevOutputStat = planCost.getLocalGrouperOutputStats();
+        int prevNodeCount = plan.getInputNodes().length;
+
+        for (int i = 0; i < plan.getGlobalGrouperAlgos().size(); i++) {
+            // get the partition constraints for the current global node
+            int currentGlobalGrouperPartitions = plan.getGlobalGroupersPartitions().get(i).length;
+
+            // compute global connector cost
+            CostVector globalConnCostVector = new CostVector();
+
+            plan.getGlobalConnectors()
+                    .get(i)
+                    .computeCostVector(
+                            globalConnCostVector,
+                            prevOutputStat,
+                            frameSize,
+                            new PartitionNodeMap(prevNodeCount, currentGlobalGrouperPartitions, plan
+                                    .getGlobalConnNodeMaps().get(i)));
+            planCost.getGlobalConnCostVectors().add(globalConnCostVector);
+
+            // compute global operator cost
+            CostVector globalGrouperCostVector = new CostVector();
+            DatasetStats globalGrouperOutputStat = new DatasetStats(prevOutputStat);
+            plan.getGlobalGrouperAlgos()
+                    .get(i)
+                    .computeCostVector(globalGrouperCostVector, globalGrouperOutputStat, framesLimit, frameSize,
+                            tableSize, fudgeFactor, htCapRatio, htSlotSize, htRefSize, bfErrorRatio);
+            planCost.getGlobalCostVectors().add(globalGrouperCostVector);
+            planCost.getGlobalGroupersOutputStats().add(globalGrouperOutputStat);
+
+            prevOutputStat = globalGrouperOutputStat;
+            prevNodeCount = currentGlobalGrouperPartitions;
+        }
+    }
+
     private static AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String[] outputNodeIDs,
             String prefix) throws IOException {
 
@@ -238,9 +294,9 @@ public class LocalGroupCostDescriptor {
                     // added cost from the local connector
                     plan.getCostVector().updateWithCostVector(currentCostVector);
                     // reset the dataset stats with the output of the connector
-                    plan.getOutputStat().resetWithDatasetStats(currentDataStat);
+                    plan.getInputDataStat().resetWithDatasetStats(currentDataStat);
                     // update the cost vector
-                    algo.computeCostVector(plan.getCostVector(), plan.getOutputStat(), framesLimit, frameSize,
+                    algo.computeCostVector(plan.getCostVector(), plan.getInputDataStat(), framesLimit, frameSize,
                             tableSize, fudgeFactor, htCapRatio, htSlotSize, htRefSize, bfErrorRatio);
                     // compute the output property, which will be used as the key for this subplan in the map
                     GrouperProperty planOutputProperty = currentOutputProperty.createCopy();
@@ -310,7 +366,7 @@ public class LocalGroupCostDescriptor {
 
                                 // update the cost after adding the new connector 
                                 // TODO similar to the update constraint function in algebrics?
-                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getInputDataStat(),
                                         frameSize, connNodeMap);
 
                                 // add a new grouper
@@ -318,7 +374,7 @@ public class LocalGroupCostDescriptor {
                                 subplanCopy.getGlobalGroupersPartitions().add(grouperPartitionConstraint);
 
                                 // update the cost after adding the new grouper
-                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getInputDataStat(),
                                         framesLimit, frameSize, tableSize, fudgeFactor, htCapRatio, htSlotSize,
                                         htRefSize, bfErrorRatio);
 
@@ -439,7 +495,7 @@ public class LocalGroupCostDescriptor {
 
                                 // update the cost after adding the new connector 
                                 // TODO similar to the update constraint function in algebrics?
-                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                newConn.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getInputDataStat(),
                                         frameSize, connNodeMap);
 
                                 // add a new grouper
@@ -447,7 +503,7 @@ public class LocalGroupCostDescriptor {
                                 subplanCopy.getGlobalGroupersPartitions().add(grouperPartitionConstraint);
 
                                 // update the cost after adding the new grouper
-                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getOutputStat(),
+                                terminal.computeCostVector(subplanCopy.getCostVector(), subplanCopy.getInputDataStat(),
                                         framesLimit, frameSize, tableSize, fudgeFactor, htCapRatio, htSlotSize,
                                         htRefSize, bfErrorRatio);
 

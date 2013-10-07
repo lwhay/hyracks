@@ -43,7 +43,7 @@ public class GlobalAggregationPlan {
 
     private CostVector costVector;
 
-    private DatasetStats outputStat;
+    private DatasetStats inputDataStat;
 
     public GlobalAggregationPlan(String[] nodes, String[] inputNodes, String[] dataFilePaths) {
         this.nodes = nodes;
@@ -53,7 +53,7 @@ public class GlobalAggregationPlan {
         this.globalGroupersPartitions = new LinkedList<>();
         this.globalConnNodeMaps = new LinkedList<>();
         this.costVector = new CostVector();
-        this.outputStat = new DatasetStats();
+        this.inputDataStat = new DatasetStats();
         this.globalConnectors = new LinkedList<>();
     }
 
@@ -88,9 +88,9 @@ public class GlobalAggregationPlan {
             copy.globalConnectors.add(globalConnectors.get(i));
         }
 
-        copy.outputStat.setGroupCount(this.outputStat.getGroupCount());
-        copy.outputStat.setRecordCount(this.outputStat.getRecordCount());
-        copy.outputStat.setRecordSize(this.outputStat.getRecordSize());
+        copy.inputDataStat.setGroupCount(this.inputDataStat.getGroupCount());
+        copy.inputDataStat.setRecordCount(this.inputDataStat.getRecordCount());
+        copy.inputDataStat.setRecordSize(this.inputDataStat.getRecordSize());
 
         copy.costVector.setCpu(costVector.getCpu());
         copy.costVector.setIo(costVector.getIo());
@@ -182,8 +182,8 @@ public class GlobalAggregationPlan {
         return costVector;
     }
 
-    public DatasetStats getOutputStat() {
-        return outputStat;
+    public DatasetStats getInputDataStat() {
+        return inputDataStat;
     }
 
     public LocalGroupOperatorDescriptor.GroupAlgorithms getLocalGrouperAlgo() {
@@ -255,7 +255,7 @@ public class GlobalAggregationPlan {
     }
 
     public void setOutputStat(DatasetStats outputStat) {
-        this.outputStat = outputStat;
+        this.inputDataStat = outputStat;
     }
 
     public String[] getNodes() {
