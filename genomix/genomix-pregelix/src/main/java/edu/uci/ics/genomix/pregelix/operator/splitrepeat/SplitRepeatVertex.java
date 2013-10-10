@@ -1,10 +1,10 @@
 package edu.uci.ics.genomix.pregelix.operator.splitrepeat;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.Random;
 import java.util.Set;
 
@@ -28,7 +28,6 @@ import edu.uci.ics.pregelix.api.util.BspUtils;
  * Details: This component identifies small repeats that are spanned by sets of
  * reads. The algorithms are similar to scaffolding, but uses individual
  * reads. It is very experimental, with marginal improvements to the graph
- * 
  */
 public class SplitRepeatVertex extends DeBruijnGraphCleanVertex<VertexValueWritable, SplitRepeatMessage> {
 
@@ -83,7 +82,6 @@ public class SplitRepeatVertex extends DeBruijnGraphCleanVertex<VertexValueWrita
         return createdVertexId;
     }
 
-    // TODO LATER implement EdgeListWritbale's array of long to TreeMap(sorted)
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public void createNewVertex(VKmer createdVertexId, NeighborInfo reverseNeighborInfo,
             NeighborInfo forwardNeighborInfo) {
