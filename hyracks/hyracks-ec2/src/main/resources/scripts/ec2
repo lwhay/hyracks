@@ -1,0 +1,19 @@
+#!/bin/sh
+
+CUR_DIR=$(cd $(dirname "$0"); pwd)
+HYRACKS_EC2_APPASSEMBLER=$(cd $(dirname "$CUR_DIR"); pwd)
+
+. $HYRACKS_EC2_APPASSEMBLER/conf/ec2.properties
+
+$CUR_DIR/hyracksEc2 \
+ -credentials-file $CREDENTIALS_FILE \
+ -key-file $KEY_FILE \
+ -hyracks-ec2-root $HYRACKS_EC2_APPASSEMBLER \
+ -cluster-prefix $CLUTER_PREFIX \
+ -image-id $AMI_ID \
+ -instance-type $INSTANCE_TYPE \
+ -security-group $SECURITY_GROUP \
+ -opened-tcp-ports $OPENED_TCP_PORTS \
+ -max-instances $MAXIMUM_INSTANCES \
+ -cmd "$@"
+

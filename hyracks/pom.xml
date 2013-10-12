@@ -95,6 +95,7 @@
     <module>hyracks-control</module>
     <module>hyracks-net</module>
     <module>hyracks-data</module>
+    <module>hyracks-ec2</module>
     <module>hyracks-storage-common</module>
     <module>hyracks-storage-am-common</module>
     <module>hyracks-storage-am-bloomfilter</module>
