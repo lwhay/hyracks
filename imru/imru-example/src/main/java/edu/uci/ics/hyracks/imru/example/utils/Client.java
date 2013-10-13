@@ -478,8 +478,8 @@ public class Client<Model extends Serializable, Data extends Serializable> {
             timer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    Rt.p("Uploading harFile %,d. "
-                            + "If there is no response for a while, "
+                    Rt.p("Uploading harFile with size %,d. "
+                            + "If there isn't any response for a long time, "
                             + "please check nc logs, "
                             + "there might be ClassNotFoundException.",
                             harFile2.length());

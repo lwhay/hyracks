@@ -43,9 +43,9 @@ import edu.uci.ics.hyracks.dataflow.common.data.marshalling.UTF8StringSerializer
 import edu.uci.ics.hyracks.dataflow.std.connectors.LocalityAwareMToNPartitioningConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNReplicatingConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
-//import edu.uci.ics.hyracks.hdfs.api.IKeyValueParser;
-//import edu.uci.ics.hyracks.hdfs.api.IKeyValueParserFactory;
-//import edu.uci.ics.hyracks.hdfs.dataflow.HDFSReadOperatorDescriptor;
+import edu.uci.ics.hyracks.hdfs.api.IKeyValueParser;
+import edu.uci.ics.hyracks.hdfs.api.IKeyValueParserFactory;
+import edu.uci.ics.hyracks.hdfs.dataflow.HDFSReadOperatorDescriptor;
 import edu.uci.ics.hyracks.imru.api.IIMRUDataGenerator;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob2;
 import edu.uci.ics.hyracks.imru.api.TupleWriter;
@@ -142,8 +142,8 @@ public class IMRUJobFactory {
         mapOperatorLocations = ClusterConfig.setLocationConstraint(null, null,
                 confFactory.useHDFS() ? this.getInputSplits() : null,
                 inputSplits, random);
-        HashSet<String> hashSet = new HashSet<String>(Arrays
-                .asList(mapOperatorLocations));
+        HashSet<String> hashSet = new HashSet<String>(
+                Arrays.asList(mapOperatorLocations));
         mapNodesLocations = hashSet.toArray(new String[0]);
         mapAndUpdateNodesLocations = hashSet.toArray(new String[0]);
         modelNode = mapNodesLocations[0];
@@ -168,14 +168,10 @@ public class IMRUJobFactory {
 
     public JobConf getConf() throws IOException {
         JobConf conf = new JobConf();
-        conf
-                .addResource(new Path(confFactory.hadoopConfPath
-                        + "/core-site.xml"));
+        conf.addResource(new Path(confFactory.hadoopConfPath + "/core-site.xml"));
         conf.addResource(new Path(confFactory.hadoopConfPath
                 + "/mapred-site.xml"));
-        conf
-                .addResource(new Path(confFactory.hadoopConfPath
-                        + "/hdfs-site.xml"));
+        conf.addResource(new Path(confFactory.hadoopConfPath + "/hdfs-site.xml"));
         return conf;
     }
 
@@ -213,23 +209,22 @@ public class IMRUJobFactory {
             boolean memCache) throws IOException {
         JobSpecification spec = new JobSpecification();
         if (confFactory.useHDFS()) {
-            throw new Error("TODO");
-//            InputSplit[] splits = getInputSplits();
-//            RecordDescriptor recordDesc = new RecordDescriptor(
-//                    new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE });
-//            HDFSReadOperatorDescriptor readOperator = new HDFSReadOperatorDescriptor(
-//                    spec, recordDesc, getConf(), splits, mapOperatorLocations,
-//                    new HDFSBlockWriter());
-//            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
-//                    readOperator, mapOperatorLocations);
-//
-//            IOperatorDescriptor writer = new DataLoadOperatorDescriptor(spec,
-//                    model, inputSplits, confFactory, true, memCache);
-//            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
-//                    readOperator, mapOperatorLocations);
-//
-//            spec.connect(new OneToOneConnectorDescriptor(spec), readOperator,
-//                    0, writer, 0);
+            InputSplit[] splits = getInputSplits();
+            RecordDescriptor recordDesc = new RecordDescriptor(
+                    new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE });
+            HDFSReadOperatorDescriptor readOperator = new HDFSReadOperatorDescriptor(
+                    spec, recordDesc, getConf(), splits, mapOperatorLocations,
+                    new HDFSBlockWriter());
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                    readOperator, mapOperatorLocations);
+
+            IOperatorDescriptor writer = new DataLoadOperatorDescriptor(spec,
+                    model, inputSplits, confFactory, true, memCache);
+            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec,
+                    readOperator, mapOperatorLocations);
+
+            spec.connect(new OneToOneConnectorDescriptor(spec), readOperator,
+                    0, writer, 0);
         } else {
             IMRUOperatorDescriptor dataLoad = new DataLoadOperatorDescriptor(
                     spec, model, inputSplits, confFactory, false, memCache);
@@ -299,7 +294,7 @@ public class IMRUJobFactory {
      * @return A JobSpecification for an iteration of IMRU.
      * @throws HyracksException
      */
-    @SuppressWarnings( { "rawtypes", "unchecked" })
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public JobSpecification generateJob(IIMRUJob2 model, int roundNum,
             String modelName, boolean noDiskCache) throws HyracksException {
 
@@ -346,9 +341,7 @@ public class IMRUJobFactory {
             // Connect things together
             IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(
                     spec);
-            spec
-                    .connect(reduceUpdateConn, reduceOperator, 0,
-                            updateOperator, 0);
+            spec.connect(reduceUpdateConn, reduceOperator, 0, updateOperator, 0);
         } else if (aggType == AGGREGATION.NARY) {
             // Reduce aggregation tree.
             IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(

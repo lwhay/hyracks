@@ -22,6 +22,7 @@ import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.util.EnumSet;
 import java.util.Hashtable;
+import java.util.Vector;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -151,13 +152,14 @@ public class Hdtest {
                             TupleWriter tupleWriter;
 
                             @Override
-                            public void open(IFrameWriter writer) {
+                            public void open(IFrameWriter writer)
+                                    throws HyracksDataException {
                                 tupleWriter = new TupleWriter(ctx, writer, 1);
                             }
 
                             @Override
                             public void parse(LongWritable key, Text value,
-                                    IFrameWriter writer)
+                                    IFrameWriter writer, String fileString)
                                     throws HyracksDataException {
                                 try {
                                     tupleWriter.write(value.getBytes(), 0,
@@ -195,7 +197,7 @@ public class Hdtest {
 
     public static void main(String[] args) throws Exception {
         Rt.disableLogging();
-        
+
         //start cluster controller
         CCConfig ccConfig = new CCConfig();
         ccConfig.clientNetIpAddress = "127.0.0.1";
@@ -215,6 +217,7 @@ public class Hdtest {
             config.ccPort = 1099;
             config.clusterNetIPAddress = "127.0.0.1";
             config.dataIPAddress = "127.0.0.1";
+            config.datasetIPAddress = "127.0.0.1";
             config.nodeId = "NC" + i;
             NodeControllerService nc = new NodeControllerService(config);
             nc.start();
@@ -224,14 +227,13 @@ public class Hdtest {
         IHyracksClientConnection hcc = new HyracksConnection("localhost", 3099);
 
         //update application
-        hcc.createApplication("text", null);
+        hcc.deployBinary(new Vector<String>());
 
         try {
 
             JobSpecification job = createJob();
 
-            JobId jobId = hcc.startJob("text", job,
-                    EnumSet.noneOf(JobFlag.class));
+            JobId jobId = hcc.startJob(job, EnumSet.noneOf(JobFlag.class));
             hcc.waitForCompletion(jobId);
 
         } catch (Throwable e) {

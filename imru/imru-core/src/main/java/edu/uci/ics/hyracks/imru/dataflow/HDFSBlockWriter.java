@@ -12,7 +12,8 @@ import edu.uci.ics.hyracks.hdfs.api.IKeyValueParser;
 import edu.uci.ics.hyracks.hdfs.api.IKeyValueParserFactory;
 import edu.uci.ics.hyracks.imru.api.TupleWriter;
 
-public class HDFSBlockWriter implements IKeyValueParserFactory<LongWritable, Text> {
+public class HDFSBlockWriter implements
+        IKeyValueParserFactory<LongWritable, Text> {
     @Override
     public IKeyValueParser<LongWritable, Text> createKeyValueParser(
             final IHyracksTaskContext ctx) {
@@ -20,18 +21,17 @@ public class HDFSBlockWriter implements IKeyValueParserFactory<LongWritable, Tex
             TupleWriter tupleWriter;
 
             @Override
-            public void open(IFrameWriter writer) {
-                tupleWriter = new TupleWriter(ctx, writer,
-                        1);
+            public void open(IFrameWriter writer) throws HyracksDataException {
+                tupleWriter = new TupleWriter(ctx, writer, 1);
             }
 
             @Override
             public void parse(LongWritable key, Text value,
-                    IFrameWriter writer)
+                    IFrameWriter writer, String fileString)
                     throws HyracksDataException {
+                // TODO Auto-generated method stub
                 try {
-                    tupleWriter.write(value.getBytes(), 0,
-                            value.getLength());
+                    tupleWriter.write(value.getBytes(), 0, value.getLength());
                     tupleWriter.finishField();
                     tupleWriter.finishTuple();
                 } catch (IOException e) {
@@ -40,8 +40,7 @@ public class HDFSBlockWriter implements IKeyValueParserFactory<LongWritable, Tex
             }
 
             @Override
-            public void close(IFrameWriter writer)
-                    throws HyracksDataException {
+            public void close(IFrameWriter writer) throws HyracksDataException {
                 tupleWriter.close();
             }
         };
