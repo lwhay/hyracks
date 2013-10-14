@@ -17,6 +17,11 @@ package edu.uci.ics.hyracks.storage.am.lsm.btree.impls;
 
 import java.io.File;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -292,7 +297,20 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         }
     }
 
+    Random r = new Random(50);
+
+    private static AtomicInteger total = new AtomicInteger();
+    private static final AtomicInteger in = new AtomicInteger();
+    private static final Logger LOGGER = Logger.getLogger(LSMBTree.class.getName());
+    private static final AtomicBoolean unique = new AtomicBoolean();
+    private static AtomicLong prevTime = new AtomicLong();
+    private static AtomicLong currentTime = new AtomicLong();
+
     private boolean insert(ITupleReference tuple, LSMBTreeOpContext ctx) throws HyracksDataException, IndexException {
+        //        if (virtualBufferCaches.get(0).getDatasetID() >= 100) {
+        //            ctx.modificationCallback.found(null, tuple);
+        //            return true;
+        //        }
         ILSMComponent c = ctx.getComponentHolder().get(0);
         LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) c;
         MultiComparator comparator = MultiComparator.createIgnoreFieldLength(mutableComponent.getBTree()
@@ -340,7 +358,25 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             ctx.getComponentHolder().add(0, firstComponent);
         }
 
-        ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple, AntimatterAwareTupleAcceptor.INSTANCE);
+        if (virtualBufferCaches.get(0).getDatasetID() >= 100) {
+//            total.incrementAndGet();
+            int p = r.nextInt(8);
+            if (p < 4) {
+//                in.incrementAndGet();
+                ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple,
+                        AntimatterAwareTupleAcceptor.INSTANCE);
+            } else {
+                ctx.modificationCallback.found(null, tuple);
+            }
+//            currentTime.set(System.currentTimeMillis());
+//            if (currentTime.get() - prevTime.get() > 10000 && unique.compareAndSet(false, true)) {
+//                LOGGER.severe("total: " + total.get() + " in: " + in.get());
+//                prevTime.set(currentTime.get());
+//                unique.set(false);
+//            }
+        } else {
+            ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple, AntimatterAwareTupleAcceptor.INSTANCE);
+        }
         return true;
     }
 
@@ -371,6 +407,9 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
 
     @Override
     public ILSMComponent flush(ILSMIOOperation operation) throws HyracksDataException, IndexException {
+        //        if (virtualBufferCaches.get(0).getDatasetID() >= 100) {
+        //            return null;
+        //        }
         LSMBTreeFlushOperation flushOp = (LSMBTreeFlushOperation) operation;
         LSMBTreeMemoryComponent flushingComponent = (LSMBTreeMemoryComponent) flushOp.getFlushingComponent();
         IIndexAccessor accessor = flushingComponent.getBTree().createAccessor(NoOpOperationCallback.INSTANCE,
@@ -455,8 +494,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         int maxBucketsPerElement = BloomCalculations.maxBucketsPerElement(numElements);
         BloomFilterSpecification bloomFilterSpec = BloomCalculations.computeBloomSpec(maxBucketsPerElement,
                 bloomFilterFalsePositiveRate);
-        LSMBTreeDiskComponent mergedComponent = createDiskComponent(componentFactory,
-                mergeOp.getBTreeMergeTarget(), mergeOp.getBloomFilterMergeTarget(), true);
+        LSMBTreeDiskComponent mergedComponent = createDiskComponent(componentFactory, mergeOp.getBTreeMergeTarget(),
+                mergeOp.getBloomFilterMergeTarget(), true);
 
         IIndexBulkLoader bulkLoader = mergedComponent.getBTree().createBulkLoader(1.0f, false, numElements, false);
         IIndexBulkLoader builder = mergedComponent.getBloomFilter().createBuilder(numElements,
@@ -476,9 +515,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         return mergedComponent;
     }
 
-    private LSMBTreeDiskComponent createDiskComponent(LSMBTreeDiskComponentFactory factory,
-            FileReference btreeFileRef, FileReference bloomFilterFileRef, boolean createComponent)
-            throws HyracksDataException, IndexException {
+    private LSMBTreeDiskComponent createDiskComponent(LSMBTreeDiskComponentFactory factory, FileReference btreeFileRef,
+            FileReference bloomFilterFileRef, boolean createComponent) throws HyracksDataException, IndexException {
         // Create new BTree instance.
         LSMBTreeDiskComponent component = (LSMBTreeDiskComponent) factory
                 .createLSMComponentInstance(new LSMComponentFileReferences(btreeFileRef, null, bloomFilterFileRef));
@@ -510,6 +548,9 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
 
     @Override
     public void markAsValid(ILSMComponent lsmComponent) throws HyracksDataException {
+        //        if (lsmComponent == null) {
+        //            return;
+        //        }
         // The order of forcing the dirty page to be flushed is critical. The
         // bloom filter must be always done first.
         LSMBTreeDiskComponent component = (LSMBTreeDiskComponent) lsmComponent;
@@ -541,8 +582,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             } catch (HyracksDataException | IndexException e) {
                 throw new TreeIndexException(e);
             }
-            bulkLoader = (BTreeBulkLoader) ((LSMBTreeDiskComponent) component).getBTree().createBulkLoader(
-                    fillFactor, verifyInput, numElementsHint, false);
+            bulkLoader = (BTreeBulkLoader) ((LSMBTreeDiskComponent) component).getBTree().createBulkLoader(fillFactor,
+                    verifyInput, numElementsHint, false);
 
             int maxBucketsPerElement = BloomCalculations.maxBucketsPerElement(numElementsHint);
             BloomFilterSpecification bloomFilterSpec = BloomCalculations.computeBloomSpec(maxBucketsPerElement,

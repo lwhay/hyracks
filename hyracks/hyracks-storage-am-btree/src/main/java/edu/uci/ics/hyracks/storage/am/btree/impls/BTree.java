@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -233,6 +234,8 @@ public class BTree extends AbstractTreeIndex {
         ctx.interiorFrame.setPage(originalPage);
     }
 
+    private static final Logger LOGGER = Logger.getLogger(BTree.class.getName());
+
     private void createNewRoot(BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
         // Make sure the root is always in the same page.
         ICachedPage leftNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ctx.splitKey.getLeftPage()),
@@ -252,6 +255,8 @@ public class BTree extends AbstractTreeIndex {
                 long leftNodeLSN = ctx.interiorFrame.getPageLsn();
                 // Initialize new root (leftNode becomes new root).
                 ctx.interiorFrame.setPage(leftNode);
+                int level = Integer.parseInt(Byte.toString(ctx.interiorFrame.getLevel())) + 1;
+                LOGGER.severe("ROOT LEVEL: " + level);
                 ctx.interiorFrame.initBuffer((byte) (ctx.interiorFrame.getLevel() + 1));
                 // Copy over LSN.
                 ctx.interiorFrame.setPageLsn(leftNodeLSN);

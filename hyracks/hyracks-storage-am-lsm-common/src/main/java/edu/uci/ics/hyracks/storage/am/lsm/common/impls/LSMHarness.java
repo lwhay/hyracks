@@ -79,6 +79,11 @@ public class LSMHarness implements ILSMHarness {
                     // Flush and merge operations should never reach this wait call, because they are always try operations.
                     // If they fail to enter the components, then it means that there are an ongoing flush/merge operation on 
                     // the same components, so they should not proceed.
+                    if (opType == LSMOperationType.MODIFICATION || opType == LSMOperationType.FORCE_MODIFICATION) {
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("The memory component of the index: " + lsmIndex + " is full ...");
+                        }
+                    }
                     opTracker.wait();
                 } catch (InterruptedException e) {
                     throw new HyracksDataException(e);
@@ -253,6 +258,9 @@ public class LSMHarness implements ILSMHarness {
     @Override
     public void scheduleFlush(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
             throws HyracksDataException {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Scheduling a flush operation for index: " + lsmIndex + " ...");
+        }
         if (!getAndEnterComponents(ctx, LSMOperationType.FLUSH, true)) {
             callback.beforeOperation();
             callback.afterOperation(null, null);

@@ -115,4 +115,9 @@ public class MultitenantVirtualBufferCache implements IVirtualBufferCache {
     public IFileMapManager getFileMapProvider() {
         return vbc.getFileMapProvider();
     }
+
+    @Override
+    public int getDatasetID() {
+        return vbc.getDatasetID();
+    }
 }

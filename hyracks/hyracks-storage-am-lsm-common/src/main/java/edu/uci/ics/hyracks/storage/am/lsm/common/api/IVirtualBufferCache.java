@@ -26,4 +26,6 @@ public interface IVirtualBufferCache extends IBufferCache {
     public void reset();
 
     public IFileMapManager getFileMapProvider();
+    
+    public int getDatasetID();
 }

@@ -56,6 +56,21 @@ public class VirtualBufferCache implements IVirtualBufferCache {
         nextFree = 0;
         open = false;
     }
+    
+
+    int datasetID;
+    public VirtualBufferCache(ICacheMemoryAllocator allocator, int pageSize, int numPages, int datasetID) {
+        this.allocator = allocator;
+        this.fileMapManager = new TransientFileMapManager();
+        this.pageSize = pageSize;
+        this.numPages = numPages;
+
+        buckets = new CacheBucket[numPages];
+        pages = new ArrayList<VirtualPage>();
+        nextFree = 0;
+        open = false;
+        this.datasetID = datasetID;
+    }
 
     @Override
     public void createFile(FileReference fileRef) throws HyracksDataException {
@@ -340,5 +355,10 @@ public class VirtualBufferCache implements IVirtualBufferCache {
             latch.writeLock().unlock();
         }
 
+    }
+
+    @Override
+    public int getDatasetID() {
+        return datasetID;
     }
 }
