@@ -32,11 +32,11 @@ public class DataSpreadDriver {
     public String[] targetNodes;
     String targetPath;
 
-    public DataSpreadDriver(HyracksConnection hcc,DeploymentId deploymentId,
+    public DataSpreadDriver(HyracksConnection hcc, DeploymentId deploymentId,
             IMRUConnection imruConnection, String app, File file,
             String[] targetNodes, String targetPath) {
         this.hcc = hcc;
-        this.deploymentId= deploymentId;
+        this.deploymentId = deploymentId;
         this.imruConnection = imruConnection;
         this.app = app;
         this.file = file;
@@ -50,10 +50,10 @@ public class DataSpreadDriver {
         Rt.p("uploaded");
 
         JobSpecification spreadjob = IMRUJobFactory.generateModelSpreadJob(
-                targetNodes, targetNodes[0], imruConnection, file.getName(), 0,
-                targetPath);
-        JobId spreadjobId = hcc.startJob(deploymentId,spreadjob,
-                EnumSet.of(JobFlag.PROFILE_RUNTIME));
+                deploymentId, targetNodes, targetNodes[0], imruConnection, file
+                        .getName(), 0, targetPath);
+        JobId spreadjobId = hcc.startJob(deploymentId, spreadjob, EnumSet
+                .of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(spreadjobId);
         JobStatus status = hcc.getJobStatus(spreadjobId);
         long loadEnd = System.currentTimeMillis();

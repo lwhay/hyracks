@@ -132,9 +132,11 @@ public class IMRUJobControl<Model extends Serializable, Data extends Serializabl
      * @return
      * @throws Exception
      */
-    public <T extends Serializable> JobStatus run(DeploymentId deploymentId,IIMRUJob<Model, Data, T> job,
-            Model initialModel, String app) throws Exception {
-        return run(deploymentId,new IMRUJob2Impl<Model, Data, T>(job), initialModel, app);
+    public <T extends Serializable> JobStatus run(DeploymentId deploymentId,
+            IIMRUJob<Model, Data, T> job, Model initialModel, String app)
+            throws Exception {
+        return run(deploymentId, new IMRUJob2Impl<Model, Data, T>(deploymentId,
+                job), initialModel, app);
     }
 
     /**

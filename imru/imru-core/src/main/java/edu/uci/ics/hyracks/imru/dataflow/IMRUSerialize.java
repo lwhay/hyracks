@@ -17,14 +17,14 @@ public class IMRUSerialize {
     public static ExecutorService threadPool = Executors.newCachedThreadPool();
     private static final int BYTES_IN_INT = 4;
 
-    public static Object deserialize(byte[] bs) throws Exception {
-        ByteArrayInputStream in = new ByteArrayInputStream(bs);
-        ObjectInputStream objIn = new ObjectInputStream(in);
-        Object obj = objIn.readObject();
-        objIn.close();
-        in.close();
-        return obj;
-    }
+//    public static Object deserialize(byte[] bs) throws Exception {
+//        ByteArrayInputStream in = new ByteArrayInputStream(bs);
+//        ObjectInputStream objIn = new ObjectInputStream(in);
+//        Object obj = objIn.readObject();
+//        objIn.close();
+//        in.close();
+//        return obj;
+//    }
 
     @SuppressWarnings("unchecked")
     public static byte[] deserializeFromChunks(IMRUContext ctx,

@@ -29,7 +29,9 @@ import java.util.concurrent.Future;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IJobSerializerDeserializer;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.control.nc.application.NCApplicationContext;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
@@ -40,10 +42,12 @@ import edu.uci.ics.hyracks.imru.util.Rt;
 public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable, T extends Serializable>
         implements IIMRUJob2<Model, Data> {
     int fieldCount = 1;
+    DeploymentId deploymentId;
     IIMRUJob<Model, Data, T> job;
     private static ExecutorService threadPool = Executors.newCachedThreadPool();
 
-    public IMRUJob2Impl(IIMRUJob<Model, Data, T> job) {
+    public IMRUJob2Impl(DeploymentId deploymentId, IIMRUJob<Model, Data, T> job) {
+        this.deploymentId = deploymentId;
         this.job = job;
     }
 
@@ -119,10 +123,13 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
                 int len = reader.read(bs);
                 if (len != length)
                     throw new Exception("read half");
-                //                NCApplicationContext appContext = (NCApplicationContext) ctx
-                //                        .getJobletContext().getApplicationContext();
-                //                return (Data) appContext.deserialize(bs);
-                return (Data) IMRUSerialize.deserialize(bs);
+                NCApplicationContext appContext = (NCApplicationContext) ctx
+                        .getJobletContext().getApplicationContext();
+                IJobSerializerDeserializer jobSerDe = appContext
+                        .getJobSerializerDeserializerContainer()
+                        .getJobSerializerDeerializer(deploymentId);
+                return (Data) jobSerDe.deserialize(bs);
+                //                return (Data) IMRUSerialize.deserialize(bs);
             }
 
             @Override
@@ -211,11 +218,14 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-                //                NCApplicationContext appContext = (NCApplicationContext) ctx
-                //                        .getJobletContext().getApplicationContext();
+
+                NCApplicationContext appContext = (NCApplicationContext) ctx
+                        .getJobletContext().getApplicationContext();
+                IJobSerializerDeserializer jobSerDe = appContext
+                        .getJobSerializerDeserializerContainer()
+                        .getJobSerializerDeerializer(deploymentId);
                 try {
-                    //                    return (T) appContext.deserialize(objectData);
-                    return (T) IMRUSerialize.deserialize(objectData);
+                    return (T) jobSerDe.deserialize(objectData);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -256,12 +266,17 @@ public class IMRUJob2Impl<Model extends Serializable, Data extends Serializable,
                 byte[] objectData = input.next();
                 if (objectData == null)
                     return null;
-//                NCApplicationContext appContext = (NCApplicationContext) ctx
-//                        .getJobletContext().getApplicationContext();
+                NCApplicationContext appContext = (NCApplicationContext) ctx
+                        .getJobletContext().getApplicationContext();
+                IJobSerializerDeserializer jobSerDe = appContext
+                        .getJobSerializerDeserializerContainer()
+                        .getJobSerializerDeerializer(deploymentId);
                 try {
-                    return (T) IMRUSerialize.deserialize(objectData);
+                    return (T) jobSerDe.deserialize(objectData);
                 } catch (Exception e) {
-                    Rt.p("Read reduce result failed len=%,d", objectData.length);
+                    Rt
+                            .p("Read reduce result failed len=%,d",
+                                    objectData.length);
                     e.printStackTrace();
                 }
                 return null;

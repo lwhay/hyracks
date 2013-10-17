@@ -36,6 +36,7 @@ import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -142,8 +143,8 @@ public class IMRUJobFactory {
         mapOperatorLocations = ClusterConfig.setLocationConstraint(null, null,
                 confFactory.useHDFS() ? this.getInputSplits() : null,
                 inputSplits, random);
-        HashSet<String> hashSet = new HashSet<String>(
-                Arrays.asList(mapOperatorLocations));
+        HashSet<String> hashSet = new HashSet<String>(Arrays
+                .asList(mapOperatorLocations));
         mapNodesLocations = hashSet.toArray(new String[0]);
         mapAndUpdateNodesLocations = hashSet.toArray(new String[0]);
         modelNode = mapNodesLocations[0];
@@ -168,10 +169,14 @@ public class IMRUJobFactory {
 
     public JobConf getConf() throws IOException {
         JobConf conf = new JobConf();
-        conf.addResource(new Path(confFactory.hadoopConfPath + "/core-site.xml"));
+        conf
+                .addResource(new Path(confFactory.hadoopConfPath
+                        + "/core-site.xml"));
         conf.addResource(new Path(confFactory.hadoopConfPath
                 + "/mapred-site.xml"));
-        conf.addResource(new Path(confFactory.hadoopConfPath + "/hdfs-site.xml"));
+        conf
+                .addResource(new Path(confFactory.hadoopConfPath
+                        + "/hdfs-site.xml"));
         return conf;
     }
 
@@ -235,10 +240,10 @@ public class IMRUJobFactory {
         return spec;
     }
 
-    public JobSpecification generateModelSpreadJob(String modelPath,
-            int roundNum) {
-        return generateModelSpreadJob(mapAndUpdateNodesLocations, modelNode,
-                imruConnection, modelPath, roundNum, null);
+    public JobSpecification generateModelSpreadJob(DeploymentId deploymentId,
+            String modelPath, int roundNum) {
+        return generateModelSpreadJob(deploymentId, mapAndUpdateNodesLocations,
+                modelNode, imruConnection, modelPath, roundNum, null);
     }
 
     /**
@@ -254,9 +259,9 @@ public class IMRUJobFactory {
      * @return
      */
     public static JobSpecification generateModelSpreadJob(
-            String[] mapNodesLocations, String initialNode,
-            IMRUConnection imruConnection, String modelName, int modelAge,
-            String dataFilePath) {
+            DeploymentId deploymentId, String[] mapNodesLocations,
+            String initialNode, IMRUConnection imruConnection,
+            String modelName, int modelAge, String dataFilePath) {
         JobSpecification job = new JobSpecification();
         //        job.setFrameSize(frameSize);
         SpreadGraph graph = new SpreadGraph(mapNodesLocations, initialNode);
@@ -265,8 +270,8 @@ public class IMRUJobFactory {
         for (int i = 0; i < graph.levels.length; i++) {
             SpreadGraph.Level level = graph.levels[i];
             String[] locations = level.getLocationContraint();
-            SpreadOD op = new SpreadOD(job, graph.levels, i, modelName,
-                    imruConnection, modelAge, dataFilePath);
+            SpreadOD op = new SpreadOD(deploymentId, job, graph.levels, i,
+                    modelName, imruConnection, modelAge, dataFilePath);
             if (i > 0)
                 job.connect(new SpreadConnectorDescriptor(job,
                         graph.levels[i - 1], level), last, 0, op, 0);
@@ -294,7 +299,7 @@ public class IMRUJobFactory {
      * @return A JobSpecification for an iteration of IMRU.
      * @throws HyracksException
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings( { "rawtypes", "unchecked" })
     public JobSpecification generateJob(IIMRUJob2 model, int roundNum,
             String modelName, boolean noDiskCache) throws HyracksException {
 
@@ -341,7 +346,9 @@ public class IMRUJobFactory {
             // Connect things together
             IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(
                     spec);
-            spec.connect(reduceUpdateConn, reduceOperator, 0, updateOperator, 0);
+            spec
+                    .connect(reduceUpdateConn, reduceOperator, 0,
+                            updateOperator, 0);
         } else if (aggType == AGGREGATION.NARY) {
             // Reduce aggregation tree.
             IConnectorDescriptor reduceUpdateConn = new MToNReplicatingConnectorDescriptor(

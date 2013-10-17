@@ -18,7 +18,9 @@ import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.job.IJobSerializerDeserializer;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.api.util.JavaSerializationUtils;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
@@ -42,12 +44,14 @@ public class SpreadOD extends AbstractSingleActivityOperatorDescriptor {
     String modelName;
     IMRUConnection imruConnection;
     String dataFilePath;
+    DeploymentId deploymentId;
 
-    public SpreadOD(JobSpecification spec, SpreadGraph.Level[] levels,
-            int level, String modelName, IMRUConnection imruConnection,
-            int roundNum, String dataFilePath) {
+    public SpreadOD(DeploymentId deploymentId, JobSpecification spec,
+            SpreadGraph.Level[] levels, int level, String modelName,
+            IMRUConnection imruConnection, int roundNum, String dataFilePath) {
         super(spec, level > 0 ? 1 : 0, level < levels.length - 1 ? 1 : 0);
         this.level = levels[level];
+        this.deploymentId = deploymentId;
         this.modelName = modelName;
         this.imruConnection = imruConnection;
         this.roundNum = roundNum;
@@ -141,8 +145,11 @@ public class SpreadOD extends AbstractSingleActivityOperatorDescriptor {
                 bs = frames.data;
             }
             if (dataFilePath == null || dataFilePath.length() == 0) {
-                Serializable model = (Serializable) JavaSerializationUtils
-                        .deserialize(bs, SpreadOD.class.getClassLoader());
+                IJobSerializerDeserializer jobSerDe = ctx.getJobletContext()
+                        .getApplicationContext()
+                        .getJobSerializerDeserializerContainer()
+                        .getJobSerializerDeerializer(deploymentId);
+                Serializable model = (Serializable) jobSerDe.deserialize(bs);
                 imruContext.setModel(model, roundNum);
             } else {
                 File file = new File(dataFilePath);

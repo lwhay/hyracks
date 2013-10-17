@@ -507,7 +507,7 @@ public class Client<Model extends Serializable, Data extends Serializable> {
         timer.cancel();
         for (String s : tmpjars) {
             Rt.p("remove jar " + s);
-            //            new File(s).delete();
+            new File(s).delete();
         }
         return deploymentId;
     }
@@ -619,8 +619,9 @@ public class Client<Model extends Serializable, Data extends Serializable> {
      * 
      * @throws Exception
      */
-    public static void distributeData(DeploymentId deploymentId,File[] src, String[] targetNodes,
-            String[] dest, String[] args) throws Exception {
+    public static void distributeData(DeploymentId deploymentId, File[] src,
+            String[] targetNodes, String[] dest, String[] args)
+            throws Exception {
         // create a client object, which handles everything
         Client<Serializable, Serializable> client = new Client<Serializable, Serializable>(
                 args);
