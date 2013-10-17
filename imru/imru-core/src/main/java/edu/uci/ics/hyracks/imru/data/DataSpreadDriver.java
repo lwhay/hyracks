@@ -4,7 +4,9 @@ import java.io.File;
 import java.util.EnumSet;
 import java.util.logging.Logger;
 
+import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -21,7 +23,8 @@ import edu.uci.ics.hyracks.imru.util.Rt;
 public class DataSpreadDriver {
     private final static Logger LOGGER = Logger
             .getLogger(DataSpreadDriver.class.getName());
-    private final IHyracksClientConnection hcc;
+    private final HyracksConnection hcc;
+    DeploymentId deploymentId;
     private final IMRUConnection imruConnection;
     private final String app;
 
@@ -29,10 +32,11 @@ public class DataSpreadDriver {
     public String[] targetNodes;
     String targetPath;
 
-    public DataSpreadDriver(IHyracksClientConnection hcc,
+    public DataSpreadDriver(HyracksConnection hcc,DeploymentId deploymentId,
             IMRUConnection imruConnection, String app, File file,
             String[] targetNodes, String targetPath) {
         this.hcc = hcc;
+        this.deploymentId= deploymentId;
         this.imruConnection = imruConnection;
         this.app = app;
         this.file = file;
@@ -48,7 +52,7 @@ public class DataSpreadDriver {
         JobSpecification spreadjob = IMRUJobFactory.generateModelSpreadJob(
                 targetNodes, targetNodes[0], imruConnection, file.getName(), 0,
                 targetPath);
-        JobId spreadjobId = hcc.startJob(spreadjob,
+        JobId spreadjobId = hcc.startJob(deploymentId,spreadjob,
                 EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(spreadjobId);
         JobStatus status = hcc.getJobStatus(spreadjobId);

@@ -36,7 +36,8 @@ public class HelloWorld {
                     Client.getLocalIp(), 3099);
             if (useExistingCluster) {
                 // hostname of cluster controller
-                cmdline += "-host " + Client.getLocalIp() + " -port 3099";
+                String ip=Client.getLocalIp();
+                cmdline += "-host " + ip + " -port 3099";
                 System.out.println("Connecting to " + Client.getLocalIp());
             } else {
                 // debugging mode, everything run in one process

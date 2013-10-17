@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.ec2.HyracksEC2Cluster;
 import edu.uci.ics.hyracks.imru.api.IIMRUJob;
 import edu.uci.ics.hyracks.imru.file.IMRUFileSplit;
@@ -76,7 +77,7 @@ public class ImruEC2 {
         return path.toString();
     }
 
-    public void spreadData(String[] localPath, String remotePath)
+    public void spreadData(DeploymentId deploymentId,String[] localPath, String remotePath)
             throws Exception {
         init();
         //        IMRUFileSplit[] inputSplits = IMRUInputSplitProvider.getInputSplits(
@@ -103,7 +104,7 @@ public class ImruEC2 {
         cmdline = cmdline.trim();
         System.out.println("Using command line: " + cmdline);
         String[] args = cmdline.split(" ");
-        Client.distributeData(localFiles, nodeNames, remotePaths, args);
+        Client.distributeData(deploymentId,localFiles, nodeNames, remotePaths, args);
     }
 
     public <M extends Serializable, D extends Serializable, R extends Serializable> M run(

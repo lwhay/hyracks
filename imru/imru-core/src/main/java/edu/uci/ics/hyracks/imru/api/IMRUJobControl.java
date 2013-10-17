@@ -22,6 +22,7 @@ import java.io.Serializable;
 import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.imru.file.ConfigurationFactory;
 import edu.uci.ics.hyracks.imru.jobgen.ClusterConfig;
@@ -96,24 +97,25 @@ public class IMRUJobControl<Model extends Serializable, Data extends Serializabl
      * @return
      * @throws Exception
      */
-    public JobStatus run(IIMRUJob2<Model, Data> job2, Model initialModel,
-            String app) throws Exception {
+    public JobStatus run(DeploymentId deploymentId,
+            IIMRUJob2<Model, Data> job2, Model initialModel, String app)
+            throws Exception {
         //        Model initialModel = job2.initModel();
-        driver = new IMRUDriver<Model, Data>(hcc, imruConnection, job2,
-                initialModel, jobFactory, confFactory.createConfiguration(),
-                app);
+        driver = new IMRUDriver<Model, Data>(hcc, deploymentId, imruConnection,
+                job2, initialModel, jobFactory, confFactory
+                        .createConfiguration(), app);
         driver.memCache = memCache;
         driver.noDiskCache = noDiskCache;
         driver.modelFileName = modelFileName;
-        driver.frameSize= frameSize;
+        driver.frameSize = frameSize;
         driver.localIntermediateModelPath = localIntermediateModelPath;
         return driver.run();
     }
 
-    public JobStatus generateData(IIMRUDataGenerator generator, String app)
-            throws Exception {
-        driver = new IMRUDriver<Model, Data>(hcc, imruConnection, null, null,
-                jobFactory, confFactory.createConfiguration(), app);
+    public JobStatus generateData(DeploymentId deploymentId,
+            IIMRUDataGenerator generator, String app) throws Exception {
+        driver = new IMRUDriver<Model, Data>(hcc, deploymentId, imruConnection,
+                null, null, jobFactory, confFactory.createConfiguration(), app);
         driver.memCache = memCache;
         driver.noDiskCache = noDiskCache;
         driver.modelFileName = modelFileName;
@@ -130,9 +132,9 @@ public class IMRUJobControl<Model extends Serializable, Data extends Serializabl
      * @return
      * @throws Exception
      */
-    public <T extends Serializable> JobStatus run(IIMRUJob<Model, Data, T> job,
+    public <T extends Serializable> JobStatus run(DeploymentId deploymentId,IIMRUJob<Model, Data, T> job,
             Model initialModel, String app) throws Exception {
-        return run(new IMRUJob2Impl<Model, Data, T>(job), initialModel, app);
+        return run(deploymentId,new IMRUJob2Impl<Model, Data, T>(job), initialModel, app);
     }
 
     /**

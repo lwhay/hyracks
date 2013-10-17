@@ -28,7 +28,8 @@ import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 
-import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.client.HyracksConnection;
+import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.api.job.JobFlag;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
@@ -51,7 +52,8 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
             .getName());
     private final IIMRUJob2<Model, Data> imruSpec;
     private Model model;
-    private final IHyracksClientConnection hcc;
+    private final HyracksConnection hcc;
+    DeploymentId deploymentId;
     private final IMRUConnection imruConnection;
     private final IMRUJobFactory jobFactory;
     private final Configuration conf;
@@ -84,13 +86,14 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
      * @param app
      *            The application name to use when running the jobs.
      */
-    public IMRUDriver(IHyracksClientConnection hcc,
+    public IMRUDriver(HyracksConnection hcc,DeploymentId deploymentId,
             IMRUConnection imruConnection, IIMRUJob2<Model, Data> imruSpec,
             Model initialModel, IMRUJobFactory jobFactory, Configuration conf,
             String app) {
         this.imruSpec = imruSpec;
         this.model = initialModel;
         this.hcc = hcc;
+        this.deploymentId= deploymentId;
         this.imruConnection = imruConnection;
         this.jobFactory = jobFactory;
         this.conf = conf;
@@ -204,7 +207,7 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
                 memCache);
         //                byte[] bs=JavaSerializationUtils.serialize(job);
         //                Rt.p("Dataload job size: "+bs.length);
-        JobId jobId = hcc.startJob(job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(deploymentId,job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
@@ -217,7 +220,7 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
         JobSpecification job = jobFactory.generateDataGenerateJob(generator);
         //                byte[] bs=JavaSerializationUtils.serialize(job);
         //                Rt.p("Data generator job size: "+bs.length);
-        JobId jobId = hcc.startJob(job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(deploymentId,job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
@@ -249,7 +252,7 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
                 modelName, iterationNum);
         //                byte[] bs=JavaSerializationUtils.serialize(spreadjob);
         //              Rt.p("IMRU job size: "+bs.length);
-        JobId spreadjobId = hcc.startJob(spreadjob,
+        JobId spreadjobId = hcc.startJob(deploymentId,spreadjob,
                 EnumSet.of(JobFlag.PROFILE_RUNTIME));
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
@@ -264,7 +267,7 @@ public class IMRUDriver<Model extends Serializable, Data extends Serializable> {
         LOGGER.info("job frame size " + job.getFrameSize());
         //                byte[] bs=JavaSerializationUtils.serialize(job);
         //              Rt.p("IMRU job size: "+bs.length);
-        JobId jobId = hcc.startJob(job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
+        JobId jobId = hcc.startJob(deploymentId,job, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         //        JobId jobId = hcc.createJob(app, job);
         //        hcc.start(jobId);
         hcc.waitForCompletion(jobId);

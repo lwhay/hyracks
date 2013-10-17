@@ -5,10 +5,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 
 public class IMRUDebugger {
+    public static boolean debug = false;
     static InetAddress address;
     static DatagramSocket serverSocket;
 
     public static void sendDebugInfo(String s) {
+        if (!debug)
+            return;
         try {
             if (serverSocket == null) {
                 String host = "192.168.56.101";
