@@ -21,6 +21,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -74,6 +75,8 @@ public abstract class AbstractGlobalAggIntegrationTest {
     protected static int DEFAULT_MEM_NUM_PAGES = 1000;
     protected static double DEFAULT_BLOOM_FILTER_FALSE_POSITIVE_RATE = 0.01;
 
+    protected static String ccLogPath;
+
     @Rule
     public TemporaryFolder outputFolder = new TemporaryFolder();
 
@@ -94,10 +97,11 @@ public abstract class AbstractGlobalAggIntegrationTest {
         File ccRoot = File.createTempFile(AbstractIntegrationTest.class.getName(), ".data", outDir);
         ccRoot.delete();
         ccRoot.mkdir();
+        ccLogPath = ccRoot.getAbsolutePath() + "/logs/jobs";
         ccConfig.ccRoot = ccRoot.getAbsolutePath();
         cc = new ClusterControllerService(ccConfig);
         cc.start();
-        
+
         ncs = new NodeControllerService[NC_IDS.length];
 
         for (int i = 0; i < NC_IDS.length; i++) {
@@ -121,10 +125,29 @@ public abstract class AbstractGlobalAggIntegrationTest {
 
     @AfterClass
     public static void deinit() throws Exception {
-        for(NodeControllerService nc : ncs){
+        for (NodeControllerService nc : ncs) {
             nc.stop();
         }
         cc.stop();
+    }
+
+    /**
+     * Collector the expected counters from the cc logs
+     * 
+     * @throws Exception
+     */
+    protected static void collectLogs() throws Exception {
+        File logPath = new File(ccLogPath);
+        for (File log : logPath.listFiles()) {
+            if (log.getName().endsWith(".log")) {
+                // only process log files
+                BufferedReader logReader = new BufferedReader(new FileReader(log));
+                String line;
+                while ((line = logReader.readLine()) != null) {
+                    
+                }
+            }
+        }
     }
 
     protected JobId executeTest(JobSpecification spec) throws Exception {
