@@ -358,25 +358,27 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             ctx.getComponentHolder().add(0, firstComponent);
         }
 
-        if (virtualBufferCaches.get(0).getDatasetID() >= 100) {
-//            total.incrementAndGet();
-            int p = r.nextInt(8);
-            if (p < 4) {
-//                in.incrementAndGet();
-                ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple,
-                        AntimatterAwareTupleAcceptor.INSTANCE);
-            } else {
-                ctx.modificationCallback.found(null, tuple);
-            }
-//            currentTime.set(System.currentTimeMillis());
-//            if (currentTime.get() - prevTime.get() > 10000 && unique.compareAndSet(false, true)) {
-//                LOGGER.severe("total: " + total.get() + " in: " + in.get());
-//                prevTime.set(currentTime.get());
-//                unique.set(false);
+        ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple, AntimatterAwareTupleAcceptor.INSTANCE);
+//        if (virtualBufferCaches.get(0).getDatasetID() >= 100) {
+////            total.incrementAndGet();
+//            int p = r.nextInt(6);
+//            if (p < 4) {
+////                in.incrementAndGet();
+//                ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple,
+//                        AntimatterAwareTupleAcceptor.INSTANCE);
+//            } 
+//            else {
+//                ctx.modificationCallback.found(null, tuple);
 //            }
-        } else {
-            ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple, AntimatterAwareTupleAcceptor.INSTANCE);
-        }
+////            currentTime.set(System.currentTimeMillis());
+////            if (currentTime.get() - prevTime.get() > 10000 && unique.compareAndSet(false, true)) {
+////                LOGGER.severe("total: " + total.get() + " in: " + in.get());
+////                prevTime.set(currentTime.get());
+////                unique.set(false);
+////            }
+//        } else {
+//            ctx.currentMutableBTreeAccessor.upsertIfConditionElseInsert(tuple, AntimatterAwareTupleAcceptor.INSTANCE);
+//        }
         return true;
     }
 
