@@ -24,7 +24,7 @@ import edu.uci.ics.hyracks.dataflow.common.io.RunFileWriter;
 import edu.uci.ics.hyracks.dataflow.std.group.AggregateState;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
-import edu.uci.ics.hyracks.dataflow.std.group.global.RumMergingGroupingFrameReader;
+import edu.uci.ics.hyracks.dataflow.std.group.global.RunMergingGroupingFrameReader;
 
 public class MergeGrouper {
 
@@ -166,7 +166,7 @@ public class MergeGrouper {
 
     protected void merge(IFrameWriter mergeResultWriter, IFrameReader[] runCursors, IAggregatorDescriptor merger)
             throws HyracksDataException {
-        RumMergingGroupingFrameReader mergeFrameReader = new RumMergingGroupingFrameReader(ctx, runCursors, inFrames,
+        RunMergingGroupingFrameReader mergeFrameReader = new RunMergingGroupingFrameReader(ctx, runCursors, inFrames,
                 keyFields, decorFields, comparators, (tuplePartitionComputerFactory == null) ? null
                         : tuplePartitionComputerFactory.createPartitioner(), partitions, merger, mergeState, inRecDesc,
                 outRecDesc);

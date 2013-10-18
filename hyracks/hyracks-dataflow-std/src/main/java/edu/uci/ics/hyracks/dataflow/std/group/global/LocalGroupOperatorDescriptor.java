@@ -45,7 +45,37 @@ import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.PreCluster;
 import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.RecursiveHybridHashGrouper;
 import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.SortGroupMergeGrouper;
 import edu.uci.ics.hyracks.dataflow.std.group.global.groupers.SortGrouper;
+import edu.uci.ics.hyracks.dataflow.std.sort.RunMergingFrameReader;
 
+/**
+ * This class is the hyracks operator for local group-by operation. It is implemented so that the actual
+ * group-by algorithm can be picked during the runtime instead of only configurable at the compilation time.
+ * <p/>
+ * To initialize a local group operator, the following input parameters should be specified:<br/>
+ * - group-by condition (keyFields) and the corrsponding comparators (comparatorFactories). <br/>
+ * - group-by aggregation functions (aggregatorFactory, partialMergerFactory, and finalMergerFactory). Note that here
+ * the three aggregation functions are used for different state transitions: aggregatorFactory for (raw ->
+ * intermediate), partialMergerFactory (intermediate -> intermediate), and finalMergerFactory (intermediate -> final).<br/>
+ * - (estimated) statistics about the input and output.<br/>
+ * - assigned memory, represented as the number of frames (framesLimit). <br/>
+ * - hashing schema, including the hash function (hashFamilies), random seed for hash function (levelSeed), hash table
+ * slots count (tableSize) and fudge factor (fudgeFactor).<br/>
+ * - sorting helper (firstNormalizerFactory).
+ * <p/>
+ * <b>About the aggregation states:</b>
+ * <p/>
+ * The aggregation states describe the states maintained for the aggregation results. We consider the following three
+ * states:<br/>
+ * - <b>Raw state</b>: representing the state of the raw input data.<br/>
+ * - <b>Intermediate state</b>: representing the state when the aggregation result is in memory for accumulating.<br/>
+ * - <b>Final state</b>: representing the state when the aggregation result is ready to be outputted.
+ * <p/>
+ * Take <b>AVG</b> as an example, if we want to compute the average of an integer field, the corresponding states are:<br/>
+ * - <b>Raw state</b>: the integer field from the raw input data.<br/>
+ * - <b>Intermediate state</b>: an integer sum value and a count value, maintained in memory.<br/>
+ * - <b>Final state</b>: the average value computed by dividing the sum value by the count value.
+ * <p/>
+ */
 public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
@@ -270,6 +300,11 @@ public class LocalGroupOperatorDescriptor extends AbstractSingleActivityOperator
                 grouper.open();
             }
 
+            /**
+             * Note that here it if possible to pick the group-by algorithm dynamically during the
+             * runtime. By collecting the statistics of the input data through the histogram from the
+             * {@link AbstractHistogramPushBasedGrouper}, the grouper can be changed to use the proper algorithm.
+             */
             @Override
             public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
                 inputFrameCount++;

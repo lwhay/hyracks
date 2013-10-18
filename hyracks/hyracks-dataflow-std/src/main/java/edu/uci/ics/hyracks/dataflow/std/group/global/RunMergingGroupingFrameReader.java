@@ -32,7 +32,10 @@ import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.sort.RunMergingFrameReader;
 import edu.uci.ics.hyracks.dataflow.std.util.ReferenceEntry;
 
-public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
+/**
+ * An extended {@link RunMergingFrameReader} to support group-by during the merging.
+ */
+public class RunMergingGroupingFrameReader extends RunMergingFrameReader {
 
     private final IAggregatorDescriptor merger;
     private final AggregateState mergeState;
@@ -53,7 +56,7 @@ public class RumMergingGroupingFrameReader extends RunMergingFrameReader {
     private final String debugID;
     private long compCounter = 0, inRecCounter = 0, outRecCounter = 0, outFrameCounter = 0, recCopyCounter = 0;
 
-    public RumMergingGroupingFrameReader(IHyracksTaskContext ctx, IFrameReader[] runCursors, List<ByteBuffer> inFrames,
+    public RunMergingGroupingFrameReader(IHyracksTaskContext ctx, IFrameReader[] runCursors, List<ByteBuffer> inFrames,
             int[] keyFields, int[] decorFields, IBinaryComparator[] comparators,
             ITuplePartitionComputer partitionComputer, int partitions, IAggregatorDescriptor merger,
             AggregateState mergeState, RecordDescriptor inRecordDesc, RecordDescriptor outRecordDesc) {

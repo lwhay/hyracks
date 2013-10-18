@@ -14,8 +14,22 @@
  */
 package edu.uci.ics.hyracks.dataflow.std.group.global.costmodels;
 
+/**
+ * This class describes the properties those should be considered when designing a aggregation plan.
+ */
 public class GrouperProperty {
 
+    /**
+     * The properties to be considered for the output of a group-by algorithm. The following properties are included:<br/>
+     * - <b>SORTED</b>: whether the output of the algorithm is sorted on the group-by condition. If the output is
+     * sorted, then an algorithms utilizing the sorted order should be picked. <br/>
+     * - <b>AGGREGATED</b>: whether the output of the algorithm contains no duplicates on the group-by condition. This
+     * property can be used to describe the output cardinality, and also the status of the aggregation. <br/>
+     * - <b>GLOBALLY_PARTITIONED</b>: whether the output of the algorithm contains all records from the input for value
+     * of the group-by condition. This property describes whether the input data has been fully partitioned. Note that
+     * if the output is both SORTEd and GLOBALLY_PARTITIONED, the output is the final aggregation result.
+     * <p/>
+     */
     public enum Property {
         SORTED,
         AGGREGATED,
@@ -69,6 +83,15 @@ public class GrouperProperty {
         return hasProperty(Property.AGGREGATED) && hasProperty(Property.GLOBALLY_PARTITIONED);
     }
 
+    /**
+     * Check whether this grouper property is compatible with the given grouper property mask. "Compatible" here means
+     * that if some property is required by the maskProp, this group property should have that property. Otherwise, it
+     * does not matter whether this group property has that or not.
+     * 
+     * @param maskProp
+     *            The mask property representing the required properties.
+     * @return
+     */
     public boolean isCompatibleWithMask(GrouperProperty maskProp) {
         for (Property prop : Property.values()) {
             if (maskProp.hasProperty(prop) && !this.hasProperty(prop)) {
