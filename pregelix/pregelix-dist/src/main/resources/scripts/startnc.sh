@@ -97,4 +97,22 @@ cmd+=( -cc-host $CCHOST -cc-port $CC_CLUSTERPORT
 	   -node-id $NODEID -iodevices "${IO_DIRS}" );
 
 printf "\n\n\n********************************************\nStarting NC with command %s\n\n" "${cmd[*]}" >> "$NCLOGS_DIR/$NODEID.log"
-${cmd[@]} >> "$NCLOGS_DIR/$NODEID.log" 2>&1 &
+
+#Start the pregelix CC and attempt to detect early errors
+# the process should exist after a few seconds
+eval "${cmd[@]} >> \"$NCLOGS_DIR/$NODEID.log\" 2>&1 &"
+
+server_pid=$!
+sleep 1
+kill -0 $server_pid  # ping for PID presence (not a real kill!)
+is_alive=$?
+if (($is_alive == 0)); then
+    # timeout => server is up and running
+    echo "NC started with PID" $server_pid
+else
+    echo >&2 "Failure detected starting NC! (should have PID $server_pid)"
+    echo >&2 "Recent lines from log message follow:"
+    tail >&2 -15 "$NCLOGS_DIR/$NODEID.log"
+    exit 1
+fi
+exit 0
