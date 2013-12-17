@@ -19,6 +19,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.comm.IFrameReader;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -42,6 +43,8 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodeP
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
+	private static final Logger LOGGER = Logger.getLogger(ExternalSortOperatorDescriptor.class.getName());
+	
     private static final long serialVersionUID = 1L;
 
     private static final int SORT_ACTIVITY_ID = 0;
@@ -131,6 +134,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
 
                 @Override
                 public void open() throws HyracksDataException {
+                    LOGGER.info("XXX sort frames limit " + framesLimit);
                     runGen = new ExternalSortRunGenerator(ctx, sortFields, firstKeyNormalizerFactory,
                             comparatorFactories, recordDescriptors[0], alg, framesLimit);
                     runGen.open();
@@ -149,6 +153,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                     state.runs = runGen.getRuns();
                     state.frameSorter = runGen.getFrameSorter();
                     ctx.setStateObject(state);
+                    LOGGER.info("XXX closing sort activity");
                 }
 
                 @Override
@@ -187,6 +192,7 @@ public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
                     ExternalSortRunMerger merger = new ExternalSortRunMerger(ctx, frameSorter, runs, sortFields,
                             comparators, nmkComputer, recordDescriptors[0], necessaryFrames, writer);
                     merger.process();
+                    LOGGER.info("XXX closing merge activity");
                 }
             };
             return op;

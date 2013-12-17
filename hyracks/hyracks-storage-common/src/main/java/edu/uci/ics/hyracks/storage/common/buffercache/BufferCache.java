@@ -74,6 +74,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         for (int i = 0; i < pageMap.length; ++i) {
             pageMap[i] = new CacheBucket();
         }
+        LOGGER.info("allocating buffer of " + numPages + " pages of size " + pageSize);
         ByteBuffer[] buffers = allocator.allocate(pageSize, numPages);
         cachedPages = new CachedPage[buffers.length];
         for (int i = 0; i < buffers.length; ++i) {
