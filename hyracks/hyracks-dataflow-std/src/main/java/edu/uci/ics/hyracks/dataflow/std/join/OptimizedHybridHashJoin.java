@@ -588,6 +588,10 @@ public class OptimizedHybridHashJoin {
     public int getProbePartitionSizeInTup(int pid) {
         return (probePSizeInTups[pid]);
     }
+    
+    public int getNumOfSpilledPartitions(){
+    	return numOfSpilledParts;
+    }
 
     public int getMaxBuildPartitionSize() {
         int max = buildPSizeInTups[0];
