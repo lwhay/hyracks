@@ -41,6 +41,7 @@ public class DatasetNetworkManager implements IChannelConnectionFactory {
     private static final Logger LOGGER = Logger.getLogger(DatasetNetworkManager.class.getName());
 
     private static final int MAX_CONNECTION_ATTEMPTS = 5;
+    private static final int BUFFERS_PER_OUTPUT_CHANNEL = 1;
 
     static final int INITIAL_MESSAGE_SIZE = 20;
 
@@ -102,7 +103,7 @@ public class DatasetNetworkManager implements IChannelConnectionFactory {
                 LOGGER.fine("Received initial dataset partition read request for JobId: " + jobId + " partition: "
                         + partition + " on channel: " + ccb);
             }
-            noc = new NetworkOutputChannel(ccb, 1);
+            noc = new NetworkOutputChannel(ccb, BUFFERS_PER_OUTPUT_CHANNEL);
             try {
                 partitionManager.initializeDatasetPartitionReader(jobId, rsId, partition, noc);
             } catch (HyracksException e) {

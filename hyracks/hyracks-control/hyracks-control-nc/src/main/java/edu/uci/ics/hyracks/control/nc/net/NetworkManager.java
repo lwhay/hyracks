@@ -42,6 +42,7 @@ public class NetworkManager implements IChannelConnectionFactory {
     private static final Logger LOGGER = Logger.getLogger(NetworkManager.class.getName());
 
     private static final int MAX_CONNECTION_ATTEMPTS = 5;
+    private static final int BUFFERS_PER_OUTPUT_CHANNEL = 128;
 
     static final int INITIAL_MESSAGE_SIZE = 20;
 
@@ -99,7 +100,7 @@ public class NetworkManager implements IChannelConnectionFactory {
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("Received initial partition request: " + pid + " on channel: " + ccb);
             }
-            noc = new NetworkOutputChannel(ccb, 1);
+            noc = new NetworkOutputChannel(ccb, BUFFERS_PER_OUTPUT_CHANNEL);
             try {
                 partitionManager.registerPartitionRequest(pid, noc);
             } catch (HyracksException e) {

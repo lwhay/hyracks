@@ -28,6 +28,8 @@ import edu.uci.ics.hyracks.control.nc.Joblet;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 
 public class ReportPartitionAvailabilityWork extends AbstractWork {
+    private static final int BUFFERS_PER_INPUT_CHANNEL = 128;
+
     private final NodeControllerService ncs;
 
     private final PartitionId pid;
@@ -48,7 +50,7 @@ public class ReportPartitionAvailabilityWork extends AbstractWork {
             if (ji != null) {
                 PartitionChannel channel = new PartitionChannel(pid, new NetworkInputChannel(ncs.getNetworkManager(),
                         new InetSocketAddress(InetAddress.getByAddress(networkAddress.getIpAddress()),
-                                networkAddress.getPort()), pid, 5));
+                                networkAddress.getPort()), pid, BUFFERS_PER_INPUT_CHANNEL));
                 ji.reportPartitionAvailability(channel);
             }
         } catch (Exception e) {
