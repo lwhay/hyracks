@@ -23,6 +23,7 @@ import java.util.logging.Level;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -39,6 +40,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 @SuppressWarnings("rawtypes")
+@Category(SlowTest.class)
 public class BloomFilterTest extends AbstractBloomFilterTest {
     private final Random rnd = new Random(50);
 
