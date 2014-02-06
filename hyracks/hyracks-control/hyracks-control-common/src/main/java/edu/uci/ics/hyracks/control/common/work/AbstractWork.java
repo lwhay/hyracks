@@ -17,7 +17,7 @@ package edu.uci.ics.hyracks.control.common.work;
 import java.util.logging.Level;
 
 public abstract class AbstractWork implements Runnable {
-    public Level logLevel() {
-        return Level.INFO;
-    }
+	public Level logLevel() {
+		return Level.FINE;
+	}
 }

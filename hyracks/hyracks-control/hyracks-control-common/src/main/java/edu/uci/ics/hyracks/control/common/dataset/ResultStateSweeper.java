@@ -55,7 +55,8 @@ public class ResultStateSweeper implements Runnable {
             } catch (InterruptedException e) {
                 LOGGER.severe("Result cleaner thread interrupted, but we continue running it.");
                 // There isn't much we can do really here
-                break; // the interrupt was explicit from another thread. This thread should shut down...
+                break; // the interrupt was explicit from another thread. This
+                       // thread should shut down...
             }
         }
 
@@ -73,7 +74,7 @@ public class ResultStateSweeper implements Runnable {
                 datasetManager.deinitState(jobId);
             }
         }
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.info("Result state cleanup instance successfully completed.");
         }
     }

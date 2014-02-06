@@ -116,7 +116,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
             switch (physOp.getOperatorTag()) {
                 case BROADCAST_EXCHANGE:
                 case ONE_TO_ONE_EXCHANGE:
-                case RANDOM_MERGE_EXCHANGE: {
+                case RANDOM_MERGE_EXCHANGE:
+                case RANDOM_PARTITION_EXCHANGE:{
                     // No variables used.
                     break;
                 }
