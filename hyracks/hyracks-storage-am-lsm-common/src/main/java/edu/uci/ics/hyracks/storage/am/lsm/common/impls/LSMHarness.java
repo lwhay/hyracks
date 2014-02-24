@@ -264,6 +264,9 @@ public class LSMHarness implements ILSMHarness {
             callback.afterFinalize(LSMOperationType.FLUSH, null);
             return;
         }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Scheduled a flush operation for index: " + lsmIndex + " ...");
+        }
         lsmIndex.scheduleFlush(ctx, callback);
     }
 
@@ -294,6 +297,9 @@ public class LSMHarness implements ILSMHarness {
         if (!getAndEnterComponents(ctx, LSMOperationType.MERGE, true)) {
             callback.afterFinalize(LSMOperationType.MERGE, null);
             return;
+        }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Started a merge operation for index: " + lsmIndex + " ...");
         }
         lsmIndex.scheduleMerge(ctx, callback);
     }
