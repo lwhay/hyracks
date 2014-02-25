@@ -299,7 +299,7 @@ public class LSMHarness implements ILSMHarness {
             return;
         }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Started a merge operation for index: " + lsmIndex + " ...");
+            LOGGER.info("Scheduled a merge operation for index: " + lsmIndex + " ...");
         }
         lsmIndex.scheduleMerge(ctx, callback);
     }
