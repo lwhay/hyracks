@@ -162,6 +162,7 @@ public class ConfUtil {
                             hcc = new HyracksConnection(ip.getHostAddress(), port);
                             break;
                         } catch (Exception e) {
+                            System.err.println("Connection to " + ip + ":" + port + " failed: " +e);
                             continue;
                         }
                     }
