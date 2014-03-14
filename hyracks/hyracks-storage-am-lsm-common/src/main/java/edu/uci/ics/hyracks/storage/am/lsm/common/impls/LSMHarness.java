@@ -316,6 +316,7 @@ public class LSMHarness implements ILSMHarness {
         }
         fullMergeIsRequested.set(false);
         lsmIndex.scheduleMerge(ctx, callback);
+        LOGGER.severe("Full compact for index: [" + lsmIndex + "] has been scheduled");
     }
 
     @Override

@@ -56,7 +56,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
     private final IPageCleanerPolicy pageCleanerPolicy;
     private final IFileMapManager fileMapManager;
     private final CleanerThread cleanerThread;
-    private final Map<Integer, BufferedFileHandle> fileInfoMap;
+    public static Map<Integer, BufferedFileHandle> fileInfoMap = new HashMap<Integer, BufferedFileHandle>();
 
     private CachedPage[] cachedPages;
 
@@ -83,7 +83,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         this.pageCleanerPolicy = pageCleanerPolicy;
         this.fileMapManager = fileMapManager;
         Executor executor = Executors.newCachedThreadPool(threadFactory);
-        fileInfoMap = new HashMap<Integer, BufferedFileHandle>();
+        //fileInfoMap = new HashMap<Integer, BufferedFileHandle>();
         cleanerThread = new CleanerThread();
         executor.execute(cleanerThread);
         closed = false;
@@ -162,6 +162,18 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         return cPage;
     }
 
+    public static AtomicInteger numAccessors = new AtomicInteger();
+    public static Map<Integer, Integer> IOCounts = new HashMap<Integer, Integer> ();
+    
+    public static String getFileName (int fileId) {
+        BufferedFileHandle fInfo = null;
+        fInfo = fileInfoMap.get(fileId);
+        if (fInfo == null || fInfo.getFileHandle() == null) {
+            return "";
+        }
+        return fInfo.getFileHandle().toString();
+    }
+    
     private CachedPage findPage(long dpid, boolean newPage) throws HyracksDataException {
         while (true) {
             int startCleanedCount = cleanerThread.cleanedCount;
@@ -190,6 +202,19 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
              * If we got here, the page was not in the hash table. Now we ask
              * the page replacement strategy to find us a victim.
              */
+            
+            if (numAccessors.get() > 0) {
+                int fileId = BufferedFileHandle.getFileId(dpid);
+                synchronized (IOCounts) {
+                    int numIO = 0;
+                    if (IOCounts.containsKey(fileId)) {
+                        numIO = IOCounts.get(fileId);
+                    }
+                    numIO++;
+                    IOCounts.put(fileId, numIO);
+                }
+            }
+
             CachedPage victim = (CachedPage) pageReplacementStrategy.findVictim();
             if (victim != null) {
                 /*

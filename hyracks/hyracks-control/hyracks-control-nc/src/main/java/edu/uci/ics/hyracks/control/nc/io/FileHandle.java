@@ -87,4 +87,9 @@ public class FileHandle implements IFileHandle {
     public void sync(boolean metadata) throws IOException {
         channel.force(metadata);
     }
+    
+    @Override
+    public String toString() {
+        return fileRef.toString();
+    }
 }
