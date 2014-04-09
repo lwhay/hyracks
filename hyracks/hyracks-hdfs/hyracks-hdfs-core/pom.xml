@@ -67,7 +67,7 @@
 	<profiles>
 		<profile>
 			<activation>
-				<activeByDefault>true</activeByDefault>
+				<activeByDefault>false</activeByDefault>
 			</activation>
 			<id>hadoop-0.20.2</id>
 			<dependencies>
@@ -101,10 +101,10 @@
 		</profile>
 		<profile>
 			<activation>
-				<activeByDefault>false</activeByDefault>
+				<activeByDefault>true</activeByDefault>
 				<property>
 					<name>hadoop</name>
-					<value>0.23.1</value>
+					<value>2.2.0</value>
 				</property>
 			</activation>
 			<id>hadoop-0.23.1</id>
