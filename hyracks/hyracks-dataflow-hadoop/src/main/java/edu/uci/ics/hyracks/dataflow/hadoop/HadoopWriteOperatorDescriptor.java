@@ -39,6 +39,7 @@ import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.std.file.AbstractFileWriteOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
 import edu.uci.ics.hyracks.dataflow.std.file.IRecordWriter;
+import edu.uci.ics.hyracks.hdfs.ContextFactory;
 
 public class HadoopWriteOperatorDescriptor extends AbstractFileWriteOperatorDescriptor {
 
@@ -74,11 +75,11 @@ public class HadoopWriteOperatorDescriptor extends AbstractFileWriteOperatorDesc
                 tempOutputFile = new Path(tempOutputFile, suffix);
                 finalOutputFile = new Path(outputPath, suffix);
                 if (conf.getUseNewMapper()) {
-                    org.apache.hadoop.mapreduce.JobContext jobContext = new org.apache.hadoop.mapreduce.JobContext(
-                            conf, null);
+                    org.apache.hadoop.mapreduce.JobContext jobContext = new ContextFactory().createJobContext(
+                            conf);
                     org.apache.hadoop.mapreduce.OutputFormat newOutputFormat = (org.apache.hadoop.mapreduce.OutputFormat) ReflectionUtils
                             .newInstance(jobContext.getOutputFormatClass(), conf);
-                    recordWriter = newOutputFormat.getRecordWriter(new TaskAttemptContext(conf, taskAttempId));
+                    recordWriter = newOutputFormat.getRecordWriter(new ContextFactory().createContext(conf, taskAttempId));
                 } else {
                     recordWriter = conf.getOutputFormat().getRecordWriter(FileSystem.get(conf), conf, suffix,
                             new Progressable() {
@@ -106,7 +107,7 @@ public class HadoopWriteOperatorDescriptor extends AbstractFileWriteOperatorDesc
             try {
                 if (recordWriter != null) {
                     if (conf.getUseNewMapper()) {
-                        ((org.apache.hadoop.mapreduce.RecordWriter) recordWriter).close(new TaskAttemptContext(conf,
+                        ((org.apache.hadoop.mapreduce.RecordWriter) recordWriter).close(new ContextFactory().createContext(conf,
                                 new TaskAttemptID()));
                     } else {
                         ((org.apache.hadoop.mapred.RecordWriter) recordWriter).close(null);
@@ -175,6 +176,12 @@ public class HadoopWriteOperatorDescriptor extends AbstractFileWriteOperatorDesc
             public void setStatus(String status) {
 
             }
+
+			@Override
+			public float getProgress() {
+				// TODO Auto-generated method stub
+				return 0;
+			}
         };
     }
 
@@ -199,7 +206,7 @@ public class HadoopWriteOperatorDescriptor extends AbstractFileWriteOperatorDesc
         int numOutputters = conf.getNumReduceTasks() != 0 ? conf.getNumReduceTasks() : noOfMappers;
         Object outputFormat = null;
         if (conf.getUseNewMapper()) {
-            outputFormat = ReflectionUtils.newInstance(new org.apache.hadoop.mapreduce.JobContext(conf, null)
+            outputFormat = ReflectionUtils.newInstance(new ContextFactory().createJobContext(conf)
                     .getOutputFormatClass(), conf);
         } else {
             outputFormat = conf.getOutputFormat();

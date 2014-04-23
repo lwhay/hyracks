@@ -119,6 +119,12 @@ public abstract class AbstractHadoopOperatorDescriptor extends AbstractSingleAct
             public void setStatus(String status) {
 
             }
+
+			@Override
+			public float getProgress() {
+				// TODO Auto-generated method stub
+				return 0;
+			}
         };
     }
 

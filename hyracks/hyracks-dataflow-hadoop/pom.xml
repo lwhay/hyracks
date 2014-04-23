@@ -52,6 +52,13 @@
   		<scope>compile</scope>
   	</dependency>
   	<dependency>
+		<groupId>edu.uci.ics.hyracks</groupId>
+		<artifactId>hyracks-hdfs-0.23.1</artifactId>
+		<version>0.2.12-SNAPSHOT</version>
+		<type>jar</type>
+		<scope>compile</scope>
+	</dependency>
+  	<dependency>
   		<groupId>org.apache.hadoop</groupId>
   		<artifactId>hadoop-client</artifactId>
   		<type>jar</type>
