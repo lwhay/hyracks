@@ -43,8 +43,8 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodeP
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 public class ExternalSortOperatorDescriptor extends AbstractOperatorDescriptor {
-	private static final Logger LOGGER = Logger.getLogger(ExternalSortOperatorDescriptor.class.getName());
-	
+    private static final Logger LOGGER = Logger.getLogger(ExternalSortOperatorDescriptor.class.getName());
+
     private static final long serialVersionUID = 1L;
 
     private static final int SORT_ACTIVITY_ID = 0;

@@ -287,9 +287,9 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                     state.memForJoin = memsize - 2;
                     state.numOfPartitions = getNumberOfPartitions(state.memForJoin, inputsize0, fudgeFactor,
                             nPartitions);
-                    
+
                     LOGGER.info("XXX HHJ frames limit: "+memsize+" - Num of partitions: "+state.numOfPartitions);
-                    
+
                     if(!isLeftOuter){
                     	state.hybridHJ = new OptimizedHybridHashJoin(ctx, state.memForJoin, state.numOfPartitions,
                                 PROBE_REL, BUILD_REL, probeKeys, buildKeys, comparators, probeRd, buildRd, probeHpc,
@@ -439,8 +439,8 @@ public class OptimizedHybridHashJoinOperatorDescriptor extends AbstractOperatorD
                     long probePartSize = wasReversed ? (ohhj.getBuildPartitionSize(pid) / ctx.getFrameSize()) : (ohhj.getProbePartitionSize(pid) / ctx.getFrameSize());
                     
                     LOGGER.fine("\n>>>Joining Partition Pairs (pid "+pid+") - (level "+level+") - wasReversed "+wasReversed+" - BuildSize:\t"+buildPartSize+"\tProbeSize:\t"+probePartSize+" - MemForJoin "+(state.memForJoin)+"  - LeftOuter is "+isLeftOuter);
-                    LOGGER.info("\tXXX HHJ Joining spilled partitions pair: "+pid); 
-                    
+                    LOGGER.info("\tXXX HHJ Joining spilled partitions pair: "+pid);
+
                     //Apply in-Mem HJ if possible
                     if(!skipInMemoryHJ){
                     	if ((buildPartSize < state.memForJoin) || (probePartSize < state.memForJoin && !isLeftOuter)) {
