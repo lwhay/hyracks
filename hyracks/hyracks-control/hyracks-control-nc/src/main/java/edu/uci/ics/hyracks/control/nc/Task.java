@@ -285,7 +285,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
         }
         if (!exceptions.isEmpty()) {
             for (Exception e : exceptions) {
-                e.printStackTrace();
+               // e.printStackTrace();
             }
             NodeControllerService ncs = joblet.getNodeController();
             ExceptionUtils.setNodeIds(exceptions, ncs.getId());
@@ -331,6 +331,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
         } catch (HyracksException e) {
             throw new HyracksDataException(e);
         } catch (Exception e) {
+            e.printStackTrace();
             throw new HyracksDataException(e);
         }
     }
