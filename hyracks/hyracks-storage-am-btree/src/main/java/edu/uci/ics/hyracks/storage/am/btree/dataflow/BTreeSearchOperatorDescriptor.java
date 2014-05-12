@@ -45,10 +45,10 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
             IFileSplitProvider fileSplitProvider, ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] comparatorFactories, int[] bloomFilterKeyFields, int[] lowKeyFields,
             int[] highKeyFields, boolean lowKeyInclusive, boolean highKeyInclusive,
-            IIndexDataflowHelperFactory dataflowHelperFactory, boolean retainInput,
+            IIndexDataflowHelperFactory dataflowHelperFactory, boolean retainInput, boolean retainNull,
             ISearchOperationCallbackFactory searchOpCallbackProvider) {
         super(spec, 1, 1, recDesc, storageManager, lifecycleManagerProvider, fileSplitProvider, typeTraits,
-                comparatorFactories, bloomFilterKeyFields, dataflowHelperFactory, null, retainInput,
+                comparatorFactories, bloomFilterKeyFields, dataflowHelperFactory, null, retainInput, retainNull,
                 NoOpLocalResourceFactoryProvider.INSTANCE, searchOpCallbackProvider,
                 NoOpOperationCallbackFactory.INSTANCE);
         this.lowKeyFields = lowKeyFields;

@@ -47,10 +47,10 @@ public class LSMInvertedIndexSearchOperatorDescriptor extends AbstractLSMInverte
             IBinaryComparatorFactory[] invListComparatorFactories,
             IIndexDataflowHelperFactory btreeDataflowHelperFactory, IBinaryTokenizerFactory queryTokenizerFactory,
             IInvertedIndexSearchModifierFactory searchModifierFactory, RecordDescriptor recDesc, boolean retainInput,
-            ISearchOperationCallbackFactory searchOpCallbackProvider) {
+            boolean retainNull, ISearchOperationCallbackFactory searchOpCallbackProvider) {
         super(spec, 1, 1, recDesc, storageManager, fileSplitProvider, lifecycleManagerProvider, tokenTypeTraits,
                 tokenComparatorFactories, invListsTypeTraits, invListComparatorFactories, queryTokenizerFactory,
-                btreeDataflowHelperFactory, null, retainInput, NoOpLocalResourceFactoryProvider.INSTANCE,
+                btreeDataflowHelperFactory, null, retainInput, retainNull, NoOpLocalResourceFactoryProvider.INSTANCE,
                 searchOpCallbackProvider, NoOpOperationCallbackFactory.INSTANCE);
         this.queryField = queryField;
         this.searchModifierFactory = searchModifierFactory;

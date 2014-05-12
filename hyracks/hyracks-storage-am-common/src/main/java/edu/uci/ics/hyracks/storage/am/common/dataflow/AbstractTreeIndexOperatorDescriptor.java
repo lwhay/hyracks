@@ -40,11 +40,11 @@ public abstract class AbstractTreeIndexOperatorDescriptor extends AbstractIndexO
             IIndexLifecycleManagerProvider lifecycleManagerProvider, IFileSplitProvider fileSplitProvider,
             ITypeTraits[] typeTraits, IBinaryComparatorFactory[] comparatorFactories, int[] bloomFilterKeyFields,
             IIndexDataflowHelperFactory dataflowHelperFactory, ITupleFilterFactory tupleFilterFactory,
-            boolean retainInput, ILocalResourceFactoryProvider localResourceFactoryProvider,
+            boolean retainInput, boolean retainNull, ILocalResourceFactoryProvider localResourceFactoryProvider,
             ISearchOperationCallbackFactory searchOpCallbackFactory,
             IModificationOperationCallbackFactory modificationOpCallbackFactory) {
         super(spec, inputArity, outputArity, recDesc, storageManager, lifecycleManagerProvider, fileSplitProvider,
-                dataflowHelperFactory, tupleFilterFactory, retainInput, localResourceFactoryProvider,
+                dataflowHelperFactory, tupleFilterFactory, retainInput, retainNull, localResourceFactoryProvider,
                 searchOpCallbackFactory, modificationOpCallbackFactory);
         this.typeTraits = typeTraits;
         this.comparatorFactories = comparatorFactories;

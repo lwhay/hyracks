@@ -37,6 +37,7 @@ public abstract class AbstractIndexOperatorDescriptor extends AbstractSingleActi
     protected final IIndexDataflowHelperFactory dataflowHelperFactory;
     protected final ITupleFilterFactory tupleFilterFactory;
     protected final boolean retainInput;
+    protected final boolean retainNull;
     protected final ISearchOperationCallbackFactory searchOpCallbackFactory;
     protected final IModificationOperationCallbackFactory modificationOpCallbackFactory;
     protected final ILocalResourceFactoryProvider localResourceFactoryProvider;
@@ -45,15 +46,16 @@ public abstract class AbstractIndexOperatorDescriptor extends AbstractSingleActi
             RecordDescriptor recDesc, IStorageManagerInterface storageManager,
             IIndexLifecycleManagerProvider lifecycleManagerProvider, IFileSplitProvider fileSplitProvider,
             IIndexDataflowHelperFactory dataflowHelperFactory, ITupleFilterFactory tupleFilterFactory,
-            boolean retainInput, ILocalResourceFactoryProvider localResourceFactoryProvider,
-            ISearchOperationCallbackFactory searchOpCallbackFactory,
-            IModificationOperationCallbackFactory modificationOpCallbackFactory) {
+            boolean retainInput, boolean retainNull,
+            ILocalResourceFactoryProvider localResourceFactoryProvider,
+            ISearchOperationCallbackFactory searchOpCallbackFactory, IModificationOperationCallbackFactory modificationOpCallbackFactory) {
         super(spec, inputArity, outputArity);
         this.fileSplitProvider = fileSplitProvider;
         this.storageManager = storageManager;
         this.lifecycleManagerProvider = lifecycleManagerProvider;
         this.dataflowHelperFactory = dataflowHelperFactory;
         this.retainInput = retainInput;
+        this.retainNull = retainNull;
         this.tupleFilterFactory = tupleFilterFactory;
         this.localResourceFactoryProvider = localResourceFactoryProvider;
         this.searchOpCallbackFactory = searchOpCallbackFactory;
@@ -91,6 +93,11 @@ public abstract class AbstractIndexOperatorDescriptor extends AbstractSingleActi
     @Override
     public boolean getRetainInput() {
         return retainInput;
+    }
+    
+    @Override
+    public boolean getRetainNull() {
+        return retainNull;
     }
 
     @Override
