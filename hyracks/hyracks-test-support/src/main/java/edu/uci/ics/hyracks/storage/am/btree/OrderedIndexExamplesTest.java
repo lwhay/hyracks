@@ -56,7 +56,8 @@ public abstract class OrderedIndexExamplesTest {
     protected final Random rnd = new Random(50);
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
-            int[] bloomFilterKeyFields) throws TreeIndexException;
+            int[] bloomFilterKeyFields, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
+            int[] filterFields) throws TreeIndexException;
 
     /**
      * Fixed-Length Key,Value Example. Create a tree index with one fixed-length
@@ -87,7 +88,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -171,7 +172,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -248,7 +249,7 @@ public abstract class OrderedIndexExamplesTest {
         bloomFilterKeyFields[0] = 0;
         bloomFilterKeyFields[1] = 1;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -331,7 +332,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -415,7 +416,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -521,7 +522,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -612,7 +613,7 @@ public abstract class OrderedIndexExamplesTest {
         bloomFilterKeyFields[0] = 0;
         bloomFilterKeyFields[1] = 1;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -687,7 +688,7 @@ public abstract class OrderedIndexExamplesTest {
 
         int ins = 1000;
         for (int i = 1; i < ins; i++) {
-            ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields);
+            ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
             treeIndex.create();
             treeIndex.activate();
 
@@ -731,7 +732,7 @@ public abstract class OrderedIndexExamplesTest {
         }
     }
 
-    private void orderedScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
+    protected void orderedScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Ordered Scan:");
         }
@@ -752,7 +753,7 @@ public abstract class OrderedIndexExamplesTest {
         }
     }
 
-    private void diskOrderScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
+    protected void diskOrderScan(IIndexAccessor indexAccessor, ISerializerDeserializer[] fieldSerdes) throws Exception {
         try {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Disk-Order Scan:");
@@ -788,7 +789,7 @@ public abstract class OrderedIndexExamplesTest {
         }
     }
 
-    private void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,
+    protected void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,
             ISerializerDeserializer[] fieldSerdes, ITupleReference lowKey, ITupleReference highKey) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             String lowKeyString = TupleUtils.printTuple(lowKey, fieldSerdes);

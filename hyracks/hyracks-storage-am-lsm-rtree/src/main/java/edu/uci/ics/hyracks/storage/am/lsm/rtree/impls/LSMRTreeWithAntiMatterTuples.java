@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.rtree.impls;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
@@ -37,6 +38,8 @@ import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
@@ -66,16 +69,19 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
             ITreeIndexFrameFactory rtreeInteriorFrameFactory, ITreeIndexFrameFactory rtreeLeafFrameFactory,
             ITreeIndexFrameFactory btreeInteriorFrameFactory, ITreeIndexFrameFactory btreeLeafFrameFactory,
             ILSMIndexFileManager fileManager, TreeIndexFactory<RTree> diskRTreeFactory,
-            TreeIndexFactory<RTree> bulkLoadRTreeFactory, IFileMapProvider diskFileMapProvider, int fieldCount,
+            TreeIndexFactory<RTree> bulkLoadRTreeFactory, ILSMComponentFilterFactory filterFactory,
+            ILSMComponentFilterFrameFactory filterFrameFactory, IFileMapProvider diskFileMapProvider, int fieldCount,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
             ILinearizeComparatorFactory linearizer, int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallback ioOpCallback) {
+            ILSMIOOperationCallback ioOpCallback, int[] rtreeFields, int[] filterFields) {
         super(virtualBufferCaches, rtreeInteriorFrameFactory, rtreeLeafFrameFactory, btreeInteriorFrameFactory,
                 btreeLeafFrameFactory, fileManager, new LSMRTreeWithAntiMatterTuplesDiskComponentFactory(
-                        diskRTreeFactory), diskFileMapProvider, fieldCount, rtreeCmpFactories, btreeCmpFactories,
-                linearizer, comparatorFields, linearizerArray, 0, mergePolicy, opTracker, ioScheduler, ioOpCallback);
-        bulkLoaComponentFactory = new LSMRTreeWithAntiMatterTuplesDiskComponentFactory(bulkLoadRTreeFactory);
+                        diskRTreeFactory, filterFactory), diskFileMapProvider, fieldCount, rtreeCmpFactories,
+                btreeCmpFactories, linearizer, comparatorFields, linearizerArray, 0, mergePolicy, opTracker,
+                ioScheduler, ioOpCallback, filterFactory, filterFrameFactory, rtreeFields, filterFields);
+        bulkLoaComponentFactory = new LSMRTreeWithAntiMatterTuplesDiskComponentFactory(bulkLoadRTreeFactory,
+                filterFactory);
     }
 
     @Override
@@ -179,13 +185,13 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
 
         // Since the LSM-RTree is used as a secondary assumption, the
         // primary key will be the last comparator in the BTree comparators
-        TreeTupleSorter rTreeTupleSorter = new TreeTupleSorter(flushingComponent.getRTree().getFileId(), linearizerArray,
-                rtreeLeafFrameFactory.createFrame(), rtreeLeafFrameFactory.createFrame(), flushingComponent.getRTree()
-                        .getBufferCache(), comparatorFields);
+        TreeTupleSorter rTreeTupleSorter = new TreeTupleSorter(flushingComponent.getRTree().getFileId(),
+                linearizerArray, rtreeLeafFrameFactory.createFrame(), rtreeLeafFrameFactory.createFrame(),
+                flushingComponent.getRTree().getBufferCache(), comparatorFields);
 
-        TreeTupleSorter bTreeTupleSorter = new TreeTupleSorter(flushingComponent.getBTree().getFileId(), linearizerArray,
-                btreeLeafFrameFactory.createFrame(), btreeLeafFrameFactory.createFrame(), flushingComponent.getBTree()
-                        .getBufferCache(), comparatorFields);
+        TreeTupleSorter bTreeTupleSorter = new TreeTupleSorter(flushingComponent.getBTree().getFileId(),
+                linearizerArray, btreeLeafFrameFactory.createFrame(), btreeLeafFrameFactory.createFrame(),
+                flushingComponent.getBTree().getBufferCache(), comparatorFields);
         // BulkLoad the tuples from the in-memory tree into the new disk
         // RTree.
 
@@ -234,6 +240,14 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
         }
 
         rTreeBulkloader.end();
+
+        if (component.getLSMComponentFilter() != null) {
+            List<ITupleReference> filterTuples = new ArrayList<ITupleReference>();
+            filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
+            filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
+            updateFilterInfo(component.getLSMComponentFilter(), filterTuples, component.getRTree());
+        }
+
         return component;
     }
 
@@ -279,6 +293,16 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
             cursor.close();
         }
         bulkloader.end();
+
+        if (component.getLSMComponentFilter() != null) {
+            List<ITupleReference> filterTuples = new ArrayList<ITupleReference>();
+            for (int i = 0; i < mergeOp.getMergingComponents().size(); ++i) {
+                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
+                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
+            }
+            updateFilterInfo(component.getLSMComponentFilter(), filterTuples, component.getRTree());
+        }
+
         return component;
     }
 

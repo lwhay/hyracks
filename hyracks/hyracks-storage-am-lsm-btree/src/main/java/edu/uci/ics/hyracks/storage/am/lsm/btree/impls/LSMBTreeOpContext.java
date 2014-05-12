@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 
@@ -49,10 +50,12 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
     public final ISearchOperationCallback searchCallback;
     private final List<ILSMComponent> componentHolder;
     private final List<ILSMComponent> componentsToBeMerged;
+    public final MultiComparator filterCmp;
+    public final PermutingTupleReference filterTuple;
 
     public LSMBTreeOpContext(List<ILSMComponent> mutableComponents, ITreeIndexFrameFactory insertLeafFrameFactory,
             ITreeIndexFrameFactory deleteLeafFrameFactory, IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int numBloomFilterKeyFields) {
+            ISearchOperationCallback searchCallback, int numBloomFilterKeyFields, int[] filterFields) {
         LSMBTreeMemoryComponent c = (LSMBTreeMemoryComponent) mutableComponents.get(0);
         IBinaryComparatorFactory cmpFactories[] = c.getBTree().getComparatorFactories();
         if (cmpFactories[0] != null) {
@@ -88,6 +91,14 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
         this.componentsToBeMerged = new LinkedList<ILSMComponent>();
         this.modificationCallback = modificationCallback;
         this.searchCallback = searchCallback;
+
+        if (filterFields != null) {
+            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
+            filterTuple = new PermutingTupleReference(filterFields);
+        } else {
+            filterCmp = null;
+            filterTuple = null;
+        }
     }
 
     @Override

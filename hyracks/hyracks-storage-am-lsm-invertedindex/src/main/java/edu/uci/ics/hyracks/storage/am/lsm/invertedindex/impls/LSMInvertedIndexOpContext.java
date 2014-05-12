@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
@@ -36,7 +37,7 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
     private IndexOperation op;
     private final List<ILSMComponent> componentHolder;
     private final List<ILSMComponent> componentsToBeMerged;
-    
+
     public final IModificationOperationCallback modificationCallback;
     public final ISearchOperationCallback searchCallback;
 
@@ -51,9 +52,13 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
     public IInvertedIndexAccessor currentMutableInvIndexAccessors;
     public IIndexAccessor currentDeletedKeysBTreeAccessors;
 
+    public final PermutingTupleReference indexTuple;
+    public final MultiComparator filterCmp;
+    public final PermutingTupleReference filterTuple;
+
     public LSMInvertedIndexOpContext(List<ILSMComponent> mutableComponents,
-            IModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback)
-            throws HyracksDataException {
+            IModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback,
+            int[] invertedIndexFields, int[] filterFields) throws HyracksDataException {
         this.componentHolder = new LinkedList<ILSMComponent>();
         this.componentsToBeMerged = new LinkedList<ILSMComponent>();
         this.modificationCallback = modificationCallback;
@@ -81,6 +86,16 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
             keyFieldPermutation[i] = NUM_DOCUMENT_FIELDS + i;
         }
         keysOnlyTuple = new PermutingTupleReference(keyFieldPermutation);
+
+        if (filterFields != null) {
+            indexTuple = new PermutingTupleReference(invertedIndexFields);
+            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
+            filterTuple = new PermutingTupleReference(filterFields);
+        } else {
+            indexTuple = null;
+            filterCmp = null;
+            filterTuple = null;
+        }
     }
 
     @Override
@@ -121,7 +136,7 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
         currentMutableInvIndexAccessors = mutableInvIndexAccessors[currentMutableComponentId];
         currentDeletedKeysBTreeAccessors = deletedKeysBTreeAccessors[currentMutableComponentId];
     }
-    
+
     @Override
     public List<ILSMComponent> getComponentsToBeMerged() {
         return componentsToBeMerged;

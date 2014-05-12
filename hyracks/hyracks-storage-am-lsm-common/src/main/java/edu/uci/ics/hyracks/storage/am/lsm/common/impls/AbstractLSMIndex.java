@@ -22,12 +22,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrame;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
-import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackProvider;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexInternal;
@@ -56,6 +60,8 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
     protected final IFileMapProvider diskFileMapProvider;
     protected final List<ILSMComponent> diskComponents;
     protected final double bloomFilterFalsePositiveRate;
+    protected final ILSMComponentFilterFrameFactory filterFrameFactory;
+    protected final int[] filterFields;
 
     protected boolean isActivated;
 
@@ -64,7 +70,8 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
     public AbstractLSMIndex(List<IVirtualBufferCache> virtualBufferCaches, IBufferCache diskBufferCache,
             ILSMIndexFileManager fileManager, IFileMapProvider diskFileMapProvider,
             double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
-            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback) {
+            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
+            ILSMComponentFilterFrameFactory filterFrameFactory, int[] filterFields) {
         this.virtualBufferCaches = virtualBufferCaches;
         this.diskBufferCache = diskBufferCache;
         this.diskFileMapProvider = diskFileMapProvider;
@@ -73,6 +80,8 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
         this.ioScheduler = ioScheduler;
         this.ioOpCallback = ioOpCallback;
         this.ioOpCallback.setNumOfMutableComponents(virtualBufferCaches.size());
+        this.filterFrameFactory = filterFrameFactory;
+        this.filterFields = filterFields;
         lsmHarness = new LSMHarness(this, mergePolicy, opTracker);
         isActivated = false;
         diskComponents = new LinkedList<ILSMComponent>();
@@ -209,6 +218,32 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
             }
         }
         return diskComponents.isEmpty() && !isModified;
+    }
+
+    protected void updateFilterInfo(ILSMComponentFilter filter, List<ITupleReference> filterTuples, ITreeIndex treeIndex)
+            throws HyracksDataException {
+        MultiComparator filterCmp = MultiComparator.create(filter.getFilterCmpFactories());
+        for (ITupleReference tuple : filterTuples) {
+            filter.update(tuple, filterCmp);
+        }
+
+        int fileId = treeIndex.getFileId();
+        IBufferCache bufferCache = treeIndex.getBufferCache();
+        ITreeIndexMetaDataFrame metadataFrame = treeIndex.getFreePageManager().getMetaDataFrameFactory().createFrame();
+        int componentFilterPageId = treeIndex.getFreePageManager().getFreePage(metadataFrame);
+        ICachedPage filterPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, componentFilterPageId), true);
+        filterPage.acquireWriteLatch();
+        try {
+            ILSMComponentFilterFrame filterFrame = filterFrameFactory.createFrame();
+            filterFrame.setPage(filterPage);
+            filterFrame.initBuffer();
+            filterFrame.writeMinTuple(filter.getMinTuple());
+            filterFrame.writeMaxTuple(filter.getMaxTuple());
+
+        } finally {
+            filterPage.releaseWriteLatch(true);
+            bufferCache.unpin(filterPage);
+        }
     }
 
     @Override

@@ -17,6 +17,8 @@ package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow;
 import java.util.List;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
@@ -35,20 +37,27 @@ import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
 public final class PartitionedLSMInvertedIndexDataflowHelper extends AbstractLSMIndexDataflowHelper {
 
+    private final int[] invertedIndexFields;
+
     public PartitionedLSMInvertedIndexDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, List<IVirtualBufferCache> virtualBufferCache, ILSMMergePolicy mergePolicy,
             ILSMOperationTrackerProvider opTrackerFactory, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallbackFactory ioOpCallbackFactory) {
+            ILSMIOOperationCallbackFactory ioOpCallbackFactory, int[] invertedIndexFields,
+            ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories, int[] filterFields) {
         this(opDesc, ctx, partition, virtualBufferCache, DEFAULT_BLOOM_FILTER_FALSE_POSITIVE_RATE, mergePolicy,
-                opTrackerFactory, ioScheduler, ioOpCallbackFactory);
+                opTrackerFactory, ioScheduler, ioOpCallbackFactory, invertedIndexFields, filterTypeTraits,
+                filterCmpFactories, filterFields);
     }
 
     public PartitionedLSMInvertedIndexDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, List<IVirtualBufferCache> virtualBufferCaches, double bloomFilterFalsePositiveRate,
             ILSMMergePolicy mergePolicy, ILSMOperationTrackerProvider opTrackerFactory,
-            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallbackFactory ioOpCallbackFactory) {
+            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallbackFactory ioOpCallbackFactory,
+            int[] invertedIndexFields, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
+            int[] filterFields) {
         super(opDesc, ctx, partition, virtualBufferCaches, bloomFilterFalsePositiveRate, mergePolicy, opTrackerFactory,
-                ioScheduler, ioOpCallbackFactory);
+                ioScheduler, ioOpCallbackFactory, filterTypeTraits, filterCmpFactories, filterFields);
+        this.invertedIndexFields = invertedIndexFields;
     }
 
     @Override
@@ -63,7 +72,8 @@ public final class PartitionedLSMInvertedIndexDataflowHelper extends AbstractLSM
                     invIndexOpDesc.getTokenComparatorFactories(), invIndexOpDesc.getTokenizerFactory(),
                     diskBufferCache, file.getFile().getPath(), bloomFilterFalsePositiveRate, mergePolicy,
                     opTrackerFactory.getOperationTracker(ctx), ioScheduler,
-                    ioOpCallbackFactory.createIOOperationCallback());
+                    ioOpCallbackFactory.createIOOperationCallback(), invertedIndexFields, filterTypeTraits,
+                    filterCmpFactories, filterFields);
             return invIndex;
         } catch (IndexException e) {
             throw new HyracksDataException(e);
