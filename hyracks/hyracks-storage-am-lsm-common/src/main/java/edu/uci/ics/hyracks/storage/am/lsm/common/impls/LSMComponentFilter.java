@@ -106,4 +106,21 @@ public class LSMComponentFilter implements ILSMComponentFilter {
         return maxTuple;
     }
 
+    @Override
+    public boolean satisfy(ITupleReference minTuple, ITupleReference maxTuple, MultiComparator filterCmp) {
+        if (maxTuple != null) {
+            int c = filterCmp.compare(maxTuple, this.minTuple);
+            if (c < 0) {
+                return false;
+            }
+        }
+        if (minTuple != null) {
+            int c = filterCmp.compare(minTuple, this.maxTuple);
+            if (c > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 }

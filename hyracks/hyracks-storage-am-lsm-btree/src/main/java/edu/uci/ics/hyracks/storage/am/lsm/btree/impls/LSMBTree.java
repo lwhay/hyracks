@@ -47,6 +47,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.common.exceptions.TreeIndexDuplicateKeyException;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractSearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -264,9 +265,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             case DELETE:
                 operationalComponents.add(memoryComponents.get(cmc));
                 break;
-            case SEARCH:
             case INSERT:
-
                 for (int i = 0; i < numMutableComponents - 1; i++) {
                     ILSMComponent c = memoryComponents.get((cmc + i + 1) % numMutableComponents);
                     LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) c;
@@ -278,6 +277,31 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                 // The current mutable component is always added
                 operationalComponents.add(0, memoryComponents.get(cmc));
                 operationalComponents.addAll(immutableComponents);
+                break;
+            case SEARCH:
+                for (int i = 0; i < numMutableComponents - 1; i++) {
+                    ILSMComponent c = memoryComponents.get((cmc + i + 1) % numMutableComponents);
+                    LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) c;
+                    if (mutableComponent.isReadable()) {
+                        // Make sure newest components are added first
+                        operationalComponents.add(0, mutableComponent);
+                    }
+                }
+                // The current mutable component is always added
+                operationalComponents.add(0, memoryComponents.get(cmc));
+                if (filterManager != null) {
+                    for (ILSMComponent c : immutableComponents) {
+                        if (c.getLSMComponentFilter().satisfy(
+                                ((AbstractSearchPredicate) ctx.getSearchPredicate()).getMinFilterTuple(),
+                                ((AbstractSearchPredicate) ctx.getSearchPredicate()).getMaxFilterTuple(),
+                                ((LSMBTreeOpContext) ctx).filterCmp)) {
+                            operationalComponents.add(c);
+                        }
+                    }
+                } else {
+                    operationalComponents.addAll(immutableComponents);
+                }
+
                 break;
             case MERGE:
                 operationalComponents.addAll(ctx.getComponentsToBeMerged());

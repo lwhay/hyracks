@@ -140,7 +140,17 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         ArrayTupleReference highKey = new ArrayTupleReference();
         TupleUtils.createIntegerTuple(highKeyTb, highKey, 1000);
 
-        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey);
+        // Build min filter key.
+        ArrayTupleBuilder minFilterTb = new ArrayTupleBuilder(filterFields.length);
+        ArrayTupleReference minTuple = new ArrayTupleReference();
+        TupleUtils.createIntegerTuple(minFilterTb, minTuple, 400);
+
+        // Build max filter key.
+        ArrayTupleBuilder maxFilterTb = new ArrayTupleBuilder(filterFields.length);
+        ArrayTupleReference maxTuple = new ArrayTupleReference();
+        TupleUtils.createIntegerTuple(maxFilterTb, maxTuple, 500);
+
+        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, minTuple, maxTuple);
 
         treeIndex.validate();
         treeIndex.deactivate();

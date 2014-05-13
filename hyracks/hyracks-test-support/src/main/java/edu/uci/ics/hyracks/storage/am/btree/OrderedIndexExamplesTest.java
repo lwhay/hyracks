@@ -133,7 +133,7 @@ public abstract class OrderedIndexExamplesTest {
         ArrayTupleReference highKey = new ArrayTupleReference();
         TupleUtils.createIntegerTuple(highKeyTb, highKey, 1000);
 
-        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey);
+        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
         treeIndex.validate();
         treeIndex.deactivate();
@@ -296,7 +296,7 @@ public abstract class OrderedIndexExamplesTest {
         TupleUtils.createIntegerTuple(highKeyTb, highKey, 3);
 
         // Prefix-Range search in [-3, 3]
-        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey);
+        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
         treeIndex.validate();
         treeIndex.deactivate();
@@ -379,7 +379,7 @@ public abstract class OrderedIndexExamplesTest {
         ArrayTupleReference highKey = new ArrayTupleReference();
         TupleUtils.createTuple(highKeyTb, highKey, fieldSerdes, "cc7");
 
-        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey);
+        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
         treeIndex.validate();
         treeIndex.deactivate();
@@ -650,7 +650,7 @@ public abstract class OrderedIndexExamplesTest {
         TupleUtils.createIntegerTuple(highKeyTb, highKey, 44500);
 
         // Prefix-Range search in [44444, 44500]
-        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey);
+        rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
         treeIndex.validate();
         treeIndex.deactivate();
@@ -790,7 +790,8 @@ public abstract class OrderedIndexExamplesTest {
     }
 
     protected void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,
-            ISerializerDeserializer[] fieldSerdes, ITupleReference lowKey, ITupleReference highKey) throws Exception {
+            ISerializerDeserializer[] fieldSerdes, ITupleReference lowKey, ITupleReference highKey,
+            ITupleReference minFilterTuple, ITupleReference maxFilterTuple) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             String lowKeyString = TupleUtils.printTuple(lowKey, fieldSerdes);
             String highKeyString = TupleUtils.printTuple(highKey, fieldSerdes);
@@ -799,7 +800,13 @@ public abstract class OrderedIndexExamplesTest {
         ITreeIndexCursor rangeCursor = (ITreeIndexCursor) indexAccessor.createSearchCursor(false);
         MultiComparator lowKeySearchCmp = BTreeUtils.getSearchMultiComparator(cmpFactories, lowKey);
         MultiComparator highKeySearchCmp = BTreeUtils.getSearchMultiComparator(cmpFactories, highKey);
-        RangePredicate rangePred = new RangePredicate(lowKey, highKey, true, true, lowKeySearchCmp, highKeySearchCmp);
+        RangePredicate rangePred;
+        if (minFilterTuple != null && maxFilterTuple != null) {
+            rangePred = new RangePredicate(lowKey, highKey, true, true, lowKeySearchCmp, highKeySearchCmp,
+                    minFilterTuple, maxFilterTuple);
+        } else {
+            rangePred = new RangePredicate(lowKey, highKey, true, true, lowKeySearchCmp, highKeySearchCmp);
+        }
         indexAccessor.search(rangeCursor, rangePred);
         try {
             while (rangeCursor.hasNext()) {

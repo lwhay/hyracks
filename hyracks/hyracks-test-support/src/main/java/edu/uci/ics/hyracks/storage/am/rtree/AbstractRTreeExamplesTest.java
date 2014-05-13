@@ -177,7 +177,7 @@ public abstract class AbstractRTreeExamplesTest {
         ArrayTupleReference key = new ArrayTupleReference();
         TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
 
-        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
+        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, null, null);
 
         treeIndex.deactivate();
         treeIndex.destroy();
@@ -578,7 +578,7 @@ public abstract class AbstractRTreeExamplesTest {
         ArrayTupleReference key = new ArrayTupleReference();
         TupleUtils.createDoubleTuple(keyTb, key, -1000.0, -1000.0, -1000.0, 1000.0, 1000.0, 1000.0);
 
-        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
+        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, null, null);
 
         treeIndex.deactivate();
         treeIndex.destroy();
@@ -820,7 +820,7 @@ public abstract class AbstractRTreeExamplesTest {
         ArrayTupleReference key = new ArrayTupleReference();
         TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
 
-        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key);
+        rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, null, null);
 
         treeIndex.deactivate();
         treeIndex.destroy();
@@ -884,14 +884,22 @@ public abstract class AbstractRTreeExamplesTest {
     }
 
     protected void rangeSearch(IBinaryComparatorFactory[] cmpFactories, IIndexAccessor indexAccessor,
-            ISerializerDeserializer[] fieldSerdes, ITupleReference key) throws Exception {
+            ISerializerDeserializer[] fieldSerdes, ITupleReference key, ITupleReference minFilterTuple,
+            ITupleReference maxFilterTuple) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             String kString = TupleUtils.printTuple(key, fieldSerdes);
             LOGGER.info("Range-Search using key: " + kString);
         }
         ITreeIndexCursor rangeCursor = (ITreeIndexCursor) indexAccessor.createSearchCursor(false);
         MultiComparator cmp = RTreeUtils.getSearchMultiComparator(cmpFactories, key);
-        SearchPredicate rangePred = new SearchPredicate(key, cmp);
+
+        SearchPredicate rangePred;
+        if (minFilterTuple != null && maxFilterTuple != null) {
+            rangePred = new SearchPredicate(key, cmp, minFilterTuple, maxFilterTuple);
+        } else {
+            rangePred = new SearchPredicate(key, cmp);
+        }
+
         indexAccessor.search(rangeCursor, rangePred);
         try {
             while (rangeCursor.hasNext()) {
@@ -906,5 +914,4 @@ public abstract class AbstractRTreeExamplesTest {
             rangeCursor.close();
         }
     }
-
 }

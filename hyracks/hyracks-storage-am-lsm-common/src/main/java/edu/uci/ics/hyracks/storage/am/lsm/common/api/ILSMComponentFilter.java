@@ -22,6 +22,8 @@ public interface ILSMComponentFilter {
 
     public void update(ITupleReference tuple, MultiComparator cmp);
 
+    public boolean satisfy(ITupleReference minTuple, ITupleReference maxTuple, MultiComparator filterCmp);
+
     public ITupleReference getMinTuple();
 
     public ITupleReference getMaxTuple();

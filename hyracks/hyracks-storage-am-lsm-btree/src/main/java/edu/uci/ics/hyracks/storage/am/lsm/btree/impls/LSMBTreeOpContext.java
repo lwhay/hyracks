@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeOpContext;
 import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -52,6 +53,7 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
     private final List<ILSMComponent> componentsToBeMerged;
     public final MultiComparator filterCmp;
     public final PermutingTupleReference filterTuple;
+    public ISearchPredicate searchPredicate;
 
     public LSMBTreeOpContext(List<ILSMComponent> mutableComponents, ITreeIndexFrameFactory insertLeafFrameFactory,
             ITreeIndexFrameFactory deleteLeafFrameFactory, IModificationOperationCallback modificationCallback,
@@ -171,5 +173,15 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
     @Override
     public List<ILSMComponent> getComponentsToBeMerged() {
         return componentsToBeMerged;
+    }
+
+    @Override
+    public void setSearchPredicate(ISearchPredicate searchPredicate) {
+        this.searchPredicate = searchPredicate;
+    }
+
+    @Override
+    public ISearchPredicate getSearchPredicate() {
+        return searchPredicate;
     }
 }

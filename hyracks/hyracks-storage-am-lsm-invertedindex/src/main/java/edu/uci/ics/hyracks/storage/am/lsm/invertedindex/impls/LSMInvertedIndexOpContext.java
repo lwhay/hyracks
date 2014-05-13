@@ -22,6 +22,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IModificationOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
+import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
@@ -55,6 +56,8 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
     public final PermutingTupleReference indexTuple;
     public final MultiComparator filterCmp;
     public final PermutingTupleReference filterTuple;
+
+    public ISearchPredicate searchPredicate;
 
     public LSMInvertedIndexOpContext(List<ILSMComponent> mutableComponents,
             IModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback,
@@ -140,5 +143,15 @@ public class LSMInvertedIndexOpContext implements ILSMIndexOperationContext {
     @Override
     public List<ILSMComponent> getComponentsToBeMerged() {
         return componentsToBeMerged;
+    }
+
+    @Override
+    public void setSearchPredicate(ISearchPredicate searchPredicate) {
+        this.searchPredicate = searchPredicate;
+    }
+
+    @Override
+    public ISearchPredicate getSearchPredicate() {
+        return searchPredicate;
     }
 }

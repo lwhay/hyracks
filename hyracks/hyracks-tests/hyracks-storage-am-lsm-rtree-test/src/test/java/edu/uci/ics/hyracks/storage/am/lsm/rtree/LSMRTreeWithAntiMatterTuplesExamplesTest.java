@@ -27,10 +27,9 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.util.LSMRTreeTestHarness;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.utils.LSMRTreeUtils;
-import edu.uci.ics.hyracks.storage.am.rtree.AbstractRTreeExamplesTest;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 
-public class LSMRTreeWithAntiMatterTuplesExamplesTest extends AbstractRTreeExamplesTest {
+public class LSMRTreeWithAntiMatterTuplesExamplesTest extends AbstractLSMRTreeExamplesTest {
     private final LSMRTreeTestHarness harness = new LSMRTreeTestHarness();
 
     public LSMRTreeWithAntiMatterTuplesExamplesTest() {
