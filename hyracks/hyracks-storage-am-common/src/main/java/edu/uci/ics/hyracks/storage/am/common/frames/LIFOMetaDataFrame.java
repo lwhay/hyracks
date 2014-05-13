@@ -111,6 +111,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
         //buf.putInt(maxPageOff, -1);
         buf.put(levelOff, level);
         buf.putInt(nextPageOff, -1);
+        buf.putInt(lsmComponentFilterPageOff, -1);
         setValid(false);
     }
 
@@ -152,7 +153,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     public int getLSMComponentFilterPageId() {
         return buf.getInt(lsmComponentFilterPageOff);
     }
-    
+
     @Override
     public void setLSMComponentFilterPageId(int filterPage) {
         buf.putInt(lsmComponentFilterPageOff, filterPage);

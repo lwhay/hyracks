@@ -14,27 +14,19 @@
  */
 package edu.uci.ics.hyracks.storage.am.lsm.common.api;
 
+import java.util.List;
+
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
-import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
 
-public interface ILSMComponentFilterFrame {
+public interface ILSMComponentFilterManager {
 
-    public ICachedPage getPage();
+    public void updateFilterInfo(ILSMComponentFilter filter, List<ITupleReference> filterTuples)
+            throws HyracksDataException;
 
-    public void setPage(ICachedPage page);
+    public boolean readFilterInfo(ILSMComponentFilter filter, ITreeIndex treeIndex) throws HyracksDataException;
 
-    public void writeMinTuple(ITupleReference tuple);
-
-    public void writeMaxTuple(ITupleReference tuple);
-
-    public void initBuffer();
-
-    public boolean isMinTupleSet();
-
-    public boolean isMaxTupleSet();
-
-    public ITupleReference getMinTuple();
-    
-    public ITupleReference getMaxTuple();
+    public void writeFilterInfo(ILSMComponentFilter filter, ITreeIndex treeIndex) throws HyracksDataException;
 
 }
