@@ -46,6 +46,7 @@ import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.common.tuples.DualTupleReference;
+import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
@@ -496,6 +497,8 @@ public class LSMRTree extends AbstractLSMRTree {
         private final IIndexBulkLoader bulkLoader;
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
+        public final PermutingTupleReference filterTuple;
+        public final MultiComparator filterCmp;
 
         public LSMRTreeBulkLoader(float fillFactor, boolean verifyInput, long numElementsHint, boolean checkIfEmptyIndex)
                 throws TreeIndexException, HyracksDataException {
@@ -511,12 +514,25 @@ public class LSMRTree extends AbstractLSMRTree {
             }
             bulkLoader = ((LSMRTreeDiskComponent) component).getRTree().createBulkLoader(fillFactor, verifyInput,
                     numElementsHint, false);
+
+            if (filterFields != null) {
+                filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
+                filterTuple = new PermutingTupleReference(filterFields);
+            } else {
+                filterCmp = null;
+                filterTuple = null;
+            }
         }
 
         @Override
         public void add(ITupleReference tuple) throws HyracksDataException, IndexException {
             try {
                 bulkLoader.add(tuple);
+
+                if (filterTuple != null) {
+                    filterTuple.reset(tuple);
+                    component.getLSMComponentFilter().update(filterTuple, filterCmp);
+                }
             } catch (IndexException | HyracksDataException | RuntimeException e) {
                 cleanupArtifacts();
                 throw e;
@@ -530,6 +546,12 @@ public class LSMRTree extends AbstractLSMRTree {
         public void end() throws HyracksDataException, IndexException {
             if (!cleanedUpArtifacts) {
                 bulkLoader.end();
+
+                if (component.getLSMComponentFilter() != null) {
+                    filterManager.writeFilterInfo(component.getLSMComponentFilter(),
+                            ((LSMRTreeDiskComponent) component).getRTree());
+                }
+
                 if (isEmptyComponent) {
                     cleanupArtifacts();
                 } else {

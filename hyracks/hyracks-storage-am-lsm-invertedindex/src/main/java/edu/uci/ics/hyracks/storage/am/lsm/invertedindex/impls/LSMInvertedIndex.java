@@ -695,6 +695,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         private final IIndexBulkLoader invIndexBulkLoader;
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
+        public final PermutingTupleReference filterTuple;
+        public final MultiComparator filterCmp;
 
         public LSMInvertedIndexBulkLoader(float fillFactor, boolean verifyInput, long numElementsHint,
                 boolean checkIfEmptyIndex) throws IndexException, HyracksDataException {
@@ -710,12 +712,26 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
             }
             invIndexBulkLoader = ((LSMInvertedIndexDiskComponent) component).getInvIndex().createBulkLoader(fillFactor,
                     verifyInput, numElementsHint, false);
+
+            if (filterFields != null) {
+                filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
+                filterTuple = new PermutingTupleReference(filterFields);
+            } else {
+                filterCmp = null;
+                filterTuple = null;
+            }
         }
 
         @Override
         public void add(ITupleReference tuple) throws IndexException, HyracksDataException {
             try {
                 invIndexBulkLoader.add(tuple);
+
+                if (filterTuple != null) {
+                    filterTuple.reset(tuple);
+                    component.getLSMComponentFilter().update(filterTuple, filterCmp);
+                }
+
             } catch (IndexException | HyracksDataException | RuntimeException e) {
                 cleanupArtifacts();
                 throw e;
@@ -741,6 +757,13 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         public void end() throws IndexException, HyracksDataException {
             if (!cleanedUpArtifacts) {
                 invIndexBulkLoader.end();
+
+                if (component.getLSMComponentFilter() != null) {
+                    filterManager.writeFilterInfo(component.getLSMComponentFilter(),
+                            (((OnDiskInvertedIndex) ((LSMInvertedIndexDiskComponent) component).getInvIndex())
+                                    .getBTree()));
+                }
+
                 if (isEmptyComponent) {
                     cleanupArtifacts();
                 } else {

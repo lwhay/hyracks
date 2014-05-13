@@ -51,6 +51,7 @@ import edu.uci.ics.hyracks.storage.am.common.impls.AbstractSearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
+import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.tuples.LSMBTreeTupleReference;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFactory;
@@ -602,6 +603,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
         private boolean endedBloomFilterLoad = false;
+        public final PermutingTupleReference filterTuple;
+        public final MultiComparator filterCmp;
 
         public LSMBTreeBulkLoader(float fillFactor, boolean verifyInput, long numElementsHint, boolean checkIfEmptyIndex)
                 throws TreeIndexException, HyracksDataException {
@@ -621,6 +624,14 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     bloomFilterFalsePositiveRate);
             builder = ((LSMBTreeDiskComponent) component).getBloomFilter().createBuilder(numElementsHint,
                     bloomFilterSpec.getNumHashes(), bloomFilterSpec.getNumBucketsPerElements());
+
+            if (filterFields != null) {
+                filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
+                filterTuple = new PermutingTupleReference(filterFields);
+            } else {
+                filterCmp = null;
+                filterTuple = null;
+            }
         }
 
         @Override
@@ -628,6 +639,11 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             try {
                 bulkLoader.add(tuple);
                 builder.add(tuple);
+
+                if (filterTuple != null) {
+                    filterTuple.reset(tuple);
+                    component.getLSMComponentFilter().update(filterTuple, filterCmp);
+                }
             } catch (IndexException | HyracksDataException | RuntimeException e) {
                 cleanupArtifacts();
                 throw e;
@@ -660,6 +676,12 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     endedBloomFilterLoad = true;
                 }
                 bulkLoader.end();
+
+                if (component.getLSMComponentFilter() != null) {
+                    filterManager.writeFilterInfo(component.getLSMComponentFilter(),
+                            ((LSMBTreeDiskComponent) component).getBTree());
+                }
+
                 if (isEmptyComponent) {
                     cleanupArtifacts();
                 } else {
