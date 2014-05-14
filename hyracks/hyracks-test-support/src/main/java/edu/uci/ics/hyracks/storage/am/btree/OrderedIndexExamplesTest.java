@@ -57,7 +57,7 @@ public abstract class OrderedIndexExamplesTest {
 
     protected abstract ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
-            int[] filterFields) throws TreeIndexException;
+            int[] btreeFields, int[] filterFields) throws TreeIndexException;
 
     /**
      * Fixed-Length Key,Value Example. Create a tree index with one fixed-length
@@ -88,7 +88,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -172,7 +172,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -249,7 +249,7 @@ public abstract class OrderedIndexExamplesTest {
         bloomFilterKeyFields[0] = 0;
         bloomFilterKeyFields[1] = 1;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -332,7 +332,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -416,7 +416,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -522,7 +522,7 @@ public abstract class OrderedIndexExamplesTest {
         int[] bloomFilterKeyFields = new int[keyFieldCount];
         bloomFilterKeyFields[0] = 0;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -613,7 +613,7 @@ public abstract class OrderedIndexExamplesTest {
         bloomFilterKeyFields[0] = 0;
         bloomFilterKeyFields[1] = 1;
 
-        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+        ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
         treeIndex.create();
         treeIndex.activate();
 
@@ -688,7 +688,8 @@ public abstract class OrderedIndexExamplesTest {
 
         int ins = 1000;
         for (int i = 1; i < ins; i++) {
-            ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null);
+            ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null,
+                    null);
             treeIndex.create();
             treeIndex.activate();
 

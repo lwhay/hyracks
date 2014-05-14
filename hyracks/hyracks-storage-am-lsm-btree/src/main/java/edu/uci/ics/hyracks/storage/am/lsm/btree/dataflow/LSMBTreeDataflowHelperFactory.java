@@ -33,17 +33,19 @@ public class LSMBTreeDataflowHelperFactory extends AbstractLSMIndexDataflowHelpe
 
     private static final long serialVersionUID = 1L;
     private final boolean needKeyDupCheck;
+    private final int[] btreeFields;
 
     public LSMBTreeDataflowHelperFactory(IVirtualBufferCacheProvider virtualBufferCacheProvider,
             ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties,
             ILSMOperationTrackerProvider opTrackerFactory, ILSMIOOperationSchedulerProvider ioSchedulerProvider,
             ILSMIOOperationCallbackFactory ioOpCallbackFactory, double bloomFilterFalsePositiveRate,
             boolean needKeyDupCheck, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
-            int[] filterFields) {
+            int[] btreeFields, int[] filterFields) {
         super(virtualBufferCacheProvider, mergePolicyFactory, mergePolicyProperties, opTrackerFactory,
                 ioSchedulerProvider, ioOpCallbackFactory, bloomFilterFalsePositiveRate, filterTypeTraits,
                 filterCmpFactories, filterFields);
         this.needKeyDupCheck = needKeyDupCheck;
+        this.btreeFields = btreeFields;
     }
 
     @Override
@@ -53,6 +55,6 @@ public class LSMBTreeDataflowHelperFactory extends AbstractLSMIndexDataflowHelpe
                 virtualBufferCacheProvider.getVirtualBufferCaches(ctx), bloomFilterFalsePositiveRate,
                 mergePolicyFactory.createMergePolicy(mergePolicyProperties), opTrackerFactory,
                 ioSchedulerProvider.getIOScheduler(ctx), ioOpCallbackFactory, needKeyDupCheck, filterTypeTraits,
-                filterCmpFactories, filterFields);
+                filterCmpFactories, btreeFields, filterFields);
     }
 }

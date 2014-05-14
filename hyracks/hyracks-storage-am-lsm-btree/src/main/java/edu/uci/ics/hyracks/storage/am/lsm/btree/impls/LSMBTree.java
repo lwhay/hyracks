@@ -92,6 +92,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     private final IBinaryComparatorFactory[] cmpFactories;
 
     private final boolean needKeyDupCheck;
+    private final int[] btreeFields;
 
     public LSMBTree(List<IVirtualBufferCache> virtualBufferCaches, ITreeIndexFrameFactory interiorFrameFactory,
             ITreeIndexFrameFactory insertLeafFrameFactory, ITreeIndexFrameFactory deleteLeafFrameFactory,
@@ -101,7 +102,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             LSMComponentFilterManager filterManager, double bloomFilterFalsePositiveRate,
             IFileMapProvider diskFileMapProvider, int fieldCount, IBinaryComparatorFactory[] cmpFactories,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallback ioOpCallback, boolean needKeyDupCheck, int[] filterFields) {
+            ILSMIOOperationCallback ioOpCallback, boolean needKeyDupCheck, int[] btreeFields, int[] filterFields) {
         super(virtualBufferCaches, diskBTreeFactory.getBufferCache(), fileManager, diskFileMapProvider,
                 bloomFilterFalsePositiveRate, mergePolicy, opTracker, ioScheduler, ioOpCallback, filterFrameFactory,
                 filterManager, filterFields);
@@ -124,6 +125,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         bulkLoadComponentFactory = new LSMBTreeDiskComponentFactory(bulkLoadBTreeFactory, bloomFilterFactory,
                 filterFactory);
         this.needKeyDupCheck = needKeyDupCheck;
+        this.btreeFields = btreeFields;
     }
 
     @Override
@@ -318,15 +320,24 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     @Override
     public void modify(IIndexOperationContext ictx, ITupleReference tuple) throws HyracksDataException, IndexException {
         LSMBTreeOpContext ctx = (LSMBTreeOpContext) ictx;
+
+        ITupleReference indexTuple;
+        if (ctx.indexTuple != null) {
+            ctx.indexTuple.reset(tuple);
+            indexTuple = ctx.indexTuple;
+        } else {
+            indexTuple = tuple;
+        }
+
         switch (ctx.getOperation()) {
             case PHYSICALDELETE:
-                ctx.currentMutableBTreeAccessor.delete(tuple);
+                ctx.currentMutableBTreeAccessor.delete(indexTuple);
                 break;
             case INSERT:
-                insert(tuple, ctx);
+                insert(indexTuple, ctx);
                 break;
             default:
-                ctx.currentMutableBTreeAccessor.upsert(tuple);
+                ctx.currentMutableBTreeAccessor.upsert(indexTuple);
                 break;
         }
         if (ctx.filterTuple != null) {
@@ -694,7 +705,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     public LSMBTreeOpContext createOpContext(IModificationOperationCallback modificationCallback,
             ISearchOperationCallback searchCallback) {
         return new LSMBTreeOpContext(memoryComponents, insertLeafFrameFactory, deleteLeafFrameFactory,
-                modificationCallback, searchCallback, componentFactory.getBloomFilterKeyFields().length, filterFields);
+                modificationCallback, searchCallback, componentFactory.getBloomFilterKeyFields().length, btreeFields,
+                filterFields);
     }
 
     @Override

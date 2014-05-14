@@ -51,13 +51,14 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
     public final ISearchOperationCallback searchCallback;
     private final List<ILSMComponent> componentHolder;
     private final List<ILSMComponent> componentsToBeMerged;
+    public final PermutingTupleReference indexTuple;
     public final MultiComparator filterCmp;
     public final PermutingTupleReference filterTuple;
     public ISearchPredicate searchPredicate;
 
     public LSMBTreeOpContext(List<ILSMComponent> mutableComponents, ITreeIndexFrameFactory insertLeafFrameFactory,
             ITreeIndexFrameFactory deleteLeafFrameFactory, IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int numBloomFilterKeyFields, int[] filterFields) {
+            ISearchOperationCallback searchCallback, int numBloomFilterKeyFields, int[] btreeFields, int[] filterFields) {
         LSMBTreeMemoryComponent c = (LSMBTreeMemoryComponent) mutableComponents.get(0);
         IBinaryComparatorFactory cmpFactories[] = c.getBTree().getComparatorFactories();
         if (cmpFactories[0] != null) {
@@ -95,9 +96,11 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
         this.searchCallback = searchCallback;
 
         if (filterFields != null) {
+            indexTuple = new PermutingTupleReference(btreeFields);
             filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
             filterTuple = new PermutingTupleReference(filterFields);
         } else {
+            indexTuple = null;
             filterCmp = null;
             filterTuple = null;
         }

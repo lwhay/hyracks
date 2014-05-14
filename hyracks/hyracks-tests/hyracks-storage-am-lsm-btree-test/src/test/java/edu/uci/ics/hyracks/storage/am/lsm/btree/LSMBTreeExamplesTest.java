@@ -46,12 +46,12 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
     @Override
     protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
-            int[] filterFields) throws TreeIndexException {
+            int[] btreeFields, int[] filterFields) throws TreeIndexException {
         return LSMBTreeUtils.createLSMTree(harness.getVirtualBufferCaches(), harness.getFileReference(),
                 harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), typeTraits, cmpFactories,
                 bloomFilterKeyFields, harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
                 harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallback(), true,
-                filterTypeTraits, filterCmpFactories, filterFields);
+                filterTypeTraits, filterCmpFactories, btreeFields, filterFields);
     }
 
     @Before
@@ -94,8 +94,9 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         ITypeTraits[] filterTypeTraits = { IntegerPointable.TYPE_TRAITS };
         IBinaryComparatorFactory[] filterCmpFactories = { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) };
         int[] filterFields = { 1 };
+        int[] btreeFields = { 1 };
         ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, filterTypeTraits,
-                filterCmpFactories, filterFields);
+                filterCmpFactories, btreeFields, filterFields);
         treeIndex.create();
         treeIndex.activate();
 
