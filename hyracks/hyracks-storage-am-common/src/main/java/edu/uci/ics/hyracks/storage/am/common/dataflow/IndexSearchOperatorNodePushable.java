@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -57,7 +58,8 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected final boolean retainInput;
     protected FrameTupleReference frameTuple;
     protected final boolean retainNull;
-    private ArrayTupleBuilder nullTupleBuild;
+    protected ArrayTupleBuilder nullTupleBuild;
+    protected INullWriter nullWriter;
 
     public IndexSearchOperatorNodePushable(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx, int partition,
             IRecordDescriptorProvider recordDescProvider) {
@@ -66,6 +68,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         this.indexHelper = opDesc.getIndexDataflowHelperFactory().createIndexDataflowHelper(opDesc, ctx, partition);
         this.retainInput = opDesc.getRetainInput();
         this.retainNull = opDesc.getRetainNull();
+        if (this.retainNull) {
+            this.nullWriter = opDesc.getNullWriterFactory().createNullWriter();
+        }
         this.inputRecDesc = recordDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
     }
 
@@ -92,7 +97,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             DataOutput out = nullTupleBuild.getDataOutput();
             for (int i = 0; i < fieldCount; i++) {
                 try {
-                    out.writeByte((byte) 14);
+                    nullWriter.writeNull(out);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
