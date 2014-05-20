@@ -78,8 +78,12 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
             ILSMComponentFilterFrame filterFrame = filterFrameFactory.createFrame();
             filterFrame.setPage(filterPage);
             filterFrame.initBuffer();
-            filterFrame.writeMinTuple(filter.getMinTuple());
-            filterFrame.writeMaxTuple(filter.getMaxTuple());
+            if (filter.getMinTuple() != null) {
+                filterFrame.writeMinTuple(filter.getMinTuple());
+            }
+            if (filter.getMaxTuple() != null) {
+                filterFrame.writeMaxTuple(filter.getMaxTuple());
+            }
 
         } finally {
             filterPage.releaseWriteLatch(true);

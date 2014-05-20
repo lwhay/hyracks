@@ -695,6 +695,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         private final IIndexBulkLoader invIndexBulkLoader;
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
+        public final PermutingTupleReference indexTuple;
         public final PermutingTupleReference filterTuple;
         public final MultiComparator filterCmp;
 
@@ -714,9 +715,11 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
                     verifyInput, numElementsHint, false);
 
             if (filterFields != null) {
+                indexTuple = new PermutingTupleReference(invertedIndexFields);
                 filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
                 filterTuple = new PermutingTupleReference(filterFields);
             } else {
+                indexTuple = null;
                 filterCmp = null;
                 filterTuple = null;
             }
@@ -725,7 +728,15 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         @Override
         public void add(ITupleReference tuple) throws IndexException, HyracksDataException {
             try {
-                invIndexBulkLoader.add(tuple);
+                ITupleReference t;
+                if (indexTuple != null) {
+                    indexTuple.reset(tuple);
+                    t = indexTuple;
+                } else {
+                    t = tuple;
+                }
+
+                invIndexBulkLoader.add(t);
 
                 if (filterTuple != null) {
                     filterTuple.reset(tuple);

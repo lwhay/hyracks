@@ -497,6 +497,7 @@ public class LSMRTree extends AbstractLSMRTree {
         private final IIndexBulkLoader bulkLoader;
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
+        public final PermutingTupleReference indexTuple;
         public final PermutingTupleReference filterTuple;
         public final MultiComparator filterCmp;
 
@@ -516,9 +517,11 @@ public class LSMRTree extends AbstractLSMRTree {
                     numElementsHint, false);
 
             if (filterFields != null) {
+                indexTuple = new PermutingTupleReference(rtreeFields);
                 filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
                 filterTuple = new PermutingTupleReference(filterFields);
             } else {
+                indexTuple = null;
                 filterCmp = null;
                 filterTuple = null;
             }
@@ -527,7 +530,15 @@ public class LSMRTree extends AbstractLSMRTree {
         @Override
         public void add(ITupleReference tuple) throws HyracksDataException, IndexException {
             try {
-                bulkLoader.add(tuple);
+                ITupleReference t;
+                if (indexTuple != null) {
+                    indexTuple.reset(tuple);
+                    t = indexTuple;
+                } else {
+                    t = tuple;
+                }
+
+                bulkLoader.add(t);
 
                 if (filterTuple != null) {
                     filterTuple.reset(tuple);

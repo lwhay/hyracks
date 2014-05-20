@@ -57,17 +57,18 @@ public interface IMetadataProvider<S, I> {
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getWriteResultRuntime(IDataSource<S> dataSource,
             IOperatorSchema propagatedSchema, List<LogicalVariable> keys, LogicalVariable payLoadVar,
-            JobGenContext context, JobSpecification jobSpec) throws AlgebricksException;
+            List<LogicalVariable> additionalNonKeyFields, JobGenContext context, JobSpecification jobSpec)
+            throws AlgebricksException;
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getInsertRuntime(IDataSource<S> dataSource,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> keys,
-            LogicalVariable payLoadVar, RecordDescriptor recordDesc, JobGenContext context, JobSpecification jobSpec)
-            throws AlgebricksException;
+            LogicalVariable payLoadVar, List<LogicalVariable> additionalNonKeyFields, RecordDescriptor recordDesc,
+            JobGenContext context, JobSpecification jobSpec) throws AlgebricksException;
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getDeleteRuntime(IDataSource<S> dataSource,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> keys,
-            LogicalVariable payLoadVar, RecordDescriptor recordDesc, JobGenContext context, JobSpecification jobSpec)
-            throws AlgebricksException;
+            LogicalVariable payLoadVar, List<LogicalVariable> additionalNonKeyFields, RecordDescriptor recordDesc,
+            JobGenContext context, JobSpecification jobSpec) throws AlgebricksException;
 
     /**
      * Creates the insert runtime of IndexInsertDeletePOperator, which models
@@ -85,6 +86,8 @@ public interface IMetadataProvider<S, I> {
      *            Variables for the dataset's primary keys that the dataSource secondary index belongs to.
      * @param secondaryKeys
      *            Variables for the secondary-index keys.
+     * @param additionalNonKeyFields
+     *            Additional variables that can be passed to the secondary index as payload.
      * @param filterExpr
      *            Filtering expression to be pushed inside the runtime op.
      *            Such a filter may, e.g., exclude NULLs from being inserted/deleted.
@@ -101,8 +104,8 @@ public interface IMetadataProvider<S, I> {
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
             IDataSourceIndex<I, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec)
-            throws AlgebricksException;
+            List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
+            JobGenContext context, JobSpecification spec) throws AlgebricksException;
 
     /**
      * Creates the delete runtime of IndexInsertDeletePOperator, which models
@@ -120,6 +123,8 @@ public interface IMetadataProvider<S, I> {
      *            Variables for the dataset's primary keys that the dataSource secondary index belongs to.
      * @param secondaryKeys
      *            Variables for the secondary-index keys.
+     * @param additionalNonKeyFields
+     *            Additional variables that can be passed to the secondary index as payload.
      * @param filterExpr
      *            Filtering expression to be pushed inside the runtime op.
      *            Such a filter may, e.g., exclude NULLs from being inserted/deleted.
@@ -136,8 +141,8 @@ public interface IMetadataProvider<S, I> {
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexDeleteRuntime(
             IDataSourceIndex<I, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec)
-            throws AlgebricksException;
+            List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
+            JobGenContext context, JobSpecification spec) throws AlgebricksException;
 
     public IDataSourceIndex<I, S> findDataSourceIndex(I indexId, S dataSourceId) throws AlgebricksException;
 

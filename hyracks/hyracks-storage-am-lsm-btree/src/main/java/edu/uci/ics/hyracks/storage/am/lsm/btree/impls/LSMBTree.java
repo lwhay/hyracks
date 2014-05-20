@@ -614,6 +614,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         private boolean cleanedUpArtifacts = false;
         private boolean isEmptyComponent = true;
         private boolean endedBloomFilterLoad = false;
+        public final PermutingTupleReference indexTuple;
         public final PermutingTupleReference filterTuple;
         public final MultiComparator filterCmp;
 
@@ -637,9 +638,11 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     bloomFilterSpec.getNumHashes(), bloomFilterSpec.getNumBucketsPerElements());
 
             if (filterFields != null) {
+                indexTuple = new PermutingTupleReference(btreeFields);
                 filterCmp = MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories());
                 filterTuple = new PermutingTupleReference(filterFields);
             } else {
+                indexTuple = null;
                 filterCmp = null;
                 filterTuple = null;
             }
@@ -648,8 +651,16 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         @Override
         public void add(ITupleReference tuple) throws IndexException, HyracksDataException {
             try {
-                bulkLoader.add(tuple);
-                builder.add(tuple);
+                ITupleReference t;
+                if (indexTuple != null) {
+                    indexTuple.reset(tuple);
+                    t = indexTuple;
+                } else {
+                    t = tuple;
+                }
+
+                bulkLoader.add(t);
+                builder.add(t);
 
                 if (filterTuple != null) {
                     filterTuple.reset(tuple);

@@ -40,8 +40,6 @@ public class LSMComponentFilter implements ILSMComponentFilter {
     public LSMComponentFilter(ITreeIndexTupleWriter tupleWriter, IBinaryComparatorFactory[] filterCmpFactories) {
         this.filterCmpFactories = filterCmpFactories;
         this.tupleWriter = tupleWriter;
-        this.minTuple = tupleWriter.createTupleReference();
-        this.maxTuple = tupleWriter.createTupleReference();
     }
 
     @Override
@@ -51,23 +49,23 @@ public class LSMComponentFilter implements ILSMComponentFilter {
 
     @Override
     public void reset() {
+        minTuple = null;
+        maxTuple = null;
         minTupleBytes = null;
         maxTupleBytes = null;
+        minTupleBuf = null;
+        maxTupleBuf = null;
     }
 
     @Override
     public void update(ITupleReference tuple, MultiComparator cmp) {
-        if (minTupleBytes == null) {
+        if (minTuple == null) {
             int numBytes = tupleWriter.bytesRequired(tuple);
             minTupleBytes = new byte[numBytes];
             tupleWriter.writeTuple(tuple, minTupleBytes, 0);
             minTupleBuf = ByteBuffer.wrap(minTupleBytes);
-
-            maxTupleBytes = new byte[numBytes];
-            tupleWriter.writeTuple(tuple, maxTupleBytes, 0);
-            maxTupleBuf = ByteBuffer.wrap(maxTupleBytes);
+            minTuple = tupleWriter.createTupleReference();
             ((ITreeIndexTupleReference) minTuple).resetByTupleOffset(minTupleBuf, 0);
-            ((ITreeIndexTupleReference) maxTuple).resetByTupleOffset(maxTupleBuf, 0);
         } else {
             int c = cmp.compare(tuple, minTuple);
             if (c < 0) {
@@ -81,7 +79,16 @@ public class LSMComponentFilter implements ILSMComponentFilter {
                 }
                 ((ITreeIndexTupleReference) minTuple).resetByTupleOffset(minTupleBuf, 0);
             }
-            c = cmp.compare(tuple, maxTuple);
+        }
+        if (maxTuple == null) {
+            int numBytes = tupleWriter.bytesRequired(tuple);
+            maxTupleBytes = new byte[numBytes];
+            tupleWriter.writeTuple(tuple, maxTupleBytes, 0);
+            maxTupleBuf = ByteBuffer.wrap(maxTupleBytes);
+            maxTuple = tupleWriter.createTupleReference();
+            ((ITreeIndexTupleReference) maxTuple).resetByTupleOffset(maxTupleBuf, 0);
+        } else {
+            int c = cmp.compare(tuple, maxTuple);
             if (c > 0) {
                 int numBytes = tupleWriter.bytesRequired(tuple);
                 if (maxTupleBytes.length < numBytes) {
@@ -108,13 +115,13 @@ public class LSMComponentFilter implements ILSMComponentFilter {
 
     @Override
     public boolean satisfy(ITupleReference minTuple, ITupleReference maxTuple, MultiComparator filterCmp) {
-        if (maxTuple != null) {
+        if (maxTuple != null && this.minTuple != null) {
             int c = filterCmp.compare(maxTuple, this.minTuple);
             if (c < 0) {
                 return false;
             }
         }
-        if (minTuple != null) {
+        if (minTuple != null && this.maxTuple != null) {
             int c = filterCmp.compare(minTuple, this.maxTuple);
             if (c > 0) {
                 return false;
