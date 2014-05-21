@@ -18,6 +18,6 @@ import java.util.logging.Level;
 
 public abstract class AbstractWork implements Runnable {
     public Level logLevel() {
-        return Level.INFO;
+        return Level.WARNING;
     }
 }

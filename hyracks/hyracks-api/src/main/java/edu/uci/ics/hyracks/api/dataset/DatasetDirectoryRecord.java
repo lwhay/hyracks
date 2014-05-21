@@ -34,6 +34,8 @@ public class DatasetDirectoryRecord implements Serializable {
 
     private Status status;
 
+    private boolean empty;
+
     public DatasetDirectoryRecord() {
         this.address = null;
         this.readEOS = false;
@@ -46,6 +48,14 @@ public class DatasetDirectoryRecord implements Serializable {
 
     public NetworkAddress getNetworkAddress() {
         return address;
+    }
+
+    public void setEmpty(boolean empty) {
+        this.empty = empty;
+    }
+
+    public boolean getEmpty() {
+        return empty;
     }
 
     public void readEOS() {

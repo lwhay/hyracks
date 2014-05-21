@@ -32,6 +32,8 @@ public class WorkQueue {
     private final AtomicInteger enqueueCount;
     private final AtomicInteger dequeueCount;
 
+    private static final long starttime = System.nanoTime() / 1000;
+
     public WorkQueue() {
         queue = new LinkedBlockingQueue<AbstractWork>();
         thread = new WorkerThread();
@@ -111,7 +113,7 @@ public class WorkQueue {
                     }
                     try {
                         if (LOGGER.isLoggable(r.logLevel())) {
-                            LOGGER.log(r.logLevel(), "Executing: " + r);
+                            LOGGER.log(r.logLevel(), "(" + (System.nanoTime() / 1000 - starttime) + ") Executing: " + r);
                         }
                         r.run();
                     } catch (Exception e) {

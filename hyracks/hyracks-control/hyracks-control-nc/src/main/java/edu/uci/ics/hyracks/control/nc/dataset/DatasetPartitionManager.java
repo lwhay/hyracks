@@ -70,32 +70,37 @@ public class DatasetPartitionManager implements IDatasetPartitionManager {
             boolean asyncMode, int partition, int nPartitions) throws HyracksException {
         DatasetPartitionWriter dpw = null;
         JobId jobId = ctx.getJobletContext().getJobId();
-        try {
-            synchronized (this) {
-                ncs.getClusterController().registerResultPartitionLocation(jobId, rsId, orderedResult, partition,
-                        nPartitions, ncs.getDatasetNetworkManager().getNetworkAddress());
-                dpw = new DatasetPartitionWriter(ctx, this, jobId, rsId, asyncMode, partition, datasetMemoryManager,
-                        fileFactory);
+        synchronized (this) {
+            dpw = new DatasetPartitionWriter(ctx, this, jobId, rsId, asyncMode, orderedResult, partition, nPartitions,
+                    datasetMemoryManager, fileFactory);
 
-                ResultSetMap rsIdMap = (ResultSetMap) partitionResultStateMap.get(jobId);
-                if (rsIdMap == null) {
-                    rsIdMap = new ResultSetMap();
-                    partitionResultStateMap.put(jobId, rsIdMap);
-                }
-
-                ResultState[] resultStates = rsIdMap.get(rsId);
-                if (resultStates == null) {
-                    resultStates = new ResultState[nPartitions];
-                    rsIdMap.put(rsId, resultStates);
-                }
-                resultStates[partition] = dpw.getResultState();
+            ResultSetMap rsIdMap = (ResultSetMap) partitionResultStateMap.get(jobId);
+            if (rsIdMap == null) {
+                rsIdMap = new ResultSetMap();
+                partitionResultStateMap.put(jobId, rsIdMap);
             }
-        } catch (Exception e) {
-            throw new HyracksException(e);
+
+            ResultState[] resultStates = rsIdMap.get(rsId);
+            if (resultStates == null) {
+                resultStates = new ResultState[nPartitions];
+                rsIdMap.put(rsId, resultStates);
+            }
+            resultStates[partition] = dpw.getResultState();
         }
 
         LOGGER.fine("Initialized partition writer: JobId: " + jobId + ":partition: " + partition);
         return dpw;
+    }
+
+    @Override
+    public void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, int partition, int nPartitions,
+            boolean orderedResult, boolean emptyResult) throws HyracksException {
+        try {
+            ncs.getClusterController().registerResultPartitionLocation(jobId, rsId, orderedResult, emptyResult,
+                    partition, nPartitions, ncs.getDatasetNetworkManager().getNetworkAddress());
+        } catch (Exception e) {
+            throw new HyracksException(e);
+        }
     }
 
     @Override

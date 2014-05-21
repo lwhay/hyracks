@@ -15,10 +15,13 @@
 package edu.uci.ics.hyracks.control.cc.dataset;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
 import edu.uci.ics.hyracks.api.dataset.DatasetDirectoryRecord;
@@ -32,6 +35,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.IActivityClusterGraphGeneratorFactory;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.control.common.dataset.ResultStateSweeper;
+import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 
 /**
  * TODO(madhusudancs): The potential perils of this global dataset directory service implementation is that, the jobs
@@ -47,10 +51,13 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
 
     private final Map<JobId, IDatasetStateRecord> jobResultLocations;
 
+    private final Map<Pair<JobId, ResultSetId>, Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>>> waiters;
+
     public DatasetDirectoryService(long resultTTL, long resultSweepThreshold) {
         this.resultTTL = resultTTL;
         this.resultSweepThreshold = resultSweepThreshold;
         jobResultLocations = new LinkedHashMap<JobId, IDatasetStateRecord>();
+        waiters = new HashMap<Pair<JobId, ResultSetId>, Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>>>();
     }
 
     @Override
@@ -80,7 +87,7 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
 
     @Override
     public synchronized void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, boolean orderedResult,
-            int partition, int nPartitions, NetworkAddress networkAddress) {
+            boolean emptyResult, int partition, int nPartitions, NetworkAddress networkAddress) {
         DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
 
         ResultSetMetaData resultSetMetaData = djr.get(rsId);
@@ -94,7 +101,22 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
             records[partition] = new DatasetDirectoryRecord();
         }
         records[partition].setNetworkAddress(networkAddress);
+        records[partition].setEmpty(emptyResult);
         records[partition].start();
+
+        Pair<JobId, ResultSetId> key = Pair.of(jobId, rsId);
+        Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>> value = waiters.get(key);
+        if (value != null) {
+            try {
+                DatasetDirectoryRecord[] updatedRecords = updatedRecords(jobId, rsId, value.getLeft());
+                if (updatedRecords != null) {
+                    waiters.remove(key);
+                    value.getRight().setValue(updatedRecords);
+                }
+            } catch (Exception e) {
+                value.getRight().setException(e);
+            }
+        }
         notifyAll();
     }
 
@@ -161,38 +183,21 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
     }
 
     @Override
-    public synchronized DatasetDirectoryRecord[] getResultPartitionLocations(JobId jobId, ResultSetId rsId,
-            DatasetDirectoryRecord[] knownRecords) throws HyracksDataException {
-        DatasetDirectoryRecord[] newRecords;
-        while ((newRecords = updatedRecords(jobId, rsId, knownRecords)) == null) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                throw new HyracksDataException(e);
-            }
+    public synchronized void getResultPartitionLocations(JobId jobId, ResultSetId rsId,
+            DatasetDirectoryRecord[] knownRecords, IResultCallback<DatasetDirectoryRecord[]> callback)
+            throws HyracksDataException {
+        DatasetDirectoryRecord[] updatedRecords = updatedRecords(jobId, rsId, knownRecords);
+        if (updatedRecords == null) {
+            waiters.put(Pair.of(jobId, rsId), Pair.of(knownRecords, callback));
+        } else {
+            callback.setValue(updatedRecords);
         }
-        return newRecords;
     }
 
     /**
      * Compares the records already known by the client for the given job's result set id with the records that the
      * dataset directory service knows and if there are any newly discovered records returns a whole array with the
      * new records filled in.
-     * This method has a very convoluted logic. Here is the explanation of how it works.
-     * If the ordering constraint has to be enforced, the method obtains the first null record in the known records in
-     * the order of the partitions. It always traverses the array in the first to last order!
-     * If known records array or the first element in that array is null in the but the record for that partition now
-     * known to the directory service, the method fills in that record in the array and returns the array back.
-     * However, if the first known null record is not a first element in the array, by induction, all the previous
-     * known records should be known already be known to client and none of the records for the partitions ahead is
-     * known by the client yet. So, we check if the client has reached the end of stream for the partition corresponding
-     * to the record before the first known null record, i.e. the last known non-null record. If not, we just return
-     * null because we cannot expose any new locations until the client reaches end of stream for the last known record.
-     * If the client has reached the end of stream record for the last known non-null record, we check if the next record
-     * is discovered by the dataset directory service and if so, we fill it in the records array and return it back or
-     * send null otherwise.
-     * If the ordering is not required, we are free to return any newly discovered records back, so we just check if
-     * arrays are equal and if they are not we send the entire new updated array.
      * 
      * @param jobId
      *            - Id of the job for which the directory records should be retrieved.
@@ -201,7 +206,7 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
      * @param knownRecords
      *            - An array of directory records that the client is already aware of.
      * @return
-     *         - Returns null if there aren't any newly discovered partitions enforcing the ordering constraint
+     *         Returns the updated records if new record were discovered, null otherwise
      * @throws HyracksDataException
      *             TODO(madhusudancs): Think about caching (and still be stateless) instead of this ugly O(n) iterations for
      *             every check. This already looks very expensive.
@@ -228,36 +233,8 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
             return null;
         }
 
-        boolean ordered = resultSetMetaData.getOrderedResult();
         DatasetDirectoryRecord[] records = resultSetMetaData.getRecords();
-        /* If ordering is required, we should expose the dataset directory records only in the order, otherwise
-         * we can simply check if there are any newly discovered records and send the whole array back if there are.
-         */
-        if (ordered) {
-            // Iterate over the known records and find the last record which is not null.
-            int i = 0;
-            for (i = 0; i < records.length; i++) {
-                if (knownRecords == null) {
-                    if (records[0] != null) {
-                        knownRecords = new DatasetDirectoryRecord[records.length];
-                        knownRecords[0] = records[0];
-                        return knownRecords;
-                    }
-                    return null;
-                }
-                if (knownRecords[i] == null) {
-                    if ((i == 0 || knownRecords[i - 1].hasReachedReadEOS()) && records[i] != null) {
-                        knownRecords[i] = records[i];
-                        return knownRecords;
-                    }
-                    return null;
-                }
-            }
-        } else {
-            if (!Arrays.equals(records, knownRecords)) {
-                return records;
-            }
-        }
-        return null;
+
+        return Arrays.equals(records, knownRecords) ? null : records;
     }
 }
