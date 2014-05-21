@@ -50,9 +50,7 @@ public class GetResultPartitionLocationsWork extends SynchronizableWork {
             @Override
             public void run() {
                 try {
-                    DatasetDirectoryRecord[] partitionLocations = dds.getResultPartitionLocations(jobId, rsId,
-                            knownRecords);
-                    callback.setValue(partitionLocations);
+                    dds.getResultPartitionLocations(jobId, rsId, knownRecords, callback);
                 } catch (HyracksDataException e) {
                     callback.setException(e);
                 }
