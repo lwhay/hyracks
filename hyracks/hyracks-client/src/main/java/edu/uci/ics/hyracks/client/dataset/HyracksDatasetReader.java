@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -93,6 +94,7 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
         while (knownRecords == null || knownRecords[partition] == null) {
             knownRecords = datasetDirectoryServiceConnection
                     .getDatasetResultLocations(jobId, resultSetId, knownRecords);
+            LOGGER.warning(Arrays.toString(knownRecords));
         }
         return knownRecords[partition];
     }
@@ -107,6 +109,7 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
             if (lastReadPartition == knownRecords.length) {
                 return false;
             }
+            LOGGER.warning("moving to partition " + lastReadPartition);
             resultChannel = new DatasetNetworkInputChannel(netManager, getSocketAddress(record), jobId, resultSetId,
                     lastReadPartition, NUM_READ_BUFFERS);
             lastMonitor = getMonitor(lastReadPartition);
@@ -129,21 +132,12 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
             }
         }
 
-        while (readSize <= 0 && !isPartitionReadComplete(lastMonitor)) {
-            synchronized (lastMonitor) {
-                while (lastMonitor.getNFramesAvailable() <= 0 && !lastMonitor.eosReached() && !lastMonitor.failed()) {
-                    try {
-                        lastMonitor.wait();
-                    } catch (InterruptedException e) {
-                        throw new HyracksDataException(e);
-                    }
-                }
-            }
-            if (lastMonitor.failed()) {
-                throw new HyracksDataException("Job Failed.");
-            }
+        while (readSize <= 0
+                && !((lastReadPartition == knownRecords.length - 1) && isPartitionReadComplete(lastMonitor))) {
+            waitForNextFrame(lastMonitor);
             if (isPartitionReadComplete(lastMonitor)) {
                 knownRecords[lastReadPartition].readEOS();
+                resultChannel.close();
                 if ((lastReadPartition == knownRecords.length - 1) || !nextPartition()) {
                     break;
                 }
@@ -154,6 +148,8 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                     buffer.put(readBuffer);
                     buffer.flip();
                     readSize = buffer.limit();
+                    LOGGER.warning("read " + readSize + " bytes from partition " + lastReadPartition + "("
+                            + knownRecords[lastReadPartition] + ")");
                     resultChannel.recycleBuffer(readBuffer);
                 }
             }
@@ -162,16 +158,19 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
         return readSize;
     }
 
-    private boolean nullExists(DatasetDirectoryRecord[] locations) {
-        if (locations == null) {
-            return true;
-        }
-        for (int i = 0; i < locations.length; i++) {
-            if (locations[i] == null) {
-                return true;
+    private static void waitForNextFrame(IDatasetInputChannelMonitor monitor) throws HyracksDataException {
+        synchronized (monitor) {
+            while (monitor.getNFramesAvailable() <= 0 && !monitor.eosReached() && !monitor.failed()) {
+                try {
+                    monitor.wait();
+                } catch (InterruptedException e) {
+                    throw new HyracksDataException(e);
+                }
             }
         }
-        return false;
+        if (monitor.failed()) {
+            throw new HyracksDataException("Job Failed.");
+        }
     }
 
     private boolean isPartitionReadComplete(IDatasetInputChannelMonitor monitor) {
