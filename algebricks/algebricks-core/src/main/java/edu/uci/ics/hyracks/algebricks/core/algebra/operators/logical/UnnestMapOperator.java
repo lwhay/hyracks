@@ -33,10 +33,12 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisi
  */
 public class UnnestMapOperator extends AbstractUnnestOperator {
 
-    private final List<Object> variableTypes; // TODO: get rid of this and
-    private final boolean propagateInput;
-    
-    // deprecate UnnestMap
+    private final List<Object> variableTypes; // TODO: get rid of this and  deprecate UnnestMap
+    private boolean propagateInput;
+
+    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
+    private List<LogicalVariable> minFilterVars;
+    private List<LogicalVariable> maxFilterVars;
 
     public UnnestMapOperator(List<LogicalVariable> variables, Mutable<ILogicalExpression> expression,
             List<Object> variableTypes, boolean propagateInput) {
@@ -94,11 +96,35 @@ public class UnnestMapOperator extends AbstractUnnestOperator {
         }
         return env;
     }
-    
+
     public boolean propagatesInput() {
         return propagateInput;
     }
-    
+
+    public List<LogicalVariable> getMinFilterVars() {
+        return minFilterVars;
+    }
+
+    public void setMinFilterVars(List<LogicalVariable> minFilterVars) {
+        this.minFilterVars = minFilterVars;
+    }
+
+    public List<LogicalVariable> getMaxFilterVars() {
+        return maxFilterVars;
+    }
+
+    public void setMaxFilterVars(List<LogicalVariable> maxFilterVars) {
+        this.maxFilterVars = maxFilterVars;
+    }
+
+    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
+        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    }
+
+    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
+        return lsmComponentFilterExpressions;
+    }
+
     /*
     @Override
     public boolean isMap() {

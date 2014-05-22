@@ -90,7 +90,11 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
 
     @Override
     public Void visitDataScanOperator(DataSourceScanOperator op, Void arg) {
-        // does not use any variable
+        if (op.getLsmComponentFilterExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+                e.getValue().getUsedVariables(usedVariables);
+            }
+        }
         return null;
     }
 
@@ -277,6 +281,11 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     @Override
     public Void visitUnnestMapOperator(UnnestMapOperator op, Void arg) {
         op.getExpressionRef().getValue().getUsedVariables(usedVariables);
+        if (op.getLsmComponentFilterExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+                e.getValue().getUsedVariables(usedVariables);
+            }
+        }
         return null;
     }
 
