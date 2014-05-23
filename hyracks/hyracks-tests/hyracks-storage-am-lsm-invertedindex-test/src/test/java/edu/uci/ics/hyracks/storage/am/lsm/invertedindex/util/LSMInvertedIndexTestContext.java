@@ -99,8 +99,8 @@ public class LSMInvertedIndexTestContext extends OrderedIndexTestContext {
     public static LSMInvertedIndexTestContext create(LSMInvertedIndexTestHarness harness,
             ISerializerDeserializer[] fieldSerdes, int tokenFieldCount, IBinaryTokenizerFactory tokenizerFactory,
             InvertedIndexType invIndexType, int[] invertedIndexFields, ITypeTraits[] filterTypeTraits,
-            IBinaryComparatorFactory[] filterCmpFactories, int[] filterFields) throws IndexException,
-            HyracksDataException {
+            IBinaryComparatorFactory[] filterCmpFactories, int[] filterFields, int[] filterFieldsForNonBulkLoadOps,
+            int[] invertedIndexFieldsForNonBulkLoadOps) throws IndexException, HyracksDataException {
         ITypeTraits[] allTypeTraits = SerdeUtils.serdesToTypeTraits(fieldSerdes);
         IBinaryComparatorFactory[] allCmpFactories = SerdeUtils.serdesToComparatorFactories(fieldSerdes,
                 fieldSerdes.length);
@@ -155,7 +155,8 @@ public class LSMInvertedIndexTestContext extends OrderedIndexTestContext {
                         tokenCmpFactories, tokenizerFactory, harness.getDiskBufferCache(), harness.getOnDiskDir(),
                         harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
                         harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallback(),
-                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields);
+                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields,
+                        filterFieldsForNonBulkLoadOps, invertedIndexFieldsForNonBulkLoadOps);
                 break;
             }
             case PARTITIONED_LSM: {
@@ -164,7 +165,8 @@ public class LSMInvertedIndexTestContext extends OrderedIndexTestContext {
                         tokenCmpFactories, tokenizerFactory, harness.getDiskBufferCache(), harness.getOnDiskDir(),
                         harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
                         harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallback(),
-                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields);
+                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields,
+                        filterFieldsForNonBulkLoadOps, invertedIndexFieldsForNonBulkLoadOps);
                 break;
             }
             default: {

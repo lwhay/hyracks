@@ -51,11 +51,13 @@ public class PartitionedLSMInvertedIndex extends LSMInvertedIndex {
             IBinaryComparatorFactory[] invListCmpFactories, ITypeTraits[] tokenTypeTraits,
             IBinaryComparatorFactory[] tokenCmpFactories, IBinaryTokenizerFactory tokenizerFactory,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallback ioOpCallback, int[] invertedIndexFields, int[] filterFields) throws IndexException {
+            ILSMIOOperationCallback ioOpCallback, int[] invertedIndexFields, int[] filterFields,
+            int[] filterFieldsForNonBulkLoadOps, int[] invertedIndexFieldsForNonBulkLoadOps) throws IndexException {
         super(virtualBufferCaches, diskInvIndexFactory, deletedKeysBTreeFactory, bloomFilterFactory, filterFactory,
                 filterFrameFactory, filterManager, bloomFilterFalsePositiveRate, fileManager, diskFileMapProvider,
                 invListTypeTraits, invListCmpFactories, tokenTypeTraits, tokenCmpFactories, tokenizerFactory,
-                mergePolicy, opTracker, ioScheduler, ioOpCallback, invertedIndexFields, filterFields);
+                mergePolicy, opTracker, ioScheduler, ioOpCallback, invertedIndexFields, filterFields,
+                filterFieldsForNonBulkLoadOps, invertedIndexFieldsForNonBulkLoadOps);
     }
 
     @Override

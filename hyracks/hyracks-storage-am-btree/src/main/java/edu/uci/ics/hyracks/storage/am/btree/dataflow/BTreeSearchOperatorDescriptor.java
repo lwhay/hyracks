@@ -36,10 +36,10 @@ public class BTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
 
     private static final long serialVersionUID = 1L;
 
-    private final int[] lowKeyFields;
-    private final int[] highKeyFields;
-    private final boolean lowKeyInclusive;
-    private final boolean highKeyInclusive;
+    protected final int[] lowKeyFields;
+    protected final int[] highKeyFields;
+    protected final boolean lowKeyInclusive;
+    protected final boolean highKeyInclusive;
     private final int[] minFilterFieldIndexes;
     private final int[] maxFilterFieldIndexes;
 
