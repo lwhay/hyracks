@@ -19,8 +19,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import edu.uci.ics.hyracks.api.comm.NetworkAddress;
@@ -49,15 +51,26 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
 
     private final long resultSweepThreshold;
 
-    private final Map<JobId, IDatasetStateRecord> jobResultLocations;
+    private final Map<JobId, Pair<IDatasetStateRecord, Waiters>> jobResultLocations;
 
-    private final Map<Pair<JobId, ResultSetId>, Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>>> waiters;
+    static class Waiters extends HashMap<ResultSetId, Waiter> {
+        private static final long serialVersionUID = 1L;
+    }
+
+    static class Waiter {
+        Waiter(DatasetDirectoryRecord[] knownRecords, IResultCallback<DatasetDirectoryRecord[]> callback) {
+            this.knownRecords = knownRecords;
+            this.callback = callback;
+        }
+
+        DatasetDirectoryRecord[] knownRecords;
+        IResultCallback<DatasetDirectoryRecord[]> callback;
+    }
 
     public DatasetDirectoryService(long resultTTL, long resultSweepThreshold) {
         this.resultTTL = resultTTL;
         this.resultSweepThreshold = resultSweepThreshold;
-        jobResultLocations = new LinkedHashMap<JobId, IDatasetStateRecord>();
-        waiters = new HashMap<Pair<JobId, ResultSetId>, Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>>>();
+        jobResultLocations = new LinkedHashMap<JobId, Pair<IDatasetStateRecord, Waiters>>();
     }
 
     @Override
@@ -68,10 +81,10 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
     @Override
     public synchronized void notifyJobCreation(JobId jobId, IActivityClusterGraphGeneratorFactory acggf)
             throws HyracksException {
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
         if (djr == null) {
             djr = new DatasetJobRecord();
-            jobResultLocations.put(jobId, djr);
+            jobResultLocations.put(jobId, MutablePair.of((IDatasetStateRecord) djr, (Waiters) null));
         }
     }
 
@@ -85,10 +98,15 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
         // Auto-generated method stub
     }
 
+    private DatasetJobRecord getDatasetJobRecord(JobId jobId) {
+        final Pair<IDatasetStateRecord, Waiters> pair = jobResultLocations.get(jobId);
+        return pair == null ? null : (DatasetJobRecord) pair.getLeft();
+    }
+
     @Override
     public synchronized void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, boolean orderedResult,
             boolean emptyResult, int partition, int nPartitions, NetworkAddress networkAddress) {
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
 
         ResultSetMetaData resultSetMetaData = djr.get(rsId);
         if (resultSetMetaData == null) {
@@ -104,17 +122,17 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
         records[partition].setEmpty(emptyResult);
         records[partition].start();
 
-        Pair<JobId, ResultSetId> key = Pair.of(jobId, rsId);
-        Pair<DatasetDirectoryRecord[], IResultCallback<DatasetDirectoryRecord[]>> value = waiters.get(key);
-        if (value != null) {
+        Waiters waiters = jobResultLocations.get(jobId).getValue();
+        Waiter waiter = waiters != null ? waiters.get(rsId) : null;
+        if (waiter != null) {
             try {
-                DatasetDirectoryRecord[] updatedRecords = updatedRecords(jobId, rsId, value.getLeft());
+                DatasetDirectoryRecord[] updatedRecords = updatedRecords(jobId, rsId, waiter.knownRecords);
                 if (updatedRecords != null) {
-                    waiters.remove(key);
-                    value.getRight().setValue(updatedRecords);
+                    waiters.remove(rsId);
+                    waiter.callback.setValue(updatedRecords);
                 }
             } catch (Exception e) {
-                value.getRight().setException(e);
+                waiter.callback.setException(e);
             }
         }
         notifyAll();
@@ -124,7 +142,7 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
     public synchronized void reportResultPartitionWriteCompletion(JobId jobId, ResultSetId rsId, int partition) {
         int successCount = 0;
 
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
         ResultSetMetaData resultSetMetaData = djr.get(rsId);
         DatasetDirectoryRecord[] records = resultSetMetaData.getRecords();
         records[partition].writeEOS();
@@ -142,23 +160,29 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
 
     @Override
     public synchronized void reportResultPartitionFailure(JobId jobId, ResultSetId rsId, int partition) {
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
         if (djr != null) {
             djr.fail();
+        }
+        final Waiters waiters = jobResultLocations.get(jobId).getValue();
+        if (waiters != null) {
+            waiters.get(rsId).callback.setException(new Exception());
+            waiters.remove(rsId);
         }
         notifyAll();
     }
 
     @Override
     public synchronized void reportJobFailure(JobId jobId, List<Exception> exceptions) {
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
         if (djr != null) {
             djr.fail(exceptions);
         }
-        for (Pair<JobId, ResultSetId> key : waiters.keySet()) {
-            if (key.getLeft().equals(jobId)) {
-                waiters.get(key).getRight().setException(exceptions.get(0));
-                waiters.remove(key);
+        final Waiters waiters = jobResultLocations.get(jobId).getValue();
+        if (waiters != null) {
+            for (ResultSetId rsId : waiters.keySet()) {
+                waiters.get(rsId).callback.setException(exceptions.get(0));
+                waiters.remove(rsId);
             }
         }
         notifyAll();
@@ -167,7 +191,7 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
     @Override
     public synchronized Status getResultStatus(JobId jobId, ResultSetId rsId) throws HyracksDataException {
         DatasetJobRecord djr;
-        while ((djr = (DatasetJobRecord) jobResultLocations.get(jobId)) == null) {
+        while ((djr = getDatasetJobRecord(jobId)) == null) {
             try {
                 wait();
             } catch (InterruptedException e) {
@@ -179,8 +203,13 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
     }
 
     @Override
-    public Map<JobId, IDatasetStateRecord> getStateMap() {
-        return jobResultLocations;
+    public Set<JobId> getJobIds() {
+        return jobResultLocations.keySet();
+    }
+
+    @Override
+    public IDatasetStateRecord getState(JobId jobId) {
+        return jobResultLocations.get(jobId).getLeft();
     }
 
     @Override
@@ -194,7 +223,20 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
             throws HyracksDataException {
         DatasetDirectoryRecord[] updatedRecords = updatedRecords(jobId, rsId, knownRecords);
         if (updatedRecords == null) {
-            waiters.put(Pair.of(jobId, rsId), Pair.of(knownRecords, callback));
+            Pair<IDatasetStateRecord, Waiters> pair = jobResultLocations.get(jobId);
+            Waiters waiters;
+            if (pair == null) {
+                waiters = new Waiters();
+                pair = MutablePair.of((IDatasetStateRecord) null, waiters);
+                jobResultLocations.put(jobId, pair);
+            } else {
+                waiters = pair.getValue();
+                if (waiters == null) {
+                    waiters = new Waiters();
+                    pair.setValue(waiters);
+                }
+            }
+            waiters.put(rsId, new Waiter(knownRecords, callback));
         } else {
             callback.setValue(updatedRecords);
         }
@@ -219,7 +261,7 @@ public class DatasetDirectoryService implements IDatasetDirectoryService {
      */
     private DatasetDirectoryRecord[] updatedRecords(JobId jobId, ResultSetId rsId, DatasetDirectoryRecord[] knownRecords)
             throws HyracksDataException {
-        DatasetJobRecord djr = (DatasetJobRecord) jobResultLocations.get(jobId);
+        DatasetJobRecord djr = getDatasetJobRecord(jobId);
 
         if (djr == null) {
             throw new HyracksDataException("Requested JobId " + jobId + " doesn't exist");
