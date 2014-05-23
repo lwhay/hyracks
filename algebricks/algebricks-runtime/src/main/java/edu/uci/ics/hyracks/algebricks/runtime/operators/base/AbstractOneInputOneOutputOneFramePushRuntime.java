@@ -106,7 +106,7 @@ public abstract class AbstractOneInputOneOutputOneFramePushRuntime extends Abstr
         initAccessAppend(ctx);
         tRef = new FrameTupleReference();
     }
-    
+
     protected final void initAccessAppendFieldRef(IHyracksTaskContext ctx) throws HyracksDataException {
         frame = ctx.allocateFrame();
         appender = new FrameTupleAppender(ctx.getFrameSize(), inputRecordDesc.getFieldCount());
