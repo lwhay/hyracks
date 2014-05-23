@@ -127,6 +127,6 @@ public class JobCleanupWork extends AbstractWork {
     @Override
     public String toString() {
         return getName() + ": JobId@" + jobId + " Status@" + status
-                + (exceptions.isEmpty() ? "" : " Exceptions@" + exceptions);
+                + (exceptions == null ? "" : " Exceptions@" + exceptions);
     }
 }
