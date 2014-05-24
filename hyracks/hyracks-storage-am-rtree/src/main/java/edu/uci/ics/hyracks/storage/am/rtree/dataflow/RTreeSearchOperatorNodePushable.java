@@ -31,8 +31,9 @@ public class RTreeSearchOperatorNodePushable extends IndexSearchOperatorNodePush
     protected MultiComparator cmp;
 
     public RTreeSearchOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
-            int partition, IRecordDescriptorProvider recordDescProvider, int[] keyFields) {
-        super(opDesc, ctx, partition, recordDescProvider);
+            int partition, IRecordDescriptorProvider recordDescProvider, int[] keyFields, int[] minFilterFieldIndexes,
+            int[] maxFilterFieldIndexes) {
+        super(opDesc, ctx, partition, recordDescProvider, minFilterFieldIndexes, maxFilterFieldIndexes);
         if (keyFields != null && keyFields.length > 0) {
             searchKey = new PermutingFrameTupleReference();
             searchKey.setFieldPermutation(keyFields);
@@ -43,7 +44,7 @@ public class RTreeSearchOperatorNodePushable extends IndexSearchOperatorNodePush
     protected ISearchPredicate createSearchPredicate() {
         ITreeIndex treeIndex = (ITreeIndex) index;
         cmp = RTreeUtils.getSearchMultiComparator(treeIndex.getComparatorFactories(), searchKey);
-        return new SearchPredicate(searchKey, cmp);
+        return new SearchPredicate(searchKey, cmp, minFilterKey, maxFilterKey);
     }
 
     @Override
@@ -51,5 +52,16 @@ public class RTreeSearchOperatorNodePushable extends IndexSearchOperatorNodePush
         if (searchKey != null) {
             searchKey.reset(accessor, tupleIndex);
         }
+        if (minFilterKey != null) {
+            minFilterKey.reset(accessor, tupleIndex);
+        }
+        if (maxFilterKey != null) {
+            maxFilterKey.reset(accessor, tupleIndex);
+        }
+    }
+
+    @Override
+    protected int getFieldCount() {
+        return ((ITreeIndex)index).getFieldCount();
     }
 }

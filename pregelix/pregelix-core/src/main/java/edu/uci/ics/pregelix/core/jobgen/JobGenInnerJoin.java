@@ -97,7 +97,7 @@ public class JobGenInnerJoin extends JobGen {
     public JobGenInnerJoin(PregelixJob job, IOptimizer optimizer) {
         super(job, optimizer);
     }
-    
+
     public JobGenInnerJoin(PregelixJob job, String jobId, IOptimizer optimizer) {
         super(job, jobId, optimizer);
     }
@@ -680,8 +680,8 @@ public class JobGenInnerJoin extends JobGen {
 
         BTreeSearchOperatorDescriptor scanner = new BTreeSearchOperatorDescriptor(spec, recordDescriptor,
                 storageManagerInterface, lcManagerProvider, secondaryFileSplitProviderRead, typeTraits,
-                comparatorFactories, null, null, null, true, true, getIndexDataflowHelperFactory(), false,
-                NoOpOperationCallbackFactory.INSTANCE);
+                comparatorFactories, null, null, null, true, true, getIndexDataflowHelperFactory(), false, false, null,
+                NoOpOperationCallbackFactory.INSTANCE, null, null);
         setLocationConstraint(spec, scanner);
 
         /**

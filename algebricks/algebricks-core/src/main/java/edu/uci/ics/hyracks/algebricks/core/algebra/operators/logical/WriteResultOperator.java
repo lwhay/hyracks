@@ -35,6 +35,7 @@ public class WriteResultOperator extends AbstractLogicalOperator {
     private IDataSource<?> dataSource;
     private Mutable<ILogicalExpression> payloadExpr;
     private List<Mutable<ILogicalExpression>> keyExprs;
+    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
 
     public WriteResultOperator(IDataSource<?> dataSource, Mutable<ILogicalExpression> payload,
             List<Mutable<ILogicalExpression>> keyExprs) {
@@ -95,6 +96,14 @@ public class WriteResultOperator extends AbstractLogicalOperator {
     @Override
     public IVariableTypeEnvironment computeOutputTypeEnvironment(ITypingContext ctx) throws AlgebricksException {
         return createPropagatingAllInputsTypeEnvironment(ctx);
+    }
+
+    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
+        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    }
+
+    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
+        return lsmComponentFilterExpressions;
     }
 
 }

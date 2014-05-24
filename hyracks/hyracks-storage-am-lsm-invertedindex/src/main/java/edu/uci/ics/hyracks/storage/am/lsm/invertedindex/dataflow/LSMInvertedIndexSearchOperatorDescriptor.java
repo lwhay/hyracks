@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -39,6 +40,8 @@ public class LSMInvertedIndexSearchOperatorDescriptor extends AbstractLSMInverte
 
     private final int queryField;
     private final IInvertedIndexSearchModifierFactory searchModifierFactory;
+    private final int[] minFilterFieldIndexes;
+    private final int[] maxFilterFieldIndexes;
 
     public LSMInvertedIndexSearchOperatorDescriptor(IOperatorDescriptorRegistry spec, int queryField,
             IStorageManagerInterface storageManager, IFileSplitProvider fileSplitProvider,
@@ -47,13 +50,19 @@ public class LSMInvertedIndexSearchOperatorDescriptor extends AbstractLSMInverte
             IBinaryComparatorFactory[] invListComparatorFactories,
             IIndexDataflowHelperFactory btreeDataflowHelperFactory, IBinaryTokenizerFactory queryTokenizerFactory,
             IInvertedIndexSearchModifierFactory searchModifierFactory, RecordDescriptor recDesc, boolean retainInput,
-            ISearchOperationCallbackFactory searchOpCallbackProvider) {
+            boolean retainNull, INullWriterFactory nullWriterFactory,
+            ISearchOperationCallbackFactory searchOpCallbackProvider, int[] minFilterFieldIndexes,
+            int[] maxFilterFieldIndexes) {
+
         super(spec, 1, 1, recDesc, storageManager, fileSplitProvider, lifecycleManagerProvider, tokenTypeTraits,
                 tokenComparatorFactories, invListsTypeTraits, invListComparatorFactories, queryTokenizerFactory,
-                btreeDataflowHelperFactory, null, retainInput, NoOpLocalResourceFactoryProvider.INSTANCE,
-                searchOpCallbackProvider, NoOpOperationCallbackFactory.INSTANCE);
+                btreeDataflowHelperFactory, null, retainInput, retainNull, nullWriterFactory,
+                NoOpLocalResourceFactoryProvider.INSTANCE, searchOpCallbackProvider,
+                NoOpOperationCallbackFactory.INSTANCE);
         this.queryField = queryField;
         this.searchModifierFactory = searchModifierFactory;
+        this.minFilterFieldIndexes = minFilterFieldIndexes;
+        this.maxFilterFieldIndexes = maxFilterFieldIndexes;
     }
 
     @Override
@@ -61,6 +70,6 @@ public class LSMInvertedIndexSearchOperatorDescriptor extends AbstractLSMInverte
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         IInvertedIndexSearchModifier searchModifier = searchModifierFactory.createSearchModifier();
         return new LSMInvertedIndexSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, queryField,
-                searchModifier);
+                searchModifier, minFilterFieldIndexes, maxFilterFieldIndexes);
     }
 }

@@ -38,6 +38,7 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     private final List<Mutable<ILogicalExpression>> secondaryKeyExprs;
     private final Mutable<ILogicalExpression> filterExpr;
     private final Kind operation;
+    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
 
     public IndexInsertDeleteOperator(IDataSourceIndex<?, ?> dataSourceIndex,
             List<Mutable<ILogicalExpression>> primaryKeyExprs, List<Mutable<ILogicalExpression>> secondaryKeyExprs,
@@ -109,11 +110,19 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     }
 
     public Mutable<ILogicalExpression> getFilterExpression() {
-    	return filterExpr;
+        return filterExpr;
     }
-    
+
     public Kind getOperation() {
         return operation;
+    }
+
+    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
+        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    }
+
+    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
+        return lsmComponentFilterExpressions;
     }
 
 }

@@ -44,7 +44,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsert
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LeftOuterJoinOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LimitOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
@@ -264,26 +263,43 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     WriteResultOperator opLoad = (WriteResultOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
+                    List<LogicalVariable> lsmComponentFilterKeys = null;
                     payload = getKeysAndLoad(opLoad.getPayloadExpression(), opLoad.getKeyExpressions(), keys);
-                    op.setPhysicalOperator(new WriteResultPOperator(opLoad.getDataSource(), payload, keys));
+                    if (opLoad.getLsmComponentFilterExpressions() != null) {
+                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opLoad.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    }
+                    op.setPhysicalOperator(new WriteResultPOperator(opLoad.getDataSource(), payload, keys,
+                            lsmComponentFilterKeys));
                     break;
                 }
                 case INSERT_DELETE: {
                     InsertDeleteOperator opLoad = (InsertDeleteOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
+                    List<LogicalVariable> lsmComponentFilterKeys = null;
                     payload = getKeysAndLoad(opLoad.getPayloadExpression(), opLoad.getPrimaryKeyExpressions(), keys);
-                    op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, opLoad.getDataSource()));
+                    if (opLoad.getLsmComponentFilterExpressions() != null) {
+                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opLoad.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    }
+                    op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, lsmComponentFilterKeys, opLoad
+                            .getDataSource()));
                     break;
                 }
                 case INDEX_INSERT_DELETE: {
                     IndexInsertDeleteOperator opInsDel = (IndexInsertDeleteOperator) op;
                     List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
                     List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
+                    List<LogicalVariable> lsmComponentFilterKeys = null;
                     getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
                     getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
-                    op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys, opInsDel
-                            .getFilterExpression(), opInsDel.getDataSourceIndex()));
+                    if (opInsDel.getLsmComponentFilterExpressions() != null) {
+                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opInsDel.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    }
+                    op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys,
+                            lsmComponentFilterKeys, opInsDel.getFilterExpression(), opInsDel.getDataSourceIndex()));
                     break;
                 }
                 case SINK: {
