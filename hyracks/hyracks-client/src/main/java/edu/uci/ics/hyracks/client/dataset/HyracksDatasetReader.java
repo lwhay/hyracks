@@ -19,7 +19,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -94,7 +93,6 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
         while (knownRecords == null || knownRecords[partition] == null) {
             knownRecords = datasetDirectoryServiceConnection
                     .getDatasetResultLocations(jobId, resultSetId, knownRecords);
-            LOGGER.warning(Arrays.toString(knownRecords));
         }
         return knownRecords[partition];
     }
@@ -109,7 +107,6 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
             if (lastReadPartition == knownRecords.length) {
                 return false;
             }
-            LOGGER.warning("moving to partition " + lastReadPartition);
             resultChannel = new DatasetNetworkInputChannel(netManager, getSocketAddress(record), jobId, resultSetId,
                     lastReadPartition, NUM_READ_BUFFERS);
             lastMonitor = getMonitor(lastReadPartition);
@@ -148,8 +145,6 @@ public class HyracksDatasetReader implements IHyracksDatasetReader {
                     buffer.put(readBuffer);
                     buffer.flip();
                     readSize = buffer.limit();
-                    LOGGER.warning("read " + readSize + " bytes from partition " + lastReadPartition + "("
-                            + knownRecords[lastReadPartition] + ")");
                     resultChannel.recycleBuffer(readBuffer);
                 }
             }
