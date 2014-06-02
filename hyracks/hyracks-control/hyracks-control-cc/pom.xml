@@ -47,16 +47,12 @@
   	<dependency>
   		<groupId>org.eclipse.jetty</groupId>
   		<artifactId>jetty-server</artifactId>
-  		<version>8.0.0.RC0</version>
-  		<type>jar</type>
-  		<scope>compile</scope>
+  		<version>8.0.0.M2</version>
   	</dependency>
   	<dependency>
   		<groupId>org.eclipse.jetty</groupId>
   		<artifactId>jetty-webapp</artifactId>
-  		<version>8.0.0.RC0</version>
-  		<type>jar</type>
-  		<scope>compile</scope>
+  		<version>8.0.0.M2</version>
   	</dependency>
   	<dependency>
   		<groupId>org.apache.wicket</groupId>
