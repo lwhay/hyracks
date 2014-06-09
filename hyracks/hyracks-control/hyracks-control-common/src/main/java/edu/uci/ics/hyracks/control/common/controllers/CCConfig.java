@@ -38,7 +38,7 @@ public class CCConfig {
     public int httpPort = 16001;
 
     @Option(name = "-heartbeat-period", usage = "Sets the time duration between two heartbeats from each node controller in milliseconds (default: 10000)")
-    public int heartbeatPeriod = 10000;
+    public int heartbeatPeriod = 100000;
 
     @Option(name = "-max-heartbeat-lapse-periods", usage = "Sets the maximum number of missed heartbeats before a node is marked as dead (default: 5)")
     public int maxHeartbeatLapsePeriods = 5;

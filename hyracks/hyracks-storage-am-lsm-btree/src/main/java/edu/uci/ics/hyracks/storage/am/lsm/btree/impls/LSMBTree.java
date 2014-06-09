@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.storage.am.lsm.btree.impls;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -252,6 +253,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         immutableComponents.clear();
     }
 
+    private static final Logger LOGGER = Logger.getLogger(LSMBTree.class.getName());
+
     @Override
     public void getOperationalComponents(ILSMIndexOperationContext ctx) {
         List<ILSMComponent> immutableComponents = diskComponents;
@@ -293,14 +296,18 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                 // The current mutable component is always added
                 operationalComponents.add(0, memoryComponents.get(cmc));
                 if (filterManager != null) {
+                    int numDCs = 0;
                     for (ILSMComponent c : immutableComponents) {
                         if (c.getLSMComponentFilter().satisfy(
                                 ((AbstractSearchPredicate) ctx.getSearchPredicate()).getMinFilterTuple(),
                                 ((AbstractSearchPredicate) ctx.getSearchPredicate()).getMaxFilterTuple(),
                                 ((LSMBTreeOpContext) ctx).filterCmp)) {
                             operationalComponents.add(c);
+                            numDCs++;
                         }
                     }
+                    LOGGER.severe("NumAccessedDiskComponents: " + numDCs + " NumTotalDiskComponents: "
+                            + immutableComponents.size());
                 } else {
                     operationalComponents.addAll(immutableComponents);
                 }
