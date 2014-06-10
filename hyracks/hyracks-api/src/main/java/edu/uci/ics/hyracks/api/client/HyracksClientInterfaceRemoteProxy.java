@@ -111,4 +111,10 @@ public class HyracksClientInterfaceRemoteProxy implements IHyracksClientInterfac
                 jobId);
         return (JobInfo) rpci.call(ipcHandle, gjsf);
     }
+
+    @Override
+    public void stopCluster() throws Exception{
+         HyracksClientInterfaceFunctions.ClusterShutdownFunction csdf = new HyracksClientInterfaceFunctions.ClusterShutdownFunction();
+         rpci.call(ipcHandle, csdf);
+    }
 }

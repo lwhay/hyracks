@@ -182,4 +182,6 @@ public final class HyracksConnection implements IHyracksClientConnection {
     public JobInfo getJobInfo(JobId jobId) throws Exception {
         return hci.getJobInfo(jobId);
     }
+    public void stopCluster(){
+    }
 }

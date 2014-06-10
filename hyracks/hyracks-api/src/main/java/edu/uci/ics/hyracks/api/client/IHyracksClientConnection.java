@@ -178,5 +178,10 @@ public interface IHyracksClientConnection {
      */
     public JobId startJob(DeploymentId deploymentId, IActivityClusterGraphGeneratorFactory acggf,
             EnumSet<JobFlag> jobFlags) throws Exception;
+    /**
+     * Shuts down all NCs and then the CC.
+     */
+    public void stopCluster();
+        
 
 }
