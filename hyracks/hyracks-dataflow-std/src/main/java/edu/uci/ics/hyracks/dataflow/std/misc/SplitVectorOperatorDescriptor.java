@@ -59,7 +59,7 @@ public class SplitVectorOperatorDescriptor extends AbstractOperatorDescriptor {
         }
     }
 
-    private class CollectActivity extends AbstractActivityNode {
+	private class CollectActivity extends AbstractActivityNode {
         private static final long serialVersionUID = 1L;
 
         public CollectActivity(ActivityId id) {

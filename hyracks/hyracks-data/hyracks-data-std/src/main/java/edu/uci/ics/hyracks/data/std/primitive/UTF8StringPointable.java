@@ -200,6 +200,7 @@ public final class UTF8StringPointable extends AbstractPointable implements IHas
         }
         return h;
     }
+    
 
     public static void toString(StringBuilder buffer, byte[] bytes, int start) {
         int utfLen = getUTFLength(bytes, start);
