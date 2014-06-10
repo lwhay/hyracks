@@ -33,7 +33,8 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
-import org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapred.JobContext;
+import org.apache.hadoop.mapred.JobContextImpl;
 import org.apache.hadoop.util.ReflectionUtils;
 
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
@@ -144,7 +145,7 @@ public class HadoopAdapter {
 			JobConf conf) throws ClassNotFoundException, IOException,
 			InterruptedException {
 		org.apache.hadoop.mapreduce.InputSplit[] splits = null;
-		JobContext context = new JobContext(conf, null);
+		JobContext context = new JobContextImpl(conf, null);
 		org.apache.hadoop.mapreduce.InputFormat inputFormat = ReflectionUtils
 				.newInstance(context.getInputFormatClass(), conf);
 		List<org.apache.hadoop.mapreduce.InputSplit> inputSplits = inputFormat
