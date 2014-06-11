@@ -210,7 +210,7 @@ public abstract class AbstractfWordInvertedIndexTest extends AbstractIntegration
         TreeIndexBulkLoadOperatorDescriptor primaryBtreeBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
                 storageManager, lcManagerProvider, primaryFileSplitProvider, primaryTypeTraits,
                 primaryComparatorFactories, null, fieldPermutation, 0.7f, true, 1000L, true,
-                btreeDataflowHelperFactory, NoOpOperationCallbackFactory.INSTANCE);
+                btreeDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, primaryBtreeBulkLoad, NC1_ID);
         return primaryBtreeBulkLoad;
     }

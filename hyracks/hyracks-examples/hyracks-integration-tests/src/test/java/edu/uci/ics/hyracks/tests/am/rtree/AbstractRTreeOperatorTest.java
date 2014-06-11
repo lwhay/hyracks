@@ -242,8 +242,7 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
         int[] fieldPermutation = { 0, 1, 2, 4, 5, 7, 9, 10, 11, 12 };
         TreeIndexBulkLoadOperatorDescriptor primaryBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
                 storageManager, lcManagerProvider, primarySplitProvider, primaryTypeTraits, primaryComparatorFactories,
-                null, fieldPermutation, 0.7f, false, 1000L, true, btreeDataflowHelperFactory,
-                NoOpOperationCallbackFactory.INSTANCE);
+                null, fieldPermutation, 0.7f, false, 1000L, true, btreeDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, primaryBulkLoad, NC1_ID);
 
         spec.connect(new OneToOneConnectorDescriptor(spec), ordScanner, 0, sorter, 0);
@@ -300,7 +299,7 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
         TreeIndexBulkLoadOperatorDescriptor secondaryBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
                 storageManager, lcManagerProvider, secondarySplitProvider, secondaryTypeTraits,
                 secondaryComparatorFactories, null, fieldPermutation, 0.7f, false, 1000L, true,
-                rtreeDataflowHelperFactory, NoOpOperationCallbackFactory.INSTANCE);
+                rtreeDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, secondaryBulkLoad, NC1_ID);
 
         spec.connect(new OneToOneConnectorDescriptor(spec), keyProviderOp, 0, primarySearchOp, 0);

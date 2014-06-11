@@ -577,7 +577,7 @@ public abstract class JobGen implements IJobGen {
         TreeIndexBulkLoadOperatorDescriptor btreeBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
                 storageManagerInterface, lcManagerProvider, fileSplitProvider, typeTraits, comparatorFactories,
                 sortFields, fieldPermutation, DEFAULT_BTREE_FILL_FACTOR, true, BF_HINT, false,
-                getIndexDataflowHelperFactory(), NoOpOperationCallbackFactory.INSTANCE);
+                getIndexDataflowHelperFactory());
         setLocationConstraint(spec, btreeBulkLoad);
 
         /**
