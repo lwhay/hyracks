@@ -17,7 +17,6 @@ package edu.uci.ics.hyracks.algebricks.core.algebra.base;
 public enum LogicalOperatorTag {
     AGGREGATE,
     ASSIGN,
-    CLUSTER,
     DATASOURCESCAN,
     DISTINCT,
     DISTRIBUTE_RESULT,
@@ -44,6 +43,5 @@ public enum LogicalOperatorTag {
     WRITE_RESULT,
     INSERT_DELETE,
     INDEX_INSERT_DELETE,
-    UPDATE,
     EXTENSION_OPERATOR
 }
