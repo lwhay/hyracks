@@ -111,8 +111,8 @@ public class HadoopAdapter {
 	public JobConf getConf() {
 		return jobConf;
 	}
-
-	public static VersionedProtocol getProtocol(Class protocolClass,
+	//TODO: Why is there now a type mismatch? Why does a bounded wildcard fix it?
+	public static VersionedProtocol getProtocol(Class<? extends VersionedProtocol> protocolClass,
 			InetSocketAddress inetAddress, JobConf jobConf) throws IOException {
 		VersionedProtocol versionedProtocol = RPC.getProxy(protocolClass,
 				ClientProtocol.versionID, inetAddress, jobConf);
