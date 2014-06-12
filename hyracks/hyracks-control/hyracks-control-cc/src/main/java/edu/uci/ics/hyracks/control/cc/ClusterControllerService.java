@@ -54,6 +54,7 @@ import edu.uci.ics.hyracks.control.cc.web.WebServer;
 import edu.uci.ics.hyracks.control.cc.work.ApplicationMessageWork;
 import edu.uci.ics.hyracks.control.cc.work.CliDeployBinaryWork;
 import edu.uci.ics.hyracks.control.cc.work.CliUnDeployBinaryWork;
+import edu.uci.ics.hyracks.control.cc.work.ClusterShutdownWork;
 import edu.uci.ics.hyracks.control.cc.work.GatherStateDumpsWork.StateDumpRun;
 import edu.uci.ics.hyracks.control.cc.work.GetDatasetDirectoryServiceInfoWork;
 import edu.uci.ics.hyracks.control.cc.work.GetIpAddressNodeNameMapWork;
@@ -429,6 +430,9 @@ public class ClusterControllerService extends AbstractRemoteService {
                             new IPCResponder<DeploymentId>(handle, mid)));
                     return;
                 }
+                case CLUSTER_SHUTDOWN: {
+                    workQueue.schedule(new ClusterShutdownWork(ClusterControllerService.this, new IPCResponder<Boolean>(handle,mid)));
+                }
             }
             try {
                 handle.send(mid, null, new IllegalArgumentException("Unknown function " + fn.getFunctionId()));
@@ -561,6 +565,9 @@ public class ClusterControllerService extends AbstractRemoteService {
                     workQueue.schedule(new NotifyStateDumpResponse(ClusterControllerService.this, dsrf.getNodeId(),
                             dsrf.getStateDumpId(), dsrf.getState()));
                     return;
+                }
+                case SHUTDOWN_RESPONSE: {
+                    
                 }
             }
             LOGGER.warning("Unknown function: " + fn.getFunctionId());
