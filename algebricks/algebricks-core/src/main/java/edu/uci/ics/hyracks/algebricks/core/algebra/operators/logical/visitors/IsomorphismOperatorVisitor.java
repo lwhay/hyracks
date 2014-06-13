@@ -666,7 +666,8 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
 
         @Override
         public ILogicalOperator visitSelectOperator(SelectOperator op, Void arg) throws AlgebricksException {
-            return new SelectOperator(deepCopyExpressionRef(op.getCondition()), op.getRetainNull(), op.getNullPlaceholderVariable());
+            return new SelectOperator(deepCopyExpressionRef(op.getCondition()), op.getRetainNull(),
+                    op.getNullPlaceholderVariable());
         }
 
         @Override
@@ -778,7 +779,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             List<Mutable<ILogicalExpression>> newKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newKeyExpressions, op.getPrimaryKeyExpressions());
             return new InsertDeleteOperator(op.getDataSource(), deepCopyExpressionRef(op.getPayloadExpression()),
-                    newKeyExpressions, op.getOperation());
+                    newKeyExpressions, op.getOperation(), op.isBulkload());
         }
 
         @Override
@@ -791,7 +792,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             Mutable<ILogicalExpression> newFilterExpression = new MutableObject<ILogicalExpression>(
                     ((AbstractLogicalExpression) op.getFilterExpression()).cloneExpression());
             return new IndexInsertDeleteOperator(op.getDataSourceIndex(), newPrimaryKeyExpressions,
-                    newSecondaryKeyExpressions, newFilterExpression, op.getOperation());
+                    newSecondaryKeyExpressions, newFilterExpression, op.getOperation(), op.isBulkload());
         }
 
         @Override

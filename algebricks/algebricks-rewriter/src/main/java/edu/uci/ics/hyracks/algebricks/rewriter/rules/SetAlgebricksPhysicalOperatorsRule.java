@@ -50,6 +50,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperat
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AggregatePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AssignPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.BulkloadPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DataSourceScanPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.DistributeResultPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.EmptyTupleSourcePOperator;
@@ -273,11 +274,15 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     break;
                 }
                 case INSERT_DELETE: {
-                    InsertDeleteOperator opLoad = (InsertDeleteOperator) op;
+                    InsertDeleteOperator insDelOp = (InsertDeleteOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
-                    payload = getKeysAndLoad(opLoad.getPayloadExpression(), opLoad.getPrimaryKeyExpressions(), keys);
-                    op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, opLoad.getDataSource()));
+                    payload = getKeysAndLoad(insDelOp.getPayloadExpression(), insDelOp.getPrimaryKeyExpressions(), keys);
+                    if (insDelOp.isBulkload()) {
+                        op.setPhysicalOperator(new BulkloadPOperator(payload, keys, insDelOp.getDataSource()));
+                    } else {
+                        op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, insDelOp.getDataSource()));
+                    }
                     break;
                 }
                 case INDEX_INSERT_DELETE: {

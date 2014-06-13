@@ -38,16 +38,22 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
     }
 
     private final IDataSource<?> dataSource;
+
     private final Mutable<ILogicalExpression> payloadExpr;
+
     private final List<Mutable<ILogicalExpression>> primaryKeyExprs;
+
     private final Kind operation;
 
-    public InsertDeleteOperator(IDataSource<?> dataSource, Mutable<ILogicalExpression> payload,
-            List<Mutable<ILogicalExpression>> primaryKeyExprs, Kind operation) {
+    private final boolean bulkload;
+
+    public InsertDeleteOperator(IDataSource<?> dataSource, Mutable<ILogicalExpression> payloadExpr,
+            List<Mutable<ILogicalExpression>> primaryKeyExprs, Kind operation, boolean bulkload) {
         this.dataSource = dataSource;
-        this.payloadExpr = payload;
+        this.payloadExpr = payloadExpr;
         this.primaryKeyExprs = primaryKeyExprs;
         this.operation = operation;
+        this.bulkload = bulkload;
     }
 
     @Override
@@ -57,15 +63,13 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
     }
 
     @Override
-    public boolean acceptExpressionTransform(ILogicalExpressionReferenceTransform visitor) throws AlgebricksException {
-        boolean b = false;
-        b = visitor.transform(payloadExpr);
-        for (int i = 0; i < primaryKeyExprs.size(); i++) {
-            if (visitor.transform(primaryKeyExprs.get(i))) {
-                b = true;
-            }
+    public boolean acceptExpressionTransform(ILogicalExpressionReferenceTransform transform) throws AlgebricksException {
+        boolean changed = false;
+        changed = transform.transform(payloadExpr);
+        for (Mutable<ILogicalExpression> e : primaryKeyExprs) {
+            changed |= transform.transform(e);
         }
-        return b;
+        return changed;
     }
 
     @Override
@@ -107,6 +111,10 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
 
     public Kind getOperation() {
         return operation;
+    }
+
+    public boolean isBulkload() {
+        return bulkload;
     }
 
 }

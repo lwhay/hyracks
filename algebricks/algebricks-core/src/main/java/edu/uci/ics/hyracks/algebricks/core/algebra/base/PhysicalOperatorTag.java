@@ -19,6 +19,8 @@ public enum PhysicalOperatorTag {
     ASSIGN,
     BROADCAST_EXCHANGE,
     BTREE_SEARCH,
+    BULKLOAD,
+    INDEX_BULKLOAD,
     STATS,
     DATASOURCE_SCAN,
     DISTRIBUTE_RESULT,
