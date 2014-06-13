@@ -44,16 +44,12 @@
 		<dependency>
 			<groupId>org.apache.hive</groupId>
 			<artifactId>hive-serde</artifactId>
-			<version>0.11.0</version>
-			<type>jar</type>
-			<scope>compile</scope>
+			<version>0.13.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hive</groupId>
 			<artifactId>hive-common</artifactId>
-			<version>0.11.0</version>
-			<type>jar</type>
-			<scope>compile</scope>
+			<version>0.13.0</version>
 		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.hyracks</groupId>
