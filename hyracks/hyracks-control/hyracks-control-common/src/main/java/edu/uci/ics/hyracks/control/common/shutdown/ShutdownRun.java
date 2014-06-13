@@ -34,7 +34,7 @@ public class ShutdownRun implements IShutdownStatusConditionVariable{
      * @param nodeId
      * @param status
      */
-    public synchronized void notifyDeploymentStatus(String nodeId) {
+    public synchronized void notifyShutdown(String nodeId) {
         shutdownNodeIds.remove(nodeId);
         if (shutdownNodeIds.size() == 0) {
             shutdownSuccess = true;

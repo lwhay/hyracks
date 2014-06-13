@@ -53,7 +53,9 @@ public class ClusterShutdownWork extends SynchronizableWork {
              * set up our listener for the node ACKs
              */
             final ShutdownRun shutdownStatus = new ShutdownRun(nodeIds);
-            /***
+            // set up the CC to listen for it
+            ccs.setShutdownRun(shutdownStatus);
+            /**
              * Shutdown all the nodes...
              */
             for (NodeControllerState ncs : nodeControllerStateMap.values()) {

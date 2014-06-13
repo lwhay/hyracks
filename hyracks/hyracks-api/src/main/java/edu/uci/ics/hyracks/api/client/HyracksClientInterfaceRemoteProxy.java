@@ -113,8 +113,8 @@ public class HyracksClientInterfaceRemoteProxy implements IHyracksClientInterfac
     }
 
     @Override
-    public void stopCluster() throws Exception{
-         HyracksClientInterfaceFunctions.ClusterShutdownFunction csdf = new HyracksClientInterfaceFunctions.ClusterShutdownFunction();
-         rpci.call(ipcHandle, csdf);
+    public void stopCluster() throws Exception {
+        HyracksClientInterfaceFunctions.ClusterShutdownFunction csdf = new HyracksClientInterfaceFunctions.ClusterShutdownFunction();
+        rpci.call(ipcHandle, csdf);
     }
 }

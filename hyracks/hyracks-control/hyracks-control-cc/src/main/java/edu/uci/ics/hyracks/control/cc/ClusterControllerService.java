@@ -67,6 +67,7 @@ import edu.uci.ics.hyracks.control.cc.work.JobStartWork;
 import edu.uci.ics.hyracks.control.cc.work.JobletCleanupNotificationWork;
 import edu.uci.ics.hyracks.control.cc.work.NodeHeartbeatWork;
 import edu.uci.ics.hyracks.control.cc.work.NotifyDeployBinaryWork;
+import edu.uci.ics.hyracks.control.cc.work.NotifyShutdownWork;
 import edu.uci.ics.hyracks.control.cc.work.NotifyStateDumpResponse;
 import edu.uci.ics.hyracks.control.cc.work.RegisterNodeWork;
 import edu.uci.ics.hyracks.control.cc.work.RegisterPartitionAvailibilityWork;
@@ -86,8 +87,10 @@ import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
 import edu.uci.ics.hyracks.control.common.deployment.DeploymentRun;
 import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions;
 import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions.Function;
+import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions.ShutdownResponseFunction;
 import edu.uci.ics.hyracks.control.common.ipc.CCNCFunctions.StateDumpResponseFunction;
 import edu.uci.ics.hyracks.control.common.logs.LogFile;
+import edu.uci.ics.hyracks.control.common.shutdown.ShutdownRun;
 import edu.uci.ics.hyracks.control.common.work.IPCResponder;
 import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.WorkQueue;
@@ -143,6 +146,8 @@ public class ClusterControllerService extends AbstractRemoteService {
     private final Map<DeploymentId, DeploymentRun> deploymentRunMap;
 
     private final Map<String, StateDumpRun> stateDumpRunMap;
+    
+    private ShutdownRun shutdownCallback;
 
     public ClusterControllerService(final CCConfig ccConfig) throws Exception {
         this.ccConfig = ccConfig;
@@ -567,7 +572,8 @@ public class ClusterControllerService extends AbstractRemoteService {
                     return;
                 }
                 case SHUTDOWN_RESPONSE: {
-                    
+                    CCNCFunctions.ShutdownResponseFunction sdrf = (ShutdownResponseFunction) fn;
+                    workQueue.schedule(new NotifyShutdownWork(ClusterControllerService.this, sdrf.getNodeId()));
                 }
             }
             LOGGER.warning("Unknown function: " + fn.getFunctionId());
@@ -613,4 +619,12 @@ public class ClusterControllerService extends AbstractRemoteService {
     public synchronized void removeDeploymentRun(DeploymentId deploymentKey) {
         deploymentRunMap.remove(deploymentKey);
     }
+    
+    public synchronized void setShutdownRun(ShutdownRun sRun){
+        shutdownCallback = sRun;
+    }
+    public synchronized ShutdownRun getShutdownRun(){
+        return shutdownCallback;
+    }
+
 }
