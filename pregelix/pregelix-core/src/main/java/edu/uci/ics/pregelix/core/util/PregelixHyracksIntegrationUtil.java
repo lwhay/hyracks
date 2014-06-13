@@ -15,6 +15,7 @@
 package edu.uci.ics.pregelix.core.util;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.EnumSet;
 
 import org.apache.commons.io.FileUtils;
@@ -62,7 +63,7 @@ public class PregelixHyracksIntegrationUtil {
         ccConfig.jobHistorySize = 1;
         ccConfig.profileDumpPeriod = -1;
         ccConfig.heartbeatPeriod = 50;
-        ccConfig.maxHeartbeatLapsePeriods = 10;
+        ccConfig.maxHeartbeatLapsePeriods = 20;
 
         // cluster controller
         cc = new ClusterControllerService(ccConfig);
@@ -78,6 +79,7 @@ public class PregelixHyracksIntegrationUtil {
         ncConfig1.nodeId = NC1_ID;
         ncConfig1.ioDevices = "dev1,dev2";
         ncConfig1.appNCMainClass = NCApplicationEntryPoint.class.getName();
+        ncConfig1.appArgs = Collections.singletonList("65536");
         nc1 = new NodeControllerService(ncConfig1);
         nc1.start();
 
@@ -90,6 +92,7 @@ public class PregelixHyracksIntegrationUtil {
         ncConfig2.nodeId = NC2_ID;
         ncConfig2.appNCMainClass = NCApplicationEntryPoint.class.getName();
         ncConfig2.ioDevices = "dev3,dev4";
+        ncConfig2.appArgs = Collections.singletonList("65536");
         nc2 = new NodeControllerService(ncConfig2);
         nc2.start();
 
@@ -122,6 +125,7 @@ public class PregelixHyracksIntegrationUtil {
 
     public static void runJob(JobSpecification spec, String appName) throws Exception {
         spec.setFrameSize(FRAME_SIZE);
+        spec.setReportTaskDetails(false);
         JobId jobId = hcc.startJob(spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
         hcc.waitForCompletion(jobId);
     }
