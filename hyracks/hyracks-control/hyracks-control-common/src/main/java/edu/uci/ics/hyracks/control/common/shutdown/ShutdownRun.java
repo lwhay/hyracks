@@ -30,7 +30,7 @@ public class ShutdownRun implements IShutdownStatusConditionVariable{
 
     /**
      * Notify that a node is shutting down.
-     * 
+     *
      * @param nodeId
      * @param status
      */
@@ -45,7 +45,7 @@ public class ShutdownRun implements IShutdownStatusConditionVariable{
     @Override
     public synchronized boolean waitForCompletion() throws Exception {
         /*
-         * Either be woken up when we're done, or default to fail. 
+         * Either be woken up when we're done, or default to fail.
          */
         wait(SHUTDOWN_TIMER_MS);
         return shutdownSuccess;

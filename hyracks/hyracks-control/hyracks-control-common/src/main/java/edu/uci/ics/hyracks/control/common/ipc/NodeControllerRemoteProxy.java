@@ -88,7 +88,6 @@ public class NodeControllerRemoteProxy implements INodeController {
     @Override
     public void shutDown() throws Exception {
         CCNCFunctions.ShutdownRequestFunction sdrf = new CCNCFunctions.ShutdownRequestFunction();
-        ipcHandle.send(-1,sdrf,null);
-        
+        ipcHandle.send(-1, sdrf, null);
     }
 }

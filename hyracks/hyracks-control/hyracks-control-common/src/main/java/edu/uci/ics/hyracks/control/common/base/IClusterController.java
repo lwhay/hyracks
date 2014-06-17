@@ -45,7 +45,7 @@ public interface IClusterController {
     public void notifyDeployBinary(DeploymentId deploymentId, String nodeId, DeploymentStatus status) throws Exception;
 
     public void notifyStateDump(String nodeId, String stateDumpId, String state) throws Exception;
-    
+
     public void notifyShutdown(String nodeId) throws Exception;
 
     public void nodeHeartbeat(String id, HeartbeatData hbData) throws Exception;
@@ -58,8 +58,8 @@ public interface IClusterController {
 
     public void sendApplicationMessageToCC(byte[] data, DeploymentId deploymentId, String nodeId) throws Exception;
 
-    public void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, boolean orderedResult, boolean emptyResult, int partition,
-            int nPartitions, NetworkAddress networkAddress) throws Exception;
+    public void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, boolean orderedResult,
+            boolean emptyResult, int partition, int nPartitions, NetworkAddress networkAddress) throws Exception;
 
     public void reportResultPartitionWriteCompletion(JobId jobId, ResultSetId rsId, int partition) throws Exception;
 

@@ -71,7 +71,7 @@ public class ClusterShutdownWork extends SynchronizableWork {
                          * wait for all our acks
                          */
                         boolean cleanShutdown = shutdownStatus.waitForCompletion();
-                        if(cleanShutdown){
+                        if (cleanShutdown) {
                             callback.setValue(new Boolean(true));
                             ccs.stop();
                             LOGGER.info("JVM Exiting.. Bye!");
@@ -79,9 +79,9 @@ public class ClusterShutdownWork extends SynchronizableWork {
                             rt.exit(0);
                         }
                         /**
-                         * best effort - just exit, user will have to kill misbehaving NCs 
+                         * best effort - just exit, user will have to kill misbehaving NCs
                          */
-                        else{
+                        else {
                             LOGGER.severe("Clean shutdown of NCs timed out- CC bailing out!");
                             callback.setValue(new Boolean(true));
                             ccs.stop();
@@ -89,7 +89,6 @@ public class ClusterShutdownWork extends SynchronizableWork {
                             Runtime rt = Runtime.getRuntime();
                             rt.exit(0);
                         }
-                        
                     } catch (Exception e) {
                         callback.setException(e);
                     }
