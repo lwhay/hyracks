@@ -1000,14 +1000,16 @@ public class CCNCFunctions {
 
         private final String nodeId;
 
-        public NotifyShutdownFunction(String nodeId){
+        public NotifyShutdownFunction(String nodeId) {
             this.nodeId = nodeId;
         }
+
         @Override
         public FunctionId getFunctionId() {
             return FunctionId.SHUTDOWN_RESPONSE;
         }
-        public String getNodeId(){
+
+        public String getNodeId() {
             return nodeId;
         }
 
@@ -1097,8 +1099,8 @@ public class CCNCFunctions {
             return FunctionId.STATE_DUMP_RESPONSE;
         }
     }
-    
-    public static class ShutdownRequestFunction extends Function{
+
+    public static class ShutdownRequestFunction extends Function {
         private static final long serialVersionUID = 1L;
 
         @Override
@@ -1106,18 +1108,19 @@ public class CCNCFunctions {
             return FunctionId.SHUTDOWN_REQUEST;
         }
     }
-    
-    public static class ShutdownResponseFunction extends Function{
+
+    public static class ShutdownResponseFunction extends Function {
 
         private final String nodeId;
 
-        public ShutdownResponseFunction(String nodeId){
-            this.nodeId=nodeId;
+        public ShutdownResponseFunction(String nodeId) {
+            this.nodeId = nodeId;
         }
-        
-        public String getNodeId(){
+
+        public String getNodeId() {
             return nodeId;
         }
+
         @Override
         public FunctionId getFunctionId() {
             return FunctionId.SHUTDOWN_RESPONSE;

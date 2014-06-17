@@ -146,7 +146,7 @@ public class ClusterControllerService extends AbstractRemoteService {
     private final Map<DeploymentId, DeploymentRun> deploymentRunMap;
 
     private final Map<String, StateDumpRun> stateDumpRunMap;
-    
+
     private ShutdownRun shutdownCallback;
 
     public ClusterControllerService(final CCConfig ccConfig) throws Exception {
@@ -621,7 +621,7 @@ public class ClusterControllerService extends AbstractRemoteService {
     public synchronized void removeDeploymentRun(DeploymentId deploymentKey) {
         deploymentRunMap.remove(deploymentKey);
     }
-    
+
     public synchronized void setShutdownRun(ShutdownRun sRun){
         shutdownCallback = sRun;
     }

@@ -49,7 +49,7 @@ public interface IHyracksClientInterface {
     public JobId startJob(DeploymentId deploymentId, byte[] acggfBytes, EnumSet<JobFlag> jobFlags) throws Exception;
 
     public JobInfo getJobInfo(JobId jobId) throws Exception;
-    
+
     public void stopCluster() throws Exception;
 
 }

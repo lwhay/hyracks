@@ -27,10 +27,10 @@ import edu.uci.ics.hyracks.control.common.work.AbstractWork;
 import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 
 public class ShutdownWork extends AbstractWork {
-    
+
     private final NodeControllerService ncs;
     private static Logger LOGGER = Logger.getLogger(ShutdownWork.class.getName());
-    
+
     public ShutdownWork(NodeControllerService ncs) {
         this.ncs = ncs;
     }
@@ -42,14 +42,13 @@ public class ShutdownWork extends AbstractWork {
             ccs.notifyShutdown(ncs.getId());
             LOGGER.info("JVM Exiting.. Bye!");
             //run the shutdown in a new thread, so we don't block this last work task
-            Thread t = new Thread(){
-                public void run(){
-                    try{
+            Thread t = new Thread() {
+                public void run() {
+                    try {
                         ncs.stop();
-                    }
-                    catch(Exception e){
+                    } catch (Exception e) {
                         LOGGER.severe(e.getMessage());
-                    }finally{
+                    } finally {
                         Runtime rt = Runtime.getRuntime();
                         rt.exit(0);
                     }
