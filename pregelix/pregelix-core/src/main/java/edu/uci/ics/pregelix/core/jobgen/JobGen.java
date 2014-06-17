@@ -70,6 +70,7 @@ import edu.uci.ics.hyracks.dataflow.std.group.HashSpillableTableFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
 import edu.uci.ics.hyracks.dataflow.std.group.external.ExternalGroupOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.misc.ConstantTupleSourceOperatorDescriptor;
+import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.sort.Algorithm;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.hdfs2.dataflow.HDFSReadOperatorDescriptor;
@@ -137,7 +138,7 @@ import edu.uci.ics.pregelix.runtime.touchpoint.WritableSerializerDeserializerFac
 
 public abstract class JobGen implements IJobGen {
     private static final Logger LOGGER = Logger.getLogger(JobGen.class.getName());
-    protected static final int BF_HINT=100000;
+    protected static final int BF_HINT = 100000;
     protected static final int MB = 1048576;
     protected static final float DEFAULT_BTREE_FILL_FACTOR = 1.00f;
     protected static final int tableSize = 1575767;
@@ -365,7 +366,8 @@ public abstract class JobGen implements IJobGen {
         typeTraits[1] = new TypeTraits(false);
         BTreeSearchOperatorDescriptor scanner = new BTreeSearchOperatorDescriptor(spec, recordDescriptor,
                 storageManagerInterface, lcManagerProvider, fileSplitProvider, typeTraits, comparatorFactories, null,
-                null, null, true, true, getIndexDataflowHelperFactory(), false, false, null, NoOpOperationCallbackFactory.INSTANCE);
+                null, null, true, true, getIndexDataflowHelperFactory(), false, false, null,
+                NoOpOperationCallbackFactory.INSTANCE);
         setLocationConstraint(spec, scanner);
 
         /**
@@ -575,10 +577,13 @@ public abstract class JobGen implements IJobGen {
         typeTraits[0] = new TypeTraits(false);
         typeTraits[1] = new TypeTraits(false);
         TreeIndexBulkLoadOperatorDescriptor btreeBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
-                storageManagerInterface, lcManagerProvider, fileSplitProvider, typeTraits, comparatorFactories,
-                sortFields, fieldPermutation, DEFAULT_BTREE_FILL_FACTOR, true, BF_HINT, false,
+                recordDescriptor, storageManagerInterface, lcManagerProvider, fileSplitProvider, typeTraits,
+                comparatorFactories, sortFields, fieldPermutation, DEFAULT_BTREE_FILL_FACTOR, true, BF_HINT, false,
                 getIndexDataflowHelperFactory());
         setLocationConstraint(spec, btreeBulkLoad);
+
+        NullSinkOperatorDescriptor nsOpDesc = new NullSinkOperatorDescriptor(spec);
+        setLocationConstraint(spec, nsOpDesc);
 
         /**
          * connect operator descriptors
@@ -586,6 +591,7 @@ public abstract class JobGen implements IJobGen {
         ITuplePartitionComputerFactory hashPartitionComputerFactory = getVertexPartitionComputerFactory();
         spec.connect(new MToNPartitioningConnectorDescriptor(spec, hashPartitionComputerFactory), scanner, 0, sorter, 0);
         spec.connect(new OneToOneConnectorDescriptor(spec), sorter, 0, btreeBulkLoad, 0);
+        spec.connect(new OneToOneConnectorDescriptor(spec), btreeBulkLoad, 0, nsOpDesc, 0);
         spec.setFrameSize(frameSize);
         return spec;
     }
@@ -628,7 +634,8 @@ public abstract class JobGen implements IJobGen {
 
         BTreeSearchOperatorDescriptor scanner = new BTreeSearchOperatorDescriptor(spec, recordDescriptor,
                 storageManagerInterface, lcManagerProvider, fileSplitProvider, typeTraits, comparatorFactories, null,
-                null, null, true, true, getIndexDataflowHelperFactory(), false, false, null, NoOpOperationCallbackFactory.INSTANCE);
+                null, null, true, true, getIndexDataflowHelperFactory(), false, false, null,
+                NoOpOperationCallbackFactory.INSTANCE);
         setLocationConstraint(spec, scanner);
 
         ExternalSortOperatorDescriptor sort = null;

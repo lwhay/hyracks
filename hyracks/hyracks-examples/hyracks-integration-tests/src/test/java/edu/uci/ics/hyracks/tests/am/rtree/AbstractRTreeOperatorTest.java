@@ -188,15 +188,15 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
 
         rtreeDataflowHelperFactory = createDataFlowHelperFactory(secondaryValueProviderFactories,
                 RTreePolicyType.RSTARTREE, btreeComparatorFactories,
-                LSMRTreeUtils.proposeBestLinearizer(secondaryTypeTraits, secondaryComparatorFactories.length), btreeFields);
+                LSMRTreeUtils.proposeBestLinearizer(secondaryTypeTraits, secondaryComparatorFactories.length),
+                btreeFields);
 
     }
 
     protected abstract IIndexDataflowHelperFactory createDataFlowHelperFactory(
             IPrimitiveValueProviderFactory[] secondaryValueProviderFactories, RTreePolicyType rtreePolicyType,
             IBinaryComparatorFactory[] btreeComparatorFactories, ILinearizeComparatorFactory linearizerCmpFactory,
-            int[] btreeFields)
-            throws TreeIndexException;
+            int[] btreeFields) throws TreeIndexException;
 
     protected void createPrimaryIndex() throws Exception {
         JobSpecification spec = new JobSpecification();
@@ -241,15 +241,21 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
 
         int[] fieldPermutation = { 0, 1, 2, 4, 5, 7, 9, 10, 11, 12 };
         TreeIndexBulkLoadOperatorDescriptor primaryBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
-                storageManager, lcManagerProvider, primarySplitProvider, primaryTypeTraits, primaryComparatorFactories,
-                null, fieldPermutation, 0.7f, false, 1000L, true, btreeDataflowHelperFactory);
+                primaryRecDesc, storageManager, lcManagerProvider, primarySplitProvider, primaryTypeTraits,
+                primaryComparatorFactories, null, fieldPermutation, 0.7f, false, 1000L, true,
+                btreeDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, primaryBulkLoad, NC1_ID);
+
+        NullSinkOperatorDescriptor nsOpDesc = new NullSinkOperatorDescriptor(spec);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, nsOpDesc, NC1_ID);
 
         spec.connect(new OneToOneConnectorDescriptor(spec), ordScanner, 0, sorter, 0);
 
         spec.connect(new OneToOneConnectorDescriptor(spec), sorter, 0, primaryBulkLoad, 0);
 
-        spec.addRoot(primaryBulkLoad);
+        spec.connect(new OneToOneConnectorDescriptor(spec), primaryBulkLoad, 0, nsOpDesc, 0);
+
+        spec.addRoot(nsOpDesc);
         runTest(spec);
     }
 
@@ -290,22 +296,26 @@ public abstract class AbstractRTreeOperatorTest extends AbstractIntegrationTest 
         // scan primary index
         BTreeSearchOperatorDescriptor primarySearchOp = new BTreeSearchOperatorDescriptor(spec, primaryRecDesc,
                 storageManager, lcManagerProvider, primarySplitProvider, primaryTypeTraits, primaryComparatorFactories,
-                null, lowKeyFields, highKeyFields, true, true, btreeDataflowHelperFactory, false,
-                false, null, NoOpOperationCallbackFactory.INSTANCE);
+                null, lowKeyFields, highKeyFields, true, true, btreeDataflowHelperFactory, false, false, null,
+                NoOpOperationCallbackFactory.INSTANCE);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, primarySearchOp, NC1_ID);
 
         // load secondary index
         int[] fieldPermutation = { 6, 7, 8, 9, 0 };
         TreeIndexBulkLoadOperatorDescriptor secondaryBulkLoad = new TreeIndexBulkLoadOperatorDescriptor(spec,
-                storageManager, lcManagerProvider, secondarySplitProvider, secondaryTypeTraits,
+                secondaryRecDesc, storageManager, lcManagerProvider, secondarySplitProvider, secondaryTypeTraits,
                 secondaryComparatorFactories, null, fieldPermutation, 0.7f, false, 1000L, true,
                 rtreeDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, secondaryBulkLoad, NC1_ID);
 
+        NullSinkOperatorDescriptor nsOpDesc = new NullSinkOperatorDescriptor(spec);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, nsOpDesc, NC1_ID);
+
         spec.connect(new OneToOneConnectorDescriptor(spec), keyProviderOp, 0, primarySearchOp, 0);
         spec.connect(new OneToOneConnectorDescriptor(spec), primarySearchOp, 0, secondaryBulkLoad, 0);
+        spec.connect(new OneToOneConnectorDescriptor(spec), secondaryBulkLoad, 0, nsOpDesc, 0);
 
-        spec.addRoot(secondaryBulkLoad);
+        spec.addRoot(nsOpDesc);
         runTest(spec);
     }
 

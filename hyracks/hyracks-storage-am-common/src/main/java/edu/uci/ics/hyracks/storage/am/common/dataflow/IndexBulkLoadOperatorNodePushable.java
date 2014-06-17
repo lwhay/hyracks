@@ -21,14 +21,15 @@ import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndex;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 
-public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOperatorNodePushable {
+public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
     private final IIndexOperatorDescriptor opDesc;
     private final IHyracksTaskContext ctx;
     private final float fillFactor;
@@ -68,6 +69,7 @@ public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOpe
             indexHelper.close();
             throw new HyracksDataException(e);
         }
+        writer.open();
     }
 
     @Override
@@ -82,6 +84,7 @@ public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOpe
                 throw new HyracksDataException(e);
             }
         }
+        FrameUtils.flushFrame(buffer, writer);
     }
 
     @Override
@@ -93,6 +96,7 @@ public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputSinkOpe
         } finally {
             indexHelper.close();
         }
+        writer.close();
     }
 
     @Override
