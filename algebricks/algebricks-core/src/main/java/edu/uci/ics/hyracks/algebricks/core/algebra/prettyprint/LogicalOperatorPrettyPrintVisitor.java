@@ -305,6 +305,9 @@ public class LogicalOperatorPrettyPrintVisitor implements ILogicalOperatorVisito
         addIndent(buffer, indent).append(header).append(op.getDataSource()).append(" from ")
                 .append(op.getPayloadExpression().getValue().accept(exprVisitor, indent)).append(" partitioned by ");
         pprintExprList(op.getPrimaryKeyExpressions(), buffer, indent);
+        if (op.isBulkload()) {
+            buffer.append(" [bulkload]");
+        }
         return buffer.toString();
     }
 
@@ -317,6 +320,9 @@ public class LogicalOperatorPrettyPrintVisitor implements ILogicalOperatorVisito
         pprintExprList(op.getSecondaryKeyExpressions(), buffer, indent);
         buffer.append(" ");
         pprintExprList(op.getPrimaryKeyExpressions(), buffer, indent);
+        if (op.isBulkload()) {
+            buffer.append(" [bulkload]");
+        }
         return buffer.toString();
     }
 
