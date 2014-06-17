@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
@@ -35,6 +36,7 @@ public class ClusterShutdownWork extends SynchronizableWork {
 
     private ClusterControllerService ccs;
     private IPCResponder<Boolean> callback;
+    private static Logger LOGGER = Logger.getLogger(ClusterShutdownWork.class.getName());
 
     public ClusterShutdownWork(ClusterControllerService ncs, IPCResponder<Boolean> callback) {
         this.ccs = ncs;
@@ -70,15 +72,23 @@ public class ClusterShutdownWork extends SynchronizableWork {
                          */
                         boolean cleanShutdown = shutdownStatus.waitForCompletion();
                         if(cleanShutdown){
-                            ccs.stop();
                             callback.setValue(new Boolean(true));
+                            ccs.stop();
+                            LOGGER.info("JVM Exiting.. Bye!");
+                            Runtime rt = Runtime.getRuntime();
+                            rt.exit(0);
                         }
                         /**
-                         * see if the heartbeats stopped at least 
+                         * best effort - just exit, user will have to kill misbehaving NCs 
                          */
                         else{
+                            LOGGER.severe("Clean shutdown of NCs timed out- CC bailing out!");
+                            callback.setValue(new Boolean(true));
+                            ccs.stop();
+                            LOGGER.info("JVM Exiting.. Bye!");
+                            Runtime rt = Runtime.getRuntime();
+                            rt.exit(0);
                         }
-                        //TODO: what to really call here?
                         
                     } catch (Exception e) {
                         callback.setException(e);

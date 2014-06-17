@@ -28,7 +28,7 @@ public class NotifyShutdownWork extends SynchronizableWork {
 
     private final ClusterControllerService ccs;
     private final String nodeId;
-    private static Logger LOGGER = Logger.getLogger(ClusterControllerService.class.getName());
+    private static Logger LOGGER = Logger.getLogger(NotifyShutdownWork.class.getName());
 
     public NotifyShutdownWork(ClusterControllerService ccs, String nodeId){
         this.ccs = ccs;
@@ -38,7 +38,7 @@ public class NotifyShutdownWork extends SynchronizableWork {
 
     @Override
     public void doRun() {
-        /** triggered remotely by a NC to notify that the NC is  */
+        /** triggered remotely by a NC to notify that the NC is shutting down*/
         ShutdownRun sRun = ccs.getShutdownRun();
         LOGGER.info("Recieved shutdown acknowledgement from NC ID:"+nodeId);
         sRun.notifyShutdown(nodeId);

@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.control.nc.work;
 
 import java.net.URL;
 import java.util.List;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.control.common.base.IClusterController;
@@ -28,6 +29,8 @@ import edu.uci.ics.hyracks.control.nc.NodeControllerService;
 public class ShutdownWork extends AbstractWork {
     
     private final NodeControllerService ncs;
+    private static Logger LOGGER = Logger.getLogger(ShutdownWork.class.getName());
+    
     public ShutdownWork(NodeControllerService ncs) {
         this.ncs = ncs;
     }
@@ -37,7 +40,22 @@ public class ShutdownWork extends AbstractWork {
         try {
             IClusterController ccs = ncs.getClusterController();
             ccs.notifyShutdown(ncs.getId());
-            ncs.stop();
+            LOGGER.info("JVM Exiting.. Bye!");
+            //run the shutdown in a new thread, so we don't block this last work task
+            Thread t = new Thread(){
+                public void run(){
+                    try{
+                        ncs.stop();
+                    }
+                    catch(Exception e){
+                        LOGGER.severe(e.getMessage());
+                    }finally{
+                        Runtime rt = Runtime.getRuntime();
+                        rt.exit(0);
+                    }
+                }
+            };
+            t.start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
