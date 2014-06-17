@@ -552,6 +552,7 @@ public class NodeControllerService extends AbstractRemoteService {
                 }
                 case SHUTDOWN_REQUEST: {
                     queue.schedule(new ShutdownWork(NodeControllerService.this));
+                    return;
                 }
             }
             throw new IllegalArgumentException("Unknown function: " + fn.getFunctionId());

@@ -181,7 +181,7 @@ public interface IHyracksClientConnection {
     /**
      * Shuts down all NCs and then the CC.
      */
-    public void stopCluster();
+    public void stopCluster() throws Exception;
         
 
 }

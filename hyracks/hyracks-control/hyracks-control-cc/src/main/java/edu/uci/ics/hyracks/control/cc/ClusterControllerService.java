@@ -437,6 +437,7 @@ public class ClusterControllerService extends AbstractRemoteService {
                 }
                 case CLUSTER_SHUTDOWN: {
                     workQueue.schedule(new ClusterShutdownWork(ClusterControllerService.this, new IPCResponder<Boolean>(handle,mid)));
+                    return;
                 }
             }
             try {
@@ -574,6 +575,7 @@ public class ClusterControllerService extends AbstractRemoteService {
                 case SHUTDOWN_RESPONSE: {
                     CCNCFunctions.ShutdownResponseFunction sdrf = (ShutdownResponseFunction) fn;
                     workQueue.schedule(new NotifyShutdownWork(ClusterControllerService.this, sdrf.getNodeId()));
+                    return;
                 }
             }
             LOGGER.warning("Unknown function: " + fn.getFunctionId());
