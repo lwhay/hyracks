@@ -295,6 +295,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
                 break;
             case FULL_MERGE:
                 operationalComponents.addAll(immutableComponents);
+                break;
             default:
                 throw new UnsupportedOperationException("Operation " + ctx.getOperation() + " not supported.");
         }
@@ -820,5 +821,10 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
     @Override
     public String toString() {
         return "LSMInvertedIndex [" + fileManager.getBaseDir() + "]";
+    }
+    
+    @Override
+    public boolean hasMemoryComponents() {
+        return true;
     }
 }
