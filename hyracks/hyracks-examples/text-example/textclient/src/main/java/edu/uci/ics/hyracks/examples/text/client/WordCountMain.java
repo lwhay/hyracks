@@ -105,9 +105,7 @@ public class WordCountMain {
                 options.runtimeProfiling ? EnumSet.of(JobFlag.PROFILE_RUNTIME) : EnumSet.noneOf(JobFlag.class));
         hcc.waitForCompletion(jobId);
         long end = System.currentTimeMillis();
-        hcc.stopCluster();
         System.err.println(start + " " + end + " " + (end - start));
-        
     }
 
     private static FileSplit[] parseFileSplits(String fileSplits) {
