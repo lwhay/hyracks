@@ -35,6 +35,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistributeR
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.EmptyTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExtensionOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
@@ -116,8 +117,7 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
             switch (physOp.getOperatorTag()) {
                 case BROADCAST_EXCHANGE:
                 case ONE_TO_ONE_EXCHANGE:
-                case RANDOM_MERGE_EXCHANGE:
-                case RANDOM_PARTITION_EXCHANGE:{
+                case RANDOM_MERGE_EXCHANGE: {
                     // No variables used.
                     break;
                 }
@@ -345,6 +345,12 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     @Override
     public Void visitExtensionOperator(ExtensionOperator op, Void arg) throws AlgebricksException {
         op.getDelegate().getUsedVariables(usedVariables);
+        return null;
+    }
+
+    @Override
+    public Void visitExternalDataLookupOperator(ExternalDataLookupOperator op, Void arg) throws AlgebricksException {
+        op.getExpressionRef().getValue().getUsedVariables(usedVariables);
         return null;
     }
 
