@@ -15,30 +15,24 @@
 
 package edu.uci.ics.hyracks.control.cc.work;
 
-import java.net.URL;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 import java.util.logging.Logger;
 
-import edu.uci.ics.hyracks.api.deployment.DeploymentId;
 import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
 import edu.uci.ics.hyracks.control.cc.NodeControllerState;
-import edu.uci.ics.hyracks.control.common.deployment.DeploymentRun;
-import edu.uci.ics.hyracks.control.common.deployment.DeploymentUtils;
 import edu.uci.ics.hyracks.control.common.shutdown.ShutdownRun;
-import edu.uci.ics.hyracks.control.common.work.IPCResponder;
+import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.SynchronizableWork;
 
 public class ClusterShutdownWork extends SynchronizableWork {
 
     private ClusterControllerService ccs;
-    private IPCResponder<Boolean> callback;
+    private IResultCallback<Boolean> callback;
     private static Logger LOGGER = Logger.getLogger(ClusterShutdownWork.class.getName());
 
-    public ClusterShutdownWork(ClusterControllerService ncs, IPCResponder<Boolean> callback) {
+    public ClusterShutdownWork(ClusterControllerService ncs, IResultCallback<Boolean> callback) {
         this.ccs = ncs;
         this.callback = callback;
     }
@@ -48,9 +42,7 @@ public class ClusterShutdownWork extends SynchronizableWork {
         try {
             Map<String, NodeControllerState> nodeControllerStateMap = ccs.getNodeMap();
             Set<String> nodeIds = new TreeSet<String>();
-            for (String nc : nodeControllerStateMap.keySet()) {
-                nodeIds.add(nc);
-            }
+            nodeIds.addAll(nodeControllerStateMap.keySet());
             /**
              * set up our listener for the node ACKs
              */
@@ -73,7 +65,6 @@ public class ClusterShutdownWork extends SynchronizableWork {
                         boolean cleanShutdown = shutdownStatus.waitForCompletion();
                         if (cleanShutdown) {
                             callback.setValue(new Boolean(true));
-                            ccs.stop();
                             LOGGER.info("JVM Exiting.. Bye!");
                             Runtime rt = Runtime.getRuntime();
                             rt.exit(0);
@@ -83,11 +74,15 @@ public class ClusterShutdownWork extends SynchronizableWork {
                          */
                         else {
                             LOGGER.severe("Clean shutdown of NCs timed out- CC bailing out!");
-                            callback.setValue(new Boolean(true));
-                            ccs.stop();
+                            StringBuilder unresponsive = new StringBuilder();
+                            for(String s: shutdownStatus.getRemainingNodes()){
+                                unresponsive.append(s+" ");
+                            }
+                            LOGGER.severe("Unresponsive Nodes: "+unresponsive);
+                            callback.setValue(new Boolean(false));
                             LOGGER.info("JVM Exiting.. Bye!");
                             Runtime rt = Runtime.getRuntime();
-                            rt.exit(0);
+                            rt.exit(1);
                         }
                     } catch (Exception e) {
                         callback.setException(e);

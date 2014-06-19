@@ -50,5 +50,9 @@ public class ShutdownRun implements IShutdownStatusConditionVariable{
         wait(SHUTDOWN_TIMER_MS);
         return shutdownSuccess;
     }
+    
+    public synchronized Set<String> getRemainingNodes(){
+        return shutdownNodeIds;
+    }
 
 }

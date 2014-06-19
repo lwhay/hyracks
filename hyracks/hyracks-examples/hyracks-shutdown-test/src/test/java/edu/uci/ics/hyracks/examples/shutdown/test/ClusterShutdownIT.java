@@ -29,9 +29,8 @@ public class ClusterShutdownIT {
     public void runShutdown() throws Exception {
         IHyracksClientConnection hcc = new HyracksConnection("localhost", 1098);
         hcc.stopCluster();
-        hcc = null;
-        //wait a little.
-        Thread.sleep(4000);
+        //what happens here...
+        hcc.stopCluster();
         ServerSocket c = null;
         ServerSocket s = null;
         try {

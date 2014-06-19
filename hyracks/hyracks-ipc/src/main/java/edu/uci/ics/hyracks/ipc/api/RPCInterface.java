@@ -26,12 +26,28 @@ public class RPCInterface implements IIPCI {
 
     public Object call(IIPCHandle handle, Object request) throws Exception {
         Request req;
+        long mid;
         synchronized (this) {
             req = new Request();
-            long mid = handle.send(-1, request, null);
+            mid = handle.send(-1, request, null);
             reqMap.put(mid, req);
         }
-        return req.getResponse();
+        return  req.getResponse();
+    }
+    
+    public Object call(IIPCHandle handle, Object request, long timeout) throws Exception{
+        Request req;
+        long mid;
+        synchronized (this) {
+            req = new Request();
+            mid = handle.send(-1, request, null);
+            reqMap.put(mid, req);
+        }
+        Object o = req.getResponse(timeout);
+        if (o == null){
+            reqMap.remove(mid);
+        }
+        return o;
     }
 
     @Override
@@ -50,7 +66,7 @@ public class RPCInterface implements IIPCI {
 
     private static class Request {
         private boolean pending;
-
+        
         private Object result;
 
         private Exception exception;
@@ -77,6 +93,14 @@ public class RPCInterface implements IIPCI {
             while (pending) {
                 wait();
             }
+            if (exception != null) {
+                throw exception;
+            }
+            return result;
+        }
+
+        synchronized Object getResponse(long timeout) throws Exception {
+            wait(timeout);
             if (exception != null) {
                 throw exception;
             }
