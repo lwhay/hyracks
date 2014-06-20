@@ -20,11 +20,11 @@ import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.AbstractDiskLSMComponent;
 
 public class LSMBTreeDiskComponent extends AbstractDiskLSMComponent {
-    private final BTree btree;
+    private final SequentialBTree btree;
     private final BloomFilter bloomFilter;
 
-    public LSMBTreeDiskComponent(BTree btree, BloomFilter bloomFilter) {
-        this.btree = btree;
+    public LSMBTreeDiskComponent(SequentialBTree bTree2, BloomFilter bloomFilter) {
+        this.btree = bTree2;
         this.bloomFilter = bloomFilter;
     }
 
@@ -36,7 +36,7 @@ public class LSMBTreeDiskComponent extends AbstractDiskLSMComponent {
         bloomFilter.destroy();
     }
 
-    public BTree getBTree() {
+    public SequentialBTree getBTree() {
         return btree;
     }
 
@@ -46,6 +46,6 @@ public class LSMBTreeDiskComponent extends AbstractDiskLSMComponent {
 
     @Override
     public long getComponentSize() {
-        return btree.getFileReference().getFile().length() + bloomFilter.getFileReference().getFile().length();
+        return btree.getSize() + bloomFilter.getFileReference().getFile().length();
     }
 }

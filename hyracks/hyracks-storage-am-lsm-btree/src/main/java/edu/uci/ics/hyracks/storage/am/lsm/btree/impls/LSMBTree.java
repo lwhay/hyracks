@@ -89,8 +89,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
 
     public LSMBTree(List<IVirtualBufferCache> virtualBufferCaches, ITreeIndexFrameFactory interiorFrameFactory,
             ITreeIndexFrameFactory insertLeafFrameFactory, ITreeIndexFrameFactory deleteLeafFrameFactory,
-            ILSMIndexFileManager fileManager, TreeIndexFactory<BTree> diskBTreeFactory,
-            TreeIndexFactory<BTree> bulkLoadBTreeFactory, BloomFilterFactory bloomFilterFactory,
+            ILSMIndexFileManager fileManager, TreeIndexFactory<SequentialBTree> diskBTreeFactory,
+            TreeIndexFactory<SequentialBTree> bulkLoadBTreeFactory, BloomFilterFactory bloomFilterFactory,
             double bloomFilterFalsePositiveRate, IFileMapProvider diskFileMapProvider, int fieldCount,
             IBinaryComparatorFactory[] cmpFactories, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
             ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback, boolean needKeyDupCheck) {
@@ -118,7 +118,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     // Without memory components
     public LSMBTree(ITreeIndexFrameFactory interiorFrameFactory, ITreeIndexFrameFactory insertLeafFrameFactory,
             ITreeIndexFrameFactory deleteLeafFrameFactory, ILSMIndexFileManager fileManager,
-            TreeIndexFactory<BTree> diskBTreeFactory, TreeIndexFactory<BTree> bulkLoadBTreeFactory,
+            TreeIndexFactory<SequentialBTree> diskBTreeFactory, TreeIndexFactory<SequentialBTree> bulkLoadBTreeFactory,
             BloomFilterFactory bloomFilterFactory, double bloomFilterFalsePositiveRate,
             IFileMapProvider diskFileMapProvider, int fieldCount, IBinaryComparatorFactory[] cmpFactories,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
@@ -197,7 +197,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         List<ILSMComponent> immutableComponents = diskComponents;
         for (ILSMComponent c : immutableComponents) {
             LSMBTreeDiskComponent component = (LSMBTreeDiskComponent) c;
-            BTree btree = component.getBTree();
+            SequentialBTree btree = component.getBTree();
             BloomFilter bloomFilter = component.getBloomFilter();
             btree.deactivate();
             bloomFilter.deactivate();
@@ -455,8 +455,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             returnDeletedTuples = true;
         }
         ITreeIndexCursor cursor = new LSMBTreeRangeSearchCursor(opCtx, returnDeletedTuples);
-        BTree firstBTree = (BTree) ((LSMBTreeDiskComponent) mergingComponents.get(0)).getBTree();
-        BTree lastBTree = (BTree) ((LSMBTreeDiskComponent) mergingComponents.get(mergingComponents.size() - 1))
+        SequentialBTree firstBTree = (SequentialBTree) ((LSMBTreeDiskComponent) mergingComponents.get(0)).getBTree();
+        SequentialBTree lastBTree = (SequentialBTree) ((LSMBTreeDiskComponent) mergingComponents.get(mergingComponents.size() - 1))
                 .getBTree();
         FileReference firstFile = diskFileMapProvider.lookupFileName(firstBTree.getFileId());
         FileReference lastFile = diskFileMapProvider.lookupFileName(lastBTree.getFileId());
@@ -726,7 +726,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         }
         List<ILSMComponent> immutableComponents = diskComponents;
         for (ILSMComponent c : immutableComponents) {
-            BTree btree = (BTree) ((LSMBTreeDiskComponent) c).getBTree();
+            SequentialBTree btree = (SequentialBTree) ((LSMBTreeDiskComponent) c).getBTree();
             btree.validate();
         }
     }

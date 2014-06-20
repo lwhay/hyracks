@@ -27,13 +27,68 @@ import edu.uci.ics.hyracks.api.io.IFileHandle;
 import edu.uci.ics.hyracks.api.io.IIOFuture;
 import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.io.IODeviceHandle;
-
+/*
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.
-
+*/
 public class DFSIOManager implements IIOManager {
 
+    @Override
+    public List<IODeviceHandle> getIODevices() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public IFileHandle open(FileReference fileRef, FileReadWriteMode rwMode, FileSyncMode syncMode)
+            throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public int syncWrite(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public int syncRead(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public IIOFuture asyncWrite(IFileHandle fHandle, long offset, ByteBuffer data) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public IIOFuture asyncRead(IFileHandle fHandle, long offset, ByteBuffer data) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void close(IFileHandle fHandle) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void sync(IFileHandle fileHandle, boolean metadata) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void setExecutor(Executor executor) {
+        // TODO Auto-generated method stub
+        
+    }
+/*
     private Executor executor;
     private Configuration dfsConf;
 
@@ -225,4 +280,5 @@ public class DFSIOManager implements IIOManager {
             throw new HyracksDataException(e);
         }
     }
+    */
 }

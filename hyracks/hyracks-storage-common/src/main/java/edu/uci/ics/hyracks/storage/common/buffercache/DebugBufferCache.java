@@ -18,6 +18,7 @@ package edu.uci.ics.hyracks.storage.common.buffercache;
 import java.util.concurrent.atomic.AtomicLong;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.IFilePath;
 import edu.uci.ics.hyracks.api.io.FileReference;
 
 /**
@@ -164,5 +165,17 @@ public class DebugBufferCache implements IBufferCache {
     @Override
     public void force(int fileId, boolean metadata) throws HyracksDataException {
         bufferCache.force(fileId, metadata);
+    }
+
+    @Override
+    public ICachedPage pinVirtual(int vid) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void mapVirtual(int vid, long dpid) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        
     }
 }

@@ -1,19 +1,4 @@
-/*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package edu.uci.ics.hyracks.storage.am.btree.impls;
+package edu.uci.ics.hyracks.storage.am.lsm.btree.impls;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +9,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IFilePath;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
@@ -35,8 +20,14 @@ import edu.uci.ics.hyracks.storage.am.btree.api.ITupleAcceptor;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeException;
 import edu.uci.ics.hyracks.storage.am.btree.exceptions.BTreeNotUpdateableException;
 import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrame;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeCountingSearchCursor;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeOpContext;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeOpContext.PageValidationInfo;
-import edu.uci.ics.hyracks.storage.am.common.api.IFreePageManager;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
+import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeSplitKey;
+import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
+import edu.uci.ics.hyracks.storage.am.btree.impls.UnconditionalTupleAcceptor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexBulkLoader;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
@@ -48,6 +39,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexCursor;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrame;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
@@ -56,6 +48,7 @@ import edu.uci.ics.hyracks.storage.am.common.exceptions.TreeIndexDuplicateKeyExc
 import edu.uci.ics.hyracks.storage.am.common.exceptions.TreeIndexNonExistentKeyException;
 import edu.uci.ics.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
 import edu.uci.ics.hyracks.storage.am.common.impls.AbstractTreeIndex;
+import edu.uci.ics.hyracks.storage.am.common.impls.AbstractWriteOnlyIndex;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.impls.NodeFrontier;
 import edu.uci.ics.hyracks.storage.am.common.impls.TreeIndexDiskOrderScanCursor;
@@ -63,10 +56,11 @@ import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
+import edu.uci.ics.hyracks.storage.common.buffercache.IDFSBufferCache;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapProvider;
 
-public class BTree extends AbstractTreeIndex {
+public class SequentialBTree extends AbstractWriteOnlyIndex {
 
     public static final float DEFAULT_FILL_FACTOR = 0.7f;
 
@@ -78,11 +72,11 @@ public class BTree extends AbstractTreeIndex {
     private final ReadWriteLock treeLatch;
     private final int maxTupleSize;
 
-    public BTree(IBufferCache bufferCache, IFileMapProvider fileMapProvider, IFreePageManager freePageManager,
-            ITreeIndexFrameFactory interiorFrameFactory, ITreeIndexFrameFactory leafFrameFactory,
-            IBinaryComparatorFactory[] cmpFactories, int fieldCount, FileReference file) {
-        super(bufferCache, fileMapProvider, freePageManager, interiorFrameFactory, leafFrameFactory, cmpFactories,
-                fieldCount, file);
+    public SequentialBTree(IDFSBufferCache bufferCache, ITreeIndexFrameFactory interiorFrameFactory,
+            ITreeIndexFrameFactory leafFrameFactory, IBinaryComparatorFactory[] cmpFactories, int fieldCount,
+            IFilePath path, IFileMapProvider fileMapProvider, ITreeIndexMetaDataFrameFactory metaFrameFactory) {
+        super(bufferCache, interiorFrameFactory, leafFrameFactory, cmpFactories, fieldCount, path, fileMapProvider,
+                metaFrameFactory);
         this.treeLatch = new ReentrantReadWriteLock(true);
         this.smoCounter = new AtomicInteger();
         ITreeIndexFrame leafFrame = leafFrameFactory.createFrame();
@@ -95,12 +89,12 @@ public class BTree extends AbstractTreeIndex {
         TreeIndexDiskOrderScanCursor cursor = (TreeIndexDiskOrderScanCursor) icursor;
         ctx.reset();
         RangePredicate diskOrderScanPred = new RangePredicate(null, null, true, true, ctx.cmp, ctx.cmp);
-        int currentPageId = rootPage;
-        int maxPageId = freePageManager.getMaxPage(ctx.metaFrame);
+        int maxPageId = ctx.metaFrame.getMaxPage();
+        int currentPageId = maxPageId-1; //root
         ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, currentPageId), false);
         page.acquireReadLatch();
         try {
-            cursor.setBufferCache(bufferCache);
+            cursor.setBufferCache((IBufferCache) bufferCache);
             cursor.setFileId(fileId);
             cursor.setCurrentPageId(currentPageId);
             cursor.setMaxPageId(maxPageId);
@@ -119,11 +113,11 @@ public class BTree extends AbstractTreeIndex {
         // Stack validation protocol:
         //      * parent pushes the validation information onto the stack before validation
         //      * child pops the validation information off of the stack after validating
-        BTreeAccessor accessor = (BTreeAccessor) createAccessor(NoOpOperationCallback.INSTANCE,
+        SequentialBTreeAccessor accessor = (SequentialBTreeAccessor) createAccessor(NoOpOperationCallback.INSTANCE,
                 NoOpOperationCallback.INSTANCE);
         PageValidationInfo pvi = accessor.ctx.createPageValidationInfo(null);
         accessor.ctx.validationInfos.addFirst(pvi);
-        validate(accessor.ctx, rootPage);
+        validate(accessor.ctx, metaFrame.getMaxPage()-1);
     }
 
     private void validate(BTreeOpContext ctx, int pageId) throws HyracksDataException {
@@ -203,7 +197,7 @@ public class BTree extends AbstractTreeIndex {
             }
             repeatOp = false;
         }
-        cursor.setBufferCache(bufferCache);
+        cursor.setBufferCache((IBufferCache) bufferCache);
         cursor.setFileId(fileId);
     }
 
@@ -231,226 +225,6 @@ public class BTree extends AbstractTreeIndex {
             ctx.smPages.clear();
         }
         ctx.interiorFrame.setPage(originalPage);
-    }
-
-    private void createNewRoot(BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
-        // Make sure the root is always in the same page.
-        ICachedPage leftNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ctx.splitKey.getLeftPage()),
-                false);
-        leftNode.acquireWriteLatch();
-        try {
-            int newLeftId = freePageManager.getFreePage(ctx.metaFrame);
-            ICachedPage newLeftNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, newLeftId), true);
-            newLeftNode.acquireWriteLatch();
-            try {
-                // Copy left child to new left child.
-                System.arraycopy(leftNode.getBuffer().array(), 0, newLeftNode.getBuffer().array(), 0, newLeftNode
-                        .getBuffer().capacity());
-                ctx.interiorFrame.setPage(newLeftNode);
-                ctx.interiorFrame.setSmFlag(false);
-                // Remember LSN to set it in the root.
-                long leftNodeLSN = ctx.interiorFrame.getPageLsn();
-                // Initialize new root (leftNode becomes new root).
-                ctx.interiorFrame.setPage(leftNode);
-                ctx.interiorFrame.initBuffer((byte) (ctx.interiorFrame.getLevel() + 1));
-                // Copy over LSN.
-                ctx.interiorFrame.setPageLsn(leftNodeLSN);
-                // Will be cleared later in unsetSmPages.
-                ctx.interiorFrame.setSmFlag(true);
-                ctx.splitKey.setLeftPage(newLeftId);
-                int targetTupleIndex = ctx.interiorFrame.findInsertTupleIndex(ctx.splitKey.getTuple());
-                ctx.interiorFrame.insert(ctx.splitKey.getTuple(), targetTupleIndex);
-            } finally {
-                newLeftNode.releaseWriteLatch(true);
-                bufferCache.unpin(newLeftNode);
-            }
-        } finally {
-            leftNode.releaseWriteLatch(true);
-            bufferCache.unpin(leftNode);
-        }
-    }
-
-    private void insertUpdateOrDelete(ITupleReference tuple, BTreeOpContext ctx) throws HyracksDataException,
-            TreeIndexException {
-        ctx.reset();
-        ctx.pred.setLowKeyComparator(ctx.cmp);
-        ctx.pred.setHighKeyComparator(ctx.cmp);
-        ctx.pred.setLowKey(tuple, true);
-        ctx.pred.setHighKey(tuple, true);
-        ctx.splitKey.reset();
-        ctx.splitKey.getTuple().setFieldCount(ctx.cmp.getKeyFieldCount());
-        // We use this loop to deal with possibly multiple operation restarts
-        // due to ongoing structure modifications during the descent.
-        boolean repeatOp = true;
-        while (repeatOp && ctx.opRestarts < MAX_RESTARTS) {
-            ctx.smoCount = smoCounter.get();
-            performOp(rootPage, null, true, ctx);
-            // Do we need to restart from the (possibly new) root?
-            if (!ctx.pageLsns.isEmpty()) {
-                if (ctx.pageLsns.getLast() == FULL_RESTART_OP) {
-                    ctx.pageLsns.clear();
-                    continue;
-                } else if (ctx.pageLsns.getLast() == RESTART_OP) {
-                    ctx.pageLsns.removeLast(); // pop the restart op indicator
-                    continue;
-                }
-
-            }
-            // Split key propagated?
-            if (ctx.splitKey.getBuffer() != null) {
-                // Insert or update op. Create a new root.
-                createNewRoot(ctx);
-            }
-            unsetSmPages(ctx);
-            repeatOp = false;
-        }
-
-        if (ctx.opRestarts >= MAX_RESTARTS) {
-            throw new BTreeException("Operation exceeded the maximum number of restarts");
-        }
-    }
-
-    private void insert(ITupleReference tuple, BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
-        int tupleSize = Math.max(ctx.leafFrame.getBytesRequriedToWriteTuple(tuple),
-                ctx.interiorFrame.getBytesRequriedToWriteTuple(tuple));
-        if (tupleSize > maxTupleSize) {
-            throw new TreeIndexException("Space required for record (" + tupleSize
-                    + ") larger than maximum acceptable size (" + maxTupleSize + ")");
-        }
-        ctx.modificationCallback.before(tuple);
-        insertUpdateOrDelete(tuple, ctx);
-    }
-
-    private void upsert(ITupleReference tuple, BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
-        int tupleSize = Math.max(ctx.leafFrame.getBytesRequriedToWriteTuple(tuple),
-                ctx.interiorFrame.getBytesRequriedToWriteTuple(tuple));
-        if (tupleSize > maxTupleSize) {
-            throw new TreeIndexException("Space required for record (" + tupleSize
-                    + ") larger than maximum acceptable size (" + maxTupleSize + ")");
-        }
-        ctx.modificationCallback.before(tuple);
-        insertUpdateOrDelete(tuple, ctx);
-    }
-
-    private void update(ITupleReference tuple, BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
-        // This call only allows updating of non-key fields.
-        // Updating a tuple's key necessitates deleting the old entry, and inserting the new entry.
-        // The user of the BTree is responsible for dealing with non-key updates (i.e., doing a delete + insert). 
-        if (fieldCount == ctx.cmp.getKeyFieldCount()) {
-            throw new BTreeNotUpdateableException("Cannot perform updates when the entire tuple forms the key.");
-        }
-        int tupleSize = Math.max(ctx.leafFrame.getBytesRequriedToWriteTuple(tuple),
-                ctx.interiorFrame.getBytesRequriedToWriteTuple(tuple));
-        if (tupleSize > maxTupleSize) {
-            throw new TreeIndexException("Space required for record (" + tupleSize
-                    + ") larger than maximum acceptable size (" + maxTupleSize + ")");
-        }
-        ctx.modificationCallback.before(tuple);
-        insertUpdateOrDelete(tuple, ctx);
-    }
-
-    private void delete(ITupleReference tuple, BTreeOpContext ctx) throws HyracksDataException, TreeIndexException {
-        ctx.modificationCallback.before(tuple);
-        insertUpdateOrDelete(tuple, ctx);
-    }
-
-    private boolean insertLeaf(ITupleReference tuple, int targetTupleIndex, int pageId, BTreeOpContext ctx)
-            throws Exception {
-        boolean restartOp = false;
-        FrameOpSpaceStatus spaceStatus = ctx.leafFrame.hasSpaceInsert(tuple);
-        switch (spaceStatus) {
-            case SUFFICIENT_CONTIGUOUS_SPACE: {
-                ctx.modificationCallback.found(null, tuple);
-                ctx.leafFrame.insert(tuple, targetTupleIndex);
-                ctx.splitKey.reset();
-                break;
-            }
-            case SUFFICIENT_SPACE: {
-                boolean slotsChanged = ctx.leafFrame.compact();
-                if (slotsChanged) {
-                    targetTupleIndex = ctx.leafFrame.findInsertTupleIndex(tuple);
-                }
-                ctx.modificationCallback.found(null, tuple);
-                ctx.leafFrame.insert(tuple, targetTupleIndex);
-                ctx.splitKey.reset();
-                break;
-            }
-            case INSUFFICIENT_SPACE: {
-                // Try compressing the page first and see if there is space available.
-                boolean reCompressed = ctx.leafFrame.compress();
-                if (reCompressed) {
-                    // Compression could have changed the target tuple index, find it again.
-                    targetTupleIndex = ctx.leafFrame.findInsertTupleIndex(tuple);
-                    spaceStatus = ctx.leafFrame.hasSpaceInsert(tuple);
-                }
-                if (spaceStatus == FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE) {
-                    ctx.modificationCallback.found(null, tuple);
-                    ctx.leafFrame.insert(tuple, targetTupleIndex);
-                    ctx.splitKey.reset();
-                } else {
-                    restartOp = performLeafSplit(pageId, tuple, ctx, -1);
-                }
-                break;
-            }
-        }
-        return restartOp;
-    }
-
-    private boolean performLeafSplit(int pageId, ITupleReference tuple, BTreeOpContext ctx, int updateTupleIndex)
-            throws Exception {
-        // We must never hold a latch on a page while waiting to obtain the tree
-        // latch, because it this could lead to a latch-deadlock.
-        // If we can't get the tree latch, we return, release our page latches,
-        // and restart the operation from one level above.
-        // Lock is released in unsetSmPages(), after sm has fully completed.
-        if (!treeLatch.writeLock().tryLock()) {
-            return true;
-        } else {
-            int tempSmoCount = smoCounter.get();
-            if (tempSmoCount != ctx.smoCount) {
-                treeLatch.writeLock().unlock();
-                return true;
-            }
-        }
-        int rightPageId = freePageManager.getFreePage(ctx.metaFrame);
-        ICachedPage rightNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rightPageId), true);
-        rightNode.acquireWriteLatch();
-        try {
-            IBTreeLeafFrame rightFrame = ctx.createLeafFrame();
-            rightFrame.setPage(rightNode);
-            rightFrame.initBuffer((byte) 0);
-            rightFrame.setMultiComparator(ctx.cmp);
-
-            // Perform an update (delete + insert) if the updateTupleIndex != -1
-            if (updateTupleIndex != -1) {
-                ITupleReference beforeTuple = ctx.leafFrame.getMatchingKeyTuple(tuple, updateTupleIndex);
-                ctx.modificationCallback.found(beforeTuple, tuple);
-                ctx.leafFrame.delete(tuple, updateTupleIndex);
-            } else {
-                ctx.modificationCallback.found(null, tuple);
-            }
-            ctx.leafFrame.split(rightFrame, tuple, ctx.splitKey);
-
-            ctx.smPages.add(pageId);
-            ctx.smPages.add(rightPageId);
-            ctx.leafFrame.setSmFlag(true);
-            rightFrame.setSmFlag(true);
-
-            rightFrame.setNextLeaf(ctx.leafFrame.getNextLeaf());
-            ctx.leafFrame.setNextLeaf(rightPageId);
-
-            rightFrame.setPageLsn(rightFrame.getPageLsn() + 1);
-            ctx.leafFrame.setPageLsn(ctx.leafFrame.getPageLsn() + 1);
-
-            ctx.splitKey.setPages(pageId, rightPageId);
-        } catch (Exception e) {
-            treeLatch.writeLock().unlock();
-            throw e;
-        } finally {
-            rightNode.releaseWriteLatch(true);
-            bufferCache.unpin(rightNode);
-        }
-        return false;
     }
 
     private boolean updateLeaf(ITupleReference tuple, int oldTupleIndex, int pageId, BTreeOpContext ctx)
@@ -504,72 +278,6 @@ public class BTree extends AbstractTreeIndex {
             restartOp = insertLeaf(tuple, targetTupleIndex, pageId, ctx);
         }
         return restartOp;
-    }
-
-    private void insertInterior(ICachedPage node, int pageId, ITupleReference tuple, BTreeOpContext ctx)
-            throws Exception {
-        ctx.interiorFrame.setPage(node);
-        int targetTupleIndex = ctx.interiorFrame.findInsertTupleIndex(tuple);
-        FrameOpSpaceStatus spaceStatus = ctx.interiorFrame.hasSpaceInsert(tuple);
-        switch (spaceStatus) {
-            case INSUFFICIENT_SPACE: {
-                int rightPageId = freePageManager.getFreePage(ctx.metaFrame);
-                ICachedPage rightNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, rightPageId), true);
-                rightNode.acquireWriteLatch();
-                try {
-                    IBTreeFrame rightFrame = ctx.createInteriorFrame();
-                    rightFrame.setPage(rightNode);
-                    rightFrame.initBuffer((byte) ctx.interiorFrame.getLevel());
-                    rightFrame.setMultiComparator(ctx.cmp);
-                    // instead of creating a new split key, use the existing
-                    // splitKey
-                    ctx.interiorFrame.split(rightFrame, ctx.splitKey.getTuple(), ctx.splitKey);
-                    ctx.smPages.add(pageId);
-                    ctx.smPages.add(rightPageId);
-                    ctx.interiorFrame.setSmFlag(true);
-                    rightFrame.setSmFlag(true);
-                    rightFrame.setPageLsn(rightFrame.getPageLsn() + 1);
-                    ctx.interiorFrame.setPageLsn(ctx.interiorFrame.getPageLsn() + 1);
-
-                    ctx.splitKey.setPages(pageId, rightPageId);
-                } finally {
-                    rightNode.releaseWriteLatch(true);
-                    bufferCache.unpin(rightNode);
-                }
-                break;
-            }
-
-            case SUFFICIENT_CONTIGUOUS_SPACE: {
-                ctx.interiorFrame.insert(tuple, targetTupleIndex);
-                ctx.splitKey.reset();
-                break;
-            }
-
-            case SUFFICIENT_SPACE: {
-                boolean slotsChanged = ctx.interiorFrame.compact();
-                if (slotsChanged) {
-                    targetTupleIndex = ctx.interiorFrame.findInsertTupleIndex(tuple);
-                }
-                ctx.interiorFrame.insert(tuple, targetTupleIndex);
-                ctx.splitKey.reset();
-                break;
-            }
-        }
-    }
-
-    private boolean deleteLeaf(ICachedPage node, int pageId, ITupleReference tuple, BTreeOpContext ctx)
-            throws Exception {
-        // Simply delete the tuple, and don't do any rebalancing.
-        // This means that there could be underflow, even an empty page that is
-        // pointed to by an interior node.
-        if (ctx.leafFrame.getTupleCount() == 0) {
-            throw new TreeIndexNonExistentKeyException("Trying to delete a tuple with a nonexistent key in leaf node.");
-        }
-        int tupleIndex = ctx.leafFrame.findDeleteTupleIndex(tuple);
-        ITupleReference beforeTuple = ctx.leafFrame.getMatchingKeyTuple(tuple, tupleIndex);
-        ctx.modificationCallback.found(beforeTuple, tuple);
-        ctx.leafFrame.delete(tuple, tupleIndex);
-        return false;
     }
 
     private final boolean acquireLatch(ICachedPage node, BTreeOpContext ctx, boolean isLeaf) {
@@ -802,6 +510,11 @@ public class BTree extends AbstractTreeIndex {
         printTree(rootPage, null, false, leafFrame, interiorFrame, treeHeight, keySerdes, strBuilder, cmp);
         return strBuilder.toString();
     }
+    
+    public long getSize(){
+       //TODO: Actually return something meaningful 
+        return -1;
+    }
 
     @SuppressWarnings("rawtypes")
     public void printTree(int pageId, ICachedPage parent, boolean unpin, IBTreeLeafFrame leafFrame,
@@ -856,11 +569,11 @@ public class BTree extends AbstractTreeIndex {
 
     // TODO: Class should be private. But currently we need to expose the
     // setOpContext() API to the LSM Tree for it to work correctly.
-    public class BTreeAccessor implements ITreeIndexAccessor {
-        private BTree btree;
+    public class SequentialBTreeAccessor implements ITreeIndexAccessor {
+        private SequentialBTree btree;
         private BTreeOpContext ctx;
 
-        public BTreeAccessor(BTree btree, IModificationOperationCallback modificationCalback,
+        public SequentialBTreeAccessor(SequentialBTree btree, IModificationOperationCallback modificationCalback,
                 ISearchOperationCallback searchCallback) {
             this.btree = btree;
             this.ctx = btree.createOpContext(this, modificationCalback, searchCallback);
@@ -944,7 +657,7 @@ public class BTree extends AbstractTreeIndex {
         }
     }
 
-    public class BTreeBulkLoader extends AbstractTreeIndex.AbstractTreeIndexBulkLoader {
+    public class BTreeBulkLoader extends AbstractWriteOnlyIndex.AbstractInOrderBulkLoader {
         protected final ISplitKey splitKey;
         protected final boolean verifyInput;
 

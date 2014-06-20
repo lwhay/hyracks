@@ -153,19 +153,19 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
 
         for (int i = 0; i < numBTrees; i++) {
             ILSMComponent component = operationalComponents.get(i);
-            BTree btree;
             IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
                 // No need for a bloom filter for the in-memory BTree.
                 rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
-                btree = (BTree) ((LSMBTreeMemoryComponent) component).getBTree();
+                BTree btree = ((LSMBTreeMemoryComponent) component).getBTree();
+                btreeAccessors[i] = btree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
             } else {
                 rangeCursors[i] = new BloomFilterAwareBTreePointSearchCursor(leafFrame, false,
                         ((LSMBTreeDiskComponent) component).getBloomFilter());
-                btree = (BTree) ((LSMBTreeDiskComponent) component).getBTree();
+                SequentialBTree btree = ((LSMBTreeDiskComponent) component).getBTree();
+               btreeAccessors[i] = btree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
             }
-            btreeAccessors[i] = btree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
         }
         nextHasBeenCalled = false;
         foundTuple = false;

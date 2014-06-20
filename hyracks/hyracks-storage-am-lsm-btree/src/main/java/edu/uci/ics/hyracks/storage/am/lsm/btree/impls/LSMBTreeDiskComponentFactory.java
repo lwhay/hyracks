@@ -26,11 +26,11 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.impls.TreeIndexFactory;
 import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
 
 public class LSMBTreeDiskComponentFactory implements ILSMComponentFactory {
-    private final TreeIndexFactory<BTree> btreeFactory;
+    private final TreeIndexFactory<SequentialBTree> btreeFactory;
     private final BloomFilterFactory bloomFilterFactory;
 
-    public LSMBTreeDiskComponentFactory(TreeIndexFactory<BTree> btreeFactory, BloomFilterFactory bloomFilterFactory) {
-        this.btreeFactory = btreeFactory;
+    public LSMBTreeDiskComponentFactory(TreeIndexFactory<SequentialBTree> transactionBTreeFactory, BloomFilterFactory bloomFilterFactory) {
+        this.btreeFactory = transactionBTreeFactory;
         this.bloomFilterFactory = bloomFilterFactory;
     }
 

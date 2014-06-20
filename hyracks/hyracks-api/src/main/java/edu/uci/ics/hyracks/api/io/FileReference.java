@@ -17,7 +17,7 @@ package edu.uci.ics.hyracks.api.io;
 import java.io.File;
 import java.io.Serializable;
 
-public final class FileReference implements Serializable {
+public final class FileReference implements Serializable, IFilePath {
     private static final long serialVersionUID = 1L;
 
     private final File file;
