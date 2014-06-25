@@ -308,6 +308,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     }
                     LOGGER.severe("NumAccessedDiskComponents: " + numDCs + " NumTotalDiskComponents: "
                             + immutableComponents.size());
+
                 } else {
                     operationalComponents.addAll(immutableComponents);
                 }

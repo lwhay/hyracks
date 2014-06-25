@@ -15,6 +15,7 @@
 package edu.uci.ics.hyracks.storage.am.lsm.common.impls;
 
 import java.nio.ByteBuffer;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -24,6 +25,8 @@ import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 
 public class LSMComponentFilter implements ILSMComponentFilter {
+
+    private static final Logger LOGGER = Logger.getLogger(LSMComponentFilter.class.getName());
 
     private final IBinaryComparatorFactory[] filterCmpFactories;
     private final ITreeIndexTupleWriter tupleWriter;
@@ -67,7 +70,18 @@ public class LSMComponentFilter implements ILSMComponentFilter {
             minTuple = tupleWriter.createTupleReference();
             ((ITreeIndexTupleReference) minTuple).resetByTupleOffset(minTupleBuf, 0);
         } else {
-            int c = cmp.compare(tuple, minTuple);
+            int c = 0;
+            try {
+                c = cmp.compare(tuple, minTuple);
+            } catch (Exception e) {
+                if (tuple.getFieldData(0) == null) {
+                    LOGGER.severe("tuple is null");
+                }
+                if (minTuple.getFieldData(0) == null) {
+                    LOGGER.severe("minTuple is null");
+                }
+                throw e;
+            }
             if (c < 0) {
                 int numBytes = tupleWriter.bytesRequired(tuple);
                 if (minTupleBytes.length < numBytes) {
@@ -88,7 +102,18 @@ public class LSMComponentFilter implements ILSMComponentFilter {
             maxTuple = tupleWriter.createTupleReference();
             ((ITreeIndexTupleReference) maxTuple).resetByTupleOffset(maxTupleBuf, 0);
         } else {
-            int c = cmp.compare(tuple, maxTuple);
+            int c = 0;
+            try {
+                c = cmp.compare(tuple, maxTuple);
+            } catch (Exception e) {
+                if (tuple.getFieldData(0) == null) {
+                    LOGGER.severe("tuple is null");
+                }
+                if (maxTuple.getFieldData(0) == null) {
+                    LOGGER.severe("maxTuple is null");
+                }
+                throw e;
+            }
             if (c > 0) {
                 int numBytes = tupleWriter.bytesRequired(tuple);
                 if (maxTupleBytes.length < numBytes) {

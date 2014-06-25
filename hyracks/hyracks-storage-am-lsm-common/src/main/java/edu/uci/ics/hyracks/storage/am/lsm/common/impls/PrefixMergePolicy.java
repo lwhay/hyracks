@@ -15,13 +15,19 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.common.impls;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.data.marshalling.Integer64SerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -44,6 +50,95 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
         // 2.  If a merge from 1 doesn't happen, see if the set of candidate components for merging exceeds MaxTolCompCnt.  If so, schedule
         // a merge all of the current candidates into a new single component.
         List<ILSMComponent> immutableComponents = new ArrayList<ILSMComponent>(index.getImmutableComponents());
+        List<ILSMComponent> mergableComponents = new ArrayList<ILSMComponent>();
+        
+//        String format = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+//        SimpleDateFormat formatter = new SimpleDateFormat(format);
+//        formatter.setTimeZone(TimeZone.getTimeZone("PDT"));
+//        formatter.setLenient(false);
+//        
+//        
+//        Date now = new Date();
+//        String strDate = formatter.format(now);
+//        
+//        Date date = null;
+//        try {
+//            date = formatter.parse(strDate);
+//        } catch (ParseException e) {
+//
+//            e.printStackTrace();
+//        }
+//        long datetimeInMillis = date.getTime();
+//        
+//        
+//        long duration = 100000L;
+//        long minInterestingTime = datetimeInMillis - duration;
+//        int k = 0;
+//        
+//        if (immutableComponents.get(k).getLSMComponentFilter() != null) {
+//            for (; k < immutableComponents.size(); k++) {
+//                LOGGER.severe("XXXX: "
+//                        + Integer64SerializerDeserializer.getLong(immutableComponents.get(k).getLSMComponentFilter()
+//                                .getMinTuple().getFieldData(0), immutableComponents.get(k).getLSMComponentFilter()
+//                                .getMinTuple().getFieldStart(0) + 1) + " XXXXX " + minInterestingTime);
+//                if (Integer64SerializerDeserializer.getLong(immutableComponents.get(k).getLSMComponentFilter()
+//                        .getMinTuple().getFieldData(0), immutableComponents.get(k).getLSMComponentFilter()
+//                        .getMinTuple().getFieldStart(0) + 1) > minInterestingTime) {
+//                    mergableComponents.add(immutableComponents.get(k));
+//                } else {
+//                    break;
+//                }
+//            }
+//            if (mergableComponents.size() > 1) {
+//                ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+//                        NoOpOperationCallback.INSTANCE);
+//                accessor.scheduleMerge(index.getIOOperationCallback(), mergableComponents);
+//                LOGGER.severe("YYYY: " + k);
+//                return;
+//            } else {
+//                mergableComponents.clear();
+//            }
+//        }
+        
+//      String format = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+//      SimpleDateFormat formatter = new SimpleDateFormat(format);
+//      formatter.setTimeZone(TimeZone.getTimeZone("PDT"));
+//      formatter.setLenient(false);
+//      
+//      
+//      Date now = new Date();
+//      String strDate = formatter.format(now);
+//      
+//      Date date = null;
+//      try {
+//          date = formatter.parse(strDate);
+//      } catch (ParseException e) {
+//
+//          e.printStackTrace();
+//      }
+//      long datetimeInMillis = date.getTime();
+//      
+//      
+//      long duration = 100000L;
+//      long minInterestingTime = datetimeInMillis - duration;
+//      int k = 0;
+//      
+//      if (immutableComponents.get(k).getLSMComponentFilter() != null) {
+//          for (; k < immutableComponents.size(); k++) {
+//              LOGGER.severe("XXXX: "
+//                      + Integer64SerializerDeserializer.getLong(immutableComponents.get(k).getLSMComponentFilter()
+//                              .getMinTuple().getFieldData(0), immutableComponents.get(k).getLSMComponentFilter()
+//                              .getMinTuple().getFieldStart(0) + 1) + " XXXXX " + minInterestingTime);
+//              if (Integer64SerializerDeserializer.getLong(immutableComponents.get(k).getLSMComponentFilter()
+//                      .getMinTuple().getFieldData(0), immutableComponents.get(k).getLSMComponentFilter()
+//                      .getMinTuple().getFieldStart(0) + 1) > minInterestingTime) {
+//                  immutableComponents.remove(k);
+//              } else {
+//                  break;
+//              }
+//          }
+//      }
+
         // Reverse the components order so that we look at components from oldest to newest.
         Collections.reverse(immutableComponents);
 
@@ -73,7 +168,6 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
             boolean isLastComponent = i + 1 == immutableComponents.size() ? true : false;
             if (totalSize > maxMergableComponentSize
                     || (isLastComponent && i - startIndex >= maxToleranceComponentCount)) {
-                List<ILSMComponent> mergableComponents = new ArrayList<ILSMComponent>();
                 for (int j = startIndex + 1; j <= i; j++) {
                     mergableComponents.add(immutableComponents.get(j));
                 }
@@ -82,6 +176,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
                 ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
                         NoOpOperationCallback.INSTANCE);
                 accessor.scheduleMerge(index.getIOOperationCallback(), mergableComponents);
+                LOGGER.severe("ZZZZZZZZZZZ");
                 break;
             }
         }
