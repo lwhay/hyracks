@@ -34,6 +34,8 @@ public class SearchPredicate extends AbstractSearchPredicate {
     public SearchPredicate(ITupleReference searchKey, MultiComparator cmp, ITupleReference minFilterTuple,
             ITupleReference maxFilterTuple) {
         super(minFilterTuple, maxFilterTuple);
+        this.searchKey = searchKey;
+        this.cmp = cmp;
     }
 
     public ITupleReference getSearchKey() {
