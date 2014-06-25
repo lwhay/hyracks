@@ -107,7 +107,7 @@ public class LSMRTree extends AbstractLSMRTree {
             ILSMIOOperationCallback ioOpCallback, int[] buddyBTreeFields) {
         super(rtreeInteriorFrameFactory, rtreeLeafFrameFactory, btreeInteriorFrameFactory, btreeLeafFrameFactory,
                 fileNameManager, new LSMRTreeDiskComponentFactory(diskRTreeFactory, diskBTreeFactory,
-                        bloomFilterFactory), diskFileMapProvider, fieldCount, rtreeCmpFactories, btreeCmpFactories,
+                        bloomFilterFactory, null), diskFileMapProvider, fieldCount, rtreeCmpFactories, btreeCmpFactories,
                 linearizer, comparatorFields, linearizerArray, bloomFilterFalsePositiveRate, mergePolicy, opTracker,
                 ioScheduler, ioOpCallback);
         this.buddyBTreeFields = buddyBTreeFields;

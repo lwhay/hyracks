@@ -24,6 +24,10 @@ public abstract class AbstractDiskLSMComponent extends AbstractLSMComponent {
         state = ComponentState.READABLE_UNWRITABLE;
     }
 
+    public AbstractDiskLSMComponent() {
+        this(null);
+    }
+
     @Override
     public boolean threadEnter(LSMOperationType opType, boolean isMutableComponent) {
         assert state != ComponentState.INACTIVE;

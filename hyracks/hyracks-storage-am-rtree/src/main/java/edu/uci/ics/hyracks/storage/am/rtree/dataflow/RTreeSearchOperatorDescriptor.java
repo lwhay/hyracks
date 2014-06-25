@@ -36,9 +36,9 @@ public class RTreeSearchOperatorDescriptor extends AbstractTreeIndexOperatorDesc
 
     private static final long serialVersionUID = 1L;
 
-    private int[] keyFields; // fields in input tuple to be used as keys
-    private final int[] minFilterFieldIndexes;
-    private final int[] maxFilterFieldIndexes;
+    protected int[] keyFields; // fields in input tuple to be used as keys
+    protected final int[] minFilterFieldIndexes;
+    protected final int[] maxFilterFieldIndexes;
 
     public RTreeSearchOperatorDescriptor(IOperatorDescriptorRegistry spec, RecordDescriptor recDesc,
             IStorageManagerInterface storageManager, IIndexLifecycleManagerProvider lifecycleManagerProvider,

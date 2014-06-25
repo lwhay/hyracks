@@ -27,6 +27,10 @@ public abstract class AbstractLSMComponent implements ILSMComponent {
         this.filter = filter;
         readerCount = 0;
     }
+    
+    public AbstractLSMComponent() {
+        this(null);
+    }
 
     @Override
     public ComponentState getState() {

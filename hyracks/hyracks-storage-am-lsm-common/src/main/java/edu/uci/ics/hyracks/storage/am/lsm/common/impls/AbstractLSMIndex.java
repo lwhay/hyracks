@@ -110,6 +110,9 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
         memoryComponents = null;
         currentMutableComponentId = null;
         flushRequests = null;
+        filterFrameFactory = null;
+        filterManager = null;
+        filterFields = null;
     }
 
     protected void forceFlushDirtyPages(ITreeIndex treeIndex) throws HyracksDataException {

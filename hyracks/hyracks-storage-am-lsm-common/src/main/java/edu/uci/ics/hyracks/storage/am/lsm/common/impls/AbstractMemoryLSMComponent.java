@@ -39,6 +39,10 @@ public abstract class AbstractMemoryLSMComponent extends AbstractLSMComponent {
         isModified = new AtomicBoolean();
     }
 
+    public AbstractMemoryLSMComponent(IVirtualBufferCache vbc, boolean isActive) {
+        this(vbc, isActive, null);
+    }
+
     @Override
     public boolean threadEnter(LSMOperationType opType, boolean isMutableComponent) throws HyracksDataException {
         if (state == ComponentState.INACTIVE && requestedToBeActive) {

@@ -148,6 +148,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
         this.linearizer = linearizer;
         this.comparatorFields = comparatorFields;
         this.linearizerArray = linearizerArray;
+        this.rtreeFields = null;
     }
 
     @Override
