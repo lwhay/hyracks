@@ -28,6 +28,7 @@ import edu.uci.ics.hyracks.api.job.JobStatus;
 import edu.uci.ics.hyracks.api.topology.ClusterTopology;
 import edu.uci.ics.hyracks.ipc.api.IIPCHandle;
 import edu.uci.ics.hyracks.ipc.api.RPCInterface;
+import edu.uci.ics.hyracks.ipc.exceptions.IPCException;
 
 public class HyracksClientInterfaceRemoteProxy implements IHyracksClientInterface {
     private final IIPCHandle ipcHandle;
@@ -116,5 +117,14 @@ public class HyracksClientInterfaceRemoteProxy implements IHyracksClientInterfac
     public void stopCluster() throws Exception {
         HyracksClientInterfaceFunctions.ClusterShutdownFunction csdf = new HyracksClientInterfaceFunctions.ClusterShutdownFunction();
         rpci.call(ipcHandle, csdf);
+        //give the CC some time to do final settling after it returns our request
+        for (int i = 3; ipcHandle.isConnected() && i > 0; i--) {
+            synchronized (this) {
+                wait(3000l); //3sec
+            }
+        }
+        if (ipcHandle.isConnected()) {
+            throw new IPCException("CC refused to release connection after 9 seconds");
+        }
     }
 }

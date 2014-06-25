@@ -17,19 +17,25 @@ package edu.uci.ics.hyracks.examples.shutdown.test;
 import java.net.ServerSocket;
 import java.util.logging.Logger;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.ipc.exceptions.IPCException;
 
 public class ClusterShutdownIT {
     private static Logger LOGGER = Logger.getLogger(ClusterShutdownIT.class.getName());
-
+    @Rule
+    public ExpectedException closeTwice = ExpectedException.none();
     @Test
     public void runShutdown() throws Exception {
         IHyracksClientConnection hcc = new HyracksConnection("localhost", 1098);
         hcc.stopCluster();
         //what happens here...
+        closeTwice.expect(IPCException.class);
+        closeTwice.expectMessage("Cannot send on a closed handle");
         hcc.stopCluster();
         ServerSocket c = null;
         ServerSocket s = null;

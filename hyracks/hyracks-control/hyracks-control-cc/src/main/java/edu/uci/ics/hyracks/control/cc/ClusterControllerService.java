@@ -256,11 +256,13 @@ public class ClusterControllerService extends AbstractRemoteService {
     @Override
     public void stop() throws Exception {
         LOGGER.log(Level.INFO, "Stopping ClusterControllerService");
-        executor.shutdownNow();
         webServer.stop();
         sweeper.cancel();
         workQueue.stop();
+        executor.shutdownNow();
+        clusterIPC.stop();
         jobLog.close();
+        clientIPC.stop();
         LOGGER.log(Level.INFO, "Stopped ClusterControllerService");
     }
 

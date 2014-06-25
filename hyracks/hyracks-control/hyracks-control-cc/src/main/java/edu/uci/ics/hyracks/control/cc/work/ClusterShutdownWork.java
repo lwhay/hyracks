@@ -25,6 +25,7 @@ import edu.uci.ics.hyracks.control.cc.NodeControllerState;
 import edu.uci.ics.hyracks.control.common.shutdown.ShutdownRun;
 import edu.uci.ics.hyracks.control.common.work.IResultCallback;
 import edu.uci.ics.hyracks.control.common.work.SynchronizableWork;
+import edu.uci.ics.hyracks.ipc.exceptions.IPCException;
 
 public class ClusterShutdownWork extends SynchronizableWork {
 
@@ -40,6 +41,9 @@ public class ClusterShutdownWork extends SynchronizableWork {
     @Override
     public void doRun() {
         try {
+            if (ccs.getShutdownRun() != null) {
+                throw new IPCException("Shutdown in Progress");
+            }
             Map<String, NodeControllerState> nodeControllerStateMap = ccs.getNodeMap();
             Set<String> nodeIds = new TreeSet<String>();
             nodeIds.addAll(nodeControllerStateMap.keySet());
@@ -65,6 +69,7 @@ public class ClusterShutdownWork extends SynchronizableWork {
                         boolean cleanShutdown = shutdownStatus.waitForCompletion();
                         if (cleanShutdown) {
                             callback.setValue(new Boolean(true));
+                            ccs.stop();
                             LOGGER.info("JVM Exiting.. Bye!");
                             Runtime rt = Runtime.getRuntime();
                             rt.exit(0);
@@ -75,11 +80,12 @@ public class ClusterShutdownWork extends SynchronizableWork {
                         else {
                             LOGGER.severe("Clean shutdown of NCs timed out- CC bailing out!");
                             StringBuilder unresponsive = new StringBuilder();
-                            for(String s: shutdownStatus.getRemainingNodes()){
-                                unresponsive.append(s+" ");
+                            for (String s : shutdownStatus.getRemainingNodes()) {
+                                unresponsive.append(s + " ");
                             }
-                            LOGGER.severe("Unresponsive Nodes: "+unresponsive);
+                            LOGGER.severe("Unresponsive Nodes: " + unresponsive);
                             callback.setValue(new Boolean(false));
+                            ccs.stop();
                             LOGGER.info("JVM Exiting.. Bye!");
                             Runtime rt = Runtime.getRuntime();
                             rt.exit(1);
