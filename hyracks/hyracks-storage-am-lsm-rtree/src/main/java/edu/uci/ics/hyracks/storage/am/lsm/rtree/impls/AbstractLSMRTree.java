@@ -69,8 +69,8 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     // For creating RTree's used in flush and merge.
     protected final ILSMComponentFactory componentFactory;
 
-    private IBinaryComparatorFactory[] btreeCmpFactories;
-    private IBinaryComparatorFactory[] rtreeCmpFactories;
+    protected IBinaryComparatorFactory[] btreeCmpFactories;
+    protected IBinaryComparatorFactory[] rtreeCmpFactories;
 
     // Common for in-memory and on-disk components.
     protected final ITreeIndexFrameFactory rtreeInteriorFrameFactory;
@@ -123,6 +123,31 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
         this.comparatorFields = comparatorFields;
         this.linearizerArray = linearizerArray;
         this.rtreeFields = rtreeFields;
+    }
+    
+    /*
+     * For External indexes with no memory components
+     */
+    public AbstractLSMRTree(ITreeIndexFrameFactory rtreeInteriorFrameFactory,
+            ITreeIndexFrameFactory rtreeLeafFrameFactory, ITreeIndexFrameFactory btreeInteriorFrameFactory,
+            ITreeIndexFrameFactory btreeLeafFrameFactory, ILSMIndexFileManager fileManager,
+            ILSMComponentFactory componentFactory, IFileMapProvider diskFileMapProvider, int fieldCount,
+            IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
+            ILinearizeComparatorFactory linearizer, int[] comparatorFields, IBinaryComparatorFactory[] linearizerArray,
+            double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
+            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback) {
+        super(componentFactory.getBufferCache(), fileManager, diskFileMapProvider, bloomFilterFalsePositiveRate,
+                mergePolicy, opTracker, ioScheduler, ioOpCallback);
+        this.rtreeInteriorFrameFactory = rtreeInteriorFrameFactory;
+        this.rtreeLeafFrameFactory = rtreeLeafFrameFactory;
+        this.btreeInteriorFrameFactory = btreeInteriorFrameFactory;
+        this.btreeLeafFrameFactory = btreeLeafFrameFactory;
+        this.componentFactory = componentFactory;
+        this.btreeCmpFactories = btreeCmpFactories;
+        this.rtreeCmpFactories = rtreeCmpFactories;
+        this.linearizer = linearizer;
+        this.comparatorFields = comparatorFields;
+        this.linearizerArray = linearizerArray;
     }
 
     @Override

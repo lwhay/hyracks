@@ -92,6 +92,26 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
         }
     }
 
+    // The constructor used by external indexes
+    public AbstractLSMIndex(IBufferCache diskBufferCache, ILSMIndexFileManager fileManager,
+            IFileMapProvider diskFileMapProvider, double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy,
+            ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback) {
+        this.diskBufferCache = diskBufferCache;
+        this.diskFileMapProvider = diskFileMapProvider;
+        this.fileManager = fileManager;
+        this.bloomFilterFalsePositiveRate = bloomFilterFalsePositiveRate;
+        this.ioScheduler = ioScheduler;
+        this.ioOpCallback = ioOpCallback;
+        lsmHarness = new ExternalIndexHarness(this, mergePolicy, opTracker);
+        isActivated = false;
+        diskComponents = new LinkedList<ILSMComponent>();
+        // Memory related objects are nulled
+        this.virtualBufferCaches = null;
+        memoryComponents = null;
+        currentMutableComponentId = null;
+        flushRequests = null;
+    }
+
     protected void forceFlushDirtyPages(ITreeIndex treeIndex) throws HyracksDataException {
         int fileId = treeIndex.getFileId();
         IBufferCache bufferCache = treeIndex.getBufferCache();
@@ -155,12 +175,13 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
     }
 
     @Override
-    public void addComponent(ILSMComponent c) {
+    public void addComponent(ILSMComponent c) throws HyracksDataException {
         diskComponents.add(0, c);
     }
 
     @Override
-    public void subsumeMergedComponents(ILSMComponent newComponent, List<ILSMComponent> mergedComponents) {
+    public void subsumeMergedComponents(ILSMComponent newComponent, List<ILSMComponent> mergedComponents)
+            throws HyracksDataException {
         int swapIndex = diskComponents.indexOf(mergedComponents.get(0));
         diskComponents.removeAll(mergedComponents);
         diskComponents.add(swapIndex, newComponent);
@@ -222,5 +243,10 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
     @Override
     public String toString() {
         return "LSMIndex [" + fileManager.getBaseDir() + "]";
+    }
+    
+    @Override
+    public boolean hasMemoryComponents() {
+        return true;
     }
 }

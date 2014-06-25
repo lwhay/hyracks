@@ -184,7 +184,6 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
                 }
             }
         }
-
     }
 
     @Override
