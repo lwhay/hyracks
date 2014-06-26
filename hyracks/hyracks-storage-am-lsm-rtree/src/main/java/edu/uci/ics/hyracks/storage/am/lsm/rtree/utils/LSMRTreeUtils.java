@@ -173,16 +173,19 @@ public class LSMRTreeUtils {
 
         // The first field is for the sorted curve (e.g. Hilbert curve), and the
         // second field is for the primary key.
-        int[] comparatorFields = new int[btreeCmpFactories.length - rtreeCmpFactories.length];
+        int[] comparatorFields = new int[btreeCmpFactories.length - rtreeCmpFactories.length + 1];
         IBinaryComparatorFactory[] linearizerArray = new IBinaryComparatorFactory[btreeCmpFactories.length
-                - rtreeCmpFactories.length];
+                - rtreeCmpFactories.length + 1];
 
-        for (int i = 0; i < comparatorFields.length; i++) {
-            comparatorFields[i] = i;
+        comparatorFields[0] = 0;
+        for (int i = 1; i < comparatorFields.length; i++) {
+            comparatorFields[i] = rtreeCmpFactories.length - 1 + i;
         }
         linearizerArray[0] = linearizerCmpFactory;
-        for (int i = comparatorFields.length - 1; i > 0; i--) {
-            linearizerArray[i] = btreeCmpFactories[i];
+        int j = 1;
+        for (int i = rtreeCmpFactories.length; i < btreeCmpFactories.length; i++) {
+            linearizerArray[j] = btreeCmpFactories[i];
+            j++;
         }
 
         LSMComponentFilterFactory filterFactory = null;
