@@ -268,27 +268,27 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     WriteResultOperator opLoad = (WriteResultOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
-                    List<LogicalVariable> lsmComponentFilterKeys = null;
+                    List<LogicalVariable> additionalFilteringKeys = null;
                     payload = getKeysAndLoad(opLoad.getPayloadExpression(), opLoad.getKeyExpressions(), keys);
-                    if (opLoad.getLsmComponentFilterExpressions() != null) {
-                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
-                        getKeys(opLoad.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    if (opLoad.getAdditionalFilteringExpressions() != null) {
+                        additionalFilteringKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opLoad.getAdditionalFilteringExpressions(), additionalFilteringKeys);
                     }
                     op.setPhysicalOperator(new WriteResultPOperator(opLoad.getDataSource(), payload, keys,
-                            lsmComponentFilterKeys));
+                            additionalFilteringKeys));
                     break;
                 }
                 case INSERT_DELETE: {
                     InsertDeleteOperator opLoad = (InsertDeleteOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
-                    List<LogicalVariable> lsmComponentFilterKeys = null;
+                    List<LogicalVariable> additionalFilteringKeys = null;
                     payload = getKeysAndLoad(opLoad.getPayloadExpression(), opLoad.getPrimaryKeyExpressions(), keys);
-                    if (opLoad.getLsmComponentFilterExpressions() != null) {
-                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
-                        getKeys(opLoad.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    if (opLoad.getAdditionalFilteringExpressions() != null) {
+                        additionalFilteringKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opLoad.getAdditionalFilteringExpressions(), additionalFilteringKeys);
                     }
-                    op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, lsmComponentFilterKeys, opLoad
+                    op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, additionalFilteringKeys, opLoad
                             .getDataSource()));
                     break;
                 }
@@ -296,15 +296,15 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     IndexInsertDeleteOperator opInsDel = (IndexInsertDeleteOperator) op;
                     List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
                     List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
-                    List<LogicalVariable> lsmComponentFilterKeys = null;
+                    List<LogicalVariable> additionalFilteringKeys = null;
                     getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
                     getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
-                    if (opInsDel.getLsmComponentFilterExpressions() != null) {
-                        lsmComponentFilterKeys = new ArrayList<LogicalVariable>();
-                        getKeys(opInsDel.getLsmComponentFilterExpressions(), lsmComponentFilterKeys);
+                    if (opInsDel.getAdditionalFilteringExpressions() != null) {
+                        additionalFilteringKeys = new ArrayList<LogicalVariable>();
+                        getKeys(opInsDel.getAdditionalFilteringExpressions(), additionalFilteringKeys);
                     }
                     op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys,
-                            lsmComponentFilterKeys, opInsDel.getFilterExpression(), opInsDel.getDataSourceIndex()));
+                            additionalFilteringKeys, opInsDel.getFilterExpression(), opInsDel.getDataSourceIndex()));
                     break;
                 }
                 case SINK: {

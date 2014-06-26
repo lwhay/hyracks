@@ -51,10 +51,10 @@ public class IndexInsertDeletePOperator extends AbstractPhysicalOperator {
     private final List<LogicalVariable> secondaryKeys;
     private final ILogicalExpression filterExpr;
     private final IDataSourceIndex<?, ?> dataSourceIndex;
-    private final List<LogicalVariable> lsmComponentFilterKeys;
+    private final List<LogicalVariable> additionalFilteringKeys;
 
     public IndexInsertDeletePOperator(List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-            List<LogicalVariable> lsmComponentFilterKeys, Mutable<ILogicalExpression> filterExpr,
+            List<LogicalVariable> additionalFilteringKeys, Mutable<ILogicalExpression> filterExpr,
             IDataSourceIndex<?, ?> dataSourceIndex) {
         this.primaryKeys = primaryKeys;
         this.secondaryKeys = secondaryKeys;
@@ -64,7 +64,7 @@ public class IndexInsertDeletePOperator extends AbstractPhysicalOperator {
             this.filterExpr = null;
         }
         this.dataSourceIndex = dataSourceIndex;
-        this.lsmComponentFilterKeys = lsmComponentFilterKeys;
+        this.additionalFilteringKeys = additionalFilteringKeys;
     }
 
     @Override
@@ -108,10 +108,10 @@ public class IndexInsertDeletePOperator extends AbstractPhysicalOperator {
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(insertDeleteOp);
         if (insertDeleteOp.getOperation() == Kind.INSERT) {
             runtimeAndConstraints = mp.getIndexInsertRuntime(dataSourceIndex, propagatedSchema, inputSchemas, typeEnv,
-                    primaryKeys, secondaryKeys, lsmComponentFilterKeys, filterExpr, inputDesc, context, spec);
+                    primaryKeys, secondaryKeys, additionalFilteringKeys, filterExpr, inputDesc, context, spec);
         } else {
             runtimeAndConstraints = mp.getIndexDeleteRuntime(dataSourceIndex, propagatedSchema, inputSchemas, typeEnv,
-                    primaryKeys, secondaryKeys, lsmComponentFilterKeys, filterExpr, inputDesc, context, spec);
+                    primaryKeys, secondaryKeys, additionalFilteringKeys, filterExpr, inputDesc, context, spec);
         }
         builder.contributeHyracksOperator(insertDeleteOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);

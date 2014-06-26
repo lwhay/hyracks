@@ -35,7 +35,7 @@ public class WriteResultOperator extends AbstractLogicalOperator {
     private IDataSource<?> dataSource;
     private Mutable<ILogicalExpression> payloadExpr;
     private List<Mutable<ILogicalExpression>> keyExprs;
-    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
+    private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
 
     public WriteResultOperator(IDataSource<?> dataSource, Mutable<ILogicalExpression> payload,
             List<Mutable<ILogicalExpression>> keyExprs) {
@@ -98,12 +98,12 @@ public class WriteResultOperator extends AbstractLogicalOperator {
         return createPropagatingAllInputsTypeEnvironment(ctx);
     }
 
-    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
-        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
+        this.additionalFilteringExpressions = additionalFilteringExpressions;
     }
 
-    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
-        return lsmComponentFilterExpressions;
+    public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
+        return additionalFilteringExpressions;
     }
 
 }

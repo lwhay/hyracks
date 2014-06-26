@@ -41,7 +41,7 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
     private final Mutable<ILogicalExpression> payloadExpr;
     private final List<Mutable<ILogicalExpression>> primaryKeyExprs;
     private final Kind operation;
-    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
+    private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
 
     public InsertDeleteOperator(IDataSource<?> dataSource, Mutable<ILogicalExpression> payload,
             List<Mutable<ILogicalExpression>> primaryKeyExprs, Kind operation) {
@@ -110,12 +110,12 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
         return operation;
     }
 
-    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
-        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
+        this.additionalFilteringExpressions = additionalFilteringExpressions;
     }
 
-    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
-        return lsmComponentFilterExpressions;
+    public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
+        return additionalFilteringExpressions;
     }
 
 }

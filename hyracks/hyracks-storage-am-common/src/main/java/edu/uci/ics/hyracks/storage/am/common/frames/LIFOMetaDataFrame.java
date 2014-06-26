@@ -37,11 +37,11 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     protected static final int nextPageOff = levelOff + 1; // 21
     protected static final int validOff = nextPageOff + 4; // 25
 
-    // The lsmComponentFilterPageOff is used only for LSM indexes. 
+    // The additionalFilteringPageOff is used only for LSM indexes. 
     // We store the page id that will be used to store the information of the the filter that is associated with a disk component.
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
-    private static final int lsmComponentFilterPageOff = validOff + 4; // 29 
-    protected static final int lsnOff = lsmComponentFilterPageOff + 4; // 33
+    private static final int additionalFilteringPageOff = validOff + 4; // 29 
+    protected static final int lsnOff = additionalFilteringPageOff + 4; // 33
 
     protected ICachedPage page = null;
     protected ByteBuffer buf = null;
@@ -111,7 +111,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
         //buf.putInt(maxPageOff, -1);
         buf.put(levelOff, level);
         buf.putInt(nextPageOff, -1);
-        buf.putInt(lsmComponentFilterPageOff, -1);
+        buf.putInt(additionalFilteringPageOff, -1);
         setValid(false);
     }
 
@@ -151,11 +151,11 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     @Override
     public int getLSMComponentFilterPageId() {
-        return buf.getInt(lsmComponentFilterPageOff);
+        return buf.getInt(additionalFilteringPageOff);
     }
 
     @Override
     public void setLSMComponentFilterPageId(int filterPage) {
-        buf.putInt(lsmComponentFilterPageOff, filterPage);
+        buf.putInt(additionalFilteringPageOff, filterPage);
     }
 }

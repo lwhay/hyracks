@@ -38,7 +38,7 @@ public class DataSourceScanOperator extends AbstractScanOperator {
 
     private boolean projectPushed = false;
 
-    private List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions;
+    private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
     private List<LogicalVariable> minFilterVars;
     private List<LogicalVariable> maxFilterVars;
 
@@ -130,11 +130,11 @@ public class DataSourceScanOperator extends AbstractScanOperator {
         this.maxFilterVars = maxFilterVars;
     }
 
-    public void setLsmComponentFilterExpressions(List<Mutable<ILogicalExpression>> lsmComponentFilterExpressions) {
-        this.lsmComponentFilterExpressions = lsmComponentFilterExpressions;
+    public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
+        this.additionalFilteringExpressions = additionalFilteringExpressions;
     }
 
-    public List<Mutable<ILogicalExpression>> getLsmComponentFilterExpressions() {
-        return lsmComponentFilterExpressions;
+    public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
+        return additionalFilteringExpressions;
     }
 }

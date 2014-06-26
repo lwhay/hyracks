@@ -68,7 +68,7 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
      * Test the LSM component filters.
      */
     @Test
-    public void lsmComponentFilteringExample() throws Exception {
+    public void additionalFilteringingExample() throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Testing LSMBTree component filters.");
         }

@@ -43,7 +43,7 @@ public abstract class AbstractLSMRTreeExamplesTest extends AbstractRTreeExamples
      * Test the LSM component filters.
      */
     @Test
-    public void lsmComponentFilteringExample() throws Exception {
+    public void additionalFilteringingExample() throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Testing LSMRTree or LSMRTreeWithAntiMatterTuples component filters.");
         }

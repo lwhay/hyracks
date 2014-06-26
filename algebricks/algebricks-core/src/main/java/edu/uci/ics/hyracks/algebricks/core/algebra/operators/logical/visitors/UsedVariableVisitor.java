@@ -91,8 +91,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
 
     @Override
     public Void visitDataScanOperator(DataSourceScanOperator op, Void arg) {
-        if (op.getLsmComponentFilterExpressions() != null) {
-            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+        if (op.getAdditionalFilteringExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getAdditionalFilteringExpressions()) {
                 e.getValue().getUsedVariables(usedVariables);
             }
         }
@@ -282,8 +282,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
     @Override
     public Void visitUnnestMapOperator(UnnestMapOperator op, Void arg) {
         op.getExpressionRef().getValue().getUsedVariables(usedVariables);
-        if (op.getLsmComponentFilterExpressions() != null) {
-            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+        if (op.getAdditionalFilteringExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getAdditionalFilteringExpressions()) {
                 e.getValue().getUsedVariables(usedVariables);
             }
         }
@@ -318,8 +318,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
         for (Mutable<ILogicalExpression> e : op.getKeyExpressions()) {
             e.getValue().getUsedVariables(usedVariables);
         }
-        if (op.getLsmComponentFilterExpressions() != null) {
-            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+        if (op.getAdditionalFilteringExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getAdditionalFilteringExpressions()) {
                 e.getValue().getUsedVariables(usedVariables);
             }
         }
@@ -332,8 +332,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
         for (Mutable<ILogicalExpression> e : op.getPrimaryKeyExpressions()) {
             e.getValue().getUsedVariables(usedVariables);
         }
-        if (op.getLsmComponentFilterExpressions() != null) {
-            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+        if (op.getAdditionalFilteringExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getAdditionalFilteringExpressions()) {
                 e.getValue().getUsedVariables(usedVariables);
             }
         }
@@ -348,8 +348,8 @@ public class UsedVariableVisitor implements ILogicalOperatorVisitor<Void, Void> 
         for (Mutable<ILogicalExpression> e : op.getSecondaryKeyExpressions()) {
             e.getValue().getUsedVariables(usedVariables);
         }
-        if (op.getLsmComponentFilterExpressions() != null) {
-            for (Mutable<ILogicalExpression> e : op.getLsmComponentFilterExpressions()) {
+        if (op.getAdditionalFilteringExpressions() != null) {
+            for (Mutable<ILogicalExpression> e : op.getAdditionalFilteringExpressions()) {
                 e.getValue().getUsedVariables(usedVariables);
             }
         }
