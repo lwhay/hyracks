@@ -287,8 +287,7 @@ public abstract class AbstractfWordInvertedIndexTest extends AbstractIntegration
         LSMInvertedIndexBulkLoadOperatorDescriptor invIndexBulkLoadOp = new LSMInvertedIndexBulkLoadOperatorDescriptor(
                 spec, tokenizerRecDesc, fieldPermutation, true, 1000L, true, storageManager, btreeFileSplitProvider,
                 lcManagerProvider, tokenTypeTraits, tokenComparatorFactories, invListsTypeTraits,
-                invListsComparatorFactories, tokenizerFactory, invertedIndexDataflowHelperFactory,
-                NoOpOperationCallbackFactory.INSTANCE);
+                invListsComparatorFactories, tokenizerFactory, invertedIndexDataflowHelperFactory);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, invIndexBulkLoadOp, NC1_ID);
         return invIndexBulkLoadOp;
     }
