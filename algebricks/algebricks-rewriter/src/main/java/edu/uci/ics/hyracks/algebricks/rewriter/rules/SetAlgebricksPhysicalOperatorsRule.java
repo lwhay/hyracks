@@ -56,6 +56,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.Distribute
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.EmptyTupleSourcePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.ExternalGroupByPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.InMemoryStableSortPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.IndexBulkloadPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.IndexInsertDeletePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.InsertDeletePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.MicroPreclusteredGroupByPOperator;
@@ -291,8 +292,13 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
                     getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
                     getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
-                    op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys, opInsDel
-                            .getFilterExpression(), opInsDel.getDataSourceIndex()));
+                    if (opInsDel.isBulkload()) {
+                        op.setPhysicalOperator(new IndexBulkloadPOperator(primaryKeys, secondaryKeys, opInsDel
+                                .getDataSourceIndex()));
+                    } else {
+                        op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys, opInsDel
+                                .getFilterExpression(), opInsDel.getDataSourceIndex()));
+                    }
                     break;
                 }
                 case SINK: {
