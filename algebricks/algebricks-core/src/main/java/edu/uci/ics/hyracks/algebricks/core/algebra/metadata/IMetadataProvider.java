@@ -89,6 +89,8 @@ public interface IMetadataProvider<S, I> {
      *            Variables for the secondary-index keys.
      * @param additionalNonKeyFields
      *            Additional variables that can be passed to the secondary index as payload.
+     *            This can be useful when creating a second filter on a non-primary and non-secondary
+     *            fields for additional pruning power.
      * @param filterExpr
      *            Filtering expression to be pushed inside the runtime op.
      *            Such a filter may, e.g., exclude NULLs from being inserted/deleted.
@@ -126,6 +128,8 @@ public interface IMetadataProvider<S, I> {
      *            Variables for the secondary-index keys.
      * @param additionalNonKeyFields
      *            Additional variables that can be passed to the secondary index as payload.
+     *            This can be useful when creating a second filter on a non-primary and non-secondary
+     *            fields for additional pruning power.
      * @param filterExpr
      *            Filtering expression to be pushed inside the runtime op.
      *            Such a filter may, e.g., exclude NULLs from being inserted/deleted.
