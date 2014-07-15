@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -67,9 +67,9 @@ public class PlanPlotter {
     }
 
     /*
-     * DFS traversal function. Calls iteratively all sons, and for each son calls itself recursively 
+     * DFS traversal function. Calls iteratively all children, and for each calls itself recursively 
      * Includes slim-maps only (no gathering of mappers to one)
-     * */
+     */
     public static void printVisualizationGraph(AbstractLogicalOperator op, int indent, StringBuilder out,
             String current_supernode_name, int randomInt) {
         if (!op.getInputs().isEmpty()) {
@@ -81,7 +81,7 @@ public class PlanPlotter {
                 current_supernode_name = supernode_current;
                 appendln(out, new String("subgraph cluster_" + supernode_current + " {"));
                 pad(out, indent);
-                appendln(out, new String("node [style=filled, color = pink];"));
+                appendln(out, new String("node [style=filled, color = lightgray];"));
                 pad(out, indent);
                 appendln(out, new String("color=blue;"));
                 pad(out, indent);

@@ -81,7 +81,6 @@ public class HeuristicOptimizer {
         StringBuilder sb2 = new StringBuilder();
         PlanPrettyPrinter.printPlan(plan, sb2, context.getPrettyPrintVisitor(), 0);
         AlgebricksConfig.ALGEBRICKS_LOGGER.info("Optimized Plan:\n" + sb2.toString());
-
     }
 
     private void runOptimizationSets(ILogicalPlan plan,
