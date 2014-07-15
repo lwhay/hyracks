@@ -67,7 +67,7 @@ public class PlanPlotter {
     }
 
     /*
-     * DFS traversal function. Calls iteratively all children, and for each calls itself recursively 
+     * DFS traversal function. Calls iteratively all children, and for each calls itself recursively
      * Includes slim-maps only (no gathering of mappers to one)
      */
     public static void printVisualizationGraph(AbstractLogicalOperator op, int indent, StringBuilder out,
@@ -96,7 +96,7 @@ public class PlanPlotter {
                 firstOccurenceOf_ = logOpStr.indexOf("_");
                 String supernode_child = logOpStr.substring(firstOccurenceOf_ + 1, logOpStr.length());
                 if (!supernode_current.equals(supernode_child)) {
-                    appendln(out, new String("node [style=filled, color = pink];"));
+                    appendln(out, new String("node [style=filled, color = lightgray];"));
                     pad(out, indent);
                     appendln(out, new String("color=blue"));
                     pad(out, indent);
