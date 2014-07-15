@@ -30,7 +30,7 @@ public class PlanPlotter {
 
     static Random randomGenerator = new Random();
 
-    public static void printLogicalPlan(ILogicalPlan plan, String DestPathForOutput) throws AlgebricksException {
+    public static void printLogicalPlan(ILogicalPlan plan) throws AlgebricksException {
         int indent = 5;
         StringBuilder out = new StringBuilder();
         int randomInt = 10000 + randomGenerator.nextInt(100);
@@ -39,15 +39,16 @@ public class PlanPlotter {
             printVisualizationGraph((AbstractLogicalOperator) root.getValue(), indent, out, "", randomInt);
         }
         appendln(out, "\n}\n}");
-        File file = new File(DestPathForOutput);
         try {
+            File file = File.createTempFile("logicalPlan", ".txt");
             FileUtils.writeStringToFile(file, out.toString());
+            file.deleteOnExit();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public static void printOptimizedLogicalPlan(ILogicalPlan plan, String DestPathForOutput) throws AlgebricksException {
+    public static void printOptimizedLogicalPlan(ILogicalPlan plan) throws AlgebricksException {
         int indent = 5;
         StringBuilder out = new StringBuilder();
         int randomInt = 10000 + randomGenerator.nextInt(100);
@@ -56,9 +57,10 @@ public class PlanPlotter {
             printVisualizationGraph((AbstractLogicalOperator) root.getValue(), indent, out, "", randomInt);
         }
         appendln(out, "\n}\n}");
-        File file = new File(DestPathForOutput);
         try {
+            File file = File.createTempFile("logicalOptimizedPlan", ".txt");
             FileUtils.writeStringToFile(file, out.toString());
+            file.deleteOnExit();
         } catch (IOException e) {
             e.printStackTrace();
         }
