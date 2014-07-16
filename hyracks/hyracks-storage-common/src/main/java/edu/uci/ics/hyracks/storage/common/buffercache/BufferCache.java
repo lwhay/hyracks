@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -29,7 +31,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.api.io.IFilePath;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.io.IFileHandle;
 import edu.uci.ics.hyracks.api.io.IIOManager;
@@ -37,7 +38,7 @@ import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponent;
 import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapManager;
 
-public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, IDFSBufferCache{
+public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
     private static final Logger LOGGER = Logger.getLogger(BufferCache.class.getName());
     private static final int MAP_FACTOR = 2;
 
@@ -53,7 +54,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
     private final IFileMapManager fileMapManager;
     private final CleanerThread cleanerThread;
     private final Map<Integer, BufferedFileHandle> fileInfoMap;
-    private final int memFileId;
+    private final Set<Integer> virtualFiles;
 
     private List<ICachedPageInternal> cachedPages = new ArrayList<ICachedPageInternal>();
 
@@ -73,17 +74,14 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
         this.pageReplacementStrategy = pageReplacementStrategy;
         this.pageCleanerPolicy = pageCleanerPolicy;
         this.fileMapManager = fileMapManager;
-        //register memory file ID
-        memFileId = fileMapManager.registerMemoryFile();
 
         Executor executor = Executors.newCachedThreadPool(threadFactory);
         fileInfoMap = new HashMap<Integer, BufferedFileHandle>();
+        virtualFiles = new HashSet<Integer>();
         cleanerThread = new CleanerThread();
         executor.execute(cleanerThread);
         closed = false;
     }
-
-    //TODO: insert DFS constructor
 
     @Override
     public int getPageSize() {
@@ -103,13 +101,12 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
         // check whether file has been created and opened
         int fileId = BufferedFileHandle.getFileId(dpid);
         BufferedFileHandle fInfo = null;
-        if(fileId == memFileId) return;
         synchronized (fileInfoMap) {
             fInfo = fileInfoMap.get(fileId);
         }
-        if (fInfo == null) {
+        if (fInfo == null && !virtualFiles.contains(fileId)) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been created.");
-        } else if (fInfo.getReferenceCount() <= 0) {
+        } else if (fInfo != null && fInfo.getReferenceCount() <= 0) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been opened.");
         }
     }
@@ -117,7 +114,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
     @Override
     public ICachedPage tryPin(long dpid) throws HyracksDataException {
         // Calling the pinSanityCheck should be used only for debugging, since the synchronized block over the fileInfoMap is a hot spot.
-        pinSanityCheck(dpid);
+        //pinSanityCheck(dpid);
         CachedPage cPage = null;
         int hash = hash(dpid);
         CacheBucket bucket = pageMap[hash];
@@ -141,7 +138,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
     @Override
     public ICachedPage pin(long dpid, boolean newPage) throws HyracksDataException {
         // Calling the pinSanityCheck should be used only for debugging, since the synchronized block over the fileInfoMap is a hot spot.
-        pinSanityCheck(dpid);
+        //pinSanityCheck(dpid);
         CachedPage cPage = findPage(dpid, false);
         if (!newPage) {
             // Resolve race of multiple threads trying to read the page from
@@ -160,24 +157,34 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
     }
 
     @Override
-    public ICachedPage pinVirtual(int vid) throws HyracksDataException {
-        long dpid = (((long) memFileId) << 32) + vid;
-        pinSanityCheck(dpid);
-        CachedPage cPage = findPage(dpid, true);
+    /**
+     * Allocate and pin a virtual page. This is just like a normal page, except that it will never be flushed.
+     */
+    public ICachedPage pinVirtual(long vpid) throws HyracksDataException {
+        //pinSanityCheck(vpid);
+        CachedPage cPage = findPage(vpid, true);
         cPage.virtual = true;
         return cPage;
     }
 
     @Override
-    public ICachedPage mapVirtual(int vid, long dpid) throws HyracksDataException {
-        long virt_dpid = (((long) memFileId) << 32) + vid;
-        CachedPage virtPage = findPage(virt_dpid, true);
-        pinSanityCheck(dpid);
-        ICachedPage realPage = pin(dpid, true);
+    /**
+     * Takes a virtual page, and copies it to a new page at the physical identifier. 
+     */
+    //TODO: I should not have to copy the page. I should just append it to the end of the hash bucket, but this is 
+    //safer/easier for now. 
+    public ICachedPage unpinVirtual(long vpid, long dpid) throws HyracksDataException {
+        CachedPage virtPage = findPage(vpid, true); //should definitely succeed. 
+        //pinSanityCheck(dpid); //debug
+        ICachedPage realPage = pin(dpid, false);
         virtPage.acquireReadLatch();
         realPage.acquireWriteLatch();
-        System.arraycopy(virtPage.buffer.array(), 0, realPage.getBuffer().array(), 0, virtPage.buffer.capacity());
-        realPage.releaseWriteLatch(true);
+        try {
+            System.arraycopy(virtPage.buffer.array(), 0, realPage.getBuffer().array(), 0, virtPage.buffer.capacity());
+        } finally {
+            realPage.releaseWriteLatch(true);
+            virtPage.releaseReadLatch();
+        }
         virtPage.reset(-1); //now cause the virtual page to die
         return realPage;
     }
@@ -562,8 +569,24 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
             LOGGER.info("Creating file: " + fileRef + " in cache: " + this);
         }
         synchronized (fileInfoMap) {
-            fileMapManager.registerFile((FileReference) fileRef);
+            fileMapManager.registerFile(fileRef);
         }
+    }
+
+    @Override
+    public int createMemFile() throws HyracksDataException {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Creating memory file in cache: " + this);
+        }
+        int fileId;
+        synchronized (fileInfoMap) {
+            fileId = fileMapManager.registerMemoryFile();
+        }
+        synchronized (virtualFiles) {
+            virtualFiles.add(fileId);
+        }
+        return fileId;
+
     }
 
     @Override
@@ -738,6 +761,20 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
     }
 
     @Override
+    public synchronized void deleteMemFile(int fileId) throws HyracksDataException {
+        //TODO: possible sanity chcecking here like in above?
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Deleting memory file: " + fileId + " in cache: " + this);
+        }
+        synchronized (virtualFiles) {
+            virtualFiles.remove(fileId);
+        }
+        synchronized(fileInfoMap){
+            fileMapManager.unregisterMemFile(fileId);
+        }
+    }
+
+    @Override
     public void start() {
         // no op
     }
@@ -759,9 +796,4 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent, I
         os.write(dumpState().getBytes());
     }
 
-    @Override
-    public void createFile(IFilePath fileRef) throws HyracksDataException {
-        // TODO Auto-generated method stub
-        
-    }
 }
