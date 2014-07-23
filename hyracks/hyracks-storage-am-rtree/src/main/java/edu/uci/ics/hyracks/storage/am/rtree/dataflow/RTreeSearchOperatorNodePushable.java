@@ -38,6 +38,7 @@ public class RTreeSearchOperatorNodePushable extends IndexSearchOperatorNodePush
             searchKey = new PermutingFrameTupleReference();
             searchKey.setFieldPermutation(keyFields);
         }
+        this.isRTree = true;
     }
 
     @Override

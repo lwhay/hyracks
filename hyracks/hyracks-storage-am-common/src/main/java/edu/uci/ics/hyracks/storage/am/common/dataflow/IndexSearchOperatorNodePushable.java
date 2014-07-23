@@ -17,6 +17,8 @@ package edu.uci.ics.hyracks.storage.am.common.dataflow;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Logger;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
@@ -67,6 +69,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected final int[] maxFilterFieldIndexes;
     protected PermutingFrameTupleReference minFilterKey;
     protected PermutingFrameTupleReference maxFilterKey;
+    protected boolean isRTree;
+    private static AtomicLong counter = new AtomicLong();
+    private static final Logger LOGGER = Logger.getLogger(IndexSearchOperatorNodePushable.class.getName());
 
     public IndexSearchOperatorNodePushable(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx, int partition,
             IRecordDescriptorProvider recordDescProvider, int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes) {
@@ -147,6 +152,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected void writeSearchResults(int tupleIndex) throws Exception {
         boolean matched = false;
         while (cursor.hasNext()) {
+            if (isRTree) {
+                counter.incrementAndGet();
+            }
             matched = true;
             tb.reset();
             cursor.next();
@@ -216,6 +224,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             }
         } finally {
             indexHelper.close();
+        }
+        if (isRTree) {
+            LOGGER.severe("NUM OF FETCHED RTREE RECORDS: " + counter.get());
         }
     }
 
