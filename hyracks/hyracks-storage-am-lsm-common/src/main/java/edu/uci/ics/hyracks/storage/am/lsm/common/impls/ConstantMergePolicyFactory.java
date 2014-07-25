@@ -19,6 +19,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.storage.am.common.api.IIndexLifecycleManager;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 
@@ -30,7 +32,7 @@ public class ConstantMergePolicyFactory implements ILSMMergePolicyFactory {
     private static final Set<String> PROPERTIES_NAMES = new HashSet<String>(Arrays.asList(SET_VALUES));
 
     @Override
-    public ILSMMergePolicy createMergePolicy(Map<String, String> properties) {
+    public ILSMMergePolicy createMergePolicy(Map<String, String> properties, IHyracksTaskContext ctx) {
         ILSMMergePolicy policy = new ConstantMergePolicy();
         policy.configure(properties);
         return policy;
@@ -44,5 +46,12 @@ public class ConstantMergePolicyFactory implements ILSMMergePolicyFactory {
     @Override
     public Set<String> getPropertiesNames() {
         return PROPERTIES_NAMES;
+    }
+
+    @Override
+    public ILSMMergePolicy createMergePolicy(Map<String, String> properties, IIndexLifecycleManager ilcm) {
+        ILSMMergePolicy policy = new ConstantMergePolicy();
+        policy.configure(properties);
+        return policy;
     }
 }

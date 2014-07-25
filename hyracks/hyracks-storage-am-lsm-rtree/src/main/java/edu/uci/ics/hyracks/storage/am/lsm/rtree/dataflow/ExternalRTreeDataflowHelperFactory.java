@@ -41,7 +41,7 @@ public class ExternalRTreeDataflowHelperFactory extends LSMRTreeDataflowHelperFa
             double bloomFilterFalsePositiveRate, int[] btreeFields, int version) {
         super(valueProviderFactories, rtreePolicyType, btreeComparatorFactories, null, mergePolicyFactory,
                 mergePolicyProperties, opTrackerFactory, ioSchedulerProvider, ioOpCallbackFactory, linearizeCmpFactory,
-                bloomFilterFalsePositiveRate, btreeFields);
+                bloomFilterFalsePositiveRate, null, btreeFields, null, null, null);
         this.version = version;
     }
 
@@ -50,7 +50,7 @@ public class ExternalRTreeDataflowHelperFactory extends LSMRTreeDataflowHelperFa
             int partition) {
         return new ExternalRTreeDataflowHelper(opDesc, ctx, partition, bloomFilterFalsePositiveRate,
                 btreeComparatorFactories, valueProviderFactories, rtreePolicyType,
-                mergePolicyFactory.createMergePolicy(mergePolicyProperties), opTrackerFactory,
+                mergePolicyFactory.createMergePolicy(mergePolicyProperties, ctx), opTrackerFactory,
                 ioSchedulerProvider.getIOScheduler(ctx), ioOpCallbackFactory, linearizeCmpFactory, btreeFields, version);
     }
 }
