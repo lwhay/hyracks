@@ -73,7 +73,7 @@
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.20.2</artifactId>
+					<artifactId>hyracks-hdfs-1.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
@@ -92,13 +92,14 @@
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.20.2</artifactId>
+					<artifactId>hyracks-hdfs-1.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
 				</dependency>
 			</dependencies>
 		</profile>
+
 		<profile>
 			<activation>
 				<activeByDefault>true</activeByDefault>
@@ -107,11 +108,30 @@
 					<value>2.2.0</value>
 				</property>
 			</activation>
+			<id>hadoop-2.2.0</id>
+			<dependencies>
+				<dependency>
+					<groupId>edu.uci.ics.hyracks</groupId>
+					<artifactId>hyracks-hdfs-2.x</artifactId>
+					<version>${project.version}</version>
+					<type>jar</type>
+					<scope>compile</scope>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>0.23.1</value>
+				</property>
+			</activation>
 			<id>hadoop-0.23.1</id>
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.23.1</artifactId>
+					<artifactId>hyracks-hdfs-2.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
@@ -130,7 +150,7 @@
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.23.1</artifactId>
+					<artifactId>hyracks-hdfs-2.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
@@ -149,7 +169,7 @@
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.23.1</artifactId>
+					<artifactId>hyracks-hdfs-2.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
@@ -168,7 +188,7 @@
 			<dependencies>
 				<dependency>
 					<groupId>edu.uci.ics.hyracks</groupId>
-					<artifactId>hyracks-hdfs-0.23.1</artifactId>
+					<artifactId>hyracks-hdfs-2.x</artifactId>
 					<version>${project.version}</version>
 					<type>jar</type>
 					<scope>compile</scope>
