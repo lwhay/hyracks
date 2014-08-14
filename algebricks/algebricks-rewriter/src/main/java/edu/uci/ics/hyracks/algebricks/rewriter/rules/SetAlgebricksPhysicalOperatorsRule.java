@@ -47,6 +47,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDelet
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.LeftOuterJoinOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AggregatePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AssignPOperator;
@@ -73,6 +74,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamProj
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StreamSelectPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.StringStreamingScriptPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.SubplanPOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.TokenizePOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.UnionAllPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.UnnestPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.WriteResultPOperator;
@@ -290,6 +292,7 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     IndexInsertDeleteOperator opInsDel = (IndexInsertDeleteOperator) op;
                     List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
                     List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
+                    List<LogicalVariable> tokenizeKeys = new ArrayList<LogicalVariable>();
                     getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
                     getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
                     if (opInsDel.isBulkload()) {
@@ -298,6 +301,19 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     } else {
                         op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys, opInsDel
                                 .getFilterExpression(), opInsDel.getDataSourceIndex()));
+                    }
+                    break;
+                }
+                case TOKENIZE: {
+                    TokenizeOperator opTokenize = (TokenizeOperator) op;
+                    List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
+                    List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
+                    getKeys(opTokenize.getPrimaryKeyExpressions(), primaryKeys);
+                    getKeys(opTokenize.getSecondaryKeyExpressions(), secondaryKeys);
+                    // Tokenize Operator only operates with a bulk load on a data set with an index
+                    if (opTokenize.isBulkload()) {
+                        op.setPhysicalOperator(new TokenizePOperator(primaryKeys, secondaryKeys, opTokenize
+                                .getDataSourceIndex()));
                     }
                     break;
                 }

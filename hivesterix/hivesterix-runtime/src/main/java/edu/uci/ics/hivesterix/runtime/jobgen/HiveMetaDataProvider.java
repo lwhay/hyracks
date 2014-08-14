@@ -128,15 +128,19 @@ public class HiveMetaDataProvider<S, T> implements IMetadataProvider<S, T> {
         return new HiveFunctionInfo(arg0, null);
     }
 
-    @Override
-    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
-            IDataSourceIndex<T, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
-            IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec,
-            boolean bulkload) throws AlgebricksException {
-        // TODO Auto-generated method stub
-        return null;
-    }
+	@Override
+	public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
+			IDataSourceIndex<T, S> dataSource,
+			IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
+			IVariableTypeEnvironment typeEnv,
+			List<LogicalVariable> primaryKeys,
+			List<LogicalVariable> secondaryKeys,
+			ILogicalExpression filterExpr,
+			RecordDescriptor recordDesc, JobGenContext context,
+			JobSpecification spec, boolean bulkload) throws AlgebricksException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
     @Override
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexDeleteRuntime(
@@ -147,4 +151,15 @@ public class HiveMetaDataProvider<S, T> implements IMetadataProvider<S, T> {
         // TODO Auto-generated method stub
         return null;
     }
+    
+    @Override
+    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getTokenizerRuntime(
+            IDataSourceIndex<T, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
+            IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
+            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec,
+            boolean bulkload) throws AlgebricksException {
+        // TODO Auto-generated method stub
+        return null;    	
+    }
+    
 }

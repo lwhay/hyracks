@@ -19,6 +19,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSc
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator.Kind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder.OrderKind;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.ILocalStructuralProperty;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPartitioningRequirementsCoordinator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPhysicalPropertiesVector;
@@ -32,24 +33,22 @@ import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
-public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
+public class TokenizePOperator extends AbstractPhysicalOperator {
 
     private final List<LogicalVariable> primaryKeys;
     private final List<LogicalVariable> secondaryKeys;
-//    private final List<LogicalVariable> tokenizeKeys;
     private final IDataSourceIndex<?, ?> dataSourceIndex;
 
-    public IndexBulkloadPOperator(List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-    		IDataSourceIndex<?, ?> dataSourceIndex) {
+    public TokenizePOperator(List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
+            IDataSourceIndex<?, ?> dataSourceIndex) {
         this.primaryKeys = primaryKeys;
         this.secondaryKeys = secondaryKeys;
-//        this.tokenizeKeys = tokenizeKeys;
         this.dataSourceIndex = dataSourceIndex;
     }
 
     @Override
     public PhysicalOperatorTag getOperatorTag() {
-        return PhysicalOperatorTag.INDEX_BULKLOAD;
+        return PhysicalOperatorTag.TOKENIZE;
     }
 
     @Override
@@ -61,16 +60,6 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
         IPhysicalPropertiesVector physicalProps = dataSourceIndex.getDataSource().getPropertiesProvider()
                 .computePropertiesVector(scanVariables);
         List<ILocalStructuralProperty> localProperties = new ArrayList<>();
-        // Data needs to be sorted based on the [token, number of token, PK]
-        // OR [token, PK] if the index is not partitioned
-        for (LogicalVariable skVar : secondaryKeys) {
-			localProperties.add(new LocalOrderProperty(new OrderColumn(skVar,
-					OrderKind.ASC)));
-		}
-        for (LogicalVariable pkVar : primaryKeys) {
-			localProperties.add(new LocalOrderProperty(new OrderColumn(pkVar,
-					OrderKind.ASC)));
-		}
         StructuralPropertiesVector spv = new StructuralPropertiesVector(physicalProps.getPartitioningProperty(),
                 localProperties);
         return new PhysicalRequirements(new IPhysicalPropertiesVector[] { spv },
@@ -88,22 +77,22 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
     public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
             IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
-        IndexInsertDeleteOperator indexInsertDeleteOp = (IndexInsertDeleteOperator) op;
-        assert indexInsertDeleteOp.getOperation() == Kind.INSERT;
-        assert indexInsertDeleteOp.isBulkload();
+        TokenizeOperator TokenizeOp = (TokenizeOperator) op;
+        assert TokenizeOp.getOperation() == Kind.INSERT;
+        assert TokenizeOp.isBulkload();
 
         IMetadataProvider mp = context.getMetadataProvider();
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(op);
         JobSpecification spec = builder.getJobSpec();
         RecordDescriptor inputDesc = JobGenHelper.mkRecordDescriptor(
                 context.getTypeEnvironment(op.getInputs().get(0).getValue()), inputSchemas[0], context);
-        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getIndexInsertRuntime(
+        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getTokenizerRuntime(
                 dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys, null, inputDesc,
                 context, spec, true);
-        builder.contributeHyracksOperator(indexInsertDeleteOp, runtimeAndConstraints.first);
+        builder.contributeHyracksOperator(TokenizeOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
-        ILogicalOperator src = indexInsertDeleteOp.getInputs().get(0).getValue();
-        builder.contributeGraphEdge(src, 0, indexInsertDeleteOp, 0);
+        ILogicalOperator src = TokenizeOp.getInputs().get(0).getValue();
+        builder.contributeGraphEdge(src, 0, TokenizeOp, 0);
     }
 
     @Override

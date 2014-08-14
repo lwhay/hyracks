@@ -278,7 +278,7 @@ public abstract class AbstractfWordInvertedIndexTest extends AbstractIntegration
 
     private IOperatorDescriptor createBinaryTokenizerOp(JobSpecification spec, int docField, int[] keyFields) {
         BinaryTokenizerOperatorDescriptor binaryTokenizer = new BinaryTokenizerOperatorDescriptor(spec,
-                tokenizerRecDesc, tokenizerFactory, docField, keyFields, addNumTokensKey());
+                tokenizerRecDesc, tokenizerFactory, docField, keyFields, addNumTokensKey(), false);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, binaryTokenizer, NC1_ID);
         return binaryTokenizer;
     }

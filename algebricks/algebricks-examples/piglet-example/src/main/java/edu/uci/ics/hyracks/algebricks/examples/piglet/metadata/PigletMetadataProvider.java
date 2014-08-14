@@ -170,15 +170,19 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
         return null;
     }
 
-    @Override
-    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
-            IDataSourceIndex<String, String> dataSource, IOperatorSchema propagatedSchema,
-            IOperatorSchema[] inputSchemas, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
-            List<LogicalVariable> secondaryKeys, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
-            JobGenContext context, JobSpecification spec, boolean bulkload) throws AlgebricksException {
-        // TODO Auto-generated method stub
-        return null;
-    }
+	@Override
+	public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
+			IDataSourceIndex<String, String> dataSource,
+			IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
+			IVariableTypeEnvironment typeEnv,
+			List<LogicalVariable> primaryKeys,
+			List<LogicalVariable> secondaryKeys,
+			ILogicalExpression filterExpr,
+			RecordDescriptor recordDesc, JobGenContext context,
+			JobSpecification spec, boolean bulkload) throws AlgebricksException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
     @Override
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexDeleteRuntime(
@@ -190,6 +194,16 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
         return null;
     }
 
+    @Override
+    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getTokenizerRuntime(
+            IDataSourceIndex<String, String> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
+            IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
+            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec,
+            boolean bulkload) throws AlgebricksException {
+        // TODO Auto-generated method stub
+        return null;    	
+    }
+    
     @Override
     public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
         return FN_MAP.get(fid);

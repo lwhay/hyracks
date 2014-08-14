@@ -45,5 +45,6 @@ public enum LogicalOperatorTag {
     INDEX_INSERT_DELETE,
     UPDATE,
     EXTENSION_OPERATOR,
-    EXTERNAL_LOOKUP
+    EXTERNAL_LOOKUP,
+    TOKENIZE
 }

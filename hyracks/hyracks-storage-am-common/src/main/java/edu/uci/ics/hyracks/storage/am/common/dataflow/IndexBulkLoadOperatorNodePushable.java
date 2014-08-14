@@ -29,77 +29,87 @@ import edu.uci.ics.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import edu.uci.ics.hyracks.storage.am.common.api.IndexException;
 import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 
-public class IndexBulkLoadOperatorNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
-    protected final IIndexOperatorDescriptor opDesc;
-    protected final IHyracksTaskContext ctx;
-    protected final float fillFactor;
-    protected final boolean verifyInput;
-    protected final long numElementsHint;
-    protected final boolean checkIfEmptyIndex;
-    protected final IIndexDataflowHelper indexHelper;
-    protected FrameTupleAccessor accessor;
-    protected IIndex index;
-    protected IIndexBulkLoader bulkLoader;
-    protected IRecordDescriptorProvider recDescProvider;
-    protected PermutingFrameTupleReference tuple = new PermutingFrameTupleReference();
+public class IndexBulkLoadOperatorNodePushable extends
+		AbstractUnaryInputUnaryOutputOperatorNodePushable {
+	protected final IIndexOperatorDescriptor opDesc;
+	protected final IHyracksTaskContext ctx;
+	protected final float fillFactor;
+	protected final boolean verifyInput;
+	protected final long numElementsHint;
+	protected final boolean checkIfEmptyIndex;
+	protected final IIndexDataflowHelper indexHelper;
+	protected FrameTupleAccessor accessor;
+	protected IIndex index;
+	protected IIndexBulkLoader bulkLoader;
+	protected IRecordDescriptorProvider recDescProvider;
+	protected PermutingFrameTupleReference tuple = new PermutingFrameTupleReference();
 
-    public IndexBulkLoadOperatorNodePushable(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx, int partition,
-            int[] fieldPermutation, float fillFactor, boolean verifyInput, long numElementsHint,
-            boolean checkIfEmptyIndex, IRecordDescriptorProvider recordDescProvider) {
-        this.opDesc = opDesc;
-        this.ctx = ctx;
-        this.indexHelper = opDesc.getIndexDataflowHelperFactory().createIndexDataflowHelper(opDesc, ctx, partition);
-        this.fillFactor = fillFactor;
-        this.verifyInput = verifyInput;
-        this.numElementsHint = numElementsHint;
-        this.checkIfEmptyIndex = checkIfEmptyIndex;
-        this.recDescProvider = recordDescProvider;
-        tuple.setFieldPermutation(fieldPermutation);
-    }
+	public IndexBulkLoadOperatorNodePushable(IIndexOperatorDescriptor opDesc,
+			IHyracksTaskContext ctx, int partition, int[] fieldPermutation,
+			float fillFactor, boolean verifyInput, long numElementsHint,
+			boolean checkIfEmptyIndex,
+			IRecordDescriptorProvider recordDescProvider) {
+		this.opDesc = opDesc;
+		this.ctx = ctx;
+		this.indexHelper = opDesc.getIndexDataflowHelperFactory()
+				.createIndexDataflowHelper(opDesc, ctx, partition);
+		this.fillFactor = fillFactor;
+		this.verifyInput = verifyInput;
+		this.numElementsHint = numElementsHint;
+		this.checkIfEmptyIndex = checkIfEmptyIndex;
+		this.recDescProvider = recordDescProvider;
+		tuple.setFieldPermutation(fieldPermutation);
 
-    @Override
-    public void open() throws HyracksDataException {
-        RecordDescriptor recDesc = recDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
-        accessor = new FrameTupleAccessor(ctx.getFrameSize(), recDesc);
-        indexHelper.open();
-        index = indexHelper.getIndexInstance();
-        try {
-            bulkLoader = index.createBulkLoader(fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex);
-        } catch (Exception e) {
-            indexHelper.close();
-            throw new HyracksDataException(e);
-        }
-        writer.open();
-    }
+	}
 
-    @Override
-    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-        accessor.reset(buffer);
-        int tupleCount = accessor.getTupleCount();
-        for (int i = 0; i < tupleCount; i++) {
-            tuple.reset(accessor, i);
-            try {
-                bulkLoader.add(tuple);
-            } catch (IndexException e) {
-                throw new HyracksDataException(e);
-            }
-        }
-        FrameUtils.flushFrame(buffer, writer);
-    }
+	@Override
+	public void open() throws HyracksDataException {
+		RecordDescriptor recDesc = recDescProvider.getInputRecordDescriptor(
+				opDesc.getActivityId(), 0);
+		accessor = new FrameTupleAccessor(ctx.getFrameSize(), recDesc);
+		indexHelper.open();
+		index = indexHelper.getIndexInstance();
+		try {
+			bulkLoader = index.createBulkLoader(fillFactor, verifyInput,
+					numElementsHint, checkIfEmptyIndex);
+		} catch (Exception e) {
+			indexHelper.close();
+			throw new HyracksDataException(e);
+		}
+		writer.open();
+	}
 
-    @Override
-    public void close() throws HyracksDataException {
-        try {
-            bulkLoader.end();
-        } catch (Exception e) {
-            throw new HyracksDataException(e);
-        } finally {
-            indexHelper.close();
-        }
-        writer.close();
-    }
+	@Override
+	public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+		accessor.reset(buffer);
+		int tupleCount = accessor.getTupleCount();
 
-    @Override
-    public void fail() throws HyracksDataException {
-    }
+		for (int i = 0; i < tupleCount; i++) {
+			tuple.reset(accessor, i);
+
+			try {
+				bulkLoader.add(tuple);
+			} catch (IndexException e) {
+				throw new HyracksDataException(e);
+			}
+		}
+		FrameUtils.flushFrame(buffer, writer);
+
+	}
+
+	@Override
+	public void close() throws HyracksDataException {
+		try {
+			bulkLoader.end();
+		} catch (Exception e) {
+			throw new HyracksDataException(e);
+		} finally {
+			indexHelper.close();
+		}
+		writer.close();
+	}
+
+	@Override
+	public void fail() throws HyracksDataException {
+	}
 }

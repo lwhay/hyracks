@@ -77,6 +77,7 @@ public class StreamProjectRuntimeFactory extends AbstractOneInputOneOutputRuntim
                 } else {
                     appendProjectionToFrame(t, projectionList);
                 }
+                
             }
 
         };

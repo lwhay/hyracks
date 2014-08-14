@@ -24,6 +24,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
+import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSource;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSourceIndex;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator.Kind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.VariablePropagationPolicy;
@@ -35,6 +36,9 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
 
     private final IDataSourceIndex<?, ?> dataSourceIndex;
     private final List<Mutable<ILogicalExpression>> primaryKeyExprs;
+    // This field contains new variable information - [token, number of token]
+    // or [token] from the TokenizeOperator. 
+    // The data only exists where a bulk load operation happens.
     private final List<Mutable<ILogicalExpression>> secondaryKeyExprs;
     private final Mutable<ILogicalExpression> filterExpr;
     private final Kind operation;
@@ -105,11 +109,15 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     public IDataSourceIndex<?, ?> getDataSourceIndex() {
         return dataSourceIndex;
     }
-
+    
+    public String getIndexName() {
+    	return dataSourceIndex.getId().toString();
+    }
+    
     public List<Mutable<ILogicalExpression>> getSecondaryKeyExpressions() {
         return secondaryKeyExprs;
     }
-
+    
     public Mutable<ILogicalExpression> getFilterExpression() {
         return filterExpr;
     }

@@ -113,7 +113,7 @@ public final class FrameTupleAccessor implements IFrameTupleAccessor {
             System.err.println("]");
         }
     }
-
+    
     @Override
     public int getFieldCount() {
         return recordDescriptor.getFieldCount();
