@@ -47,7 +47,16 @@ public class HashPartitioningShuffleConnectorDescriptor extends AbstractMToNConn
             IPartitionWriterFactory edwFactory, int index, int nProducerPartitions, int nConsumerPartitions)
             throws HyracksDataException {
         HadoopHelper helper = new HadoopHelper(mConfig);
-        ITuplePartitionComputerFactory tpcf = helper.getTuplePartitionComputer();
+        ITuplePartitionComputerFactory tpcf = null;
+        try {
+            if (helper.getUseNewMapper())
+                tpcf = helper.getTuplePartitionComputer(ctx.getJobletContext().getClassLoader());
+            else
+                tpcf = helper.getOldTuplePartitionComputer(ctx.getJobletContext().getClassLoader());
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
         return new PartitionDataWriter(ctx, nConsumerPartitions, edwFactory, recordDesc, tpcf.createPartitioner());
     }
 

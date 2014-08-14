@@ -59,6 +59,7 @@ import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.InputSplitsProxy;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
+import edu.uci.ics.hyracks.hdfs.ContextFactory;
 
 public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
     private static final long serialVersionUID = 1L;
@@ -96,10 +97,10 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
             InterruptedException {
         RecordReader hadoopRecordReader = null;
         if (conf.getUseNewMapper()) {
-            JobContext context = new JobContext(conf, null);
+            JobContext context = new ContextFactory().createJobContext(conf);
             org.apache.hadoop.mapreduce.InputFormat inputFormat = (org.apache.hadoop.mapreduce.InputFormat) ReflectionUtils
                     .newInstance(context.getInputFormatClass(), conf);
-            TaskAttemptContext taskAttemptContext = new org.apache.hadoop.mapreduce.TaskAttemptContext(jobConf, null);
+            TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(jobConf, null);
             hadoopRecordReader = (RecordReader) inputFormat.createRecordReader(
                     (org.apache.hadoop.mapreduce.InputSplit) inputSplit, taskAttemptContext);
         } else {
@@ -151,6 +152,11 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
             public void setStatus(String status) {
 
             }
+
+			@Override
+			public float getProgress() {
+				return 0;
+			}
         };
     }
 
@@ -173,10 +179,10 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
                     Object inputSplit = splits[partition];
 
                     if (conf.getUseNewMapper()) {
-                        JobContext context = new JobContext(conf, null);
+                        JobContext context = new ContextFactory().createJobContext(conf);
                         org.apache.hadoop.mapreduce.InputFormat inputFormat = (org.apache.hadoop.mapreduce.InputFormat) ReflectionUtils
                                 .newInstance(context.getInputFormatClass(), conf);
-                        TaskAttemptContext taskAttemptContext = new org.apache.hadoop.mapreduce.TaskAttemptContext(
+                        TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(
                                 jobConf, null);
                         hadoopRecordReader = (RecordReader) inputFormat.createRecordReader(
                                 (org.apache.hadoop.mapreduce.InputSplit) inputSplit, taskAttemptContext);

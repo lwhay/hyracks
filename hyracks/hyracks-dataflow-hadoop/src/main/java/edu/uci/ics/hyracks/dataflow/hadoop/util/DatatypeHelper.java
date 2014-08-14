@@ -24,11 +24,18 @@ import java.util.Map.Entry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.Counters.Counter;
+import org.apache.hadoop.mapreduce.CounterGroup;
+import org.apache.hadoop.mapreduce.Counters;
+import org.apache.hadoop.mapreduce.StatusReporter;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.hadoop.mapreduce.HadoopTools;
 
 @SuppressWarnings("deprecation")
 public class DatatypeHelper {
@@ -47,13 +54,14 @@ public class DatatypeHelper {
             if (NullWritable.class.equals(clazz)) {
                 return (T) NullWritable.get();
             }
-            try {
-                return clazz.newInstance();
-            } catch (InstantiationException e) {
-                throw new HyracksDataException(e);
-            } catch (IllegalAccessException e) {
-                throw new HyracksDataException(e);
-            }
+//            try {
+//                return clazz.newInstance();
+                return HadoopTools.createInstance(clazz);
+//            } catch (InstantiationException e) {
+//                throw new HyracksDataException(e);
+//            } catch (IllegalAccessException e) {
+//                throw new HyracksDataException(e);
+//            }
         }
 
         @Override
@@ -114,5 +122,144 @@ public class DatatypeHelper {
             jobConfMap.put(entry.getKey(), entry.getValue());
         }
         return jobConfMap;
+    }
+    
+    public static Counter createCounter() {
+        Counter counter = new Counter(){
+
+            @Override
+            public void write(DataOutput out) throws IOException {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void readFields(DataInput in) throws IOException {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void setDisplayName(String displayName) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public String getName() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public String getDisplayName() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public long getValue() {
+                // TODO Auto-generated method stub
+                return 0;
+            }
+
+            @Override
+            public void setValue(long value) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void increment(long incr) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public Counter getUnderlyingCounter() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+        };
+        return counter;
+    }
+    
+    public static StatusReporter createDummyStatusReporter() { 
+        StatusReporter sr = new StatusReporter() {
+//            Counters counters = new Counters();
+            
+            @Override
+            public void setStatus(String arg0) {
+            }
+    
+            @Override
+            public void progress() {
+            }
+    
+            @Override
+            public org.apache.hadoop.mapreduce.Counter getCounter(String group, String name) {
+//                return null;
+                return new Counters().findCounter(group, name);
+            }
+    
+            @Override
+            public org.apache.hadoop.mapreduce.Counter getCounter(Enum<?> arg0) {
+//                return counters == null ? null : counters.findCounter(arg0);
+                return new Counters().findCounter(arg0);
+            }
+    
+            @Override
+            public float getProgress() {
+                // TODO Auto-generated method stub
+                return 0f;
+            }
+        };
+        return sr;
+    }
+    
+    public static Reporter createDummyReporter() {
+        Reporter rpt = new Reporter() {
+            @Override
+            public void progress() {
+    
+            }
+    
+            @Override
+            public void setStatus(String arg0) {
+    
+            }
+    
+            @Override
+            public void incrCounter(String arg0, String arg1, long arg2) {
+    
+            }
+    
+            @Override
+            public void incrCounter(Enum<?> arg0, long arg1) {
+    
+            }
+    
+            @Override
+            public InputSplit getInputSplit() throws UnsupportedOperationException {
+                return null;
+            }
+    
+            @Override
+            public Counter getCounter(String arg0, String arg1) {
+                return null;
+            }
+    
+            @Override
+            public Counter getCounter(Enum<?> arg0) {
+                return null;
+            }
+    
+            @Override
+            public float getProgress() {
+                // TODO Auto-generated method stub
+                return 0;
+            }
+        };
+        return rpt;
     }
 }

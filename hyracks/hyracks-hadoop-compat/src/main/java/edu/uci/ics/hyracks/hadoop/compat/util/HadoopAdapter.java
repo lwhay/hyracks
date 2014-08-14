@@ -60,6 +60,7 @@ import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDesc
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.sort.InMemorySortOperatorDescriptor;
+import edu.uci.ics.hyracks.hdfs.ContextFactory;
 
 public class HadoopAdapter {
 
@@ -113,7 +114,7 @@ public class HadoopAdapter {
 
 	public static VersionedProtocol getProtocol(Class protocolClass,
 			InetSocketAddress inetAddress, JobConf jobConf) throws IOException {
-		VersionedProtocol versionedProtocol = RPC.getProxy(protocolClass,
+		VersionedProtocol versionedProtocol = RPC.getProxy((Class<VersionedProtocol>) protocolClass,
 				ClientProtocol.versionID, inetAddress, jobConf);
 		return versionedProtocol;
 	}
@@ -144,7 +145,7 @@ public class HadoopAdapter {
 			JobConf conf) throws ClassNotFoundException, IOException,
 			InterruptedException {
 		org.apache.hadoop.mapreduce.InputSplit[] splits = null;
-		JobContext context = new JobContext(conf, null);
+		JobContext context = new ContextFactory().createJobContext(conf);
 		org.apache.hadoop.mapreduce.InputFormat inputFormat = ReflectionUtils
 				.newInstance(context.getInputFormatClass(), conf);
 		List<org.apache.hadoop.mapreduce.InputSplit> inputSplits = inputFormat
@@ -359,7 +360,7 @@ public class HadoopAdapter {
 		WritableComparator writableComparator = WritableComparator.get(conf
 				.getMapOutputKeyClass().asSubclass(WritableComparable.class));
 		WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(
-				writableComparator.getClass());
+				writableComparator.getClass(), null);
 		inMemorySortOp = new InMemorySortOperatorDescriptor(spec,
 				new int[] { 0 },
 				new IBinaryComparatorFactory[] { comparatorFactory },
@@ -377,7 +378,7 @@ public class HadoopAdapter {
 		WritableComparator writableComparator = WritableComparator.get(conf
 				.getMapOutputKeyClass().asSubclass(WritableComparable.class));
 		WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(
-				writableComparator.getClass());
+				writableComparator.getClass(), null);
 		externalSortOp = new ExternalSortOperatorDescriptor(spec, conf.getInt(
 				HYRACKS_EX_SORT_FRAME_LIMIT, DEFAULT_EX_SORT_FRAME_LIMIT),
 				new int[] { 0 },
@@ -404,7 +405,7 @@ public class HadoopAdapter {
 					partitioner, DatatypeHelper
 							.createSerializerDeserializer(mapOutputKeyClass),
 					DatatypeHelper
-							.createSerializerDeserializer(mapOutputValueClass));
+							.createSerializerDeserializer(mapOutputValueClass), conf);
 		} else {
 			RecordDescriptor recordDescriptor = DatatypeHelper
 					.createKeyValueRecordDescriptor(mapOutputKeyClass,

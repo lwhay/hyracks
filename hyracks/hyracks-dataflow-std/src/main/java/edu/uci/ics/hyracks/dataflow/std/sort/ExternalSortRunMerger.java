@@ -118,10 +118,14 @@ public class ExternalSortRunMerger {
                     frameSorter.flushFrames(writer);
                 }
                 /** recycle sort buffer */
-                frameSorter.close();
+                if (frameSorter != null){
+                	frameSorter.close();
+                }
             } else {
                 /** recycle sort buffer */
-                frameSorter.close();
+            	if (frameSorter != null){
+            		frameSorter.close();
+            	}
 
                 inFrames = new ArrayList<ByteBuffer>();
                 outFrame = ctx.allocateFrame();

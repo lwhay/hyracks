@@ -15,23 +15,39 @@
 package edu.uci.ics.hyracks.dataflow.hadoop.mapreduce;
 
 import java.io.IOException;
+//import java.util.Iterator;
 import java.util.List;
+//import java.util.Vector;
+//import java.lang.instrument.*;
+import java.lang.reflect.InvocationTargetException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapreduce.InputFormat;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.JobContext;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.OutputFormat;
+import org.apache.hadoop.io.WritableComparator;
+import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.InputFormat; // org.apache.hadoop.mapred.InputFormat;
+import org.apache.hadoop.mapreduce.InputSplit;  // org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapreduce.Job;         // org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.JobContext;  // org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapreduce.Mapper;      // org.apache.hadoop.mapred.Mapper;
+import org.apache.hadoop.mapreduce.OutputFormat;// org.apache.hadoop.mapred.OutputFormat;
 import org.apache.hadoop.mapreduce.Partitioner;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.mapreduce.Reducer;     // org.apache.hadoop.mapred.Reducer;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;  // org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.TaskAttemptID;       // org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.util.ReflectionUtils;
+                                                        // org.apache.hadoop.mapred.Reporter;
+                                                        // org.apache.hadoop.mapred.Counters.Counter;
+
+
+
+
+
+
+
 
 import edu.uci.ics.hyracks.api.context.IHyracksCommonContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
@@ -41,8 +57,10 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.hadoop.data.HadoopNewPartitionerTuplePartitionComputerFactory;
+import edu.uci.ics.hyracks.dataflow.hadoop.data.HadoopPartitionerTuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.data.WritableComparingBinaryComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
+import edu.uci.ics.hyracks.hdfs.ContextFactory;
 
 public class HadoopHelper {
     public static final int KEY_FIELD_INDEX = 0;
@@ -53,24 +71,29 @@ public class HadoopHelper {
     private MarshalledWritable<Configuration> mConfig;
     private Configuration config;
     private Job job;
+//    private Reporter reporter;
+//    private JobConf jobConf;
 
-    public HadoopHelper(MarshalledWritable<Configuration> mConfig) throws HyracksDataException {
+    public HadoopHelper(MarshalledWritable<Configuration> mConfig) throws HyracksDataException { // ctxCL: URLClassLoader, getClass(): AppClassLoader, config: AppClassLoader
         this.mConfig = mConfig;
-        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();        /////////
         try {
-            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader()); /////////
             config = mConfig.get();
-            config.setClassLoader(getClass().getClassLoader());
-            job = new Job(config);
+            config.setClassLoader(getClass().getClassLoader()); /////////////////////////
+            job = Job.getInstance(config);
+//            jobConf = (JobConf)job.getConfiguration();
         } catch (Exception e) {
             throw new HyracksDataException(e);
         } finally {
-            Thread.currentThread().setContextClassLoader(ctxCL);
+            Thread.currentThread().setContextClassLoader(ctxCL); /////////////////////
         }
     }
-
-    public RecordDescriptor getMapOutputRecordDescriptor() throws HyracksDataException {
+    
+    public RecordDescriptor getMapOutputRecordDescriptor() throws HyracksDataException { // used in MapperOperatorDescriptor's Constructor
         try {
+            job.getConfiguration().setClassLoader(Thread.currentThread().getContextClassLoader());
+//System.out.println("[HadoopHelper][getMapOutputRecordDescriptor(NOCL)] keyClass: " + job.getMapOutputKeyClass() + ", valueClass: " + job.getMapOutputValueClass());
             return new RecordDescriptor(
                     new ISerializerDeserializer[] {
                             DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
@@ -82,123 +105,316 @@ public class HadoopHelper {
             throw new HyracksDataException(e);
         }
     }
-
-    public RecordDescriptor getMapOutputRecordDescriptorWithoutExtraFields() throws HyracksDataException {
+    
+    public <K2> Class<K2> getMapOutputKeyClass(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            return new RecordDescriptor(
+            job.getConfiguration().setClassLoader(cl);
+            return (Class<K2>) job.getMapOutputKeyClass();
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        } finally {
+            job.getConfiguration().setClassLoader(jobCL);
+        }
+    }
+    
+    public <V2> Class<V2> getMapOutputValueClass(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+            job.getConfiguration().setClassLoader(cl);
+            return (Class<V2>) job.getMapOutputValueClass();
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        } finally {
+            job.getConfiguration().setClassLoader(jobCL);
+        }
+    }
+
+    public RecordDescriptor getMapOutputRecordDescriptor(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+        	job.getConfiguration().setClassLoader(cl);
+//System.out.println("[HadoopHelper][getMapOutputRecordDescriptor(CL)] keyClass: " + job.getMapOutputKeyClass() + ", valueClass: " + job.getMapOutputValueClass());
+        	
+        	return new RecordDescriptor(
+                    new ISerializerDeserializer[] {
+                            DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
+                                    .getMapOutputKeyClass()),
+                            DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
+                                    .getMapOutputValueClass()), IntegerSerializerDeserializer.INSTANCE });
+        } catch (Exception e) {
+          throw new HyracksDataException(e);
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+		}
+    }
+
+    public RecordDescriptor getMapOutputRecordDescriptorWithoutExtraFields(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+        	job.getConfiguration().setClassLoader(cl);
+        	return new RecordDescriptor(
                     new ISerializerDeserializer[] {
                             DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
                                     .getMapOutputKeyClass()),
                             DatatypeHelper.createSerializerDeserializer((Class<? extends Writable>) job
                                     .getMapOutputValueClass()) });
-
         } catch (Exception e) {
             throw new HyracksDataException(e);
-        }
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+		}
     }
 
-    public TaskAttemptContext createTaskAttemptContext(TaskAttemptID taId) {
-        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+//    public TaskAttemptContext createTaskAttemptContext(TaskAttemptID taId) throws HyracksDataException {
+//        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+//        try {
+//            Thread.currentThread().setContextClassLoader(config.getClassLoader());
+//            return new ContextFactory().createContext(config, taId);
+//        } catch (HyracksDataException e) {
+//            throw new HyracksDataException(e);
+//        } finally {
+//            Thread.currentThread().setContextClassLoader(ctxCL);
+//        }
+//    }
+//    
+//    public org.apache.hadoop.mapred.TaskAttemptContext createTaskAttemptContext(org.apache.hadoop.mapred.TaskAttemptID taId) throws HyracksDataException {
+//        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+//        try {
+//            Thread.currentThread().setContextClassLoader(config.getClassLoader());
+//            return new ContextFactory().createContext(jobConf, taId); 
+//        } catch (HyracksDataException e) {
+//            throw new HyracksDataException(e);
+//        } finally {
+//            Thread.currentThread().setContextClassLoader(ctxCL);
+//        }
+//    }
+//
+//    public JobContext createJobContext() {
+//        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+//        try {
+//            Thread.currentThread().setContextClassLoader(config.getClassLoader());
+//            return new ContextFactory().createJobContext(config);
+//        } finally {
+//            Thread.currentThread().setContextClassLoader(ctxCL);
+//        }
+//    }
+
+    public <K1, V1, K2, V2> Mapper<K1, V1, K2, V2> getMapper(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            Thread.currentThread().setContextClassLoader(config.getClassLoader());
-            return new TaskAttemptContext(config, taId);
+        	job.getConfiguration().setClassLoader(cl);
+	        return (Mapper<K1, V1, K2, V2>) ReflectionUtils.newInstance(job.getMapperClass(), config);
+        } catch (ClassNotFoundException e) {
+            throw new HyracksDataException(e);
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+		}
+    }
+    
+    public <K1, V1, K2, V2> org.apache.hadoop.mapred.Mapper<K1, V1, K2, V2> getOldMapper(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = config.getClassLoader();
+        try {
+            config.setClassLoader(cl);
+            return (org.apache.hadoop.mapred.Mapper<K1, V1, K2, V2>) HadoopTools.newInstance( new JobConf(config).getMapperClass() ); // ReflectionUtils.newInstance(jobConf.getMapperClass(), config);
+        } catch (InstantiationException e) {
+            throw new HyracksDataException(e);
+        } catch (IllegalAccessException e) {
+            throw new HyracksDataException(e);
+        } catch (NoSuchMethodException e) {
+            throw new HyracksDataException(e);
+        } catch (SecurityException e) {
+            throw new HyracksDataException(e);
+        } catch (IllegalArgumentException e) {
+            throw new HyracksDataException(e);
+        } catch (InvocationTargetException e) {
+            throw new HyracksDataException(e);
         } finally {
-            Thread.currentThread().setContextClassLoader(ctxCL);
+            config.setClassLoader(jobCL);
         }
     }
-
-    public JobContext createJobContext() {
-        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
+    
+    public <K2, V2, K3, V3> Reducer<K2, V2, K3, V3> getReducer(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+    	try {
+    		job.getConfiguration().setClassLoader(cl);
+    		return (Reducer<K2, V2, K3, V3>) ReflectionUtils.newInstance(job.getReducerClass(), config);
+        } catch (ClassNotFoundException e) {
+            throw new HyracksDataException(e);
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}
+    }
+    
+    public <K2, V2, K3, V3> org.apache.hadoop.mapred.Reducer<K2, V2, K3, V3> getOldReducer(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = config.getClassLoader();
         try {
-            Thread.currentThread().setContextClassLoader(config.getClassLoader());
-            return new JobContext(config, null);
+            config.setClassLoader(cl);
+            return (org.apache.hadoop.mapred.Reducer<K2, V2, K3, V3>) HadoopTools.newInstance( new JobConf(config).getReducerClass() ); // ReflectionUtils.newInstance(jobConf.getReducerClass(), config); //HadoopTools.newInstance(jobConf.getReducerClass());
+        } catch (InstantiationException e) {
+            throw new HyracksDataException(e);
+        } catch (IllegalAccessException e) {
+            throw new HyracksDataException(e);
+        } catch (NoSuchMethodException e) {
+            throw new HyracksDataException(e);
+        } catch (SecurityException e) {
+            throw new HyracksDataException(e);
+        } catch (IllegalArgumentException e) {
+            throw new HyracksDataException(e);
+        } catch (InvocationTargetException e) {
+            throw new HyracksDataException(e);
         } finally {
-            Thread.currentThread().setContextClassLoader(ctxCL);
+            config.setClassLoader(jobCL);
         }
     }
 
-    public <K1, V1, K2, V2> Mapper<K1, V1, K2, V2> getMapper() throws HyracksDataException {
+    public <K2, V2> Reducer<K2, V2, K2, V2> getCombiner(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            return (Mapper<K1, V1, K2, V2>) HadoopTools.newInstance(job.getMapperClass());
+			job.getConfiguration().setClassLoader(cl);
+			return (Reducer<K2, V2, K2, V2>) ReflectionUtils.newInstance(job.getCombinerClass(), config);
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
-        } catch (InstantiationException e) {
-            throw new HyracksDataException(e);
-        } catch (IllegalAccessException e) {
-            throw new HyracksDataException(e);
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}
+    }
+    
+    public <K2, V2> org.apache.hadoop.mapred.Reducer<K2, V2, K2, V2> getOldCombiner(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = config.getClassLoader();
+        try {
+            config.setClassLoader(cl);
+            try {
+                return (org.apache.hadoop.mapred.Reducer<K2, V2, K2, V2>) HadoopTools.newInstance( new JobConf(config).getCombinerClass() );
+            } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException
+                    | IllegalArgumentException | InvocationTargetException e) {
+                throw new HyracksDataException(e);
+            }
+
+        } finally {
+            config.setClassLoader(jobCL);
         }
     }
 
-    public <K2, V2, K3, V3> Reducer<K2, V2, K3, V3> getReducer() throws HyracksDataException {
+    @SuppressWarnings("unchecked")
+    public <K, V> InputFormat<K, V> getInputFormat(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            return (Reducer<K2, V2, K3, V3>) HadoopTools.newInstance(job.getReducerClass());
+    		job.getConfiguration().setClassLoader(cl);
+    		return (InputFormat<K, V>) ReflectionUtils.newInstance(job.getInputFormatClass(), config);
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
-        } catch (InstantiationException e) {
-            throw new HyracksDataException(e);
-        } catch (IllegalAccessException e) {
-            throw new HyracksDataException(e);
-        }
+        } finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}
     }
-
-    public <K2, V2> Reducer<K2, V2, K2, V2> getCombiner() throws HyracksDataException {
+    
+//    public <K, V> InputFormat<K, V> getInputFormat() throws HyracksDataException { // used in MapperOperatorDescriptor Constructor
+//            try {
+//                return (InputFormat<K, V>) ReflectionUtils.newInstance(job.getInputFormatClass(), config);
+//            } catch (ClassNotFoundException e) {
+//                throw new HyracksDataException(e);
+//            }
+//    }
+    
+    public <K, V> org.apache.hadoop.mapred.InputFormat<K, V> getOldInputFormat(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            return (Reducer<K2, V2, K2, V2>) HadoopTools.newInstance(job.getCombinerClass());
-        } catch (ClassNotFoundException e) {
-            throw new HyracksDataException(e);
-        } catch (InstantiationException e) {
-            throw new HyracksDataException(e);
-        } catch (IllegalAccessException e) {
-            throw new HyracksDataException(e);
+            job.getConfiguration().setClassLoader(cl);
+            return (org.apache.hadoop.mapred.InputFormat<K, V>) new JobConf(config).getInputFormat();
+        } finally {
+            job.getConfiguration().setClassLoader(jobCL);
         }
-    }
-
-    public <K, V> InputFormat<K, V> getInputFormat() throws HyracksDataException {
-        try {
-            return (InputFormat<K, V>) ReflectionUtils.newInstance(job.getInputFormatClass(), config);
-        } catch (ClassNotFoundException e) {
-            throw new HyracksDataException(e);
-        }
-    }
+    }    
 
     public <K, V> List<InputSplit> getInputSplits() throws HyracksDataException {
-        ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
-        try {
-            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
-            InputFormat<K, V> fmt = getInputFormat();
-            JobContext jCtx = new JobContext(config, null);
+    	if ( (config.get("mapred.input.dir") != null) || 
+    			((config.get("mapred.input.dir") == null) && (config.get("mapreduce.inputformat.class") != null)) ) {
+    			// normal case || no input directory but internal input generator
+            InputFormat<K, V> fmt = getInputFormat(Thread.currentThread().getContextClassLoader());
+            JobContext jCtx = new ContextFactory().createJobContext(config);
             try {
-                return fmt.getSplits(jCtx);
+            	List<InputSplit> lis = fmt.getSplits(jCtx);
+            	return lis;
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             } catch (InterruptedException e) {
                 throw new HyracksDataException(e);
             }
-        } finally {
-            Thread.currentThread().setContextClassLoader(ctxCL);
+    	}
+    	
+    	return null;
+    }
+    
+    public <K, V> org.apache.hadoop.mapred.InputSplit[] getOldInputSplits() throws HyracksDataException {
+        if ( (config.get("mapred.input.dir") != null) || 
+                ((config.get("mapred.input.dir") == null) && (config.get("mapred.input.format.class") != null)) ) {
+                // normal case || no input directory but internal input generator
+            org.apache.hadoop.mapred.InputFormat<K, V> fmt = getOldInputFormat(Thread.currentThread().getContextClassLoader());
+            try {
+                JobConf jc = new JobConf(config);
+                org.apache.hadoop.mapred.InputSplit[] isa = fmt.getSplits(jc, jc.getNumMapTasks());
+                return isa;
+            } catch (IOException e) {
+                throw new HyracksDataException(e);
+            }
         }
+        
+        return null;
     }
 
-    public IBinaryComparatorFactory[] getSortComparatorFactories() {
-        WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(job
-                .getSortComparator().getClass());
-
-        return new IBinaryComparatorFactory[] { comparatorFactory };
+    public IBinaryComparatorFactory[] getSortComparatorFactories(ClassLoader cl) {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+			job.getConfiguration().setClassLoader(cl);
+			RawComparator<?> cmptr = job.getSortComparator();
+			Class clazz = cmptr.getClass();
+   			WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(clazz, cmptr);
+   			return new IBinaryComparatorFactory[] { comparatorFactory };
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}	
     }
-
+    
     public IBinaryComparatorFactory[] getGroupingComparatorFactories() {
-        WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(job
-                .getGroupingComparator().getClass());
+        RawComparator<?> cmptr = job.getGroupingComparator();
+        Class clazz = cmptr.getClass();
+        WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(clazz, cmptr);
 
         return new IBinaryComparatorFactory[] { comparatorFactory };
     }
+    
+    public IBinaryComparatorFactory[] getGroupingComparatorFactories(ClassLoader cl) {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+            job.getConfiguration().setClassLoader(cl);
+            RawComparator<?> cmptr = job.getGroupingComparator();
+            Class clazz = cmptr.getClass();
+			WritableComparingBinaryComparatorFactory comparatorFactory = new WritableComparingBinaryComparatorFactory(clazz, cmptr);
 
+	        return new IBinaryComparatorFactory[] { comparatorFactory };
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}	
+    }
+
+    public RawComparator<?> getRawGroupingComparator(ClassLoader cl) {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+			job.getConfiguration().setClassLoader(cl);
+			return job.getGroupingComparator();
+		} finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}
+    }
+    
     public RawComparator<?> getRawGroupingComparator() {
-        return job.getGroupingComparator();
+            return job.getGroupingComparator();
     }
 
     public int getSortFrameLimit(IHyracksCommonContext ctx) {
-        int sortMemory = job.getConfiguration().getInt("io.sort.mb", 100);
+        int sortMemory = job.getConfiguration().getInt("mapreduce.task.io.sort.mb", 100); // 1.x: io.sort.mb, 2.x: mapreduce.task.io.sort.mb
+        
         return (int) (((long) sortMemory * 1024 * 1024) / ctx.getFrameSize());
     }
 
@@ -214,17 +430,38 @@ public class HadoopHelper {
         return config;
     }
 
-    public ITuplePartitionComputerFactory getTuplePartitionComputer() throws HyracksDataException {
-        int nReducers = job.getNumReduceTasks();
+    public ITuplePartitionComputerFactory getTuplePartitionComputer(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
+        	job.getConfiguration().setClassLoader(cl);
             return new HadoopNewPartitionerTuplePartitionComputerFactory<Writable, Writable>(
                     (Class<? extends Partitioner<Writable, Writable>>) job.getPartitionerClass(),
                     (ISerializerDeserializer<Writable>) DatatypeHelper
                             .createSerializerDeserializer((Class<? extends Writable>) job.getMapOutputKeyClass()),
                     (ISerializerDeserializer<Writable>) DatatypeHelper
-                            .createSerializerDeserializer((Class<? extends Writable>) job.getMapOutputValueClass()));
+                            .createSerializerDeserializer((Class<? extends Writable>) job.getMapOutputValueClass()), job.getConfiguration());
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
+        } finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+    	}
+    }
+    
+    public ITuplePartitionComputerFactory getOldTuplePartitionComputer(ClassLoader cl) throws HyracksDataException {
+        JobConf jc = new JobConf(config);
+        ClassLoader jobCL = jc.getClassLoader();
+        try {
+            jc.setClassLoader(cl); 
+            return new HadoopPartitionerTuplePartitionComputerFactory<Writable, Writable>(
+                    (Class<? extends org.apache.hadoop.mapred.Partitioner<Writable, Writable>>) jc.getPartitionerClass(),
+                    (ISerializerDeserializer<Writable>) DatatypeHelper
+                            .createSerializerDeserializer((Class<? extends Writable>) jc.getMapOutputKeyClass()),
+                    (ISerializerDeserializer<Writable>) DatatypeHelper
+                            .createSerializerDeserializer((Class<? extends Writable>) jc.getMapOutputValueClass()), jc);
+//        } catch (ClassNotFoundException e) {
+//            throw new HyracksDataException(e);
+        } finally {
+            jc.setClassLoader(jobCL);
         }
     }
 
@@ -250,19 +487,64 @@ public class HadoopHelper {
         }
     }
 
+    public <K, V> OutputFormat<K, V> getOutputFormat(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+        	job.getConfiguration().setClassLoader(cl);
+            return (OutputFormat<K, V>) ReflectionUtils.newInstance(job.getOutputFormatClass(), config);
+        } catch (ClassNotFoundException e) {
+            throw new HyracksDataException(e);
+        } finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+		}
+    }
+    
     public <K, V> OutputFormat<K, V> getOutputFormat() throws HyracksDataException {
         try {
             return (OutputFormat<K, V>) ReflectionUtils.newInstance(job.getOutputFormatClass(), config);
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
+		}
+    }
+    
+    public <K, V> org.apache.hadoop.mapred.OutputFormat<K, V> getOldOutputFormat() throws HyracksDataException {
+          return (org.apache.hadoop.mapred.OutputFormat<K, V>) new JobConf(config).getOutputFormat();
+    }
+    
+    public <K, V> org.apache.hadoop.mapred.OutputFormat<K, V> getOldOutputFormat(ClassLoader cl) throws HyracksDataException {
+        ClassLoader jobCL = job.getConfiguration().getClassLoader();
+        try {
+            job.getConfiguration().setClassLoader(cl);
+            return (org.apache.hadoop.mapred.OutputFormat<K, V>) new JobConf(config).getOutputFormat();
+//        } catch (ClassNotFoundException e) {
+//            throw new HyracksDataException(e);
+        } finally {
+            job.getConfiguration().setClassLoader(jobCL);
         }
     }
 
-    public boolean hasCombiner() throws HyracksDataException {
+    public boolean hasCombiner(ClassLoader cl) throws HyracksDataException {
+    	ClassLoader jobCL = job.getConfiguration().getClassLoader();
         try {
-            return job.getCombinerClass() != null;
+        	job.getConfiguration().setClassLoader(cl);
+            return (job.getCombinerClass() != null) || (config.get("mapred.combiner.class") != null);
         } catch (ClassNotFoundException e) {
             throw new HyracksDataException(e);
-        }
+        } finally {
+    		job.getConfiguration().setClassLoader(jobCL);
+		}
     }
+    
+    public boolean getUseNewMapper(){
+        return config.getBoolean("mapred.mapper.new-api",  false);
+    }
+    
+    public boolean getUseNewReducer() {
+        return config.getBoolean("mapred.reducer.new-api", false);
+    }
+    
+    public JobConf getJobConf() {
+        return new JobConf(config);
+    } 
+    
 }

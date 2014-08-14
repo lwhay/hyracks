@@ -17,6 +17,7 @@ package edu.uci.ics.hyracks.dataflow.hadoop.data;
 import java.io.DataInputStream;
 
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
 
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
@@ -31,12 +32,14 @@ public class HadoopPartitionerTuplePartitionComputerFactory<K extends Writable, 
     private static final long serialVersionUID = 1L;
     private final ISerializerDeserializer<K> keyIO;
     private final ISerializerDeserializer<V> valueIO;
+    JobConf jobConf;
 
     public HadoopPartitionerTuplePartitionComputerFactory(Class<? extends Partitioner<K, V>> klass,
-            ISerializerDeserializer<K> keyIO, ISerializerDeserializer<V> valueIO) {
-        super(klass);
+            ISerializerDeserializer<K> keyIO, ISerializerDeserializer<V> valueIO, JobConf jc) {
+        super(klass, null);
         this.keyIO = keyIO;
         this.valueIO = valueIO;
+        this.jobConf = jc;
     }
 
     @Override
@@ -55,6 +58,7 @@ public class HadoopPartitionerTuplePartitionComputerFactory<K extends Writable, 
                         + accessor.getFieldStartOffset(tIndex, 1);
                 bbis.setByteBuffer(accessor.getBuffer(), valueStart);
                 V value = valueIO.deserialize(dis);
+                instance.configure(jobConf);
                 return instance.getPartition(key, value, nParts);
             }
         };

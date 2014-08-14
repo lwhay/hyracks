@@ -15,7 +15,9 @@
 package edu.uci.ics.hyracks.hadoop.compat.util;
 
 import java.io.BufferedReader;
+import java.io.DataInput;
 import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -121,7 +123,72 @@ public class Utilities {
             public Counter getCounter(Enum<?> arg0) {
                 return null;
             }
+
+			@Override
+			public float getProgress() {
+				return 0;
+			}
         };
         return reporter;
+    }
+    
+    public static Counter createCounter() {
+        Counter counter = new Counter() {
+
+            @Override
+            public void write(DataOutput out) throws IOException {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void readFields(DataInput in) throws IOException {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void setDisplayName(String displayName) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public String getName() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public String getDisplayName() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public long getValue() {
+                // TODO Auto-generated method stub
+                return 0;
+            }
+
+            @Override
+            public void setValue(long value) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public void increment(long incr) {
+                // TODO Auto-generated method stub
+                
+            }
+
+            @Override
+            public Counter getUnderlyingCounter() {
+                // TODO Auto-generated method stub
+                return null;
+            }
+        };
+        return counter;
     }
 }

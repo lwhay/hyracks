@@ -19,5 +19,6 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public interface IInputSplitProvider {
-    public InputSplit next() throws HyracksDataException;
+    public InputSplit get() throws HyracksDataException;
+    public org.apache.hadoop.mapred.InputSplit getOld() throws HyracksDataException;
 }

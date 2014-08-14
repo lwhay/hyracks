@@ -15,6 +15,7 @@
 package edu.uci.ics.hyracks.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
@@ -38,6 +39,14 @@ public class ContextFactory {
         }
     }
 
+    public org.apache.hadoop.mapred.TaskAttemptContext createContext(Configuration conf, org.apache.hadoop.mapred.TaskAttemptID tid) throws HyracksDataException {
+        try {
+            return new org.apache.hadoop.mapred.TaskAttemptContextImpl((JobConf)conf, tid);
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        }
+    }
+    
     public TaskAttemptContext createContext(Configuration conf, int partition) throws HyracksDataException {
         try {
             TaskAttemptID tid = new TaskAttemptID("", 0, TaskType.REDUCE, partition, 0);

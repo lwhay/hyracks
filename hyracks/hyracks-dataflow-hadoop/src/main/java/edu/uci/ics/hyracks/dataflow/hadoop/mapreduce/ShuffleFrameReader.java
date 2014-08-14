@@ -52,7 +52,7 @@ public class ShuffleFrameReader implements IFrameReader {
         this.ctx = ctx;
         this.channelReader = channelReader;
         helper = new HadoopHelper(mConfig);
-        this.recordDescriptor = helper.getMapOutputRecordDescriptor();
+        this.recordDescriptor = helper.getMapOutputRecordDescriptor(ctx.getJobletContext().getClassLoader());
     }
 
     @Override
@@ -98,7 +98,7 @@ public class ShuffleFrameReader implements IFrameReader {
 
         FileReference outFile = ctx.createManagedWorkspaceFile(ShuffleFrameReader.class.getName() + ".run");
         int framesLimit = helper.getSortFrameLimit(ctx);
-        IBinaryComparatorFactory[] comparatorFactories = helper.getSortComparatorFactories();
+        IBinaryComparatorFactory[] comparatorFactories = helper.getSortComparatorFactories(ctx.getJobletContext().getClassLoader());
         IBinaryComparator[] comparators = new IBinaryComparator[comparatorFactories.length];
         for (int i = 0; i < comparatorFactories.length; ++i) {
             comparators[i] = comparatorFactories[i].createBinaryComparator();
@@ -145,6 +145,7 @@ public class ShuffleFrameReader implements IFrameReader {
             try {
                 file = ctx.createManagedWorkspaceFile(ShuffleFrameReader.class.getName() + ".run");
                 rfw = new RunFileWriter(file, ctx.getIOManager());
+                rfw.open();
             } catch (IOException e) {
                 throw new HyracksDataException(e);
             }

@@ -16,6 +16,7 @@ package edu.uci.ics.hyracks.dataflow.hadoop.data;
 
 import java.io.DataInputStream;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Partitioner;
 
@@ -31,12 +32,14 @@ public class HadoopNewPartitionerTuplePartitionComputerFactory<K extends Writabl
     private static final long serialVersionUID = 1L;
     private final ISerializerDeserializer<K> keyIO;
     private final ISerializerDeserializer<V> valueIO;
+    private final Configuration config;
 
     public HadoopNewPartitionerTuplePartitionComputerFactory(Class<? extends Partitioner<K, V>> klass,
-            ISerializerDeserializer<K> keyIO, ISerializerDeserializer<V> valueIO) {
-        super(klass);
+            ISerializerDeserializer<K> keyIO, ISerializerDeserializer<V> valueIO, Configuration conf) {
+        super(klass, conf);
         this.keyIO = keyIO;
         this.valueIO = valueIO;
+        this.config = conf;
     }
 
     @Override

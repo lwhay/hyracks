@@ -14,9 +14,18 @@
  */
 package edu.uci.ics.hyracks.dataflow.hadoop.mapreduce;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
+import org.apache.hadoop.io.RawComparator;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
+
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+
 public class HadoopTools {
     public static Object newInstance(String className) throws ClassNotFoundException, InstantiationException,
-            IllegalAccessException {
+            IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
         ClassLoader ctxCL = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(HadoopTools.class.getClassLoader());
@@ -27,7 +36,27 @@ public class HadoopTools {
         }
     }
 
-    public static Object newInstance(Class<?> clazz) throws InstantiationException, IllegalAccessException {
-        return clazz.newInstance();
+    public static Object newInstance(Class<?>clazz) throws InstantiationException, IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
+    	Constructor<?> c = clazz.getDeclaredConstructor();
+    	c.setAccessible(true);
+    	return c.newInstance();
+    }
+    
+    public static <T> T createInstance(Class<? extends T> klass) {
+        Constructor<? extends T> c = null;
+        try {
+            c = klass.getDeclaredConstructor();
+            c.setAccessible(true);
+            
+//            T inst = c.newInstance();
+//            if( inst instanceof WritableComparator)
+//                return (T) WritableComparator.get(klass.asSubclass(WritableComparable.class));
+//            else
+            
+            return c.newInstance();
+        } catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            e.printStackTrace();
+        }     
+        return null;
     }
 }

@@ -16,14 +16,21 @@ package edu.uci.ics.hyracks.dataflow.hadoop.data;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.util.ReflectionUtils;
 
 public class AbstractClassBasedDelegate<T> implements Serializable {
     private static final long serialVersionUID = 1L;
     private Class<? extends T> klass;
     protected transient T instance;
+    private Configuration config;
 
-    public AbstractClassBasedDelegate(Class<? extends T> klass) {
+    public AbstractClassBasedDelegate(Class<? extends T> klass, Configuration conf) {
         this.klass = klass;
+        this.config = conf;
         init();
     }
 
@@ -34,11 +41,29 @@ public class AbstractClassBasedDelegate<T> implements Serializable {
 
     private void init() {
         try {
-            instance = klass.newInstance();
-        } catch (InstantiationException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+//        	Constructor c = klass.getDeclaredConstructor();
+//        	System.out.println("[AbstractClassBasedDelegate][init] klass: " + c.toString());
+//        	c.setAccessible(true);
+//        	instance = (T) c.newInstance();
+        	
+        	instance = (T) ReflectionUtils.newInstance(klass, this.config);
+        	
+        	
+//            instance = klass.newInstance();
+//        } catch (InstantiationException e) {
+//            throw new RuntimeException(e);
+//        } catch (IllegalAccessException e) {
+//            throw new RuntimeException(e);
+//        } catch (NoSuchMethodException e) {
+//        	throw new RuntimeException(e);
+		} catch (SecurityException e) {
+			throw new RuntimeException(e);
+		} catch (IllegalArgumentException e) {
+			throw new RuntimeException(e);
+//		} catch (InvocationTargetException e) {
+//			Throwable cause = e.getCause();
+//			System.out.println("InvocationTargetException occurred. Cause: " + cause.getMessage());
+//			throw new RuntimeException(e);
+		}
     }
 }

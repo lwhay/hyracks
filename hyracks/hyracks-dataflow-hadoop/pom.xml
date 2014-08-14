@@ -37,6 +37,13 @@
     </plugins>
   </build>
   <dependencies>
+    <dependency>
+        <groupId>edu.uci.ics.hyracks</groupId>
+        <artifactId>hyracks-hdfs-0.23.1</artifactId>
+        <version>0.2.12-SNAPSHOT</version>
+        <type>jar</type>
+        <scope>compile</scope>
+    </dependency>
   	<dependency>
   		<groupId>edu.uci.ics.hyracks</groupId>
   		<artifactId>hyracks-api</artifactId>
@@ -48,13 +55,6 @@
   		<groupId>edu.uci.ics.hyracks</groupId>
   		<artifactId>hyracks-dataflow-common</artifactId>
   		<version>0.2.12-SNAPSHOT</version>
-  		<type>jar</type>
-  		<scope>compile</scope>
-  	</dependency>
-  	<dependency>
-  		<groupId>org.apache.hadoop</groupId>
-  		<artifactId>hadoop-core</artifactId>
-  		<version>0.20.2</version>
   		<type>jar</type>
   		<scope>compile</scope>
   	</dependency>
