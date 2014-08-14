@@ -45,11 +45,11 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.SerializingDataWriter;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.IHadoopClassFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.InputSplitsProxy;
+import edu.uci.ics.hyracks.dataflow.hadoop.util.MRContextUtil;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import edu.uci.ics.hyracks.dataflow.std.base.IOpenableDataWriterOperator;
 import edu.uci.ics.hyracks.dataflow.std.util.DeserializedOperatorNodePushable;
 import edu.uci.ics.hyracks.hdfs.ContextFactory;
-import edu.uci.ics.hyracks.dataflow.hadoop.util.MRContextUtil;
 
 public class HadoopMapperOperatorDescriptor<K1, V1, K2, V2> extends AbstractHadoopOperatorDescriptor {
 
@@ -255,15 +255,14 @@ public class HadoopMapperOperatorDescriptor<K1, V1, K2, V2> extends AbstractHado
                             return null;
                         }
 
-						@Override
-						public float getProgress() {
-							// TODO Auto-generated method stub
-							return 0;
-						}
+                        @Override
+                        public float getProgress() {
+                            // TODO Auto-generated method stub
+                            return 0;
+                        }
                     };;;
-                    context = new MRContextUtil().createMapContext(conf, new TaskAttemptID(),
-                            newReader, recordWriter, outputCommitter, statusReporter,
-                            (org.apache.hadoop.mapreduce.InputSplit) inputSplit);
+                    context = new MRContextUtil().createMapContext(conf, new TaskAttemptID(), newReader, recordWriter,
+                            outputCommitter, statusReporter, (org.apache.hadoop.mapreduce.InputSplit) inputSplit);
                     newReader.initialize((org.apache.hadoop.mapreduce.InputSplit) inputSplit, context);
                     ((org.apache.hadoop.mapreduce.Mapper) mapper).run(context);
                 } else {
@@ -369,8 +368,7 @@ public class HadoopMapperOperatorDescriptor<K1, V1, K2, V2> extends AbstractHado
             JobContext context = new ContextFactory().createJobContext(conf);
             org.apache.hadoop.mapreduce.InputFormat inputFormat = (org.apache.hadoop.mapreduce.InputFormat) ReflectionUtils
                     .newInstance(context.getInputFormatClass(), conf);
-            TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(conf,
-                    new TaskAttemptID());
+            TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(conf, new TaskAttemptID());
             return inputFormat.createRecordReader((org.apache.hadoop.mapreduce.InputSplit) inputSplit,
                     taskAttemptContext);
         } else {

@@ -53,7 +53,7 @@
   	</dependency>
   	<dependency>
 		<groupId>edu.uci.ics.hyracks</groupId>
-		<artifactId>hyracks-hdfs-0.23.1</artifactId>
+		<artifactId>hyracks-hdfs-2.x</artifactId>
 		<version>0.2.13-SNAPSHOT</version>
 		<type>jar</type>
 		<scope>compile</scope>
