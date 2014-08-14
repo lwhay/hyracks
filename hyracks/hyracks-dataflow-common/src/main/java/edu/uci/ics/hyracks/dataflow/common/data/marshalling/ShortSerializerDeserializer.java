@@ -32,16 +32,7 @@ public class ShortSerializerDeserializer implements ISerializerDeserializer<Shor
     @Override
     public Short deserialize(DataInput in) throws HyracksDataException {
         try {
-        	System.out.print(in.readShort());
             return in.readShort();
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
-        }
-    }
-
-    public void deserializePrintOnly(DataInput in) throws HyracksDataException {
-        try {
-        	System.out.print(in.readShort());
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
