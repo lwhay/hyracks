@@ -34,7 +34,8 @@ import edu.uci.ics.pregelix.example.utils.SerDeUtils;
  * @see org.apache.hadoop.io.WritableUtils#readVLong(DataInput)
  */
 @SuppressWarnings("rawtypes")
-public class VLongWritable extends org.apache.hadoop.io.VLongWritable implements WritableSizable, Pointable {
+public class VLongWritable extends org.apache.hadoop.io.VLongWritable implements WritableComparable, WritableSizable,
+        Pointable {
 
     private byte[] data = new byte[10];
     private int numBytes = -1;
