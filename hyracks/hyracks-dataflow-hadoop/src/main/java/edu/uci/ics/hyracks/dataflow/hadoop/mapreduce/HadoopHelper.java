@@ -104,9 +104,9 @@ public class HadoopHelper {
             Thread.currentThread().setContextClassLoader(config.getClassLoader());
             return new ContextFactory().createContext(config, taId);
         } catch (HyracksDataException e) {
-			e.printStackTrace();
-			throw new HyracksDataException(e);
-		} finally {
+            e.printStackTrace();
+            throw new HyracksDataException(e);
+        } finally {
             Thread.currentThread().setContextClassLoader(ctxCL);
         }
     }

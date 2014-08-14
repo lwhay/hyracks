@@ -48,12 +48,12 @@ import edu.uci.ics.hyracks.dataflow.hadoop.data.KeyComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.data.RawComparingComparatorFactory;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.DatatypeHelper;
 import edu.uci.ics.hyracks.dataflow.hadoop.util.IHadoopClassFactory;
+import edu.uci.ics.hyracks.dataflow.hadoop.util.MRContextUtil;
 import edu.uci.ics.hyracks.dataflow.std.base.IOpenableDataWriterOperator;
 import edu.uci.ics.hyracks.dataflow.std.group.DeserializedPreclusteredGroupOperator;
 import edu.uci.ics.hyracks.dataflow.std.group.IGroupAggregator;
 import edu.uci.ics.hyracks.dataflow.std.util.DeserializedOperatorNodePushable;
 import edu.uci.ics.hyracks.hdfs.ContextFactory;
-import edu.uci.ics.hyracks.dataflow.hadoop.util.MRContextUtil;
 
 public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHadoopOperatorDescriptor {
     private class ReducerAggregator implements IGroupAggregator {
@@ -95,9 +95,10 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
             @SuppressWarnings("unchecked")
             ReducerContext(org.apache.hadoop.mapreduce.Reducer reducer, JobConf conf) throws IOException,
                     InterruptedException, ClassNotFoundException {
-                ((org.apache.hadoop.mapreduce.lib.reduce.WrappedReducer) reducer).super( new MRContextUtil().createReduceContext(conf, new TaskAttemptID(), rawKeyValueIterator, null, null, null, null, null, null, Class
-                        .forName("org.apache.hadoop.io.NullWritable"), Class
-                        .forName("org.apache.hadoop.io.NullWritable")) );
+                ((org.apache.hadoop.mapreduce.lib.reduce.WrappedReducer) reducer).super(new MRContextUtil()
+                        .createReduceContext(conf, new TaskAttemptID(), rawKeyValueIterator, null, null, null, null,
+                                null, null, Class.forName("org.apache.hadoop.io.NullWritable"),
+                                Class.forName("org.apache.hadoop.io.NullWritable")));
             }
 
             public void setIterator(HadoopReducerOperatorDescriptor.ValueIterator iter) {
@@ -192,11 +193,11 @@ public class HadoopReducerOperatorDescriptor<K2, V2, K3, V3> extends AbstractHad
                     return null;
                 }
 
-				@Override
-				public float getProgress() {
-					// TODO Auto-generated method stub
-					return 0;
-				}
+                @Override
+                public float getProgress() {
+                    // TODO Auto-generated method stub
+                    return 0;
+                }
             };
         }
 

@@ -153,11 +153,11 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
 
             }
 
-			@Override
-			public float getProgress() {
-				// TODO Auto-generated method stub
-				return 0;
-			}
+            @Override
+            public float getProgress() {
+                // TODO Auto-generated method stub
+                return 0;
+            }
         };
     }
 
@@ -183,8 +183,7 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
                         JobContext context = new ContextFactory().createJobContext(conf);
                         org.apache.hadoop.mapreduce.InputFormat inputFormat = (org.apache.hadoop.mapreduce.InputFormat) ReflectionUtils
                                 .newInstance(context.getInputFormatClass(), conf);
-                        TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(
-                                jobConf, null);
+                        TaskAttemptContext taskAttemptContext = new ContextFactory().createContext(jobConf, null);
                         hadoopRecordReader = (RecordReader) inputFormat.createRecordReader(
                                 (org.apache.hadoop.mapreduce.InputSplit) inputSplit, taskAttemptContext);
                     } else {
@@ -228,7 +227,8 @@ public class HadoopReadOperatorDescriptor extends AbstractSingleActivityOperator
                                 FrameUtils.flushFrame(outBuffer, writer);
                                 appender.reset(outBuffer, true);
                                 if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                                    throw new HyracksDataException("Record size (" + tb.getSize() + ") larger than frame size (" + outBuffer.capacity() + ")");
+                                    throw new HyracksDataException("Record size (" + tb.getSize()
+                                            + ") larger than frame size (" + outBuffer.capacity() + ")");
                                 }
                             }
                         }
