@@ -44,6 +44,7 @@ public class TokenizeOperator extends AbstractLogicalOperator {
 	private final boolean isPartitioned;
 	// contains the type for each variable in the tokenizeVars
 	private final List<Object> tokenizeVarTypes;
+    private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
 
 	public TokenizeOperator(IDataSourceIndex<?, ?> dataSourceIndex,
 			List<Mutable<ILogicalExpression>> primaryKeyExprs,
@@ -178,4 +179,12 @@ public class TokenizeOperator extends AbstractLogicalOperator {
 		return tokenizeVarTypes;
 	}
 
+    public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
+        this.additionalFilteringExpressions = additionalFilteringExpressions;
+    }
+
+    public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
+        return additionalFilteringExpressions;
+    }
+    
 }

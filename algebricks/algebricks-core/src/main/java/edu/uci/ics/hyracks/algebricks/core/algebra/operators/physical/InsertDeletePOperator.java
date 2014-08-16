@@ -45,14 +45,25 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 @SuppressWarnings("rawtypes")
 public class InsertDeletePOperator extends AbstractPhysicalOperator {
 
-    private final LogicalVariable payload;
-    private final List<LogicalVariable> keys;
-    private final IDataSource<?> dataSource;
+//<<<<<<< HEAD
+//    private final LogicalVariable payload;
+//    private final List<LogicalVariable> keys;
+//    private final IDataSource<?> dataSource;
 
-    public InsertDeletePOperator(LogicalVariable payload, List<LogicalVariable> keys, IDataSource<?> dataSource) {
+//    public InsertDeletePOperator(LogicalVariable payload, List<LogicalVariable> keys, IDataSource<?> dataSource) {
+//=======
+    private LogicalVariable payload;
+    private List<LogicalVariable> keys;
+    private IDataSource<?> dataSource;
+    private final List<LogicalVariable> additionalFilteringKeys;
+
+    public InsertDeletePOperator(LogicalVariable payload, List<LogicalVariable> keys,
+            List<LogicalVariable> additionalFilteringKeys, IDataSource dataSource) {
+//>>>>>>> master
         this.payload = payload;
         this.keys = keys;
         this.dataSource = dataSource;
+        this.additionalFilteringKeys = additionalFilteringKeys;
     }
 
     @Override
@@ -94,10 +105,14 @@ public class InsertDeletePOperator extends AbstractPhysicalOperator {
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = null;
         if (insertDeleteOp.getOperation() == Kind.INSERT) {
             runtimeAndConstraints = mp.getInsertRuntime(dataSource, propagatedSchema, typeEnv, keys, payload,
-                    inputDesc, context, spec, false);
+//<<<<<<< HEAD
+//                    inputDesc, context, spec, false);
+//=======
+                    additionalFilteringKeys, inputDesc, context, spec, false);
+//>>>>>>> master
         } else {
             runtimeAndConstraints = mp.getDeleteRuntime(dataSource, propagatedSchema, typeEnv, keys, payload,
-                    inputDesc, context, spec);
+                    additionalFilteringKeys, inputDesc, context, spec);
         }
 
         builder.contributeHyracksOperator(insertDeleteOp, runtimeAndConstraints.first);
@@ -111,4 +126,8 @@ public class InsertDeletePOperator extends AbstractPhysicalOperator {
         return false;
     }
 
+    @Override
+    public boolean expensiveThanMaterialization() {
+        return false;
+    }
 }

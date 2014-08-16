@@ -43,11 +43,14 @@ public class WriteResultPOperator extends AbstractPhysicalOperator {
     private LogicalVariable payload;
     private List<LogicalVariable> keys;
     private IDataSource<?> dataSource;
+    private final List<LogicalVariable> additionalFilteringKeys;
 
-    public WriteResultPOperator(IDataSource<?> dataSource, LogicalVariable payload, List<LogicalVariable> keys) {
+    public WriteResultPOperator(IDataSource<?> dataSource, LogicalVariable payload, List<LogicalVariable> keys,
+            List<LogicalVariable> additionalFilteringKeys) {
         this.dataSource = dataSource;
         this.payload = payload;
         this.keys = keys;
+        this.additionalFilteringKeys = additionalFilteringKeys;
     }
 
     @Override
@@ -93,11 +96,16 @@ public class WriteResultPOperator extends AbstractPhysicalOperator {
 
         JobSpecification spec = builder.getJobSpec();
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getWriteResultRuntime(
-                dataSource, propagatedSchema, keys, payload, context, spec);
+                dataSource, propagatedSchema, keys, payload, additionalFilteringKeys, context, spec);
 
         builder.contributeHyracksOperator(writeResultOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
         ILogicalOperator src = writeResultOp.getInputs().get(0).getValue();
         builder.contributeGraphEdge(src, 0, writeResultOp, 0);
+    }
+
+    @Override
+    public boolean expensiveThanMaterialization() {
+        return false;
     }
 }

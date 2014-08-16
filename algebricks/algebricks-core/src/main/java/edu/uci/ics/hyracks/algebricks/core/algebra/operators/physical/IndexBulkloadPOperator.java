@@ -3,10 +3,13 @@ package edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang3.mutable.Mutable;
+
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -36,14 +39,17 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
 
     private final List<LogicalVariable> primaryKeys;
     private final List<LogicalVariable> secondaryKeys;
-//    private final List<LogicalVariable> tokenizeKeys;
+    private final List<LogicalVariable> additionalFilteringKeys;
+    private final Mutable<ILogicalExpression> filterExpr;
     private final IDataSourceIndex<?, ?> dataSourceIndex;
 
     public IndexBulkloadPOperator(List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
+    		List<LogicalVariable> additionalFilteringKeys, Mutable<ILogicalExpression> filterExpr, 
     		IDataSourceIndex<?, ?> dataSourceIndex) {
         this.primaryKeys = primaryKeys;
         this.secondaryKeys = secondaryKeys;
-//        this.tokenizeKeys = tokenizeKeys;
+        this.additionalFilteringKeys = additionalFilteringKeys;
+        this.filterExpr = filterExpr;
         this.dataSourceIndex = dataSourceIndex;
     }
 
@@ -98,8 +104,8 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
         RecordDescriptor inputDesc = JobGenHelper.mkRecordDescriptor(
                 context.getTypeEnvironment(op.getInputs().get(0).getValue()), inputSchemas[0], context);
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getIndexInsertRuntime(
-                dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys, null, inputDesc,
-                context, spec, true);
+                dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys, 
+                additionalFilteringKeys, null, inputDesc, context, spec, true);
         builder.contributeHyracksOperator(indexInsertDeleteOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
         ILogicalOperator src = indexInsertDeleteOp.getInputs().get(0).getValue();
@@ -110,5 +116,11 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
     public boolean isMicroOperator() {
         return false;
     }
+    
+    @Override
+    public boolean expensiveThanMaterialization() {
+        return false;
+    }
+    
 
 }

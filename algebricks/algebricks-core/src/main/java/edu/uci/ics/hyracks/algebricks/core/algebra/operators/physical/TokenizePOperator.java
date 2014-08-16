@@ -99,5 +99,9 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
     public boolean isMicroOperator() {
         return false;
     }
-
+    
+    @Override
+    public boolean expensiveThanMaterialization() {
+        return false;
+    }
 }

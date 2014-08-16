@@ -31,13 +31,12 @@ public class ExternalBTreeWithBuddyDataflowHelperFactory extends AbstractLSMInde
     private final int[] buddyBtreeFields;
     private int version;
 
-    public ExternalBTreeWithBuddyDataflowHelperFactory(
-            ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties,
-            ILSMOperationTrackerProvider opTrackerFactory, ILSMIOOperationSchedulerProvider ioSchedulerProvider,
-            ILSMIOOperationCallbackFactory ioOpCallbackFactory, double bloomFilterFalsePositiveRate,
-            int[] buddyBtreeFields, int version) {
-        super(null, mergePolicyFactory, mergePolicyProperties, opTrackerFactory,
-                ioSchedulerProvider, ioOpCallbackFactory, bloomFilterFalsePositiveRate);
+    public ExternalBTreeWithBuddyDataflowHelperFactory(ILSMMergePolicyFactory mergePolicyFactory,
+            Map<String, String> mergePolicyProperties, ILSMOperationTrackerProvider opTrackerFactory,
+            ILSMIOOperationSchedulerProvider ioSchedulerProvider, ILSMIOOperationCallbackFactory ioOpCallbackFactory,
+            double bloomFilterFalsePositiveRate, int[] buddyBtreeFields, int version) {
+        super(null, mergePolicyFactory, mergePolicyProperties, opTrackerFactory, ioSchedulerProvider,
+                ioOpCallbackFactory, bloomFilterFalsePositiveRate, null, null, null);
         this.buddyBtreeFields = buddyBtreeFields;
         this.version = version;
     }
@@ -46,7 +45,7 @@ public class ExternalBTreeWithBuddyDataflowHelperFactory extends AbstractLSMInde
     public IIndexDataflowHelper createIndexDataflowHelper(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition) {
         return new ExternalBTreeWithBuddyDataflowHelper(opDesc, ctx, partition, bloomFilterFalsePositiveRate,
-                mergePolicyFactory.createMergePolicy(mergePolicyProperties), opTrackerFactory,
+                mergePolicyFactory.createMergePolicy(mergePolicyProperties, ctx), opTrackerFactory,
                 ioSchedulerProvider.getIOScheduler(ctx), ioOpCallbackFactory, buddyBtreeFields, version);
     }
 

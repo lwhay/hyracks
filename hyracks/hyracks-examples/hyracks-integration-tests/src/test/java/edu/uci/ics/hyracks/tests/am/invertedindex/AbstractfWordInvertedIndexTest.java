@@ -237,7 +237,8 @@ public abstract class AbstractfWordInvertedIndexTest extends AbstractIntegration
         BTreeSearchOperatorDescriptor primaryBtreeSearchOp = new BTreeSearchOperatorDescriptor(spec, primaryRecDesc,
                 storageManager, lcManagerProvider, primaryFileSplitProvider, primaryTypeTraits,
                 primaryComparatorFactories, null, lowKeyFields, highKeyFields, true, true, btreeDataflowHelperFactory,
-                false, false, null, NoOpOperationCallbackFactory.INSTANCE);
+                false, false, null, NoOpOperationCallbackFactory.INSTANCE, null, null);
+
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, primaryBtreeSearchOp, NC1_ID);
         return primaryBtreeSearchOp;
     }
@@ -340,7 +341,8 @@ public abstract class AbstractfWordInvertedIndexTest extends AbstractIntegration
                 0, storageManager, btreeFileSplitProvider, lcManagerProvider, tokenTypeTraits,
                 tokenComparatorFactories, invListsTypeTraits, invListsComparatorFactories,
                 invertedIndexDataflowHelperFactory, tokenizerFactory, searchModifierFactory, invListsRecDesc, false,
-                false, null, NoOpOperationCallbackFactory.INSTANCE);
+                false, null, NoOpOperationCallbackFactory.INSTANCE, null, null);
+
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, invIndexSearchOp, NC1_ID);
         return invIndexSearchOp;
     }
