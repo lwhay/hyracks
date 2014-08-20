@@ -797,10 +797,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         public ILogicalOperator visitInsertDeleteOperator(InsertDeleteOperator op, Void arg) throws AlgebricksException {
             List<Mutable<ILogicalExpression>> newKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newKeyExpressions, op.getPrimaryKeyExpressions());
-//<<<<<<< HEAD
-//            return new InsertDeleteOperator(op.getDataSource(), deepCopyExpressionRef(op.getPayloadExpression()),
-//                    newKeyExpressions, op.getOperation(), op.isBulkload());
-//=======
             List<Mutable<ILogicalExpression>> newLSMComponentFilterExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newKeyExpressions, op.getAdditionalFilteringExpressions());
             InsertDeleteOperator insertDeleteOp = new InsertDeleteOperator(op.getDataSource(),
@@ -808,7 +804,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             insertDeleteOp.setAdditionalFilteringExpressions(newLSMComponentFilterExpressions);
             return insertDeleteOp;
         }
-//>>>>>>> master
 
         @Override
         public ILogicalOperator visitIndexInsertDeleteOperator(IndexInsertDeleteOperator op, Void arg)
@@ -817,14 +812,8 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             deepCopyExpressionRefs(newPrimaryKeyExpressions, op.getPrimaryKeyExpressions());
             List<Mutable<ILogicalExpression>> newSecondaryKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newSecondaryKeyExpressions, op.getSecondaryKeyExpressions());
-//            List<Mutable<ILogicalExpression>> newTokenizeKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
-//            deepCopyExpressionRefs(newTokenizeKeyExpressions, op.getTokenizeKeyExpressions());
             Mutable<ILogicalExpression> newFilterExpression = new MutableObject<ILogicalExpression>(
                     ((AbstractLogicalExpression) op.getFilterExpression()).cloneExpression());
-//<<<<<<< HEAD
-//            return new IndexInsertDeleteOperator(op.getDataSourceIndex(), newPrimaryKeyExpressions,
-//                    newSecondaryKeyExpressions, newFilterExpression, op.getOperation(), op.isBulkload());
-//=======
             List<Mutable<ILogicalExpression>> newLSMComponentFilterExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newLSMComponentFilterExpressions, op.getAdditionalFilteringExpressions());
             IndexInsertDeleteOperator indexInsertDeleteOp = new IndexInsertDeleteOperator(op.getDataSourceIndex(),
@@ -832,7 +821,6 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             indexInsertDeleteOp.setAdditionalFilteringExpressions(newLSMComponentFilterExpressions);
             return indexInsertDeleteOp;
                 }
-//>>>>>>> master
 
         @Override
         public ILogicalOperator visitTokenizeOperator(TokenizeOperator op, Void arg)
@@ -847,14 +835,11 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
                     ((AbstractLogicalExpression) op.getFilterExpression()).cloneExpression());
             List<Object> newTokenizeVarTypes = new ArrayList<Object>();
             deepCopyObjects(newTokenizeVarTypes, op.getTokenizeVarTypes());            
-            List<Mutable<ILogicalExpression>> newLSMComponentFilterExpressions = new ArrayList<Mutable<ILogicalExpression>>();
-            deepCopyExpressionRefs(newLSMComponentFilterExpressions, op.getAdditionalFilteringExpressions());
             
             TokenizeOperator tokenizeOp = new TokenizeOperator(op.getDataSourceIndex(),
 					newPrimaryKeyExpressions, newSecondaryKeyExpressions, 
 					newTokenizeVars, newFilterExpression, op.getOperation(),
 					op.isBulkload(), op.isPartitioned(), newTokenizeVarTypes);
-            tokenizeOp.setAdditionalFilteringExpressions(newLSMComponentFilterExpressions);
             return tokenizeOp;
         }
         

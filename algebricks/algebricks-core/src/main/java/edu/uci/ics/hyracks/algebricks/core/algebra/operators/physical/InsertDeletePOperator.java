@@ -45,13 +45,6 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 @SuppressWarnings("rawtypes")
 public class InsertDeletePOperator extends AbstractPhysicalOperator {
 
-//<<<<<<< HEAD
-//    private final LogicalVariable payload;
-//    private final List<LogicalVariable> keys;
-//    private final IDataSource<?> dataSource;
-
-//    public InsertDeletePOperator(LogicalVariable payload, List<LogicalVariable> keys, IDataSource<?> dataSource) {
-//=======
     private LogicalVariable payload;
     private List<LogicalVariable> keys;
     private IDataSource<?> dataSource;
@@ -59,7 +52,6 @@ public class InsertDeletePOperator extends AbstractPhysicalOperator {
 
     public InsertDeletePOperator(LogicalVariable payload, List<LogicalVariable> keys,
             List<LogicalVariable> additionalFilteringKeys, IDataSource dataSource) {
-//>>>>>>> master
         this.payload = payload;
         this.keys = keys;
         this.dataSource = dataSource;
@@ -105,11 +97,7 @@ public class InsertDeletePOperator extends AbstractPhysicalOperator {
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = null;
         if (insertDeleteOp.getOperation() == Kind.INSERT) {
             runtimeAndConstraints = mp.getInsertRuntime(dataSource, propagatedSchema, typeEnv, keys, payload,
-//<<<<<<< HEAD
-//                    inputDesc, context, spec, false);
-//=======
                     additionalFilteringKeys, inputDesc, context, spec, false);
-//>>>>>>> master
         } else {
             runtimeAndConstraints = mp.getDeleteRuntime(dataSource, propagatedSchema, typeEnv, keys, payload,
                     additionalFilteringKeys, inputDesc, context, spec);

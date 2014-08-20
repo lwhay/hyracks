@@ -199,7 +199,6 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
     }
 
     @Override
-//<<<<<<< HEAD
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getTokenizerRuntime(
             IDataSourceIndex<String, String> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
@@ -207,19 +206,7 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
             JobGenContext context, JobSpecification spec, boolean bulkload) throws AlgebricksException {
         // TODO Auto-generated method stub
         return null;    	
-    }
-//=======
-    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexDeleteRuntime(
-            IDataSourceIndex<String, String> dataSource, IOperatorSchema propagatedSchema,
-            IOperatorSchema[] inputSchemas, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
-            List<LogicalVariable> secondaryKeys, List<LogicalVariable> additionalNonKeyFields,
-            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, 
-            JobSpecification spec, boolean bulkload)
-            throws AlgebricksException {
-//>>>>>>> master
-        // TODO Auto-generated method stub
-        return null;    	
-    }
+    }  
     
     @Override
     public IFunctionInfo lookupFunction(FunctionIdentifier fid) {
@@ -229,13 +216,8 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
     @Override
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getInsertRuntime(IDataSource<String> dataSource,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> keys,
-//<<<<<<< HEAD
-//            LogicalVariable payLoadVar, RecordDescriptor recordDesc, JobGenContext context, JobSpecification jobSpec,
-//            boolean bulkload) throws AlgebricksException {
-//=======
             LogicalVariable payLoadVar, List<LogicalVariable> additionalNonKeyFields, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification jobSpec, boolean bulkload) throws AlgebricksException {
-//>>>>>>> master
         // TODO Auto-generated method stub
         return null;
     }

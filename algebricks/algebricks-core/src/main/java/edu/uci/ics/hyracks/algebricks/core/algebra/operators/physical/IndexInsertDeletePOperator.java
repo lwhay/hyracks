@@ -108,11 +108,7 @@ public class IndexInsertDeletePOperator extends AbstractPhysicalOperator {
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(insertDeleteOp);
         if (insertDeleteOp.getOperation() == Kind.INSERT) {
             runtimeAndConstraints = mp.getIndexInsertRuntime(dataSourceIndex, propagatedSchema, inputSchemas, typeEnv,
-//<<<<<<< HEAD
-//                    primaryKeys, secondaryKeys, filterExpr, inputDesc, context, spec, false);
-//=======
                     primaryKeys, secondaryKeys, additionalFilteringKeys, filterExpr, inputDesc, context, spec, false);
-//>>>>>>> master
         } else {
             runtimeAndConstraints = mp.getIndexDeleteRuntime(dataSourceIndex, propagatedSchema, inputSchemas, typeEnv,
                     primaryKeys, secondaryKeys, additionalFilteringKeys, filterExpr, inputDesc, context, spec);

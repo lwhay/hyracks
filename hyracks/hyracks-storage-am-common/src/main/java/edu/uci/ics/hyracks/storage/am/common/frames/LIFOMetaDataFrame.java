@@ -37,10 +37,10 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     protected static final int nextPageOff = levelOff + 1; // 21
     protected static final int validOff = nextPageOff + 4; // 25
 
-    // The additionalFilteringPageOff is used only for LSM indexes. 
+    // The additionalFilteringPageOff is used only for LSM indexes.
     // We store the page id that will be used to store the information of the the filter that is associated with a disk component.
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
-    private static final int additionalFilteringPageOff = validOff + 4; // 29 
+    private static final int additionalFilteringPageOff = validOff + 4; // 29
     protected static final int lsnOff = additionalFilteringPageOff + 4; // 33
 
     protected ICachedPage page = null;

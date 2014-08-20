@@ -114,11 +114,10 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
         return operation;
     }
 
-//<<<<<<< HEAD
     public boolean isBulkload() {
         return bulkload;
 	}
-//=======
+    
     public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
         this.additionalFilteringExpressions = additionalFilteringExpressions;
     }
@@ -126,6 +125,5 @@ public class InsertDeleteOperator extends AbstractLogicalOperator {
     public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
         return additionalFilteringExpressions;
     }
-//>>>>>>> master
 
 }

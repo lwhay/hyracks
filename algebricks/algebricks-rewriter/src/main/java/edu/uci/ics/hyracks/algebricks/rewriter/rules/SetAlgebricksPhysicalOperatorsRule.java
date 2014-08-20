@@ -283,17 +283,6 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                     break;
                 }
                 case INSERT_DELETE: {
-//                    InsertDeleteOperator insDelOp = (InsertDeleteOperator) op;
-//                    LogicalVariable payload;
-//                    List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
-//<<<<<<< HEAD
-//                    payload = getKeysAndLoad(insDelOp.getPayloadExpression(), insDelOp.getPrimaryKeyExpressions(), keys);
-//                    if (insDelOp.isBulkload()) {
-//                        op.setPhysicalOperator(new BulkloadPOperator(payload, keys, insDelOp.getDataSource()));
-//                    } else {
-//                        op.setPhysicalOperator(new InsertDeletePOperator(payload, keys, insDelOp.getDataSource()));
-//                    }
-//=======
                     InsertDeleteOperator opLoad = (InsertDeleteOperator) op;
                     LogicalVariable payload;
                     List<LogicalVariable> keys = new ArrayList<LogicalVariable>();
@@ -311,26 +300,8 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                                 .getDataSource()));
                     }
                     break;
-//>>>>>>> master
-//                    break;
                 }
                 case INDEX_INSERT_DELETE: {
-//                    IndexInsertDeleteOperator opInsDel = (IndexInsertDeleteOperator) op;
-//                    List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
-//                    List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
-//<<<<<<< HEAD
-//                    List<LogicalVariable> tokenizeKeys = new ArrayList<LogicalVariable>();
-//                    getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
-//                    getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
-//                    if (opInsDel.isBulkload()) {
-//                        op.setPhysicalOperator(new IndexBulkloadPOperator(primaryKeys, secondaryKeys, opInsDel
-//                                .getDataSourceIndex()));
-//                    } else {
-//                        op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys, opInsDel
-//                                .getFilterExpression(), opInsDel.getDataSourceIndex()));
-//                    }
-//                    break;
-                	
                     IndexInsertDeleteOperator opInsDel = (IndexInsertDeleteOperator) op;
                     List<LogicalVariable> primaryKeys = new ArrayList<LogicalVariable>();
                     List<LogicalVariable> secondaryKeys = new ArrayList<LogicalVariable>();
@@ -363,17 +334,6 @@ public class SetAlgebricksPhysicalOperatorsRule implements IAlgebraicRewriteRule
                         op.setPhysicalOperator(new TokenizePOperator(primaryKeys, secondaryKeys, opTokenize
                                 .getDataSourceIndex()));
                     }
-//=======
-//                    List<LogicalVariable> additionalFilteringKeys = null;
-//                    getKeys(opInsDel.getPrimaryKeyExpressions(), primaryKeys);
-//                    getKeys(opInsDel.getSecondaryKeyExpressions(), secondaryKeys);
-//                    if (opInsDel.getAdditionalFilteringExpressions() != null) {
-//                        additionalFilteringKeys = new ArrayList<LogicalVariable>();
-//                        getKeys(opInsDel.getAdditionalFilteringExpressions(), additionalFilteringKeys);
-//                    }
-//                    op.setPhysicalOperator(new IndexInsertDeletePOperator(primaryKeys, secondaryKeys,
-//                            additionalFilteringKeys, opInsDel.getFilterExpression(), opInsDel.getDataSourceIndex()));
-//>>>>>>> master
                     break;
                 }
                 case SINK: {

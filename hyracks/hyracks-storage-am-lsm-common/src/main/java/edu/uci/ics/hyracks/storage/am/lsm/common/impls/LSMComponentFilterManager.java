@@ -54,7 +54,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
         int fileId = treeIndex.getFileId();
         ITreeIndexMetaDataFrame metadataFrame = treeIndex.getFreePageManager().getMetaDataFrameFactory().createFrame();
 
-        // Read the filter page from the first metadata page of the tree. 
+        // Read the filter page from the first metadata page of the tree.
         // If it is has not been created yet, then create a new one.
         int metadataPageId = treeIndex.getFreePageManager().getFirstMetadataPage();
         ICachedPage metadataPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, metadataPageId), false);

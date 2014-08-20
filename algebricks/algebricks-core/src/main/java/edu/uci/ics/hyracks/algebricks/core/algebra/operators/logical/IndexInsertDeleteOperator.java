@@ -36,17 +36,14 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
 
     private final IDataSourceIndex<?, ?> dataSourceIndex;
     private final List<Mutable<ILogicalExpression>> primaryKeyExprs;
-    // This field contains new variable information - [token, number of token]
-    // or [token] from the TokenizeOperator. 
-    // The data only exists where a bulk load operation happens.
+    // In the bulk-load case on ngram or keyword index, 
+    // it contains [token, number of token] or [token]. 
+    // Otherwise, it contains secondary key information.
     private final List<Mutable<ILogicalExpression>> secondaryKeyExprs;
     private final Mutable<ILogicalExpression> filterExpr;
     private final Kind operation;
-//<<<<<<< HEAD
     private final boolean bulkload;
-//=======
     private List<Mutable<ILogicalExpression>> additionalFilteringExpressions;
-//>>>>>>> master
 
     public IndexInsertDeleteOperator(IDataSourceIndex<?, ?> dataSourceIndex,
             List<Mutable<ILogicalExpression>> primaryKeyExprs, List<Mutable<ILogicalExpression>> secondaryKeyExprs,
@@ -130,11 +127,10 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
         return operation;
     }
 
-//<<<<<<< HEAD
     public boolean isBulkload() {
         return bulkload;
     }
-//=======
+    
     public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
         this.additionalFilteringExpressions = additionalFilteringExpressions;
     }
@@ -142,6 +138,5 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     public List<Mutable<ILogicalExpression>> getAdditionalFilteringExpressions() {
         return additionalFilteringExpressions;
     }
-//>>>>>>> master
 
 }

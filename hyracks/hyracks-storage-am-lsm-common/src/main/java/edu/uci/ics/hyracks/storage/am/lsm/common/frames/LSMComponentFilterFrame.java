@@ -27,7 +27,7 @@ public class LSMComponentFilterFrame implements ILSMComponentFilterFrame {
 
     // This page consists of two tuples that represents the minimum and maximum tuples in an LSM component.
 
-    // A-one byte to indicate whether the filter tuples were set yet. 
+    // A-one byte to indicate whether the filter tuples were set yet.
     private static final int minTupleIsSetIndicatorOff = 0;
     private static final int maxTupleIsSetIndicatorOff = 1;
 

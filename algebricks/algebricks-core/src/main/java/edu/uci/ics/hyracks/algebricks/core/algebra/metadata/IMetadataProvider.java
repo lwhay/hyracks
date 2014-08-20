@@ -166,10 +166,6 @@ public interface IMetadataProvider<S, I> {
             List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification spec) throws AlgebricksException;
     
-//<<<<<<< HEAD
-//            ILogicalExpression filterExpr, RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec)
-//            throws AlgebricksException;
-    
     /**
      * Creates the TokenizeOperator for IndexInsertDeletePOperator, which tokenizes
      * secondary key into [token, number of token] pair.
