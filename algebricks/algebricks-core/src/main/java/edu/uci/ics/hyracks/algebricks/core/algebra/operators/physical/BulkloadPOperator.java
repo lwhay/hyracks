@@ -39,7 +39,7 @@ public class BulkloadPOperator extends AbstractPhysicalOperator {
     	   List<LogicalVariable> additionalFilteringKeys, IDataSource<?> dataSource) {
         this.payload = payload;
         this.primaryKeys = keys;
-        this.additionalFilteringKeys = keys;
+        this.additionalFilteringKeys = additionalFilteringKeys;
         this.dataSource = dataSource;
     }
 
