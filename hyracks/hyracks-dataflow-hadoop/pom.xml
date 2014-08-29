@@ -59,7 +59,7 @@
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.hadoop</groupIdId>
+			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-client</artifactId>
 			<type>jar</type>
 			<scope>compile</scope>
