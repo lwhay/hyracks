@@ -71,7 +71,7 @@ public class WordTupleParserFactory implements ITupleParserFactory {
             }
         };
     }
-
+    
     private static class WordCursor {
         private static final int INITIAL_BUFFER_SIZE = 4096;
         private static final int INCREMENT = 4096;

@@ -26,6 +26,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
@@ -209,7 +210,7 @@ public class JobBuilder implements IHyracksJobBuilder {
         Map<IConnectorDescriptor, TargetConstraint> tgtConstraints = new HashMap<IConnectorDescriptor, TargetConstraint>();
         for (ILogicalOperator exchg : connectors.keySet()) {
             ILogicalOperator inOp = inEdges.get(exchg).get(0);
-            ILogicalOperator outOp = outEdges.get(exchg).get(0);
+            ILogicalOperator outOp = outEdges.get(exchg).get(0); 
             IOperatorDescriptor inOpDesc = findOpDescForAlgebraicOp(inOp);
             IOperatorDescriptor outOpDesc = findOpDescForAlgebraicOp(outOp);
             Pair<IConnectorDescriptor, TargetConstraint> connPair = connectors.get(exchg);

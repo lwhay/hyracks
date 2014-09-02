@@ -70,6 +70,14 @@ public abstract class AbstractPhysicalOperator implements IPhysicalOperator {
         return new PhysicalRequirements(req, IPartitioningRequirementsCoordinator.NO_COORDINATION);
     }
 
+    protected PhysicalRequirements emptyUnaryRequirements(int numberOfChildren) {
+    	StructuralPropertiesVector[] req = new StructuralPropertiesVector[numberOfChildren];
+    	for (int i=0; i<numberOfChildren; i++) {
+    		req[i] = StructuralPropertiesVector.EMPTY_PROPERTIES_VECTOR; 
+    	}
+        return new PhysicalRequirements(req, IPartitioningRequirementsCoordinator.NO_COORDINATION);
+    }
+    
     @Override
     public void disableJobGenBelowMe() {
         this.disableJobGenBelow = true;
