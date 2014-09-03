@@ -112,7 +112,7 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     }
 
     public String getIndexName() {
-    	return dataSourceIndex.getId().toString();
+        return dataSourceIndex.getId().toString();
     }
 
     public List<Mutable<ILogicalExpression>> getSecondaryKeyExpressions() {
