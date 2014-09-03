@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,158 +35,158 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokeni
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IToken;
 
 public class BinaryTokenizerOperatorNodePushable extends
-		AbstractUnaryInputUnaryOutputOperatorNodePushable {
+        AbstractUnaryInputUnaryOutputOperatorNodePushable {
 
-	private final IHyracksTaskContext ctx;
-	private final IBinaryTokenizer tokenizer;
-	private final int docField;
-	private final int[] keyFields;
-	private final boolean addNumTokensKey;
-	private final boolean writeKeyFieldsFirst;
-	private final RecordDescriptor inputRecDesc;
-	private final RecordDescriptor outputRecDesc;
+    private final IHyracksTaskContext ctx;
+    private final IBinaryTokenizer tokenizer;
+    private final int docField;
+    private final int[] keyFields;
+    private final boolean addNumTokensKey;
+    private final boolean writeKeyFieldsFirst;
+    private final RecordDescriptor inputRecDesc;
+    private final RecordDescriptor outputRecDesc;
 
-	private FrameTupleAccessor accessor;
-	private ArrayTupleBuilder builder;
-	private GrowableArray builderData;
-	private FrameTupleAppender appender;
-	private ByteBuffer writeBuffer;
+    private FrameTupleAccessor accessor;
+    private ArrayTupleBuilder builder;
+    private GrowableArray builderData;
+    private FrameTupleAppender appender;
+    private ByteBuffer writeBuffer;
 
-	public BinaryTokenizerOperatorNodePushable(IHyracksTaskContext ctx,
-			RecordDescriptor inputRecDesc, RecordDescriptor outputRecDesc,
-			IBinaryTokenizer tokenizer, int docField, int[] keyFields,
-			boolean addNumTokensKey, boolean writeKeyFieldsFirst) {
-		this.ctx = ctx;
-		this.tokenizer = tokenizer;
-		this.docField = docField;
-		this.keyFields = keyFields;
-		this.addNumTokensKey = addNumTokensKey;
-		this.inputRecDesc = inputRecDesc;
-		this.outputRecDesc = outputRecDesc;
-		this.writeKeyFieldsFirst = writeKeyFieldsFirst;
-	}
+    public BinaryTokenizerOperatorNodePushable(IHyracksTaskContext ctx,
+            RecordDescriptor inputRecDesc, RecordDescriptor outputRecDesc,
+            IBinaryTokenizer tokenizer, int docField, int[] keyFields,
+            boolean addNumTokensKey, boolean writeKeyFieldsFirst) {
+        this.ctx = ctx;
+        this.tokenizer = tokenizer;
+        this.docField = docField;
+        this.keyFields = keyFields;
+        this.addNumTokensKey = addNumTokensKey;
+        this.inputRecDesc = inputRecDesc;
+        this.outputRecDesc = outputRecDesc;
+        this.writeKeyFieldsFirst = writeKeyFieldsFirst;
+    }
 
-	@Override
-	public void open() throws HyracksDataException {
-		accessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecDesc);
-		writeBuffer = ctx.allocateFrame();
-		builder = new ArrayTupleBuilder(outputRecDesc.getFieldCount());
-		builderData = builder.getFieldData();
-		appender = new FrameTupleAppender(ctx.getFrameSize());
-		appender.reset(writeBuffer, true);
-		writer.open();
-	}
+    @Override
+    public void open() throws HyracksDataException {
+        accessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecDesc);
+        writeBuffer = ctx.allocateFrame();
+        builder = new ArrayTupleBuilder(outputRecDesc.getFieldCount());
+        builderData = builder.getFieldData();
+        appender = new FrameTupleAppender(ctx.getFrameSize());
+        appender.reset(writeBuffer, true);
+        writer.open();
+    }
 
-	@Override
-	public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-		accessor.reset(buffer);
-		int tupleCount = accessor.getTupleCount();
+    @Override
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        accessor.reset(buffer);
+        int tupleCount = accessor.getTupleCount();
 
-		for (int i = 0; i < tupleCount; i++) {
-			short numTokens = 0;
-			if (addNumTokensKey) {
-				// Run through the tokens to get the total number of tokens.
-				tokenizer.reset(
-						accessor.getBuffer().array(),
-						accessor.getTupleStartOffset(i)
-								+ accessor.getFieldSlotsLength()
-								+ accessor.getFieldStartOffset(i, docField),
-						accessor.getFieldLength(i, docField));
-				while (tokenizer.hasNext()) {
-					tokenizer.next();
-					numTokens++;
-				}
-			}
+        for (int i = 0; i < tupleCount; i++) {
+            short numTokens = 0;
+            if (addNumTokensKey) {
+                // Run through the tokens to get the total number of tokens.
+                tokenizer.reset(
+                        accessor.getBuffer().array(),
+                        accessor.getTupleStartOffset(i)
+                                + accessor.getFieldSlotsLength()
+                                + accessor.getFieldStartOffset(i, docField),
+                        accessor.getFieldLength(i, docField));
+                while (tokenizer.hasNext()) {
+                    tokenizer.next();
+                    numTokens++;
+                }
+            }
 
-			tokenizer.reset(
-					accessor.getBuffer().array(),
-					accessor.getTupleStartOffset(i)
-							+ accessor.getFieldSlotsLength()
-							+ accessor.getFieldStartOffset(i, docField),
-					accessor.getFieldLength(i, docField));
+            tokenizer.reset(
+                    accessor.getBuffer().array(),
+                    accessor.getTupleStartOffset(i)
+                            + accessor.getFieldSlotsLength()
+                            + accessor.getFieldStartOffset(i, docField),
+                    accessor.getFieldLength(i, docField));
 
-			// Write token and data into frame by following the order specified
-			// in the writeKeyFieldsFirst field.
-			while (tokenizer.hasNext()) {
+            // Write token and data into frame by following the order specified
+            // in the writeKeyFieldsFirst field.
+            while (tokenizer.hasNext()) {
 
-				tokenizer.next();
+                tokenizer.next();
 
-				builder.reset();
+                builder.reset();
 
-				// Writing Order: token, number of token, keyfield1 ... n
-				if (!writeKeyFieldsFirst) {
-					try {
-						IToken token = tokenizer.getToken();
-						token.serializeToken(builderData);
+                // Writing Order: token, number of token, keyfield1 ... n
+                if (!writeKeyFieldsFirst) {
+                    try {
+                        IToken token = tokenizer.getToken();
+                        token.serializeToken(builderData);
 
-						builder.addFieldEndOffset();
-						// Add number of tokens if requested.
-						if (addNumTokensKey) {
-							builder.getDataOutput().writeShort(numTokens);
-							builder.addFieldEndOffset();
-						}
-					} catch (IOException e) {
-						throw new HyracksDataException(e.getMessage());
-					}
+                        builder.addFieldEndOffset();
+                        // Add number of tokens if requested.
+                        if (addNumTokensKey) {
+                            builder.getDataOutput().writeShort(numTokens);
+                            builder.addFieldEndOffset();
+                        }
+                    } catch (IOException e) {
+                        throw new HyracksDataException(e.getMessage());
+                    }
 
-					for (int k = 0; k < keyFields.length; k++) {
-						builder.addField(accessor, i, keyFields[k]);
-					}
+                    for (int k = 0; k < keyFields.length; k++) {
+                        builder.addField(accessor, i, keyFields[k]);
+                    }
 
-				}
-				// Writing Order: keyfield1 ... n, token, number of token
-				else {
+                }
+                // Writing Order: keyfield1 ... n, token, number of token
+                else {
 
-					for (int k = 0; k < keyFields.length; k++) {
-						builder.addField(accessor, i, keyFields[k]);
-					}
+                    for (int k = 0; k < keyFields.length; k++) {
+                        builder.addField(accessor, i, keyFields[k]);
+                    }
 
-					try {
-						IToken token = tokenizer.getToken();
-						token.serializeToken(builderData);
+                    try {
+                        IToken token = tokenizer.getToken();
+                        token.serializeToken(builderData);
 
-						builder.addFieldEndOffset();
-						// Add number of tokens if requested.
-						if (addNumTokensKey) {
-							builder.getDataOutput().writeShort(numTokens);
-							builder.addFieldEndOffset();
-						}
-					} catch (IOException e) {
-						throw new HyracksDataException(e.getMessage());
-					}
+                        builder.addFieldEndOffset();
+                        // Add number of tokens if requested.
+                        if (addNumTokensKey) {
+                            builder.getDataOutput().writeShort(numTokens);
+                            builder.addFieldEndOffset();
+                        }
+                    } catch (IOException e) {
+                        throw new HyracksDataException(e.getMessage());
+                    }
 
-				}
+                }
 
-				if (!appender.append(builder.getFieldEndOffsets(),
-						builder.getByteArray(), 0, builder.getSize())) {
-					FrameUtils.flushFrame(writeBuffer, writer);
-					appender.reset(writeBuffer, true);
+                if (!appender.append(builder.getFieldEndOffsets(),
+                        builder.getByteArray(), 0, builder.getSize())) {
+                    FrameUtils.flushFrame(writeBuffer, writer);
+                    appender.reset(writeBuffer, true);
 
-					if (!appender.append(builder.getFieldEndOffsets(),
-							builder.getByteArray(), 0, builder.getSize())) {
-						throw new HyracksDataException("Record size ("
-								+ builder.getSize()
-								+ ") larger than frame size ("
-								+ appender.getBuffer().capacity() + ")");
-					}
-				}
+                    if (!appender.append(builder.getFieldEndOffsets(),
+                            builder.getByteArray(), 0, builder.getSize())) {
+                        throw new HyracksDataException("Record size ("
+                                + builder.getSize()
+                                + ") larger than frame size ("
+                                + appender.getBuffer().capacity() + ")");
+                    }
+                }
 
-			}
+            }
 
-		}
+        }
 
-	}
+    }
 
-	@Override
-	public void close() throws HyracksDataException {
-		if (appender.getTupleCount() > 0) {
-			FrameUtils.flushFrame(writeBuffer, writer);
-		}
-		writer.close();
-	}
+    @Override
+    public void close() throws HyracksDataException {
+        if (appender.getTupleCount() > 0) {
+            FrameUtils.flushFrame(writeBuffer, writer);
+        }
+        writer.close();
+    }
 
-	@Override
-	public void fail() throws HyracksDataException {
-		writer.fail();
-	}
+    @Override
+    public void fail() throws HyracksDataException {
+        writer.fail();
+    }
 }

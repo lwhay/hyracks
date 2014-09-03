@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -474,9 +474,9 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
         AbstractLogicalOperator aop = (AbstractLogicalOperator) arg;
         if (aop.getOperatorTag() != LogicalOperatorTag.TOKENIZE)
             return Boolean.FALSE;
-        TokenizeOperator insertOpArg = (TokenizeOperator) copyAndSubstituteVar(op, arg);
-        boolean isomorphic = VariableUtilities.varListEqualUnordered(op.getSchema(), insertOpArg.getSchema());
-        if (!op.getDataSourceIndex().equals(insertOpArg.getDataSourceIndex()))
+        TokenizeOperator tokenizeOpArg = (TokenizeOperator) copyAndSubstituteVar(op, arg);
+        boolean isomorphic = VariableUtilities.varListEqualUnordered(op.getSchema(), tokenizeOpArg.getSchema());
+        if (!op.getDataSourceIndex().equals(tokenizeOpArg.getDataSourceIndex()))
             isomorphic = false;
         return isomorphic;
     }
@@ -830,20 +830,20 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             List<Mutable<ILogicalExpression>> newSecondaryKeyExpressions = new ArrayList<Mutable<ILogicalExpression>>();
             deepCopyExpressionRefs(newSecondaryKeyExpressions, op.getSecondaryKeyExpressions());
             List<LogicalVariable> newTokenizeVars = new ArrayList<LogicalVariable>();
-            deepCopyVars(newTokenizeVars, op.getTokenizeVars());            
+            deepCopyVars(newTokenizeVars, op.getTokenizeVars());
             Mutable<ILogicalExpression> newFilterExpression = new MutableObject<ILogicalExpression>(
                     ((AbstractLogicalExpression) op.getFilterExpression()).cloneExpression());
             List<Object> newTokenizeVarTypes = new ArrayList<Object>();
-            deepCopyObjects(newTokenizeVarTypes, op.getTokenizeVarTypes());            
-            
+            deepCopyObjects(newTokenizeVarTypes, op.getTokenizeVarTypes());
+
             TokenizeOperator tokenizeOp = new TokenizeOperator(op.getDataSourceIndex(),
-					newPrimaryKeyExpressions, newSecondaryKeyExpressions, 
-					newTokenizeVars, newFilterExpression, op.getOperation(),
-					op.isBulkload(), op.isPartitioned(), newTokenizeVarTypes);
+                    newPrimaryKeyExpressions, newSecondaryKeyExpressions,
+                    newTokenizeVars, newFilterExpression, op.getOperation(),
+                    op.isBulkload(), op.isPartitioned(), newTokenizeVarTypes);
             return tokenizeOp;
         }
-        
-        
+
+
         @Override
         public ILogicalOperator visitSinkOperator(SinkOperator op, Void arg) throws AlgebricksException {
             return new SinkOperator();
@@ -872,7 +872,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
                 newObjs.add(oldObj);
             return newObjs;
         }
-        
+
         private List<Pair<IOrder, Mutable<ILogicalExpression>>> deepCopyOrderAndExpression(
                 List<Pair<IOrder, Mutable<ILogicalExpression>>> ordersAndExprs) {
             List<Pair<IOrder, Mutable<ILogicalExpression>>> newOrdersAndExprs = new ArrayList<Pair<IOrder, Mutable<ILogicalExpression>>>();

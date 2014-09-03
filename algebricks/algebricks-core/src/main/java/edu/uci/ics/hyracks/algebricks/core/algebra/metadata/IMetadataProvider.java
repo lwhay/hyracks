@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -63,13 +63,8 @@ public interface IMetadataProvider<S, I> {
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getInsertRuntime(IDataSource<S> dataSource,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> keys,
-//<<<<<<< HEAD
-//            LogicalVariable payLoadVar, RecordDescriptor recordDesc, JobGenContext context, JobSpecification jobSpec,
-//            boolean bulkload) throws AlgebricksException;
-//=======
             LogicalVariable payLoadVar, List<LogicalVariable> additionalNonKeyFields, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification jobSpec, boolean bulkload) throws AlgebricksException;
-//>>>>>>> master
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getDeleteRuntime(IDataSource<S> dataSource,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> keys,
@@ -79,7 +74,7 @@ public interface IMetadataProvider<S, I> {
     /**
      * Creates the insert runtime of IndexInsertDeletePOperator, which models
      * insert/delete operations into a secondary index.
-     * 
+     *
      * @param dataSource
      *            Target secondary index.
      * @param propagatedSchema
@@ -109,28 +104,16 @@ public interface IMetadataProvider<S, I> {
      *         A Hyracks IOperatorDescriptor and its partition constraint.
      * @throws AlgebricksException
      */
-//<<<<<<< HEAD
-//	public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
-//			IDataSourceIndex<I, S> dataSource,
-//			IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
-//			IVariableTypeEnvironment typeEnv,
-//			List<LogicalVariable> primaryKeys,
-//			List<LogicalVariable> secondaryKeys,
-//			ILogicalExpression filterExpr,
-//			RecordDescriptor recordDesc, JobGenContext context,
-//			JobSpecification spec, boolean bulkload) throws AlgebricksException;
-//=======
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getIndexInsertRuntime(
             IDataSourceIndex<I, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
             List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification spec, boolean bulkload) throws AlgebricksException;
-//>>>>>>> master
 
     /**
      * Creates the delete runtime of IndexInsertDeletePOperator, which models
      * insert/delete operations into a secondary index.
-     * 
+     *
      * @param dataSource
      *            Target secondary index.
      * @param propagatedSchema
@@ -165,11 +148,12 @@ public interface IMetadataProvider<S, I> {
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
             List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification spec) throws AlgebricksException;
-    
+
     /**
      * Creates the TokenizeOperator for IndexInsertDeletePOperator, which tokenizes
-     * secondary key into [token, number of token] pair.
-     * 
+     * secondary key into [token, number of token] pair in a length-partitioned index.
+     * In case of non length-partitioned index, it tokenizes secondary key into [token].
+     *
      * @param dataSource
      *            Target secondary index.
      * @param propagatedSchema
@@ -198,14 +182,9 @@ public interface IMetadataProvider<S, I> {
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getTokenizerRuntime(
             IDataSourceIndex<I, S> dataSource, IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas,
             IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-            ILogicalExpression filterExpr, RecordDescriptor recordDesc, 
+            ILogicalExpression filterExpr, RecordDescriptor recordDesc,
             JobGenContext context, JobSpecification spec, boolean bulkload) throws AlgebricksException;
-    
-//=======
-//            List<LogicalVariable> additionalNonKeyFields, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
-//            JobGenContext context, JobSpecification spec) throws AlgebricksException;
-//
-//>>>>>>> master
+
     public IDataSourceIndex<I, S> findDataSourceIndex(I indexId, S dataSourceId) throws AlgebricksException;
 
     public IFunctionInfo lookupFunction(FunctionIdentifier fid);

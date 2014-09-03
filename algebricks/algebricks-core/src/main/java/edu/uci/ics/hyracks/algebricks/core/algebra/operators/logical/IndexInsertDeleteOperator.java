@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,8 +36,8 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
 
     private final IDataSourceIndex<?, ?> dataSourceIndex;
     private final List<Mutable<ILogicalExpression>> primaryKeyExprs;
-    // In the bulk-load case on ngram or keyword index, 
-    // it contains [token, number of token] or [token]. 
+    // In the bulk-load case on ngram or keyword index,
+    // it contains [token, number of token] or [token].
     // Otherwise, it contains secondary key information.
     private final List<Mutable<ILogicalExpression>> secondaryKeyExprs;
     private final Mutable<ILogicalExpression> filterExpr;
@@ -110,15 +110,15 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     public IDataSourceIndex<?, ?> getDataSourceIndex() {
         return dataSourceIndex;
     }
-    
+
     public String getIndexName() {
     	return dataSourceIndex.getId().toString();
     }
-    
+
     public List<Mutable<ILogicalExpression>> getSecondaryKeyExpressions() {
         return secondaryKeyExprs;
     }
-    
+
     public Mutable<ILogicalExpression> getFilterExpression() {
         return filterExpr;
     }
@@ -130,7 +130,7 @@ public class IndexInsertDeleteOperator extends AbstractLogicalOperator {
     public boolean isBulkload() {
         return bulkload;
     }
-    
+
     public void setAdditionalFilteringExpressions(List<Mutable<ILogicalExpression>> additionalFilteringExpressions) {
         this.additionalFilteringExpressions = additionalFilteringExpressions;
     }

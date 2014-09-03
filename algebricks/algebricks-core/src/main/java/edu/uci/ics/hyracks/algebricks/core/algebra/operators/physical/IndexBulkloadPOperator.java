@@ -44,8 +44,8 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
     private final IDataSourceIndex<?, ?> dataSourceIndex;
 
     public IndexBulkloadPOperator(List<LogicalVariable> primaryKeys, List<LogicalVariable> secondaryKeys,
-    		List<LogicalVariable> additionalFilteringKeys, Mutable<ILogicalExpression> filterExpr, 
-    		IDataSourceIndex<?, ?> dataSourceIndex) {
+            List<LogicalVariable> additionalFilteringKeys, Mutable<ILogicalExpression> filterExpr,
+            IDataSourceIndex<?, ?> dataSourceIndex) {
         this.primaryKeys = primaryKeys;
         this.secondaryKeys = secondaryKeys;
         this.additionalFilteringKeys = additionalFilteringKeys;
@@ -70,13 +70,13 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
         // Data needs to be sorted based on the [token, number of token, PK]
         // OR [token, PK] if the index is not partitioned
         for (LogicalVariable skVar : secondaryKeys) {
-			localProperties.add(new LocalOrderProperty(new OrderColumn(skVar,
-					OrderKind.ASC)));
-		}
+            localProperties.add(new LocalOrderProperty(new OrderColumn(skVar,
+                    OrderKind.ASC)));
+        }
         for (LogicalVariable pkVar : primaryKeys) {
-			localProperties.add(new LocalOrderProperty(new OrderColumn(pkVar,
-					OrderKind.ASC)));
-		}
+            localProperties.add(new LocalOrderProperty(new OrderColumn(pkVar,
+                    OrderKind.ASC)));
+        }
         StructuralPropertiesVector spv = new StructuralPropertiesVector(physicalProps.getPartitioningProperty(),
                 localProperties);
         return new PhysicalRequirements(new IPhysicalPropertiesVector[] { spv },
@@ -104,7 +104,7 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
         RecordDescriptor inputDesc = JobGenHelper.mkRecordDescriptor(
                 context.getTypeEnvironment(op.getInputs().get(0).getValue()), inputSchemas[0], context);
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getIndexInsertRuntime(
-                dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys, 
+                dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys,
                 additionalFilteringKeys, null, inputDesc, context, spec, true);
         builder.contributeHyracksOperator(indexInsertDeleteOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
@@ -116,11 +116,11 @@ public class IndexBulkloadPOperator extends AbstractPhysicalOperator {
     public boolean isMicroOperator() {
         return false;
     }
-    
+
     @Override
     public boolean expensiveThanMaterialization() {
         return false;
     }
-    
+
 
 }

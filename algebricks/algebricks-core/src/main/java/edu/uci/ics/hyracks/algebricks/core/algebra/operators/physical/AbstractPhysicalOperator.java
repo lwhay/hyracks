@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -71,13 +71,13 @@ public abstract class AbstractPhysicalOperator implements IPhysicalOperator {
     }
 
     protected PhysicalRequirements emptyUnaryRequirements(int numberOfChildren) {
-    	StructuralPropertiesVector[] req = new StructuralPropertiesVector[numberOfChildren];
-    	for (int i=0; i<numberOfChildren; i++) {
-    		req[i] = StructuralPropertiesVector.EMPTY_PROPERTIES_VECTOR; 
-    	}
+        StructuralPropertiesVector[] req = new StructuralPropertiesVector[numberOfChildren];
+        for (int i = 0; i < numberOfChildren; i++) {
+            req[i] = StructuralPropertiesVector.EMPTY_PROPERTIES_VECTOR;
+        }
         return new PhysicalRequirements(req, IPartitioningRequirementsCoordinator.NO_COORDINATION);
     }
-    
+
     @Override
     public void disableJobGenBelowMe() {
         this.disableJobGenBelow = true;

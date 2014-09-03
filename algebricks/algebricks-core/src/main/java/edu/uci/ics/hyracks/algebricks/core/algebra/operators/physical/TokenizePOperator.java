@@ -31,6 +31,7 @@ import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenHelper;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
 public class TokenizePOperator extends AbstractPhysicalOperator {
@@ -78,8 +79,8 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
             IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
         TokenizeOperator TokenizeOp = (TokenizeOperator) op;
-        assert TokenizeOp.getOperation() == Kind.INSERT;
-        assert TokenizeOp.isBulkload();
+        if (TokenizeOp.getOperation() != Kind.INSERT || !TokenizeOp.isBulkload())
+            throw new AlgebricksException("Tokenize Operator only works when bulk-loading data.");
 
         IMetadataProvider mp = context.getMetadataProvider();
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(op);
@@ -99,7 +100,7 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
     public boolean isMicroOperator() {
         return false;
     }
-    
+
     @Override
     public boolean expensiveThanMaterialization() {
         return false;

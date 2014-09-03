@@ -35,8 +35,8 @@ public class BulkloadPOperator extends AbstractPhysicalOperator {
     private final List<LogicalVariable> additionalFilteringKeys;
     private final IDataSource<?> dataSource;
 
-    public BulkloadPOperator(LogicalVariable payload, List<LogicalVariable> keys, 
-    	   List<LogicalVariable> additionalFilteringKeys, IDataSource<?> dataSource) {
+    public BulkloadPOperator(LogicalVariable payload, List<LogicalVariable> keys,
+           List<LogicalVariable> additionalFilteringKeys, IDataSource<?> dataSource) {
         this.payload = payload;
         this.primaryKeys = keys;
         this.additionalFilteringKeys = additionalFilteringKeys;
@@ -83,7 +83,7 @@ public class BulkloadPOperator extends AbstractPhysicalOperator {
         RecordDescriptor inputDesc = JobGenHelper.mkRecordDescriptor(
                 context.getTypeEnvironment(op.getInputs().get(0).getValue()), inputSchemas[0], context);
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getInsertRuntime(
-                dataSource, propagatedSchema, typeEnv, primaryKeys, payload, additionalFilteringKeys, 
+                dataSource, propagatedSchema, typeEnv, primaryKeys, payload, additionalFilteringKeys,
                 inputDesc, context, spec, true);
         builder.contributeHyracksOperator(insertDeleteOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
@@ -95,11 +95,11 @@ public class BulkloadPOperator extends AbstractPhysicalOperator {
     public boolean isMicroOperator() {
         return false;
     }
-    
+
     @Override
     public boolean expensiveThanMaterialization() {
         return false;
     }
-    
+
 
 }
