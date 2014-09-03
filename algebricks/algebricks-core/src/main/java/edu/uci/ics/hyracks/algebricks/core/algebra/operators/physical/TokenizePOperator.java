@@ -16,22 +16,15 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IDataSourceIndex;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IMetadataProvider;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator.Kind;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder.OrderKind;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.properties.ILocalStructuralProperty;
-import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPartitioningRequirementsCoordinator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.IPhysicalPropertiesVector;
-import edu.uci.ics.hyracks.algebricks.core.algebra.properties.LocalOrderProperty;
-import edu.uci.ics.hyracks.algebricks.core.algebra.properties.OrderColumn;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.PhysicalRequirements;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.StructuralPropertiesVector;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenContext;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.JobGenHelper;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
-import edu.uci.ics.hyracks.api.exceptions.HyracksException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
 public class TokenizePOperator extends AbstractPhysicalOperator {
@@ -55,16 +48,7 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
     @Override
     public PhysicalRequirements getRequiredPropertiesForChildren(ILogicalOperator op,
             IPhysicalPropertiesVector reqdByParent) {
-        List<LogicalVariable> scanVariables = new ArrayList<>();
-        scanVariables.addAll(primaryKeys);
-        scanVariables.add(new LogicalVariable(-1));
-        IPhysicalPropertiesVector physicalProps = dataSourceIndex.getDataSource().getPropertiesProvider()
-                .computePropertiesVector(scanVariables);
-        List<ILocalStructuralProperty> localProperties = new ArrayList<>();
-        StructuralPropertiesVector spv = new StructuralPropertiesVector(physicalProps.getPartitioningProperty(),
-                localProperties);
-        return new PhysicalRequirements(new IPhysicalPropertiesVector[] { spv },
-                IPartitioningRequirementsCoordinator.NO_COORDINATION);
+        return emptyUnaryRequirements();
     }
 
     @Override
@@ -78,9 +62,10 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
     public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
             IOperatorSchema propagatedSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
             throws AlgebricksException {
-        TokenizeOperator TokenizeOp = (TokenizeOperator) op;
-        if (TokenizeOp.getOperation() != Kind.INSERT || !TokenizeOp.isBulkload())
+        TokenizeOperator tokenizeOp = (TokenizeOperator) op;
+        if (tokenizeOp.getOperation() != Kind.INSERT || !tokenizeOp.isBulkload()) {
             throw new AlgebricksException("Tokenize Operator only works when bulk-loading data.");
+        }
 
         IMetadataProvider mp = context.getMetadataProvider();
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(op);
@@ -90,10 +75,10 @@ public class TokenizePOperator extends AbstractPhysicalOperator {
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> runtimeAndConstraints = mp.getTokenizerRuntime(
                 dataSourceIndex, propagatedSchema, inputSchemas, typeEnv, primaryKeys, secondaryKeys, null, inputDesc,
                 context, spec, true);
-        builder.contributeHyracksOperator(TokenizeOp, runtimeAndConstraints.first);
+        builder.contributeHyracksOperator(tokenizeOp, runtimeAndConstraints.first);
         builder.contributeAlgebricksPartitionConstraint(runtimeAndConstraints.first, runtimeAndConstraints.second);
-        ILogicalOperator src = TokenizeOp.getInputs().get(0).getValue();
-        builder.contributeGraphEdge(src, 0, TokenizeOp, 0);
+        ILogicalOperator src = tokenizeOp.getInputs().get(0).getValue();
+        builder.contributeGraphEdge(src, 0, tokenizeOp, 0);
     }
 
     @Override
