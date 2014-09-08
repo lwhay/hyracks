@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,6 +39,7 @@ public class WordTupleParserFactory implements ITupleParserFactory {
     @Override
     public ITupleParser createTupleParser(final IHyracksTaskContext ctx) {
         return new ITupleParser() {
+            @SuppressWarnings("null")
             @Override
             public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
                 try {
@@ -52,7 +53,7 @@ public class WordTupleParserFactory implements ITupleParserFactory {
                     WordCursor cursor = new WordCursor(new InputStreamReader(in));
                     while (cursor.nextWord()) {
                         tb.reset();
-                        utf8StringParser.parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, dos);
+                        utf8StringParser.parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, (Character) null, dos);
                         tb.addFieldEndOffset();
                         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                             FrameUtils.flushFrame(frame, writer);

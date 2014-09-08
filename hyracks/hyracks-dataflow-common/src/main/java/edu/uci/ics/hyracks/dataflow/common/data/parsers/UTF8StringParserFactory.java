@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,16 +33,43 @@ public class UTF8StringParserFactory implements IValueParserFactory {
             private byte[] utf8;
 
             @Override
-            public void parse(char[] buffer, int start, int length, DataOutput out) throws HyracksDataException {
+            public void parse(char[] buffer, int start, int length, char quote, DataOutput out)
+                    throws HyracksDataException {
                 int utflen = 0;
-                for (int i = 0; i < length; i++) {
-                    char ch = buffer[i + start];
-                    if ((ch >= 0x0001) && (ch <= 0x007F)) {
-                        utflen++;
-                    } else if (ch > 0x07ff) {
-                        utflen += 3;
-                    } else {
-                        utflen += 2;
+                int pos = -99;
+                // If we have a valid quote, then we need to eliminate double quote in a string.
+                // To speed up checking process, we divide the original loop into two rather than checking
+                // quote in the loop every time.
+                if (quote >= 0x0000) {
+                    for (int i = 0; i < length; i++) {
+                        char ch = buffer[i + start];
+                        if ((ch >= 0x0001) && (ch <= 0x007F)) {
+                            // Check the current character is the quote character.
+                            // If so, we do not count one of duplicates.
+                            if (ch == quote) {
+                                if (pos == (i + start - 1)) {
+                                    continue;
+                                } else {
+                                    pos = i + start;
+                                }
+                            }
+                            utflen++;
+                        } else if (ch > 0x07ff) {
+                            utflen += 3;
+                        } else {
+                            utflen += 2;
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < length; i++) {
+                        char ch = buffer[i + start];
+                        if ((ch >= 0x0001) && (ch <= 0x007F)) {
+                            utflen++;
+                        } else if (ch > 0x07ff) {
+                            utflen += 3;
+                        } else {
+                            utflen += 2;
+                        }
                     }
                 }
 
@@ -55,11 +82,31 @@ public class UTF8StringParserFactory implements IValueParserFactory {
                 utf8[count++] = (byte) ((utflen >>> 0) & 0xff);
 
                 int i = 0;
-                for (i = 0; i < length; i++) {
-                    char ch = buffer[i + start];
-                    if (!((ch >= 0x0001) && (ch <= 0x007F)))
-                        break;
-                    utf8[count++] = (byte) ch;
+                pos = -99;
+
+                if (quote >= 0x0000) {
+                    for (i = 0; i < length; i++) {
+                        char ch = buffer[i + start];
+                        if (!((ch >= 0x0001) && (ch <= 0x007F)))
+                            break;
+                        // Check the current character is the quote character.
+                        // If so, we remove duplicates.
+                        if (ch == quote) {
+                            if (pos == (i + start - 1)) {
+                                continue;
+                            } else {
+                                pos = i + start;
+                            }
+                        }
+                        utf8[count++] = (byte) ch;
+                    }
+                } else {
+                    for (i = 0; i < length; i++) {
+                        char ch = buffer[i + start];
+                        if (!((ch >= 0x0001) && (ch <= 0x007F)))
+                            break;
+                        utf8[count++] = (byte) ch;
+                    }
                 }
 
                 for (; i < length; i++) {
