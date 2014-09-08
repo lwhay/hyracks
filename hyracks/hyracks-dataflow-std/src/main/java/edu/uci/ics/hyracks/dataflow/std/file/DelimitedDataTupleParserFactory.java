@@ -35,10 +35,12 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
     private static final long serialVersionUID = 1L;
     private IValueParserFactory[] valueParserFactories;
     private char fieldDelimiter;
+    private char quote;
 
-    public DelimitedDataTupleParserFactory(IValueParserFactory[] fieldParserFactories, char fieldDelimiter) {
+    public DelimitedDataTupleParserFactory(IValueParserFactory[] fieldParserFactories, char fieldDelimiter, char quote) {
         this.valueParserFactories = fieldParserFactories;
         this.fieldDelimiter = fieldDelimiter;
+        this.quote = quote;
     }
 
     @Override
@@ -65,7 +67,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             if (!cursor.nextField()) {
                                 break;
                             }
-                            valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, (Character) null, dos);
+                            valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, quote, dos);
                             tb.addFieldEndOffset();
                         }
                         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
@@ -195,6 +197,8 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
 
                 case IN_RECORD:
                     boolean eof;
+                    boolean startedQuote = false;
+                    int lastQuotePosition = -1;
                     int p = start;
                     while (true) {
                         if (p >= end) {
@@ -207,20 +211,58 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             p -= (s - start);
                         }
                         char ch = buffer[p];
-                        if (ch == fieldDelimiter) {
-                            fStart = start;
-                            fEnd = p;
-                            start = p + 1;
-                            return true;
+                        if (ch == quote) {
+                            startedQuote = true;
+                            lastQuotePosition = p;
+                        } else if (ch == fieldDelimiter) {
+                            if (!startedQuote) {
+                                fStart = start;
+                                fEnd = p;
+                                start = p + 1;
+                                return true;
+                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                                // set the position of fStart to +1, fEnd to -1 to remove quote character
+                                fStart = start + 1;
+                                fEnd = p - 1;
+                                start = p + 1;
+                                startedQuote = false;
+                                lastQuotePosition = -1;
+                                return true;
+                            }
+                            // If the control flow reaches here: we have comma in this field and
+                            // there should be a quote in the beginning and the end of
+                            // this field. So, just continue reading next character
                         } else if (ch == '\n') {
-                            fStart = start;
-                            fEnd = p;
+                            if (!startedQuote) {
+                                fStart = start;
+                                fEnd = p;
+                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                                // set the position of fStart to +1, fEnd to -1 to remove quote character
+                                fStart = start + 1;
+                                fEnd = p - 1;
+                                startedQuote = false;
+                                lastQuotePosition = -1;
+                            } else {
+                                throw new IllegalStateException(
+                                        "Check the field value. It needs to be enclosed by quotes if the delimiter is in the field.");
+                            }
                             start = p + 1;
                             state = State.EOR;
                             return true;
                         } else if (ch == '\r') {
-                            fStart = start;
-                            fEnd = p;
+                            if (!startedQuote) {
+                                fStart = start;
+                                fEnd = p;
+                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                                // set the position of fStart to +1, fEnd to -1 to remove quote character
+                                fStart = start + 1;
+                                fEnd = p - 1;
+                                startedQuote = false;
+                                lastQuotePosition = -1;
+                            } else {
+                                throw new IllegalStateException(
+                                        "Check the field value. It needs to be enclosed by quotes if the delimiter is in the field.");
+                            }
                             start = p + 1;
                             state = State.CR;
                             return true;

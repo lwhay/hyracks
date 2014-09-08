@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -84,14 +84,14 @@ public class LocalityAwareConnectorTest extends AbstractMultiNCIntegrationTest {
             FloatParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-            UTF8StringParserFactory.INSTANCE, }, '|');
+            UTF8StringParserFactory.INSTANCE, }, '|', '\"');
 
     /**
      * Test of aggregations using locality aware connector. The output two files should be the
      * same, each of which is the aggregation of two copies of the lineitem.tbl.
      * Note that if the hashing connector is not working correctly, the two files may be different. This
      * also means that even the output files are the same, the hashing may have other problems.
-     * 
+     *
      * @throws Exception
      */
     @Test
@@ -151,7 +151,7 @@ public class LocalityAwareConnectorTest extends AbstractMultiNCIntegrationTest {
     /**
      * Test for locality aware connector, using the global hashing node mapper. This should have
      * the exactly the same result as using {@link MToNPartitioningConnectorDescriptor}.
-     * 
+     *
      * @throws Exception
      */
     @Test
