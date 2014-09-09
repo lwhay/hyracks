@@ -66,7 +66,8 @@ public class IntegerParserFactory implements IValueParserFactory {
                             break;
 
                         default:
-                            throw new HyracksDataException("Integer Parser - digit expected. But, encountered this character: " + ch);
+                            String errorString = new String(buffer, i + start, length);
+                            throw new HyracksDataException("Integer Parser - a digit expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
                     }
                 }
                 boolean post = false;
