@@ -66,7 +66,8 @@ public class LongParserFactory implements IValueParserFactory {
                             break;
 
                         default:
-                            throw new HyracksDataException("Encountered " + ch);
+                            String errorString = new String(buffer, i + start, length);
+                            throw new HyracksDataException("Long Parser - a digit expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
                     }
                 }
                 boolean post = false;
@@ -99,7 +100,8 @@ public class LongParserFactory implements IValueParserFactory {
                             break;
 
                         default:
-                            throw new HyracksDataException("Encountered " + ch);
+                            String errorString = new String(buffer, i + start, length);
+                            throw new HyracksDataException("Long Parser - a whitespace, tab, new line, or form-feed expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
                     }
                 }
 
