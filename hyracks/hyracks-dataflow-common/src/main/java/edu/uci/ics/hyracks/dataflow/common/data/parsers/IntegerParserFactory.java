@@ -66,7 +66,7 @@ public class IntegerParserFactory implements IValueParserFactory {
                             break;
 
                         default:
-                            String errorString = new String(buffer, i + start, length);
+                            String errorString = new String(buffer, i + start, length - i);
                             throw new HyracksDataException("Integer Parser - a digit expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
                     }
                 }
@@ -100,7 +100,7 @@ public class IntegerParserFactory implements IValueParserFactory {
                             break;
 
                         default:
-                            String errorString = new String(buffer, i + start, length);
+                            String errorString = new String(buffer, i + start, length - i);
                             throw new HyracksDataException("Integer Parser - a whitespace, tab, new line, or form-feed expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
                     }
                 }
