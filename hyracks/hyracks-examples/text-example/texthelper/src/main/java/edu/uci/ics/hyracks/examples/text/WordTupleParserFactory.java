@@ -53,7 +53,7 @@ public class WordTupleParserFactory implements ITupleParserFactory {
                     WordCursor cursor = new WordCursor(new InputStreamReader(in));
                     while (cursor.nextWord()) {
                         tb.reset();
-                        utf8StringParser.parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, (Character) null, dos);
+                        utf8StringParser.parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, '\u0000', dos);
                         tb.addFieldEndOffset();
                         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                             FrameUtils.flushFrame(frame, writer);

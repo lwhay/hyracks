@@ -40,7 +40,7 @@ public class UTF8StringParserFactory implements IValueParserFactory {
                 // If we have a valid quote, then we need to eliminate double quote in a string.
                 // To speed up checking process, we divide the original loop into two rather than checking
                 // quote in the loop every time.
-                if (quote >= 0x0000) {
+                if (quote > 0x0000) {
                     for (int i = 0; i < length; i++) {
                         char ch = buffer[i + start];
                         if ((ch >= 0x0001) && (ch <= 0x007F)) {
@@ -84,7 +84,7 @@ public class UTF8StringParserFactory implements IValueParserFactory {
                 int i = 0;
                 pos = -99;
 
-                if (quote >= 0x0000) {
+                if (quote > 0x0000) {
                     for (i = 0; i < length; i++) {
                         char ch = buffer[i + start];
                         if (!((ch >= 0x0001) && (ch <= 0x007F)))
