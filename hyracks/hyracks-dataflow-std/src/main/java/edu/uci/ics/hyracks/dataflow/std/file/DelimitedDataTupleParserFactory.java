@@ -91,6 +91,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                     throw new HyracksDataException(e);
                 }
             }
+
         };
     }
 
