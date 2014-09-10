@@ -37,6 +37,12 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
     private char fieldDelimiter;
     private char quote;
 
+    public DelimitedDataTupleParserFactory(IValueParserFactory[] fieldParserFactories, char fieldDelimiter) {
+        this.valueParserFactories = fieldParserFactories;
+        this.fieldDelimiter = fieldDelimiter;
+        this.quote = '\u0000';
+    }
+
     public DelimitedDataTupleParserFactory(IValueParserFactory[] fieldParserFactories, char fieldDelimiter, char quote) {
         this.valueParserFactories = fieldParserFactories;
         this.fieldDelimiter = fieldDelimiter;
@@ -67,7 +73,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             if (!cursor.nextField()) {
                                 break;
                             }
-                            valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, quote, dos);
+                            valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, dos);
                             tb.addFieldEndOffset();
                         }
                         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {

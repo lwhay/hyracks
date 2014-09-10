@@ -31,7 +31,7 @@ public class DoubleParserFactory implements IValueParserFactory {
     public IValueParser createValueParser() {
         return new IValueParser() {
             @Override
-            public void parse(char[] buffer, int start, int length, char quote, DataOutput out) throws HyracksDataException {
+            public void parse(char[] buffer, int start, int length, DataOutput out) throws HyracksDataException {
                 String s = String.valueOf(buffer, start, length);
                 try {
                     out.writeDouble(Double.parseDouble(s));

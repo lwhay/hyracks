@@ -31,7 +31,7 @@ public class IntegerParserFactory implements IValueParserFactory {
     public IValueParser createValueParser() {
         return new IValueParser() {
             @Override
-            public void parse(char[] buffer, int start, int length, char quote, DataOutput out) throws HyracksDataException {
+            public void parse(char[] buffer, int start, int length, DataOutput out) throws HyracksDataException {
                 int n = 0;
                 int sign = 1;
                 int i = 0;

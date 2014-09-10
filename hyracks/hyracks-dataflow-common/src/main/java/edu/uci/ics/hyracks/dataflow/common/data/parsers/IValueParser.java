@@ -19,5 +19,5 @@ import java.io.DataOutput;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public interface IValueParser {
-    void parse(char[] buffer, int start, int length, char quote, DataOutput out) throws HyracksDataException;
+    void parse(char[] buffer, int start, int length, DataOutput out) throws HyracksDataException;
 }
