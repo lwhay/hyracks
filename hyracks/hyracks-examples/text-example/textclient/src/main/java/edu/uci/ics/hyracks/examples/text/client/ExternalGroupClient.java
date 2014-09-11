@@ -177,7 +177,7 @@ public class ExternalGroupClient {
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                         UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE, }, '|', '\"'), inDesc);
+                        UTF8StringParserFactory.INSTANCE, }, '|'), inDesc);
 
         createPartitionConstraint(spec, fileScanner, inSplits);
 

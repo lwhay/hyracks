@@ -84,7 +84,7 @@ public class LocalityAwareConnectorTest extends AbstractMultiNCIntegrationTest {
             FloatParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-            UTF8StringParserFactory.INSTANCE, }, '|', '\"');
+            UTF8StringParserFactory.INSTANCE, }, '|');
 
     /**
      * Test of aggregations using locality aware connector. The output two files should be the

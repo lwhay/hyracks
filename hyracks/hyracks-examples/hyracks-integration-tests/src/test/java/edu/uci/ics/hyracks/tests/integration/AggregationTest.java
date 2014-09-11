@@ -88,7 +88,7 @@ public class AggregationTest extends AbstractIntegrationTest {
             FloatParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
             UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
-            UTF8StringParserFactory.INSTANCE, }, '|', '\"');
+            UTF8StringParserFactory.INSTANCE, }, '|');
 
     private AbstractSingleActivityOperatorDescriptor getPrinter(JobSpecification spec, String prefix)
             throws IOException {

@@ -190,7 +190,7 @@ public class PushRuntimeTest {
                 new ISerializerDeserializer[] { IntegerSerializerDeserializer.INSTANCE });
         IValueParserFactory[] valueParsers = new IValueParserFactory[] { IntegerParserFactory.INSTANCE };
         FileScanOperatorDescriptor intScanner = new FileScanOperatorDescriptor(spec, intSplitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), intScannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), intScannerDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, intScanner, DEFAULT_NODES);
 
         // the algebricks op.
@@ -280,7 +280,7 @@ public class PushRuntimeTest {
                 UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner, DEFAULT_NODES);
 
         // the algebricks op.
@@ -360,7 +360,7 @@ public class PushRuntimeTest {
                 UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner,
                 new String[] { AlgebricksHyracksIntegrationUtil.NC1_ID });
@@ -412,7 +412,7 @@ public class PushRuntimeTest {
                 UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner,
                 new String[] { AlgebricksHyracksIntegrationUtil.NC1_ID });
@@ -497,7 +497,7 @@ public class PushRuntimeTest {
                 UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner,
                 new String[] { AlgebricksHyracksIntegrationUtil.NC1_ID });
 
@@ -614,7 +614,7 @@ public class PushRuntimeTest {
 
         StringStreamingRuntimeFactory script = new StringStreamingRuntimeFactory(command, new IPrinterFactory[] {
                 IntegerPrinterFactory.INSTANCE, IntegerPrinterFactory.INSTANCE }, ' ',
-                new DelimitedDataTupleParserFactory(valueParsers, ' ', '\"'));
+                new DelimitedDataTupleParserFactory(valueParsers, ' '));
         RecordDescriptor scriptDesc = new RecordDescriptor(new ISerializerDeserializer[] {
                 IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE });
 
@@ -657,7 +657,7 @@ public class PushRuntimeTest {
                 new FileReference(inputFile)) };
 
         DelimitedDataTupleParserFactory stringParser = new DelimitedDataTupleParserFactory(
-                new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, '\u0000', '\"');
+                new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, '\u0000');
         RecordDescriptor stringRec = new RecordDescriptor(
                 new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE, });
 
@@ -710,7 +710,7 @@ public class PushRuntimeTest {
         IValueParserFactory[] valueParsers = new IValueParserFactory[] { IntegerParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE, IntegerParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner,
                 new String[] { AlgebricksHyracksIntegrationUtil.NC1_ID });
@@ -822,7 +822,7 @@ public class PushRuntimeTest {
                 UTF8StringParserFactory.INSTANCE, FloatParserFactory.INSTANCE, UTF8StringParserFactory.INSTANCE,
                 UTF8StringParserFactory.INSTANCE };
         FileScanOperatorDescriptor scanner = new FileScanOperatorDescriptor(spec, splitProvider,
-                new DelimitedDataTupleParserFactory(valueParsers, '|', '\"'), scannerDesc);
+                new DelimitedDataTupleParserFactory(valueParsers, '|'), scannerDesc);
 
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, scanner,
                 new String[] { AlgebricksHyracksIntegrationUtil.NC1_ID });

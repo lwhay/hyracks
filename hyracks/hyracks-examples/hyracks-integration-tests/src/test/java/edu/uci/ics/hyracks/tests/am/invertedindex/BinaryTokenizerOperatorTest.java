@@ -67,7 +67,7 @@ public class BinaryTokenizerOperatorTest extends AbstractIntegrationTest {
 
         FileScanOperatorDescriptor dblpTitleScanner = new FileScanOperatorDescriptor(spec, dblpTitleSplitProvider,
                 new DelimitedDataTupleParserFactory(new IValueParserFactory[] { IntegerParserFactory.INSTANCE,
-                        UTF8StringParserFactory.INSTANCE }, '|', '\"'), dblpTitleRecDesc);
+                        UTF8StringParserFactory.INSTANCE }, '|'), dblpTitleRecDesc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, dblpTitleScanner, NC1_ID);
 
         RecordDescriptor tokenizerRecDesc;

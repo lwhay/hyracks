@@ -53,14 +53,14 @@ public class UnionTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner01 = new FileScanOperatorDescriptor(
                 spec,
                 splitProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ',', '\"'),
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner01, NC2_ID, NC1_ID);
 
         FileScanOperatorDescriptor csvScanner02 = new FileScanOperatorDescriptor(
                 spec,
                 splitProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ',', '\"'),
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner02, NC2_ID, NC1_ID);
 

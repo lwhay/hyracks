@@ -67,7 +67,7 @@ public class CountOfCountsTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(
                 spec,
                 splitProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ',', '\"'),
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID);
 
@@ -139,7 +139,7 @@ public class CountOfCountsTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(
                 spec,
                 splitProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ',', '\"'),
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID);
 
@@ -212,7 +212,7 @@ public class CountOfCountsTest extends AbstractIntegrationTest {
         FileScanOperatorDescriptor csvScanner = new FileScanOperatorDescriptor(
                 spec,
                 splitProvider,
-                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ',', '\"'),
+                new DelimitedDataTupleParserFactory(new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, ','),
                 desc);
         PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, csvScanner, NC1_ID);
 

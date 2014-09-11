@@ -121,7 +121,7 @@ public class PigletMetadataProvider implements IMetadataProvider<String, String>
             serDesers[i] = serDeser;
         }
 
-        ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(vpfs, ',', '\"');
+        ITupleParserFactory tpf = new DelimitedDataTupleParserFactory(vpfs, ',');
         RecordDescriptor rDesc = new RecordDescriptor(serDesers);
 
         IOperatorDescriptor scanner = new FileScanOperatorDescriptor(jobSpec, fsp, tpf, rDesc);

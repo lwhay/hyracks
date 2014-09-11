@@ -37,6 +37,11 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
     private char fieldDelimiter;
     private char quote;
 
+    private boolean isDoubleQuoteIncludedInThisField;
+    private int doubleQuoteCount;
+
+    private int lineCount;
+
     public DelimitedDataTupleParserFactory(IValueParserFactory[] fieldParserFactories, char fieldDelimiter) {
         this.valueParserFactories = fieldParserFactories;
         this.fieldDelimiter = fieldDelimiter;
@@ -52,7 +57,6 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
     @Override
     public ITupleParser createTupleParser(final IHyracksTaskContext ctx) {
         return new ITupleParser() {
-            @SuppressWarnings("null")
             @Override
             public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
                 try {
@@ -73,6 +77,11 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             if (!cursor.nextField()) {
                                 break;
                             }
+                            // Eliminate doule quotes in the field that we are going to parse
+                            if (isDoubleQuoteIncludedInThisField) {
+                                eliminateDoulbleQuote(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart);
+                                cursor.fEnd -= doubleQuoteCount;
+                            }
                             valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, dos);
                             tb.addFieldEndOffset();
                         }
@@ -80,7 +89,8 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             FrameUtils.flushFrame(frame, writer);
                             appender.reset(frame, true);
                             if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-                                throw new HyracksDataException("Record size (" + tb.getSize() + ") larger than frame size (" + appender.getBuffer().capacity() + ")");
+                                throw new HyracksDataException("Record size (" + tb.getSize()
+                                        + ") larger than frame size (" + appender.getBuffer().capacity() + ")");
                             }
                         }
                     }
@@ -96,7 +106,11 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
     }
 
     private enum State {
-        INIT, IN_RECORD, EOR, CR, EOF
+        INIT,
+        IN_RECORD,
+        EOR,
+        CR,
+        EOF
     }
 
     private class FieldCursor {
@@ -113,12 +127,20 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
         private int fStart;
         private int fEnd;
 
+        private int lastQuotePosition;
+        private int lastDoubleQuotePosition;
+        private boolean startedQuote;
+
         public FieldCursor(Reader in) {
             this.in = in;
             buffer = new char[INITIAL_BUFFER_SIZE];
             start = 0;
             end = 0;
             state = State.INIT;
+            lineCount = 1;
+            lastQuotePosition = -99;
+            lastDoubleQuotePosition = -99;
+            startedQuote = false;
         }
 
         public boolean nextRecord() throws IOException {
@@ -147,11 +169,23 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                                 p -= (s - start);
                             }
                             char ch = buffer[p];
-                            if (ch == '\n') {
+                            // We need to check quote since we allow a CR or LF in a field.
+                            if (ch == quote) {
+                                startedQuote = true;
+                                if (lastQuotePosition == p - 1 && start != p - 1 && lastDoubleQuotePosition != p - 1) {
+                                    lastDoubleQuotePosition = p;
+                                }
+                                lastQuotePosition = p;
+                            } else if (ch == fieldDelimiter) {
+                                if (startedQuote && lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1) {
+                                    startedQuote = false;
+                                }
+                            } else if (ch == '\n' && !startedQuote) {
                                 start = p + 1;
                                 state = State.EOR;
+                                lineCount++;
                                 break;
-                            } else if (ch == '\r') {
+                            } else if (ch == '\r' && !startedQuote) {
                                 start = p + 1;
                                 state = State.CR;
                                 break;
@@ -169,9 +203,10 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             }
                         }
                         char ch = buffer[start];
-                        if (ch == '\n') {
+                        if (ch == '\n' && !startedQuote) {
                             ++start;
                             state = State.EOR;
+                            lineCount++;
                         } else {
                             state = State.IN_RECORD;
                             return true;
@@ -204,8 +239,11 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
 
                 case IN_RECORD:
                     boolean eof;
-                    boolean startedQuote = false;
-                    int lastQuotePosition = -1;
+                    startedQuote = false;
+                    isDoubleQuoteIncludedInThisField = false;
+                    doubleQuoteCount = 0;
+                    lastQuotePosition = -99;
+                    lastDoubleQuotePosition = -99;
                     int p = start;
                     while (true) {
                         if (p >= end) {
@@ -216,10 +254,22 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                                 return true;
                             }
                             p -= (s - start);
+                            lastQuotePosition -= (s - start);
+                            lastDoubleQuotePosition -= (s - start);
                         }
                         char ch = buffer[p];
                         if (ch == quote) {
                             startedQuote = true;
+                            // Check double quotes (""). we check [start != p-1]
+                            // to avoid false positive where there is no value in a field,
+                            // since it looks like a double quote. However, it's not a double quote.
+                            // (e.g. if field2 has no value:
+                            //       field1,"",field3 ... )
+                            if (lastQuotePosition == p - 1 && start != p - 1 && lastDoubleQuotePosition != p - 1) {
+                                isDoubleQuoteIncludedInThisField = true;
+                                doubleQuoteCount++;
+                                lastDoubleQuotePosition = p;
+                            }
                             lastQuotePosition = p;
                         } else if (ch == fieldDelimiter) {
                             if (!startedQuote) {
@@ -227,13 +277,14 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                                 fEnd = p;
                                 start = p + 1;
                                 return true;
-                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                            } else if (startedQuote && lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1) {
                                 // set the position of fStart to +1, fEnd to -1 to remove quote character
                                 fStart = start + 1;
                                 fEnd = p - 1;
                                 start = p + 1;
                                 startedQuote = false;
-                                lastQuotePosition = -1;
+                                lastQuotePosition = -99;
+                                lastDoubleQuotePosition = -99;
                                 return true;
                             }
                             // If the control flow reaches here: we have comma in this field and
@@ -243,36 +294,40 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                             if (!startedQuote) {
                                 fStart = start;
                                 fEnd = p;
-                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                                start = p + 1;
+                                state = State.EOR;
+                                lineCount++;
+                                return true;
+                            } else if (startedQuote && lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1) {
                                 // set the position of fStart to +1, fEnd to -1 to remove quote character
                                 fStart = start + 1;
                                 fEnd = p - 1;
                                 startedQuote = false;
-                                lastQuotePosition = -1;
-                            } else {
-                                throw new IllegalStateException(
-                                        "Check the field value. It needs to be enclosed by quotes if the delimiter is in the field.");
+                                lastQuotePosition = -99;
+                                lastDoubleQuotePosition = -99;
+                                start = p + 1;
+                                state = State.EOR;
+                                lineCount++;
+                                return true;
                             }
-                            start = p + 1;
-                            state = State.EOR;
-                            return true;
                         } else if (ch == '\r') {
                             if (!startedQuote) {
                                 fStart = start;
                                 fEnd = p;
-                            } else if (startedQuote && lastQuotePosition == p - 1) {
+                                start = p + 1;
+                                state = State.CR;
+                                return true;
+                            } else if (startedQuote && lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1) {
                                 // set the position of fStart to +1, fEnd to -1 to remove quote character
                                 fStart = start + 1;
                                 fEnd = p - 1;
                                 startedQuote = false;
-                                lastQuotePosition = -1;
-                            } else {
-                                throw new IllegalStateException(
-                                        "Check the field value. It needs to be enclosed by quotes if the delimiter is in the field.");
+                                lastQuotePosition = -99;
+                                lastDoubleQuotePosition = -99;
+                                start = p + 1;
+                                state = State.CR;
+                                return true;
                             }
-                            start = p + 1;
-                            state = State.CR;
-                            return true;
                         }
                         ++p;
                     }
@@ -299,4 +354,27 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
             return true;
         }
     }
+
+    // Eliminate escaped double quotes("") in a field
+    protected void eliminateDoulbleQuote(char[] buffer, int start, int length) {
+        int lastDoubleQuotePosition = -99;
+        int writepos = start;
+        int readpos = start;
+        // Find positions where double quotes appear
+        for (int i = 0; i < length; i++) {
+            // Skip double quotes
+            if (buffer[readpos] == quote && lastDoubleQuotePosition != readpos - 1) {
+                lastDoubleQuotePosition = readpos;
+                readpos++;
+            } else {
+                // Moving characters except double quote to the front
+                if (writepos != readpos) {
+                    buffer[writepos] = buffer[readpos];
+                }
+                writepos++;
+                readpos++;
+            }
+        }
+    }
+
 }

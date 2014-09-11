@@ -74,7 +74,7 @@ public class SplitOperatorTest extends AbstractIntegrationTest {
         String[] locations = new String[] { NC1_ID };
 
         DelimitedDataTupleParserFactory stringParser = new DelimitedDataTupleParserFactory(
-                new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, '\u0000', '\"');
+                new IValueParserFactory[] { UTF8StringParserFactory.INSTANCE }, '\u0000');
         RecordDescriptor stringRec = new RecordDescriptor(
                 new ISerializerDeserializer[] { UTF8StringSerializerDeserializer.INSTANCE, });
 
