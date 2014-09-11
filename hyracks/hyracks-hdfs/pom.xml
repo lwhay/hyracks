@@ -25,9 +25,106 @@
     <version>0.2.13-SNAPSHOT</version>
   </parent>
 
+	<profiles>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>0.20.2</value>
+				</property>
+			</activation>
+			<id>hadoop-0.20.2</id>
   <modules>
     <module>hyracks-hdfs-1.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>1.0.4</value>
+				</property>
+			</activation>
+			<id>hadoop-1.0.4</id>
+  <modules>
+    <module>hyracks-hdfs-1.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+		</profile>
+
+		<profile>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>2.2.0</value>
+				</property>
+			</activation>
+			<id>hadoop-2.2.0</id>
+  <modules>
     <module>hyracks-hdfs-2.x</module>
     <module>hyracks-hdfs-core</module>
   </modules>
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>0.23.1</value>
+				</property>
+			</activation>
+			<id>hadoop-0.23.1</id>
+  <modules>
+    <module>hyracks-hdfs-2.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>0.23.6</value>
+				</property>
+			</activation>
+			<id>hadoop-0.23.6</id>
+  <modules>
+    <module>hyracks-hdfs-2.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>cdh-4.1</value>
+				</property>
+			</activation>
+			<id>cdh-4.1</id>
+  <modules>
+    <module>hyracks-hdfs-2.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+		</profile>
+		<profile>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+				<property>
+					<name>hadoop</name>
+					<value>cdh-4.2</value>
+				</property>
+			</activation>
+			<id>cdh-4.2</id>
+  <modules>
+    <module>hyracks-hdfs-2.x</module>
+    <module>hyracks-hdfs-core</module>
+  </modules>
+		</profile>
+	</profiles>
 </project>
