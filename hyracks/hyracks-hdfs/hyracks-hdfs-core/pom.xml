@@ -68,11 +68,11 @@
 		<profile>
 			<activation>
 				<activeByDefault>false</activeByDefault>
-			</activation>
 				<property>
 					<name>hadoop</name>
 					<value>0.20.2</value>
 				</property>
+			</activation>
 			<id>hadoop-0.20.2</id>
 			<dependencies>
 				<dependency>
