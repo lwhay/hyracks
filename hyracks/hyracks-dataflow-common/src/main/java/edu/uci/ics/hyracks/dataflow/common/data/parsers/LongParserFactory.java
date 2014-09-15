@@ -67,7 +67,9 @@ public class LongParserFactory implements IValueParserFactory {
 
                         default:
                             String errorString = new String(buffer, i + start, length - i);
-                            throw new HyracksDataException("Long Parser - a digit expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
+                            throw new HyracksDataException(
+                                    "Long Parser - a digit is expected. But, encountered this character: " + ch
+                                            + " in the incoming input: " + errorString);
                     }
                 }
                 boolean post = false;
@@ -86,6 +88,11 @@ public class LongParserFactory implements IValueParserFactory {
                         case '9':
                             n = n * 10 + (ch - '0');
                             break;
+                        default:
+                            String errorString = new String(buffer, i + start, length - i);
+                            throw new HyracksDataException(
+                                    "Long Parser - a digit is expected. But, encountered this character: " + ch
+                                            + " in the incoming input: " + errorString);
                     }
                 }
 
@@ -101,7 +108,10 @@ public class LongParserFactory implements IValueParserFactory {
 
                         default:
                             String errorString = new String(buffer, i + start, length - i);
-                            throw new HyracksDataException("Long Parser - a whitespace, tab, new line, or form-feed expected. But, encountered this character: " + ch + " in an incoming input: " + errorString);
+                            throw new HyracksDataException(
+                                    "Long Parser - a whitespace, tab, new line, or form-feed expected. "
+                                            + "But, encountered this character: " + ch + " in the incoming input: "
+                                            + errorString);
                     }
                 }
 

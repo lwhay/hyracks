@@ -39,7 +39,6 @@ public class WordTupleParserFactory implements ITupleParserFactory {
     @Override
     public ITupleParser createTupleParser(final IHyracksTaskContext ctx) {
         return new ITupleParser() {
-            @SuppressWarnings("null")
             @Override
             public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
                 try {
