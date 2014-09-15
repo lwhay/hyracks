@@ -51,7 +51,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
         this.valueParserFactories = fieldParserFactories;
         this.fieldDelimiter = fieldDelimiter;
         this.quote = quote;
-        this.fieldCount = 1;
+        this.fieldCount = 0;
         this.lineCount = 1;
     }
 
@@ -295,7 +295,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                                             "At line: "
                                                     + lineCount
                                                     + ", field#: "
-                                                    + fieldCount
+                                                    + (fieldCount+1)
                                                     + " - a quote enclosing a field needs to be placed in the beginning of that field.");
                                 }
                             }
@@ -336,7 +336,7 @@ public class DelimitedDataTupleParserFactory implements ITupleParserFactory {
                                     // There is a quote before the delimiter, however it is not directly placed before the delimiter.
                                     // In this case, we throw an exception.
                                     // quoteCount == doubleQuoteCount * 2 + 2 : only true when we have two quotes except double-quotes.
-                                    throw new IOException("At line: " + lineCount + ", field#: " + fieldCount
+                                    throw new IOException("At line: " + lineCount + ", field#: " + (fieldCount+1)
                                             + " -  A quote enclosing a field needs to be followed by the delimiter.");
                                 }
                             }
