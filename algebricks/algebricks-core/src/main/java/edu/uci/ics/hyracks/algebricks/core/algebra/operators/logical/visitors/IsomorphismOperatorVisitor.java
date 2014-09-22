@@ -845,7 +845,7 @@ public class IsomorphismOperatorVisitor implements ILogicalOperatorVisitor<Boole
             ArrayList<LogicalVariable> newInputList = new ArrayList<LogicalVariable>();
             newInputList.addAll(op.getVariables());
             return new ExternalDataLookupOperator(newInputList, deepCopyExpressionRef(op.getExpressionRef()),
-                    new ArrayList<Object>(op.getVariableTypes()), op.isPropagateInput());
+                    new ArrayList<Object>(op.getVariableTypes()), op.isPropagateInput(), op.getDataSource());
         }
     }
 
