@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,6 +20,7 @@ import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitio
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IHyracksJobBuilder;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
@@ -69,6 +70,14 @@ public abstract class AbstractPhysicalOperator implements IPhysicalOperator {
         return new PhysicalRequirements(req, IPartitioningRequirementsCoordinator.NO_COORDINATION);
     }
 
+    protected PhysicalRequirements emptyUnaryRequirements(int numberOfChildren) {
+        StructuralPropertiesVector[] req = new StructuralPropertiesVector[numberOfChildren];
+        for (int i = 0; i < numberOfChildren; i++) {
+            req[i] = StructuralPropertiesVector.EMPTY_PROPERTIES_VECTOR;
+        }
+        return new PhysicalRequirements(req, IPartitioningRequirementsCoordinator.NO_COORDINATION);
+    }
+
     @Override
     public void disableJobGenBelowMe() {
         this.disableJobGenBelow = true;
@@ -77,6 +86,17 @@ public abstract class AbstractPhysicalOperator implements IPhysicalOperator {
     @Override
     public boolean isJobGenDisabledBelowMe() {
         return disableJobGenBelow;
+    }
+
+    /**
+     * @return labels (0 or 1) for each input and output indicating the dependency between them.
+     *         The edges labeled as 1 must wait for the edges with label 0.
+     */
+    @Override
+    public Pair<int[], int[]> getInputOutputDependencyLabels(ILogicalOperator op) {
+        int[] inputDependencyLabels = new int[op.getInputs().size()]; // filled with 0's
+        int[] outputDependencyLabels = new int[] { 0 };
+        return new Pair<int[], int[]>(inputDependencyLabels, outputDependencyLabels);
     }
 
     protected void contributeOpDesc(IHyracksJobBuilder builder, AbstractLogicalOperator op, IOperatorDescriptor opDesc) {
