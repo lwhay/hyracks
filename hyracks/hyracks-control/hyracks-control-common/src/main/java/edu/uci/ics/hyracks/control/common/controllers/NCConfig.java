@@ -31,16 +31,16 @@ public class NCConfig implements Serializable {
     @Option(name = "-cc-port", usage = "Cluster Controller port (default: 1099)")
     public int ccPort = 1099;
 
-    @Option(name = "-cluster-net-ip-address", usage = "IP Address to bind cluster listener", required = true)
+    @Option(name = "-cluster-net-address", usage = "Address to bind cluster listener", required = true)
     public String clusterNetIPAddress;
 
     @Option(name = "-node-id", usage = "Logical name of node controller unique within the cluster", required = true)
     public String nodeId;
 
-    @Option(name = "-data-ip-address", usage = "IP Address to bind data listener", required = true)
+    @Option(name = "-data-address", usage = "Address to bind data listener", required = true)
     public String dataIPAddress;
 
-    @Option(name = "-result-ip-address", usage = "IP Address to bind dataset result distribution listener", required = true)
+    @Option(name = "-result-address", usage = "Address to bind dataset result distribution listener", required = true)
     public String datasetIPAddress;
 
     @Option(name = "-iodevices", usage = "Comma separated list of IO Device mount points (default: One device in default temp folder)", required = false)
@@ -76,11 +76,11 @@ public class NCConfig implements Serializable {
         cList.add(ccHost);
         cList.add("-cc-port");
         cList.add(String.valueOf(ccPort));
-        cList.add("-cluster-net-ip-address");
+        cList.add("-cluster-net-address");
         cList.add(clusterNetIPAddress);
         cList.add("-node-id");
         cList.add(nodeId);
-        cList.add("-data-ip-address");
+        cList.add("-data-address");
         cList.add(dataIPAddress);
         cList.add(datasetIPAddress);
         cList.add("-iodevices");
@@ -113,9 +113,9 @@ public class NCConfig implements Serializable {
     public void toMap(Map<String, String> configuration) {
         configuration.put("cc-host", ccHost);
         configuration.put("cc-port", (String.valueOf(ccPort)));
-        configuration.put("cluster-net-ip-address", clusterNetIPAddress);
+        configuration.put("cluster-net-address", clusterNetIPAddress);
         configuration.put("node-id", nodeId);
-        configuration.put("data-ip-address", dataIPAddress);
+        configuration.put("data-address", dataIPAddress);
         configuration.put("iodevices", ioDevices);
         configuration.put("net-thread-count", String.valueOf(nNetThreads));
         configuration.put("net-buffer-count", String.valueOf(nNetBuffers));

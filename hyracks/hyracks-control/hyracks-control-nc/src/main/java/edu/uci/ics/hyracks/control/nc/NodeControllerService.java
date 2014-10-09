@@ -161,16 +161,17 @@ public class NodeControllerService extends AbstractRemoteService {
         this.ncConfig = ncConfig;
         id = ncConfig.nodeId;
         NodeControllerIPCI ipci = new NodeControllerIPCI();
-        ipc = new IPCSystem(new InetSocketAddress(ncConfig.clusterNetIPAddress, 0), ipci,
-                new CCNCFunctions.SerializerDeserializer());
+        InetAddress ncAddress = InetAddress.getByName(ncConfig.clusterNetIPAddress);
+        InetAddress dataAddress = InetAddress.getByName(ncConfig.dataIPAddress);
+
+        ipc = new IPCSystem(new InetSocketAddress(ncAddress, 0), ipci, new CCNCFunctions.SerializerDeserializer());
 
         this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices)));
         if (id == null) {
             throw new Exception("id not set");
         }
         partitionManager = new PartitionManager(this);
-        netManager = new NetworkManager(getIpAddress(ncConfig.dataIPAddress), partitionManager, ncConfig.nNetThreads,
-                ncConfig.nNetBuffers);
+        netManager = new NetworkManager(dataAddress, partitionManager, ncConfig.nNetThreads, ncConfig.nNetBuffers);
 
         lccm = new LifeCycleComponentManager();
         queue = new WorkQueue();

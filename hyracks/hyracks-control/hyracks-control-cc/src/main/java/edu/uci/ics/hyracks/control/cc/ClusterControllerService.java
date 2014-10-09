@@ -16,6 +16,7 @@ package edu.uci.ics.hyracks.control.cc;
 
 import java.io.File;
 import java.io.FileReader;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -157,10 +158,12 @@ public class ClusterControllerService extends AbstractRemoteService {
         ipAddressNodeNameMap = new HashMap<String, Set<String>>();
         serverCtx = new ServerContext(ServerContext.ServerType.CLUSTER_CONTROLLER, new File(ccConfig.ccRoot));
         IIPCI ccIPCI = new ClusterControllerIPCI();
-        clusterIPC = new IPCSystem(new InetSocketAddress(ccConfig.clusterNetPort), ccIPCI,
+        InetAddress clusterIPCAddress = InetAddress.getByName(ccConfig.clusterNetIpAddress);
+        clusterIPC = new IPCSystem(new InetSocketAddress(clusterIPCAddress, ccConfig.clusterNetPort), ccIPCI,
                 new CCNCFunctions.SerializerDeserializer());
         IIPCI ciIPCI = new HyracksClientInterfaceIPCI();
-        clientIPC = new IPCSystem(new InetSocketAddress(ccConfig.clientNetIpAddress, ccConfig.clientNetPort), ciIPCI,
+        InetAddress clientIPCAddress = InetAddress.getByName(ccConfig.clientNetIpAddress);
+        clientIPC = new IPCSystem(new InetSocketAddress(clientIPCAddress, ccConfig.clientNetPort), ciIPCI,
                 new JavaSerializationBasedPayloadSerializerDeserializer());
         webServer = new WebServer(this);
         activeRunMap = new HashMap<JobId, JobRun>();
