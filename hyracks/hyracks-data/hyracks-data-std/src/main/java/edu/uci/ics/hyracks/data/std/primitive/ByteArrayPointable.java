@@ -42,7 +42,7 @@ public class ByteArrayPointable extends AbstractPointable implements IHashable, 
     public int compareTo(byte[] bytes, int start, int length) {
         for (int thisId = 0, thatId = 0; thisId < this.length && thatId < length; ++thisId, ++thatId) {
             if (this.bytes[this.start + thisId] != bytes[start + thatId]) {
-                return 0xff & this.bytes[this.start + thisId] - 0xff & bytes[start + thatId];
+                return (0xff & this.bytes[this.start + thisId]) - (0xff & bytes[start + thatId]);
             }
         }
         return this.length - length;

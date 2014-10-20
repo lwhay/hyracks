@@ -12,6 +12,7 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     private static final long serialVersionUID = 1L;
 
     public final static ByteArraySerializerDeserializer INSTANCE = new ByteArraySerializerDeserializer();
+    public final static int MAX_LENGTH = 65536;
 
     private ByteArraySerializerDeserializer() {
     }
@@ -31,7 +32,7 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     @Override
     public void serialize(byte[] instance, DataOutput out) throws HyracksDataException {
 
-        if (instance.length > 65535) {
+        if (instance.length >= MAX_LENGTH) {
             throw new HyracksDataException(
                     "encoded byte array too long: " + instance.length + " bytes");
         }

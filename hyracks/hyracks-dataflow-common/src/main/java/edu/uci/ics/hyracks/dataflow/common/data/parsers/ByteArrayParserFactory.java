@@ -45,9 +45,9 @@ public class ByteArrayParserFactory implements IValueParserFactory {
             return c - '0';
         }
         if (c >= 'a' && c <= 'f') {
-            return c - 'a';
+            return 10 + c - 'a';
         }
-        return c - 'A';
+        return 10 + c - 'A';
     }
 
     public static final byte[] extractByteArrayFromValidHexString(String str) {
@@ -61,7 +61,7 @@ public class ByteArrayParserFactory implements IValueParserFactory {
         }
         byte[] bytes = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            bytes[i / 2] = (byte) (getValueFromValidHexChar(str.charAt(start + i)) << 4 +
+            bytes[i / 2] = (byte) ( (getValueFromValidHexChar(str.charAt(start + i)) << 4) +
                     getValueFromValidHexChar(str.charAt(start + i + 1)));
         }
         return bytes;

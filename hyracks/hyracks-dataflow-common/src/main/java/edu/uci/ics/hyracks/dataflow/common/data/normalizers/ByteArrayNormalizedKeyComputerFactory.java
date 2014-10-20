@@ -4,6 +4,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputer;
 import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputerFactory;
 
 public class ByteArrayNormalizedKeyComputerFactory implements INormalizedKeyComputerFactory {
+    public static ByteArrayNormalizedKeyComputerFactory INSTANCE = new ByteArrayNormalizedKeyComputerFactory();
+
     @Override public INormalizedKeyComputer createNormalizedKeyComputer() {
         return new INormalizedKeyComputer() {
             @Override public int normalize(byte[] bytes, int start, int length) {
