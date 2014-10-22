@@ -21,6 +21,7 @@ import java.util.Set;
 import org.apache.commons.lang3.mutable.Mutable;
 
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.ListSet;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalPlan;
@@ -97,6 +98,43 @@ public class OperatorPropertiesUtil {
         for (Mutable<ILogicalOperator> i : op.getInputs()) {
             getFreeVariablesInSelfOrDesc((AbstractLogicalOperator) i.getValue(), freeVars);
         }
+    }
+
+    /**
+     * Adds the free variables of operators on the path from
+     * op to dest.
+     * 
+     * @param op
+     *            , the root operator of the path
+     * @param dest
+     *            , the destination operator of the path
+     * @param vars
+     *            - The collection to which the free variables will be added.
+     */
+    public static void getFreeVariablesInPath(ILogicalOperator op, ILogicalOperator dest, Set<LogicalVariable> freeVars)
+            throws AlgebricksException {
+        Set<LogicalVariable> producedVars = new ListSet<LogicalVariable>();
+        VariableUtilities.getLiveVariables(op, freeVars);
+        freeVariablesInPath(op, dest, freeVars, producedVars);
+        freeVars.removeAll(producedVars);
+    }
+
+    private static boolean freeVariablesInPath(ILogicalOperator op, ILogicalOperator dest,
+            Set<LogicalVariable> usedVars, Set<LogicalVariable> producedVars) throws AlgebricksException {
+        if (op == dest) {
+            return true;
+        }
+        boolean onPath = false;
+        for (Mutable<ILogicalOperator> childRef : op.getInputs()) {
+            if (freeVariablesInPath(childRef.getValue(), dest, usedVars, producedVars)) {
+                onPath = true;
+            }
+        }
+        if (onPath) {
+            VariableUtilities.getUsedVariables(op, usedVars);
+            VariableUtilities.getProducedVariables(op, producedVars);
+        }
+        return onPath;
     }
 
     public static void getFreeVariablesInSubplans(AbstractOperatorWithNestedPlans op, Set<LogicalVariable> freeVars)
