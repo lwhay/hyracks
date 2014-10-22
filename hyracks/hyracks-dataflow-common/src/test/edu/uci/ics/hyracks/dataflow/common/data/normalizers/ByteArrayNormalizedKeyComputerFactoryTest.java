@@ -52,9 +52,10 @@ public class ByteArrayNormalizedKeyComputerFactoryTest {
     }
 
     public static ByteArrayPointable generateRandomByteArrayPointableWithFixLength(int length, Random random) {
-        byte[] bytes = new byte[length];
+        byte[] bytes = new byte[length + ByteArrayPointable.SIZE_OF_LENGTH];
         random.nextBytes(bytes);
         ByteArrayPointable pointable = new ByteArrayPointable();
+        ByteArrayPointable.putLength(length, bytes, 0);
         pointable.set(bytes, 0, bytes.length);
         return pointable;
     }
@@ -78,8 +79,8 @@ public class ByteArrayNormalizedKeyComputerFactoryTest {
             assertNormalizeValue(pointable1, pointable2, computer);
         }
 
-        byte [] bytes1 = new byte[] { 0, 25, 34,42};
-        byte [] bytes2 = new byte[] { (byte) 130, 25, 34,42};
+        byte [] bytes1 = new byte[] { 0, 4, 0, 25, 34,42};
+        byte [] bytes2 = new byte[] { 0, 4, (byte) 130, 25, 34,42};
 
         int n1 = computer.normalize(bytes1, 0, bytes1.length);
         int n2 = computer.normalize(bytes2, 0, bytes2.length);

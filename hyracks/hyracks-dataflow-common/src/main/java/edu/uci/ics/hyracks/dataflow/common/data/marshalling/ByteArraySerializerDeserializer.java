@@ -2,6 +2,7 @@ package edu.uci.ics.hyracks.dataflow.common.data.marshalling;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -21,8 +22,9 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     public byte[] deserialize(DataInput in) throws HyracksDataException {
         try {
             int length = in.readUnsignedShort();
-            byte[] bytes = new byte[length];
-            in.readFully(bytes, 0, length);
+            byte[] bytes = new byte[length + ByteArrayPointable.SIZE_OF_LENGTH];
+            in.readFully(bytes, ByteArrayPointable.SIZE_OF_LENGTH, length);
+            ByteArrayPointable.putLength(length, bytes, 0);
             return bytes;
         } catch (IOException e) {
             throw new HyracksDataException(e);
@@ -37,22 +39,10 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
                     "encoded byte array too long: " + instance.length + " bytes");
         }
         try {
-            out.writeShort(instance.length);
             out.write(instance, 0, instance.length);
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
-    }
-
-    public static final int SIZE_OF_LENGTH = 2;
-
-    public static int getLength(byte [] bytes, int offset){
-        return (( 0xFF & bytes[offset]) << 8) + (0xFF & bytes[offset+1]);
-    }
-
-    public static void putLength(int length, byte [] bytes, int offset){
-        bytes[offset] = (byte) ((length >>> 8) & 0xFF);
-        bytes[offset+1] = (byte) ((length >>> 0) & 0xFF);
     }
 
 }

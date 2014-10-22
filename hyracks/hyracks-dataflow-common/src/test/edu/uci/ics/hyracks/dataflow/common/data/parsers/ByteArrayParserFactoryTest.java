@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.dataflow.common.data.parsers;
 
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 import org.junit.Test;
 
 import javax.xml.bind.DatatypeConverter;
@@ -27,20 +28,23 @@ public class ByteArrayParserFactoryTest {
 
     @Test
     public void testExtractByteArrayFromValidHexString() throws Exception {
-        String hexString = "0XFFAB99213489";
-        byte[] parsed = ByteArrayParserFactory.extractByteArrayFromValidHexString(hexString);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString.substring(2))));
+        String hexString = "XFFAB99213489";
+        byte[] parsed = new byte[hexString.length() / 2 ];
+        ByteArrayParserFactory.extractByteArrayFromValidHexString(hexString, 1, parsed, 0);
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString.substring(1))));
 
-        parsed = ByteArrayParserFactory.extractByteArrayFromValidHexString("0x");
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary("")));
+        byte[] parsed2 = new byte[] {};
+        ByteArrayParserFactory.extractByteArrayFromValidHexString("", 0, parsed, 0);
+        assertTrue(Arrays.equals(parsed2, DatatypeConverter.parseHexBinary("")));
 
 
         hexString = hexString.toLowerCase();
-        parsed = ByteArrayParserFactory.extractByteArrayFromValidHexString(hexString);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString.substring(2))));
+        parsed = ByteArrayParserFactory.extractByteArrayFromValidHexString(hexString, 1, parsed, 0);
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString.substring(1))));
 
-        String mixString = "0xFFab9921ccCd";
-        parsed = ByteArrayParserFactory.extractByteArrayFromValidHexString(mixString);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(mixString.substring(2))));
+        String mixString = "xFFab9921ccCd";
+        parsed = new byte[mixString.length() / 2 ];
+        ByteArrayParserFactory.extractByteArrayFromValidHexString(mixString, 1, parsed, 0 );
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(mixString.substring(1))));
     }
 }

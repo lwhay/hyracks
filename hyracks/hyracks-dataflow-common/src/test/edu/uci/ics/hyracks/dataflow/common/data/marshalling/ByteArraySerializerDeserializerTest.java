@@ -15,6 +15,7 @@
 
 package edu.uci.ics.hyracks.dataflow.common.data.marshalling;
 
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -31,8 +32,9 @@ public class ByteArraySerializerDeserializerTest {
 
     public static byte[] generateRandomBytes(int maxSize, Random random) {
         int size = random.nextInt(maxSize);
-        byte[] bytes = new byte[size];
+        byte[] bytes = new byte[size + ByteArrayPointable.SIZE_OF_LENGTH];
         random.nextBytes(bytes);
+        ByteArrayPointable.putLength(size, bytes, 0);
         return bytes;
     }
 
@@ -44,7 +46,7 @@ public class ByteArraySerializerDeserializerTest {
 
             ByteArraySerializerDeserializer.INSTANCE.serialize(randomBytes, new DataOutputStream(outputStream));
             byte[] result = outputStream.toByteArray();
-            assertTrue(randomBytes.length == ByteArraySerializerDeserializer.getLength(result, 0));
+            assertTrue(Arrays.equals(randomBytes, result));
 
             ByteArrayInputStream inputStream = new ByteArrayInputStream(result);
             assertTrue(Arrays.equals(randomBytes,
@@ -60,8 +62,8 @@ public class ByteArraySerializerDeserializerTest {
         for (int i = 0; i < 10; ++i) {
             int length = random.nextInt(ByteArraySerializerDeserializer.MAX_LENGTH);
             for (int j = 0; j < size - 1; ++j) {
-                ByteArraySerializerDeserializer.putLength(length, newBytes, j);
-                int result = ByteArraySerializerDeserializer.getLength(newBytes, j);
+                ByteArrayPointable.putLength(length, newBytes, j);
+                int result = ByteArrayPointable.getLength(newBytes, j);
                 assertTrue(result == length);
             }
         }

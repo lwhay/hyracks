@@ -40,20 +40,37 @@ public class ByteArrayPointable extends AbstractPointable implements IHashable, 
 
     @Override
     public int compareTo(byte[] bytes, int start, int length) {
-        for (int thisId = 0, thatId = 0; thisId < this.length && thatId < length; ++thisId, ++thatId) {
-            if (this.bytes[this.start + thisId] != bytes[start + thatId]) {
-                return (0xff & this.bytes[this.start + thisId]) - (0xff & bytes[start + thatId]);
+        int thislen = getLength(this.bytes, this.start);
+        int thatlen = getLength(bytes, start);
+
+        for (int thisId = 0, thatId = 0; thisId < thislen && thatId < thatlen; ++thisId, ++thatId) {
+            if (this.bytes[this.start + SIZE_OF_LENGTH + thisId] != bytes[start + SIZE_OF_LENGTH + thatId]) {
+                return (0xff & this.bytes[this.start + SIZE_OF_LENGTH + thisId]) - (0xff & bytes[start + SIZE_OF_LENGTH
+                        + thatId]);
             }
         }
-        return this.length - length;
+        return thislen - thatlen;
     }
 
     @Override
     public int hash() {
         int h = 0;
-        for (int i = 0; i < length; ++i) {
-            h = 31 * h + bytes[start + i];
+        int realLength = getLength(bytes, start);
+        for (int i = 0; i < realLength; ++i) {
+            h = 31 * h + bytes[start + SIZE_OF_LENGTH + i];
         }
         return h;
     }
+
+    public static final int SIZE_OF_LENGTH = 2;
+
+    public static int getLength(byte[] bytes, int offset) {
+        return ((0xFF & bytes[offset]) << 8) + (0xFF & bytes[offset + 1]);
+    }
+
+    public static void putLength(int length, byte[] bytes, int offset) {
+        bytes[offset] = (byte) ((length >>> 8) & 0xFF);
+        bytes[offset + 1] = (byte) ((length >>> 0) & 0xFF);
+    }
+
 }

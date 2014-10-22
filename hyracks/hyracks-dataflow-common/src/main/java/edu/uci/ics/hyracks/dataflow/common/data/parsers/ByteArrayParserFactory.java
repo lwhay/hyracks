@@ -16,6 +16,7 @@
 package edu.uci.ics.hyracks.dataflow.common.data.parsers;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -32,7 +33,16 @@ public class ByteArrayParserFactory implements IValueParserFactory {
                     throws HyracksDataException {
                 String str = String.valueOf(buffer, start, length);
                 try {
-                    out.write(extractByteArrayFromValidHexString(str));
+                    int byteLength = str.length() / 2;
+                    int strStart = 0;
+                    if (str.charAt(0) == 'X' || str.charAt(0) == 'x') {
+                        byteLength = (str.length() - 1) / 2;
+                        strStart = 1;
+                    }
+
+                    byte[] bytes = new byte[byteLength + ByteArrayPointable.SIZE_OF_LENGTH];
+                    out.write(extractByteArrayFromValidHexString(str, strStart, bytes,
+                            ByteArrayPointable.SIZE_OF_LENGTH));
                 } catch (IOException e) {
                     throw new HyracksDataException(e);
                 }
@@ -50,21 +60,14 @@ public class ByteArrayParserFactory implements IValueParserFactory {
         return 10 + c - 'A';
     }
 
-    public static final byte[] extractByteArrayFromValidHexString(String str) {
-        int len = str.length();
-        int start = 0;
-        if (len >= 2) {
-            if (str.charAt(0) == '0' && (str.charAt(1) == 'x' || str.charAt(1) == 'X') ) {
-                start += 2;
-                len -= 2;
-            }
-        }
-        byte[] bytes = new byte[len / 2];
+    public static byte[] extractByteArrayFromValidHexString(String str, int start, byte[] output, int offset) {
+        int len = str.length() - start;
+
         for (int i = 0; i < len; i += 2) {
-            bytes[i / 2] = (byte) ( (getValueFromValidHexChar(str.charAt(start + i)) << 4) +
+            output[offset + i / 2] = (byte) ((getValueFromValidHexChar(str.charAt(start + i)) << 4) +
                     getValueFromValidHexChar(str.charAt(start + i + 1)));
         }
-        return bytes;
+        return output;
     }
 
 }

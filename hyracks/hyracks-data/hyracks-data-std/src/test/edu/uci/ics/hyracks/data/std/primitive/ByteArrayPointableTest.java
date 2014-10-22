@@ -17,26 +17,37 @@ package edu.uci.ics.hyracks.data.std.primitive;
 
 import org.junit.Test;
 
+import javax.xml.bind.DatatypeConverter;
+
 import static org.junit.Assert.*;
 
 public class ByteArrayPointableTest {
 
+    public static byte[] generatePointableBytes(byte[] bytes){
+        byte[] ret = new byte[bytes.length + ByteArrayPointable.SIZE_OF_LENGTH];
+        for (int i = 0; i < bytes.length; ++i){
+            ret[i+ ByteArrayPointable.SIZE_OF_LENGTH] = bytes[i];
+        }
+        ByteArrayPointable.putLength(bytes.length, ret, 0);
+        return ret;
+    }
 
     @Test
     public void testCompareTo() throws Exception {
-        byte [] bytes = new byte[] { 1, 2, 3, 4};
+        byte [] bytes = generatePointableBytes(new byte[] { 1, 2, 3, 4});
         ByteArrayPointable byteArrayPointable = new ByteArrayPointable();
         byteArrayPointable.set(bytes, 0, bytes.length);
 
-        testEqual(byteArrayPointable, new byte[] { 1,2 ,3,4});
+        testEqual(byteArrayPointable, generatePointableBytes(new byte[] { 1,2 ,3,4}));
 
-        testLessThan(byteArrayPointable, new byte[] {2});
-        testLessThan(byteArrayPointable, new byte[] {1,2,3,5});
-        testLessThan(byteArrayPointable, new byte[] {1,2,3,4,5});
+        testLessThan(byteArrayPointable, generatePointableBytes(new byte[] {2}));
+        testLessThan(byteArrayPointable, generatePointableBytes(new byte[] {1,2,3,5}));
+        testLessThan(byteArrayPointable, generatePointableBytes(new byte[] {1,2,3,4,5}));
 
-        testGreaterThan(byteArrayPointable, new byte[] { });
-        testGreaterThan(byteArrayPointable, new byte[] { 0});
-        testGreaterThan(byteArrayPointable, new byte[] { 1,2,3});
+        testGreaterThan(byteArrayPointable, generatePointableBytes(new byte[] { }));
+        testGreaterThan(byteArrayPointable, generatePointableBytes(new byte[] { 0}));
+        testGreaterThan(byteArrayPointable, generatePointableBytes(new byte[] { 1,2,3}));
+
     }
 
 
