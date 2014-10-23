@@ -52,9 +52,6 @@ public class FrameTupleAppenderWrapper {
     }
 
     public void close() throws HyracksDataException {
-        if (frameTupleAppender.getTupleCount() > 0) {
-            FrameUtils.flushFrame(outputFrame, outputWriter);
-        }
         outputWriter.close();
     }
 
@@ -66,7 +63,7 @@ public class FrameTupleAppenderWrapper {
         frameTupleAppender.reset(buffer, clear);
     }
 
-    public boolean appendSkipEmptyField(int[] fieldSlots, byte[] bytes, int offset, int length)
+    public void appendSkipEmptyField(int[] fieldSlots, byte[] bytes, int offset, int length)
             throws HyracksDataException {
         if (!frameTupleAppender.append(fieldSlots, bytes, offset, length)) {
             FrameUtils.flushFrame(outputFrame, outputWriter);
@@ -75,7 +72,6 @@ public class FrameTupleAppenderWrapper {
                 throw new HyracksDataException("The output cannot be fit into a frame.");
             }
         }
-        return true;
     }
 
     public void append(byte[] bytes, int offset, int length) throws HyracksDataException {
