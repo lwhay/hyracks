@@ -24,7 +24,6 @@ import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
@@ -37,8 +36,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -380,19 +377,7 @@ public class NodeControllerService extends AbstractRemoteService {
     }
 
     private static InetAddress getIpAddress(String ipaddrStr) throws Exception {
-        ipaddrStr = ipaddrStr.trim();
-        Pattern pattern = Pattern.compile("(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})");
-        Matcher m = pattern.matcher(ipaddrStr);
-        if (!m.matches()) {
-            throw new Exception(MessageFormat.format(
-                    "Connection Manager IP Address String %s does is not a valid IP Address.", ipaddrStr));
-        }
-        byte[] ipBytes = new byte[4];
-        ipBytes[0] = (byte) Integer.parseInt(m.group(1));
-        ipBytes[1] = (byte) Integer.parseInt(m.group(2));
-        ipBytes[2] = (byte) Integer.parseInt(m.group(3));
-        ipBytes[3] = (byte) Integer.parseInt(m.group(4));
-        return InetAddress.getByAddress(ipBytes);
+        return InetAddress.getByName(ipaddrStr);
     }
 
     private class HeartbeatTask extends TimerTask {
