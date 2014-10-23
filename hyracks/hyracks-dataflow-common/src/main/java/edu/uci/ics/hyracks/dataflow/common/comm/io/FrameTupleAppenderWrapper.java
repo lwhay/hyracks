@@ -17,10 +17,18 @@ package edu.uci.ics.hyracks.dataflow.common.comm.io;
 
 import java.nio.ByteBuffer;
 
+import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
+/**
+ * This class wraps the calls of FrameTupleAppender and
+ * allows user to not worry about flushing full frames.
+ * TODO(yingyib): cleanup existing usage of FrameTupleAppender.
+ * 
+ * @author yingyib
+ */
 public class FrameTupleAppenderWrapper {
     private final FrameTupleAppender frameTupleAppender;
     private final ByteBuffer outputFrame;
@@ -37,7 +45,28 @@ public class FrameTupleAppenderWrapper {
         outputWriter.open();
     }
 
-    public void appendSkipEmptyField(int[] fieldSlots, byte[] bytes, int offset, int length)
+    public void flush() throws HyracksDataException {
+        if (frameTupleAppender.getTupleCount() > 0) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+        }
+    }
+
+    public void close() throws HyracksDataException {
+        if (frameTupleAppender.getTupleCount() > 0) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+        }
+        outputWriter.close();
+    }
+
+    public void fail() throws HyracksDataException {
+        outputWriter.fail();
+    }
+
+    public void reset(ByteBuffer buffer, boolean clear) {
+        frameTupleAppender.reset(buffer, clear);
+    }
+
+    public boolean appendSkipEmptyField(int[] fieldSlots, byte[] bytes, int offset, int length)
             throws HyracksDataException {
         if (!frameTupleAppender.append(fieldSlots, bytes, offset, length)) {
             FrameUtils.flushFrame(outputFrame, outputWriter);
@@ -46,19 +75,69 @@ public class FrameTupleAppenderWrapper {
                 throw new HyracksDataException("The output cannot be fit into a frame.");
             }
         }
+        return true;
     }
 
-    public void flush() throws HyracksDataException {
-        if (frameTupleAppender.getTupleCount() > 0) {
+    public void append(byte[] bytes, int offset, int length) throws HyracksDataException {
+        if (!frameTupleAppender.append(bytes, offset, length)) {
             FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.append(bytes, offset, length)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
         }
     }
 
-    public void close() throws HyracksDataException {
-        outputWriter.close();
+    public void append(IFrameTupleAccessor tupleAccessor, int tStartOffset, int tEndOffset) throws HyracksDataException {
+        if (!frameTupleAppender.append(tupleAccessor, tStartOffset, tEndOffset)) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.append(tupleAccessor, tStartOffset, tEndOffset)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
+        }
     }
 
-    public void fail() throws HyracksDataException {
-        outputWriter.fail();
+    public void append(IFrameTupleAccessor tupleAccessor, int tIndex) throws HyracksDataException {
+        if (!frameTupleAppender.append(tupleAccessor, tIndex)) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.append(tupleAccessor, tIndex)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
+        }
     }
+
+    public void appendConcat(IFrameTupleAccessor accessor0, int tIndex0, IFrameTupleAccessor accessor1, int tIndex1)
+            throws HyracksDataException {
+        if (!frameTupleAppender.appendConcat(accessor0, tIndex0, accessor1, tIndex1)) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.appendConcat(accessor0, tIndex0, accessor1, tIndex1)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
+        }
+    }
+
+    public void appendConcat(IFrameTupleAccessor accessor0, int tIndex0, int[] fieldSlots1, byte[] bytes1, int offset1,
+            int dataLen1) throws HyracksDataException {
+        if (!frameTupleAppender.appendConcat(accessor0, tIndex0, fieldSlots1, bytes1, offset1, dataLen1)) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.appendConcat(accessor0, tIndex0, fieldSlots1, bytes1, offset1, dataLen1)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
+        }
+    }
+
+    public void appendProjection(IFrameTupleAccessor accessor, int tIndex, int[] fields) throws HyracksDataException {
+        if (!frameTupleAppender.appendProjection(accessor, tIndex, fields)) {
+            FrameUtils.flushFrame(outputFrame, outputWriter);
+            frameTupleAppender.reset(outputFrame, true);
+            if (!frameTupleAppender.appendProjection(accessor, tIndex, fields)) {
+                throw new HyracksDataException("The output cannot be fit into a frame.");
+            }
+        }
+    }
+
 }

@@ -34,7 +34,13 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SubplanOper
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
-public class PushSubplanIntoGroupbyRule implements IAlgebraicRewriteRule {
+/**
+ * This rule pushes a subplan on top of a group-by into the
+ * nested plan of the group-by.
+ * 
+ * @author yingyib
+ */
+public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
@@ -51,8 +57,10 @@ public class PushSubplanIntoGroupbyRule implements IAlgebraicRewriteRule {
         boolean changed = false;
         for (Mutable<ILogicalOperator> ref : parentOperator.getInputs()) {
             AbstractLogicalOperator op = (AbstractLogicalOperator) ref.getValue();
+            /** Only processes subplan operator. */
             if (op.getOperatorTag() == LogicalOperatorTag.SUBPLAN) {
                 AbstractLogicalOperator child = (AbstractLogicalOperator) op.getInputs().get(0).getValue();
+                /** Only processes the case a group-by operator is the input of the subplan operator. */
                 if (child.getOperatorTag() == LogicalOperatorTag.GROUP) {
                     SubplanOperator subplan = (SubplanOperator) op;
                     GroupByOperator gby = (GroupByOperator) child;
@@ -63,18 +71,26 @@ public class PushSubplanIntoGroupbyRule implements IAlgebraicRewriteRule {
                         List<Mutable<ILogicalOperator>> rootOpRefs = subplanNestedPlan.getRoots();
                         List<Mutable<ILogicalOperator>> rootOpRefsToRemove = new ArrayList<Mutable<ILogicalOperator>>();
                         for (Mutable<ILogicalOperator> rootOpRef : rootOpRefs) {
+                            /** Gets free variables in the root operator of a nested plan and its descent. */
                             Set<LogicalVariable> freeVars = new ListSet<LogicalVariable>();
                             VariableUtilities.getUsedVariablesInDescendantsAndSelf(rootOpRef.getValue(), freeVars);
                             Set<LogicalVariable> producedVars = new ListSet<LogicalVariable>();
                             VariableUtilities.getProducedVariablesInDescendantsAndSelf(rootOpRef.getValue(),
                                     producedVars);
                             freeVars.removeAll(producedVars);
+
+                            /**
+                             * Checks whether the above freeVars are all contained in live variables
+                             * of one nested plan inside the group-by operator.
+                             * If yes, then the subplan can be pushed into the nested plan of the group-by.
+                             */
                             for (ILogicalPlan gbyNestedPlan : gbyNestedPlans) {
                                 List<Mutable<ILogicalOperator>> gbyRootOpRefs = gbyNestedPlan.getRoots();
                                 for (Mutable<ILogicalOperator> gbyRootOpRef : gbyRootOpRefs) {
                                     Set<LogicalVariable> liveVars = new ListSet<LogicalVariable>();
                                     VariableUtilities.getLiveVariables(gbyRootOpRef.getValue(), liveVars);
                                     if (liveVars.containsAll(freeVars)) {
+                                        /** Does the actual push. */
                                         Mutable<ILogicalOperator> ntsRef = downToNts(rootOpRef);
                                         ntsRef.setValue(gbyRootOpRef.getValue());
                                         gbyRootOpRef.setValue(rootOpRef.getValue());

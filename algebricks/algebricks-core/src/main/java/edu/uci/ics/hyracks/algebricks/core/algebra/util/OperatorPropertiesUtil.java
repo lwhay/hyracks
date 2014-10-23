@@ -101,32 +101,44 @@ public class OperatorPropertiesUtil {
     }
 
     /**
-     * Adds the free variables of operators on the path from
-     * op to dest.
+     * Adds the free variables of the operator path from
+     * op to dest, where dest is a direct/indirect input operator of op in the query plan.
      * 
      * @param op
-     *            , the root operator of the path
+     *            , the start operator.
      * @param dest
-     *            , the destination operator of the path
-     * @param vars
+     *            , the destination operator (a direct/indirect input operator).
+     * @param freeVars
      *            - The collection to which the free variables will be added.
      */
     public static void getFreeVariablesInPath(ILogicalOperator op, ILogicalOperator dest, Set<LogicalVariable> freeVars)
             throws AlgebricksException {
         Set<LogicalVariable> producedVars = new ListSet<LogicalVariable>();
         VariableUtilities.getLiveVariables(op, freeVars);
-        freeVariablesInPath(op, dest, freeVars, producedVars);
+        collectUsedAndProducedVariablesInPath(op, dest, freeVars, producedVars);
         freeVars.removeAll(producedVars);
     }
 
-    private static boolean freeVariablesInPath(ILogicalOperator op, ILogicalOperator dest,
+    /**
+     * @param op
+     *            , the start operator.
+     * @param dest
+     *            , the destination operator (a direct/indirect input operator).
+     * @param usedVars
+     *            , the collection of used variables.
+     * @param producedVars
+     *            , the collection of produced variables.
+     * @return if the current operator is on the path from the original start operator to the destination operator.
+     * @throws AlgebricksException
+     */
+    private static boolean collectUsedAndProducedVariablesInPath(ILogicalOperator op, ILogicalOperator dest,
             Set<LogicalVariable> usedVars, Set<LogicalVariable> producedVars) throws AlgebricksException {
         if (op == dest) {
             return true;
         }
         boolean onPath = false;
         for (Mutable<ILogicalOperator> childRef : op.getInputs()) {
-            if (freeVariablesInPath(childRef.getValue(), dest, usedVars, producedVars)) {
+            if (collectUsedAndProducedVariablesInPath(childRef.getValue(), dest, usedVars, producedVars)) {
                 onPath = true;
             }
         }

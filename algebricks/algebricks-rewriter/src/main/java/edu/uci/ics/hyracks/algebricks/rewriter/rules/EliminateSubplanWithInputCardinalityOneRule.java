@@ -37,14 +37,16 @@ import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
  * This rule eliminates a subplan with the following pattern:
  * -- SUBPLAN
  * -- OP (where OP produces exactly one tuple)
- * The live variables produced by OP will not be used after SUBPLAN.
+ * The live variables at OP will not be used after SUBPLAN.
  * Note: This rule must be applied after
  * the RemoveRedundantVariablesRule (to avoid the lineage analysis of variable cardinality).
  * 
  * @author yingyib
  */
 public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRewriteRule {
+    /** The pointer to the topmost operator */
     private Mutable<ILogicalOperator> rootRef;
+    /** Whether the rule has even been invoked */
     private boolean invoked = false;
 
     @Override
@@ -54,13 +56,13 @@ public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRe
 
     @Override
     public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
-        AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
-        if (op.getInputs().size() <= 0) {
-            return false;
-        }
         if (!invoked) {
             rootRef = opRef;
             invoked = true;
+        }
+        AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
+        if (op.getInputs().size() <= 0) {
+            return false;
         }
         boolean changed = false;
         for (Mutable<ILogicalOperator> subplanRef : op.getInputs()) {
@@ -101,7 +103,7 @@ public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRe
                 Set<Mutable<ILogicalOperator>> ntsSet = new ListSet<Mutable<ILogicalOperator>>();
                 findNts(rootRefs.get(0), ntsSet);
 
-                //replace nts with the input operator of the subplan
+                /** Replaces nts with the input operator of the subplan. */
                 for (Mutable<ILogicalOperator> nts : ntsSet) {
                     nts.setValue(subplanInputOperator);
                 }
@@ -115,7 +117,7 @@ public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRe
     }
 
     /**
-     * Whether the cardinality of input variables are one.
+     * Whether the cardinality of the input free variables are one.
      * 
      * @param opRef
      *            the operator to be checked (including its input operators)
@@ -127,15 +129,37 @@ public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRe
     private boolean isCardinalityOne(Mutable<ILogicalOperator> opRef, Set<LogicalVariable> freeVars)
             throws AlgebricksException {
         Set<LogicalVariable> varsWithCardinalityOne = new ListSet<LogicalVariable>();
-        isCardinalityOne(opRef, freeVars, varsWithCardinalityOne);
+        Set<LogicalVariable> varsLiveAtUnnestAndJoin = new ListSet<LogicalVariable>();
+        isCardinalityOne(opRef, freeVars, varsWithCardinalityOne, varsLiveAtUnnestAndJoin);
+        varsWithCardinalityOne.removeAll(varsLiveAtUnnestAndJoin);
         return varsWithCardinalityOne.equals(freeVars);
     }
 
+    /**
+     * Recursively adding variables which has cardinality one and in int the input free variable set.
+     * 
+     * @param opRef
+     *            , the current operator reference.
+     * @param freeVars
+     *            , a set of variables.
+     * @param varsWithCardinalityOne
+     *            , variables in the free variable set with cardinality one at the time they are created.
+     * @param varsLiveAtUnnestAndJoin
+     *            , live variables at Unnest and Join. The cardinalities of those variables can become more than one
+     *            even if their cardinalities were one at the time those variables were created.
+     * @throws AlgebricksException
+     */
     private void isCardinalityOne(Mutable<ILogicalOperator> opRef, Set<LogicalVariable> freeVars,
-            Set<LogicalVariable> varsWithCardinalityOne) throws AlgebricksException {
+            Set<LogicalVariable> varsWithCardinalityOne, Set<LogicalVariable> varsLiveAtUnnestAndJoin)
+            throws AlgebricksException {
         AbstractLogicalOperator operator = (AbstractLogicalOperator) opRef.getValue();
         List<LogicalVariable> producedVars = new ArrayList<LogicalVariable>();
         VariableUtilities.getProducedVariables(operator, producedVars);
+        if (operator.getOperatorTag() == LogicalOperatorTag.UNNEST
+                || operator.getOperatorTag() == LogicalOperatorTag.INNERJOIN
+                || operator.getOperatorTag() == LogicalOperatorTag.LEFTOUTERJOIN) {
+            VariableUtilities.getLiveVariables(operator, varsLiveAtUnnestAndJoin);
+        }
         if (operator.getOperatorTag() == LogicalOperatorTag.AGGREGATE) {
             for (LogicalVariable producedVar : producedVars) {
                 if (freeVars.contains(producedVar)) {
@@ -147,10 +171,18 @@ public class EliminateSubplanWithInputCardinalityOneRule implements IAlgebraicRe
             return;
         }
         for (Mutable<ILogicalOperator> childRef : operator.getInputs()) {
-            isCardinalityOne(childRef, freeVars, varsWithCardinalityOne);
+            isCardinalityOne(childRef, freeVars, varsWithCardinalityOne, varsLiveAtUnnestAndJoin);
         }
     }
 
+    /**
+     * Find the NestedTupleSource operator in the direct/undirect input operators of opRef.
+     * 
+     * @param opRef
+     *            , the current operator reference.
+     * @param ntsSet
+     *            , the set NestedTupleSource operator references.
+     */
     private void findNts(Mutable<ILogicalOperator> opRef, Set<Mutable<ILogicalOperator>> ntsSet) {
         int childSize = opRef.getValue().getInputs().size();
         if (childSize == 0) {
