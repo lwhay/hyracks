@@ -91,9 +91,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         }
     }
 
-    protected abstract ISearchPredicate createSearchPredicate();
+    protected abstract ISearchPredicate createSearchPredicate() throws HyracksDataException;
 
-    protected abstract void resetSearchPredicate(int tupleIndex);
+    protected abstract void resetSearchPredicate(int tupleIndex) throws HyracksDataException;
 
     protected IIndexCursor createCursor() {
         return indexAccessor.createSearchCursor(false);

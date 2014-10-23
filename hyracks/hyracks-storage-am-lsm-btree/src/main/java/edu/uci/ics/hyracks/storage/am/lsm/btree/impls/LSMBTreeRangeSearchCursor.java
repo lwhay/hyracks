@@ -24,10 +24,12 @@ import edu.uci.ics.hyracks.dataflow.common.util.TupleUtils;
 import edu.uci.ics.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
+import edu.uci.ics.hyracks.storage.am.btree.impls.HilbertBTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.btree.impls.RangePredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ICursorInitialState;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexCursor;
+import edu.uci.ics.hyracks.storage.am.common.api.ILinearizerSearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallback;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexAccessor;
@@ -195,7 +197,11 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
             ILSMComponent component = operationalComponents.get(i);
             BTree btree;
             IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
-            rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
+            if (searchPred instanceof ILinearizerSearchPredicate) {
+                rangeCursors[i] = new HilbertBTreeRangeSearchCursor(leafFrame, false);
+            } else {
+                rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
+            }
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
                 btree = (BTree) ((LSMBTreeMemoryComponent) component).getBTree();
