@@ -31,7 +31,7 @@ public class ByteArrayParserFactory implements IValueParserFactory {
 
     @Override public IValueParser createValueParser() {
         return new IValueParser() {
-            private byte [] cache = new byte[] {};
+            private byte[] cache = new byte[] { };
 
             @Override public void parse(char[] buffer, int start, int length, DataOutput out)
                     throws HyracksDataException {
@@ -47,7 +47,23 @@ public class ByteArrayParserFactory implements IValueParserFactory {
         };
     }
 
-    public static byte[] extractPointableArrayFromHexString(String str, byte[] cacheNeedToReset){
+    public static boolean isValidBinaryLiteral(String unquoted) {
+        int start = 0;
+        if (unquoted.charAt(0) == 'X' || unquoted.charAt(0) == 'x') {
+            start += 1;
+        }
+        for (int i = start; i < unquoted.length(); ++i) {
+            if (unquoted.charAt(i) >= '0' && unquoted.charAt(i) <= '9'
+                    || unquoted.charAt(i) >= 'a' && unquoted.charAt(i) <= 'f'
+                    || unquoted.charAt(i) >= 'A' && unquoted.charAt(i) <= 'F') {
+                continue;
+            }
+            return false;
+        }
+        return (unquoted.length() - start) % 2 == 0;
+    }
+
+    public static byte[] extractPointableArrayFromHexString(String str, byte[] cacheNeedToReset) {
         int byteLength = str.length() / 2;
         int strStart = 0;
         if (str.charAt(0) == 'X' || str.charAt(0) == 'x') {
@@ -55,13 +71,14 @@ public class ByteArrayParserFactory implements IValueParserFactory {
             strStart = 1;
         }
         cacheNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, cacheNeedToReset);
-        StringUtils.extractByteArrayFromValidHexString(str, strStart, cacheNeedToReset, ByteArrayPointable.SIZE_OF_LENGTH);
+        StringUtils.extractByteArrayFromValidHexString(str, strStart, cacheNeedToReset,
+                ByteArrayPointable.SIZE_OF_LENGTH);
         ByteArrayPointable.putLength(byteLength, cacheNeedToReset, 0);
         return cacheNeedToReset;
     }
 
-    private static byte[] ensureCapacity(int capacity, byte[] original){
-        if (original.length < capacity){
+    private static byte[] ensureCapacity(int capacity, byte[] original) {
+        if (original.length < capacity) {
             return Arrays.copyOf(original, capacity);
         }
         return original;
