@@ -62,10 +62,20 @@ public class ByteArrayPointable extends AbstractPointable implements IHashable, 
         return h;
     }
 
+    @Override
+    public int getLength(){
+        return getFullLength(getByteArray(), getStartOffset());
+    }
+
     public static final int SIZE_OF_LENGTH = 2;
+    public static final int MAX_LENGTH = 65536;
 
     public static int getLength(byte[] bytes, int offset) {
         return ((0xFF & bytes[offset]) << 8) + (0xFF & bytes[offset + 1]);
+    }
+
+    public static int getFullLength(byte[] bytes, int offset){
+        return getLength(bytes, offset) + SIZE_OF_LENGTH;
     }
 
     public static void putLength(int length, byte[] bytes, int offset) {

@@ -42,7 +42,7 @@ public class ByteArraySerializerDeserializerTest {
     public void testSerializeDeserializeRandomBytes() throws Exception {
         for (int i = 0; i < 10; ++i) {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            byte[] randomBytes = generateRandomBytes(ByteArraySerializerDeserializer.MAX_LENGTH, random);
+            byte[] randomBytes = generateRandomBytes(ByteArrayPointable.MAX_LENGTH, random);
 
             ByteArraySerializerDeserializer.INSTANCE.serialize(randomBytes, new DataOutputStream(outputStream));
             byte[] result = outputStream.toByteArray();
@@ -60,7 +60,7 @@ public class ByteArraySerializerDeserializerTest {
         final int size = 5;
         byte[] newBytes = new byte[size];
         for (int i = 0; i < 10; ++i) {
-            int length = random.nextInt(ByteArraySerializerDeserializer.MAX_LENGTH);
+            int length = random.nextInt(ByteArrayPointable.MAX_LENGTH);
             for (int j = 0; j < size - 1; ++j) {
                 ByteArrayPointable.putLength(length, newBytes, j);
                 int result = ByteArrayPointable.getLength(newBytes, j);

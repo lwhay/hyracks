@@ -42,10 +42,10 @@ public class ByteArrayNormalizedKeyComputerFactoryTest {
     @Test
     public void testRandomNormalizedKey() {
         for (int i = 0; i < 10; ++i) {
-            ByteArrayPointable pointable1 = generateRandomByteArrayPointable(ByteArraySerializerDeserializer.MAX_LENGTH,
+            ByteArrayPointable pointable1 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH,
                     random);
 
-            ByteArrayPointable pointable2 = generateRandomByteArrayPointable(ByteArraySerializerDeserializer.MAX_LENGTH,
+            ByteArrayPointable pointable2 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH,
                     random);
             assertNormalizeValue(pointable1, pointable2, computer);
         }

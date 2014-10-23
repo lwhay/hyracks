@@ -13,7 +13,6 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     private static final long serialVersionUID = 1L;
 
     public final static ByteArraySerializerDeserializer INSTANCE = new ByteArraySerializerDeserializer();
-    public final static int MAX_LENGTH = 65536;
 
     private ByteArraySerializerDeserializer() {
     }
@@ -34,12 +33,25 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     @Override
     public void serialize(byte[] instance, DataOutput out) throws HyracksDataException {
 
-        if (instance.length >= MAX_LENGTH) {
+        if (instance.length >= ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException(
                     "encoded byte array too long: " + instance.length + " bytes");
         }
         try {
-            out.write(instance, 0, instance.length);
+            int realLength = ByteArrayPointable.getFullLength(instance, 0);
+            out.write(instance, 0, realLength);
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    public void serialize(byte[] instance, int start, int length, DataOutput out) throws HyracksDataException {
+        if (length >= ByteArrayPointable.MAX_LENGTH) {
+            throw new HyracksDataException(
+                    "encoded byte array too long: " + instance.length + " bytes");
+        }
+        try {
+            out.write(instance, start, length);
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
