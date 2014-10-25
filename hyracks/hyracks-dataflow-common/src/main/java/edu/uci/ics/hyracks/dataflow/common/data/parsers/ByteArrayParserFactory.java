@@ -37,6 +37,21 @@ public class ByteArrayParserFactory implements IValueParserFactory {
                     throws HyracksDataException {
                 String str = String.valueOf(buffer, start, length);
                 try {
+                    int begin = 0;
+                    int end = str.length();
+                    if (begin < end && str.charAt(0) == 'X' || str.charAt(0) == 'x') {
+                        begin++;
+                    }
+                    if (begin < end && (str.charAt(begin) == '\'' || str.charAt(begin) == '"')) {
+                        begin++;
+                    }
+                    if (begin < end && (str.charAt(end - 1) == '\'' || str.charAt(end - 1) == '"')) {
+                        end--;
+                    }
+                    str = str.substring(begin, end);
+                    if (!isValidBinaryLiteral(str)) {
+                        throw new HyracksDataException("Invalid hex string for binary type: " + str);
+                    }
                     cache = extractPointableArrayFromHexString(str, cache);
                     int validLength = ByteArrayPointable.getFullLength(cache, 0);
                     out.write(cache, 0, validLength);
@@ -48,11 +63,7 @@ public class ByteArrayParserFactory implements IValueParserFactory {
     }
 
     public static boolean isValidBinaryLiteral(String unquoted) {
-        int start = 0;
-        if (unquoted.charAt(0) == 'X' || unquoted.charAt(0) == 'x') {
-            start += 1;
-        }
-        for (int i = start; i < unquoted.length(); ++i) {
+        for (int i = 0; i < unquoted.length(); ++i) {
             if (unquoted.charAt(i) >= '0' && unquoted.charAt(i) <= '9'
                     || unquoted.charAt(i) >= 'a' && unquoted.charAt(i) <= 'f'
                     || unquoted.charAt(i) >= 'A' && unquoted.charAt(i) <= 'F') {
@@ -60,18 +71,13 @@ public class ByteArrayParserFactory implements IValueParserFactory {
             }
             return false;
         }
-        return (unquoted.length() - start) % 2 == 0;
+        return unquoted.length() % 2 == 0;
     }
 
     public static byte[] extractPointableArrayFromHexString(String str, byte[] cacheNeedToReset) {
         int byteLength = str.length() / 2;
-        int strStart = 0;
-        if (str.charAt(0) == 'X' || str.charAt(0) == 'x') {
-            byteLength = (str.length() - 1) / 2;
-            strStart = 1;
-        }
         cacheNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, cacheNeedToReset);
-        StringUtils.extractByteArrayFromValidHexString(str, strStart, cacheNeedToReset,
+        StringUtils.extractByteArrayFromValidHexString(str, 0, cacheNeedToReset,
                 ByteArrayPointable.SIZE_OF_LENGTH);
         ByteArrayPointable.putLength(byteLength, cacheNeedToReset, 0);
         return cacheNeedToReset;

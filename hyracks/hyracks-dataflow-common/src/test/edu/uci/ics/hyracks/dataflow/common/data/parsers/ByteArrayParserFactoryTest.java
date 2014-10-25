@@ -33,11 +33,11 @@ public class ByteArrayParserFactoryTest {
     public void testExtractPointableArrayFromHexString() throws Exception {
         byte[] cache = new byte[] { };
 
-        String empty = "X";
+        String empty = "";
         cache = ByteArrayParserFactory.extractPointableArrayFromHexString(empty, cache);
 
         assertTrue(ByteArrayPointable.getLength(cache, 0) == 0);
-        assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(empty.substring(1)));
+        assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(empty));
 
         String everyChar = "ABCDEF0123456789";
         cache = ByteArrayParserFactory.extractPointableArrayFromHexString(everyChar, cache);
