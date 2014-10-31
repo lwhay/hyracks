@@ -58,8 +58,6 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
     private double nextMatch[] = new double[DIMENSION];
     private ITupleReference tRefNextMatch;
     private ArrayTupleBuilder tBuilderNextMatch;
-    private ArrayTupleReference tRefPageKey;
-    private ArrayTupleBuilder tBuilderPageKey;
     private double searchedPoint[] = new double[DIMENSION];
     private double pageKey[] = new double[DIMENSION];
     private boolean needToCheckPageKey;
@@ -69,8 +67,7 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
     private double qTopRight[] = new double[DIMENSION];
     private ILinearizerSearchPredicate linearizerSearchPredicate;
     private ILinearizerSearchHelper linearizerSearchHelper;
-
-    private double tmpPrevPoint[] = new double[DIMENSION];
+    private double prevPoint[] = new double[DIMENSION];
     private ITupleReference tRefPrevPoint = new ArrayTupleReference();
     private ArrayTupleBuilder tBuilderPrevPoint = new ArrayTupleBuilder(1);
 
@@ -85,8 +82,6 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
         this.exclusiveLatchNodes = exclusiveLatchNodes;
         this.currentSearchCtx = new HilbertRangeSearchContext();
         tBuilderNextMatch = new ArrayTupleBuilder(1);
-        tRefPageKey = new ArrayTupleReference();
-        tBuilderPageKey = new ArrayTupleBuilder(1);
         firstOpen = true;
     }
 
@@ -154,10 +149,12 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                     return true;
                 }
 
-                //remove all points which are located in the same coordinates
+                //Consume all points which are located in the same coordinates.
+                //This consumption is a critical operation in order to make the current pageKey set to the next distinct point.
+                //If this consumption isn't executed, region query may terminate earlier without searching through all overlapped segments of the region correctly.   
                 linearizerSearchHelper.convertPointField2TwoDoubles(cursor.getTuple().getFieldData(0), cursor
-                        .getTuple().getFieldStart(0), tmpPrevPoint);
-                linearizerSearchHelper.convertTwoDoubles2PointField(tmpPrevPoint, tBuilderPrevPoint);
+                        .getTuple().getFieldStart(0), prevPoint);
+                linearizerSearchHelper.convertTwoDoubles2PointField(prevPoint, tBuilderPrevPoint);
                 ((ArrayTupleReference) tRefPrevPoint).reset(tBuilderPrevPoint.getFieldEndOffsets(),
                         tBuilderPrevPoint.getByteArray());
                 while (cursor.hasNext()) {
@@ -166,8 +163,8 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                         break;
                     }
                     linearizerSearchHelper.convertPointField2TwoDoubles(cursor.getTuple().getFieldData(0), cursor
-                            .getTuple().getFieldStart(0), tmpPrevPoint);
-                    linearizerSearchHelper.convertTwoDoubles2PointField(tmpPrevPoint, tBuilderPrevPoint);
+                            .getTuple().getFieldStart(0), prevPoint);
+                    linearizerSearchHelper.convertTwoDoubles2PointField(prevPoint, tBuilderPrevPoint);
                     ((ArrayTupleReference) tRefPrevPoint).reset(tBuilderPrevPoint.getFieldEndOffsets(),
                             tBuilderPrevPoint.getByteArray());
                 }
@@ -179,8 +176,8 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                 }
 
                 //Even though some points are not on the query region, check all points on the page.
-                //Because it could be cheaper than triggering multiple underlying btree searches in the case
-                //that some points on the query region can be located in non-contiguous locations in the page. 
+                //Because it could be cheaper than triggering multiple underlying btree searches in the case,
+                //where some points on the query region can be located in non-contiguous locations in the page. 
 
                 //TODO compare the performance with or without reading all points in the page when a point is out of query region.
                 /********************************************************************************************
@@ -298,21 +295,12 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
             nextSearchCount = 0;
             if (areCurrentQueryRegionAndCurrentSearchSpaceEqual()) {
                 setNextMatch();
-                if (isNextMatchGECurrentPageKey()) {
-                    cursor = new BTreeRangeSearchCursor(frame, exclusiveLatchNodes);
-                    if (search) {
-                        btreeAccessor.search(this, linearizerSearchPredicate);
-                    }
-                    cursor.open(cursorInitialiState, linearizerSearchPredicate);
-                    return cursor;
-                } else {
-                    if (backtrackFlag) {
-                        restoreBacktrackContext();
-                        continue;
-                    } else {
-                        return null;
-                    }
+                cursor = new BTreeRangeSearchCursor(frame, exclusiveLatchNodes);
+                if (search) {
+                    btreeAccessor.search(this, linearizerSearchPredicate);
                 }
+                cursor.open(cursorInitialiState, linearizerSearchPredicate);
+                return cursor;
             }
             //compute overlapping coordinates with current query region (BL, TL, BR and TR points)
             computeOverlappingCoordinates();
@@ -349,12 +337,17 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
             default:
                 throw new IllegalStateException("Illegal HilbertBTree search state: " + currentSearchCtx.state);
         }
+        
         if (!currentSearchCtx.inclusive[0]) {
             nextMatch[0] = Math.nextAfter(nextMatch[0], currentSearchCtx.centerPoint[0]);
         }
         if (!currentSearchCtx.inclusive[1]) {
             nextMatch[1] = Math.nextAfter(nextMatch[1], currentSearchCtx.centerPoint[1]);
         }
+        
+        linearizerSearchHelper.convertTwoDoubles2PointField(nextMatch, tBuilderNextMatch);
+        ((ArrayTupleReference) tRefNextMatch).reset(tBuilderNextMatch.getFieldEndOffsets(),
+                tBuilderNextMatch.getByteArray());
     }
 
     private void restoreBacktrackContext() {
@@ -362,6 +355,7 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
         tempSearchCtx = currentSearchCtx;
         currentSearchCtx = backtrackSearchCtx;
         backtrackSearchCtx = tempSearchCtx;
+        needToCheckPageKey = false;
         backtrackFlag = false;
     }
 
@@ -369,88 +363,9 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
 
         //check whether the current step size is less than machine epsilon
         if (currentSearchCtx.stepSize <= DoublePointable.getEpsilon()) {
-            throw new IllegalStateException("Illegal step size reached");
+            throw new IllegalStateException("Illegal HilbertBTree step size reached");
         }
-
-        //adjust query region and center point
-        switch (nextSearchCoordinates[0]) {
-            case 0:
-                //query region
-                if (currentSearchCtx.qTopRight[0] > currentSearchCtx.centerPoint[0]) {
-                    currentSearchCtx.qTopRight[0] = currentSearchCtx.centerPoint[0];
-                    currentSearchCtx.qBottomRight[0] = currentSearchCtx.centerPoint[0];
-                }
-                if (currentSearchCtx.qTopRight[1] > currentSearchCtx.centerPoint[1]) {
-                    currentSearchCtx.qTopRight[1] = currentSearchCtx.centerPoint[1];
-                    currentSearchCtx.qTopLeft[1] = currentSearchCtx.centerPoint[1];
-                }
-                //center point
-                currentSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] - currentSearchCtx.stepSize;
-                currentSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] - currentSearchCtx.stepSize;
-                //inclusiveness
-                currentSearchCtx.inclusive[0] = false;
-                currentSearchCtx.inclusive[1] = false;
-                break;
-
-            case 1:
-                //query region
-                if (currentSearchCtx.qTopRight[0] > currentSearchCtx.centerPoint[0]) {
-                    currentSearchCtx.qTopRight[0] = currentSearchCtx.centerPoint[0];
-                    currentSearchCtx.qBottomRight[0] = currentSearchCtx.centerPoint[0];
-                }
-                if (currentSearchCtx.qBottomLeft[1] < currentSearchCtx.centerPoint[1]) {
-                    currentSearchCtx.qBottomLeft[1] = currentSearchCtx.centerPoint[1];
-                    currentSearchCtx.qBottomRight[1] = currentSearchCtx.centerPoint[1];
-                }
-                //center point
-                currentSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] - currentSearchCtx.stepSize;
-                currentSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] + currentSearchCtx.stepSize;
-                //inclusiveness
-                currentSearchCtx.inclusive[0] = false;
-                break;
-
-            case 2:
-                //query region
-                if (currentSearchCtx.qBottomLeft[0] < currentSearchCtx.centerPoint[0]) {
-                    currentSearchCtx.qBottomLeft[0] = currentSearchCtx.centerPoint[0];
-                    currentSearchCtx.qTopLeft[0] = currentSearchCtx.centerPoint[0];
-                }
-                if (currentSearchCtx.qTopRight[1] > currentSearchCtx.centerPoint[1]) {
-                    currentSearchCtx.qTopRight[1] = currentSearchCtx.centerPoint[1];
-                    currentSearchCtx.qTopLeft[1] = currentSearchCtx.centerPoint[1];
-                }
-                //center point
-                currentSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] + currentSearchCtx.stepSize;
-                currentSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] - currentSearchCtx.stepSize;
-                //inclusiveness
-                currentSearchCtx.inclusive[1] = false;
-                break;
-
-            case 3:
-                //query region
-                if (currentSearchCtx.qBottomLeft[0] < currentSearchCtx.centerPoint[0]) {
-                    currentSearchCtx.qBottomLeft[0] = currentSearchCtx.centerPoint[0];
-                    currentSearchCtx.qTopLeft[0] = currentSearchCtx.centerPoint[0];
-                }
-                if (currentSearchCtx.qBottomLeft[1] < currentSearchCtx.centerPoint[1]) {
-                    currentSearchCtx.qBottomLeft[1] = currentSearchCtx.centerPoint[1];
-                    currentSearchCtx.qBottomRight[1] = currentSearchCtx.centerPoint[1];
-                }
-                //center point
-                currentSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] + currentSearchCtx.stepSize;
-                currentSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] + currentSearchCtx.stepSize;
-                //inclusiveness: do nothing
-                break;
-
-            default:
-                throw new IllegalStateException("Illegal coordinate: " + nextSearchCoordinates[0]);
-        }
-
-        //adjust step size
-        currentSearchCtx.stepSize /= 2;
-
-        //adjust state
-        currentSearchCtx.state = states[currentSearchCtx.state].nextState[nextSearchCoordinates[0]];
+        updateSearchCtx(currentSearchCtx, currentSearchCtx, nextSearchCoordinates[0]);
 
         if (DEBUG) {
             System.out.println("" + currentSearchCtx.qBottomLeft[0] + "\t" + currentSearchCtx.qBottomLeft[1] + "\t"
@@ -461,13 +376,9 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
     }
 
     private void createBacktrackContext() {
-        //TODO: keep minimal info in order to compute a backtrack context later when the backtrack is triggered. 
-
         //check whether the current step size is less than machine epsilon
-        if (currentSearchCtx.stepSize / 2 <= DoublePointable.getEpsilon()) {
-            //don't create back track if the step size is too small;
-            return;
-            //            throw new IllegalStateException("Illegal step size reached");
+        if (currentSearchCtx.stepSize <= DoublePointable.getEpsilon()) {
+           throw new IllegalStateException("Illegal HilbertBTree step size reached");
         }
 
         if (backtrackSearchCtx == null) {
@@ -479,74 +390,74 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
         backtrackSearchCtx.inclusive[1] = currentSearchCtx.inclusive[1];
         backtrackSearchCtx.setQueryRegion(currentSearchCtx.qBottomLeft[0], currentSearchCtx.qBottomLeft[1],
                 currentSearchCtx.qTopRight[0], currentSearchCtx.qTopRight[1]);
-        switch (nextSearchCoordinates[1]) {
+        
+        updateSearchCtx(currentSearchCtx, backtrackSearchCtx, nextSearchCoordinates[1]);
+        backtrackFlag = true;
+    }
+    
+    private void updateSearchCtx (final HilbertRangeSearchContext currentCtx, HilbertRangeSearchContext nextCtx, int nextCoordinate) {
+        switch (nextCoordinate) {
             case 0:
-                //query region
-                if (currentSearchCtx.qTopRight[0] > currentSearchCtx.centerPoint[0]) {
-                    backtrackSearchCtx.qTopRight[0] = currentSearchCtx.centerPoint[0];
-                    backtrackSearchCtx.qBottomRight[0] = currentSearchCtx.centerPoint[0];
+                if (currentCtx.qTopRight[0] > currentCtx.centerPoint[0]) {
+                    nextCtx.qTopRight[0] = currentCtx.centerPoint[0];
+                    nextCtx.qBottomRight[0] = currentCtx.centerPoint[0];
                 }
-                if (currentSearchCtx.qTopRight[1] > currentSearchCtx.centerPoint[1]) {
-                    backtrackSearchCtx.qTopRight[1] = currentSearchCtx.centerPoint[1];
-                    backtrackSearchCtx.qTopLeft[1] = currentSearchCtx.centerPoint[1];
+                if (currentCtx.qTopRight[1] > currentCtx.centerPoint[1]) {
+                    nextCtx.qTopRight[1] = currentCtx.centerPoint[1];
+                    nextCtx.qTopLeft[1] = currentCtx.centerPoint[1];
                 }
-                backtrackSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] - currentSearchCtx.stepSize;
-                backtrackSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] - currentSearchCtx.stepSize;
-                backtrackSearchCtx.inclusive[0] = false;
-                backtrackSearchCtx.inclusive[1] = false;
+                nextCtx.centerPoint[0] = currentCtx.centerPoint[0] - currentCtx.stepSize;
+                nextCtx.centerPoint[1] = currentCtx.centerPoint[1] - currentCtx.stepSize;
+                nextCtx.inclusive[0] = false;
+                nextCtx.inclusive[1] = false;
                 break;
 
             case 1:
-                //query region
-                if (currentSearchCtx.qTopRight[0] > currentSearchCtx.centerPoint[0]) {
-                    backtrackSearchCtx.qTopRight[0] = currentSearchCtx.centerPoint[0];
-                    backtrackSearchCtx.qBottomRight[0] = currentSearchCtx.centerPoint[0];
+                if (currentCtx.qTopRight[0] > currentCtx.centerPoint[0]) {
+                    nextCtx.qTopRight[0] = currentCtx.centerPoint[0];
+                    nextCtx.qBottomRight[0] = currentCtx.centerPoint[0];
                 }
-                if (currentSearchCtx.qBottomLeft[1] < currentSearchCtx.centerPoint[1]) {
-                    backtrackSearchCtx.qBottomLeft[1] = currentSearchCtx.centerPoint[1];
-                    backtrackSearchCtx.qBottomRight[1] = currentSearchCtx.centerPoint[1];
+                if (currentCtx.qBottomLeft[1] < currentCtx.centerPoint[1]) {
+                    nextCtx.qBottomLeft[1] = currentCtx.centerPoint[1];
+                    nextCtx.qBottomRight[1] = currentCtx.centerPoint[1];
                 }
-                backtrackSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] - currentSearchCtx.stepSize;
-                backtrackSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] + currentSearchCtx.stepSize;
-                backtrackSearchCtx.inclusive[0] = false;
+                nextCtx.centerPoint[0] = currentCtx.centerPoint[0] - currentCtx.stepSize;
+                nextCtx.centerPoint[1] = currentCtx.centerPoint[1] + currentCtx.stepSize;
+                nextCtx.inclusive[0] = false;
                 break;
 
             case 2:
-                //query region
-                if (currentSearchCtx.qBottomLeft[0] < currentSearchCtx.centerPoint[0]) {
-                    backtrackSearchCtx.qBottomLeft[0] = currentSearchCtx.centerPoint[0];
-                    backtrackSearchCtx.qTopLeft[0] = currentSearchCtx.centerPoint[0];
+                if (currentCtx.qBottomLeft[0] < currentCtx.centerPoint[0]) {
+                    nextCtx.qBottomLeft[0] = currentCtx.centerPoint[0];
+                    nextCtx.qTopLeft[0] = currentCtx.centerPoint[0];
                 }
-                if (currentSearchCtx.qTopRight[1] > currentSearchCtx.centerPoint[1]) {
-                    backtrackSearchCtx.qTopRight[1] = currentSearchCtx.centerPoint[1];
-                    backtrackSearchCtx.qTopLeft[1] = currentSearchCtx.centerPoint[1];
+                if (currentCtx.qTopRight[1] > currentCtx.centerPoint[1]) {
+                    nextCtx.qTopRight[1] = currentCtx.centerPoint[1];
+                    nextCtx.qTopLeft[1] = currentCtx.centerPoint[1];
                 }
-                backtrackSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] + currentSearchCtx.stepSize;
-                backtrackSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] - currentSearchCtx.stepSize;
-                backtrackSearchCtx.inclusive[1] = false;
+                nextCtx.centerPoint[0] = currentCtx.centerPoint[0] + currentCtx.stepSize;
+                nextCtx.centerPoint[1] = currentCtx.centerPoint[1] - currentCtx.stepSize;
+                nextCtx.inclusive[1] = false;
                 break;
 
             case 3:
-                //query region
-                if (currentSearchCtx.qBottomLeft[0] < currentSearchCtx.centerPoint[0]) {
-                    backtrackSearchCtx.qBottomLeft[0] = currentSearchCtx.centerPoint[0];
-                    backtrackSearchCtx.qTopLeft[0] = currentSearchCtx.centerPoint[0];
+                if (currentCtx.qBottomLeft[0] < currentCtx.centerPoint[0]) {
+                    nextCtx.qBottomLeft[0] = currentCtx.centerPoint[0];
+                    nextCtx.qTopLeft[0] = currentCtx.centerPoint[0];
                 }
-                if (currentSearchCtx.qBottomLeft[1] < currentSearchCtx.centerPoint[1]) {
-                    backtrackSearchCtx.qBottomLeft[1] = currentSearchCtx.centerPoint[1];
-                    backtrackSearchCtx.qBottomRight[1] = currentSearchCtx.centerPoint[1];
+                if (currentCtx.qBottomLeft[1] < currentCtx.centerPoint[1]) {
+                    nextCtx.qBottomLeft[1] = currentCtx.centerPoint[1];
+                    nextCtx.qBottomRight[1] = currentCtx.centerPoint[1];
                 }
-                backtrackSearchCtx.centerPoint[0] = currentSearchCtx.centerPoint[0] + currentSearchCtx.stepSize;
-                backtrackSearchCtx.centerPoint[1] = currentSearchCtx.centerPoint[1] + currentSearchCtx.stepSize;
+                nextCtx.centerPoint[0] = currentCtx.centerPoint[0] + currentCtx.stepSize;
+                nextCtx.centerPoint[1] = currentCtx.centerPoint[1] + currentCtx.stepSize;
                 break;
 
             default:
-                throw new IllegalStateException("Illegal coordinate: " + nextSearchCoordinates[1]);
+                throw new IllegalStateException("Illegal HilbertBtree coordinate: " + nextCoordinate);
         }
-        backtrackSearchCtx.setPageKey(currentSearchCtx.pageKey[0], currentSearchCtx.pageKey[1]);
-        backtrackSearchCtx.state = states[currentSearchCtx.state].nextState[nextSearchCoordinates[1]];
-        backtrackSearchCtx.stepSize = currentSearchCtx.stepSize / 2;
-        backtrackFlag = true;
+        nextCtx.state = states[currentCtx.state].nextState[nextCoordinate];
+        nextCtx.stepSize = currentCtx.stepSize / 2;
     }
 
     private void computeOverlappingCoordinates() {
@@ -554,6 +465,10 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
         int coordinates[] = new int[NUM_QUAD];
         int pageKeyCoordinates = 0;
         int pageKeyHKey = 0;
+        
+        for (i = 0; i < NUM_QUAD; i++) {
+            overlappedHKeys[i] = false;
+        }
 
         // coordinates
         //                |
@@ -585,20 +500,21 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                     pageKeyCoordinates ^= (1 << (DIMENSION - i - 1));
             }
         }
-        for (i = 0; i < NUM_QUAD; i++) {
-            overlappedHKeys[i] = false;
-        }
+
         for (i = 0; i < NUM_QUAD; i++) {
             overlappedHKeys[states[currentSearchCtx.state].key[coordinates[i]]] = true;
             overlappedCoordinates[states[currentSearchCtx.state].key[coordinates[i]]] = coordinates[i];
         }
-        pageKeyHKey = states[currentSearchCtx.state].key[pageKeyCoordinates];
+        
+        if (needToCheckPageKey) {
+            pageKeyHKey = states[currentSearchCtx.state].key[pageKeyCoordinates];
+        }
 
         //determine candidate quadrants to be searched considering the current page key 
         for (i = 0, nextSearchCount = 0; i < NUM_QUAD; i++) {
             if (overlappedHKeys[i]) {
                 //If the first overlapped coordinates's HKey (represented in variable i) is greater than current page key's HKey,
-                //the page key is ignored after this step.
+                //the page key should not be considered after this step.
                 if (needToCheckPageKey && pageKeyHKey < i && nextSearchCount == 0) {
                     needToCheckPageKey = false;
                 }
@@ -609,24 +525,28 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                 }
                 nextSearchHKeys[nextSearchCount] = i;
                 nextSearchCoordinates[nextSearchCount++] = overlappedCoordinates[i];
-                if (nextSearchCount == 2) {
+                if (nextSearchCount == MAX_SEARCH_CANDIDATES) {
                     break;
                 }
             }
         }
-    }
-
-    private boolean isNextMatchGECurrentPageKey() throws HyracksDataException {
-        linearizerSearchHelper.convertTwoDoubles2PointField(nextMatch, tBuilderNextMatch);
-        ((ArrayTupleReference) tRefNextMatch).reset(tBuilderNextMatch.getFieldEndOffsets(),
-                tBuilderNextMatch.getByteArray());
-        linearizerSearchHelper.convertTwoDoubles2PointField(currentSearchCtx.pageKey, tBuilderPageKey);
-        tRefPageKey.reset(tBuilderPageKey.getFieldEndOffsets(), tBuilderPageKey.getByteArray());
-        return hilbertCmp.compare(tRefNextMatch, tRefPageKey) >= 0;
+        
+        if (DEBUG) {
+            System.out.println("center[ " + currentSearchCtx.centerPoint[0] + ", " + currentSearchCtx.centerPoint[1]
+                    + " ]: " + nextSearchCount + " [ (key, quad): (" + nextSearchHKeys[0] + ", "
+                    + nextSearchCoordinates[0] + "), (" + nextSearchHKeys[1] + ", " + nextSearchCoordinates[1]
+                    + ") ], stepsize: " + currentSearchCtx.stepSize + "pageKey: " + currentSearchCtx.pageKey[0] + ", "
+                    + currentSearchCtx.pageKey[1] + ", region: " + currentSearchCtx.qBottomLeft[0] + ", "
+                    + currentSearchCtx.qBottomLeft[1] + ", " + currentSearchCtx.qTopRight[0] + ", "
+                    + currentSearchCtx.qTopRight[1]);
+        }
     }
 
     private boolean areCurrentQueryRegionAndCurrentSearchSpaceEqual() {
-        if (currentSearchCtx.stepSize / 2 <= DoublePointable.getEpsilon()
+        if (Math.abs((currentSearchCtx.centerPoint[0] + currentSearchCtx.stepSize) - currentSearchCtx.centerPoint[0]) <= DoublePointable
+                .getEpsilon() * 2
+                || Math.abs((currentSearchCtx.centerPoint[1] + currentSearchCtx.stepSize)
+                        - currentSearchCtx.centerPoint[1]) <= DoublePointable.getEpsilon() * 2
                 || (Math.abs((currentSearchCtx.centerPoint[0] - currentSearchCtx.stepSize * 2)
                         - currentSearchCtx.qBottomLeft[0]) <= DoublePointable.getEpsilon()
                         && Math.abs((currentSearchCtx.centerPoint[1] - currentSearchCtx.stepSize * 2)
@@ -644,6 +564,7 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
         // check whether qBottomLeftX <= x <=qTopRightX && similar for y.
         linearizerSearchHelper.convertPointField2TwoDoubles(tuple.getFieldData(0), tuple.getFieldStart(0),
                 searchedPoint);
+        
         if (DEBUG) {
             if (qBottomLeft[0] <= searchedPoint[0] && qTopRight[0] >= searchedPoint[0]
                     && qBottomLeft[1] <= searchedPoint[1] && qTopRight[1] >= searchedPoint[1]) {
@@ -652,6 +573,7 @@ public class HilbertBTreeRangeSearchCursor implements ITreeIndexCursor {
                 System.out.println("no : \t" + searchedPoint[0] + ", " + searchedPoint[1]);
             }
         }
+        
         return qBottomLeft[0] <= searchedPoint[0] && qTopRight[0] >= searchedPoint[0]
                 && qBottomLeft[1] <= searchedPoint[1] && qTopRight[1] >= searchedPoint[1];
     }
