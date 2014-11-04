@@ -54,13 +54,12 @@ public class BufferCacheRegressionTest {
     // 2. If the file was not deleted, then we must flush its dirty pages.
     @Before
     public void setUp() throws IOException{
-    	resetState();
+        resetState();
     }
     @After
     public void tearDown() throws IOException{
-    	resetState();
+        resetState();
     }
-    
     private void resetState() throws IOException{
         File f = new File(fileName);
         if (f.exists()) {
