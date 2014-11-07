@@ -20,6 +20,8 @@ import edu.uci.ics.hyracks.data.std.api.IComparable;
 import edu.uci.ics.hyracks.data.std.api.IPointable;
 import edu.uci.ics.hyracks.data.std.api.IPointableFactory;
 
+import java.io.ObjectStreamException;
+
 public class PointableBinaryComparatorFactory implements IBinaryComparatorFactory {
     private static final long serialVersionUID = 1L;
 
@@ -35,12 +37,17 @@ public class PointableBinaryComparatorFactory implements IBinaryComparatorFactor
 
     @Override
     public IBinaryComparator createBinaryComparator() {
-        final IPointable p = pf.createPointable();
+        final ThreadLocal<IPointable> threadLocalP = new ThreadLocal<IPointable>() {
+            @Override
+            protected IPointable initialValue() {
+                return pf.createPointable();
+            }
+        };
         return new IBinaryComparator() {
             @Override
             public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
-                p.set(b1, s1, l1);
-                return ((IComparable) p).compareTo(b2, s2, l2);
+                threadLocalP.get().set(b1, s1, l1);
+                return ((IComparable) threadLocalP.get()).compareTo(b2, s2, l2);
             }
         };
     }

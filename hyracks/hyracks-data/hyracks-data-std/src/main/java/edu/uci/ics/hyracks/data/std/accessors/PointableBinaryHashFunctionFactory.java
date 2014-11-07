@@ -35,12 +35,17 @@ public class PointableBinaryHashFunctionFactory implements IBinaryHashFunctionFa
 
     @Override
     public IBinaryHashFunction createBinaryHashFunction() {
-        final IPointable p = pf.createPointable();
+        final ThreadLocal<IPointable> threadLocalP = new ThreadLocal<IPointable>() {
+            @Override
+            protected IPointable initialValue() {
+                return pf.createPointable();
+            }
+        };
         return new IBinaryHashFunction() {
             @Override
             public int hash(byte[] bytes, int offset, int length) {
-                p.set(bytes, offset, length);
-                return ((IHashable) p).hash();
+                threadLocalP.get().set(bytes, offset, length);
+                return ((IHashable) threadLocalP.get()).hash();
             }
         };
     }
