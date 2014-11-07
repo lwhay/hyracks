@@ -23,10 +23,10 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class ByteArrayParserFactory implements IValueParserFactory {
-    public static ByteArrayParserFactory INSTANCE = new ByteArrayParserFactory();
+public class ByteArrayHexParserFactory implements IValueParserFactory {
+    public static ByteArrayHexParserFactory INSTANCE = new ByteArrayHexParserFactory();
 
-    private ByteArrayParserFactory() {
+    private ByteArrayHexParserFactory() {
     }
 
     @Override public IValueParser createValueParser() {
@@ -37,19 +37,7 @@ public class ByteArrayParserFactory implements IValueParserFactory {
                     throws HyracksDataException {
                 String str = String.valueOf(buffer, start, length);
                 try {
-                    int begin = 0;
-                    int end = str.length();
-                    if (begin < end && str.charAt(0) == 'X' || str.charAt(0) == 'x') {
-                        begin++;
-                    }
-                    if (begin < end && (str.charAt(begin) == '\'' || str.charAt(begin) == '"')) {
-                        begin++;
-                    }
-                    if (begin < end && (str.charAt(end - 1) == '\'' || str.charAt(end - 1) == '"')) {
-                        end--;
-                    }
-                    str = str.substring(begin, end);
-                    if (!isValidBinaryLiteral(str)) {
+                    if (!isValidHexBinaryString(str)) {
                         throw new HyracksDataException("Invalid hex string for binary type: " + str);
                     }
                     cache = extractPointableArrayFromHexString(str, cache);
@@ -62,7 +50,7 @@ public class ByteArrayParserFactory implements IValueParserFactory {
         };
     }
 
-    public static boolean isValidBinaryLiteral(String unquoted) {
+    public static boolean isValidHexBinaryString(String unquoted) {
         for (int i = 0; i < unquoted.length(); ++i) {
             if (unquoted.charAt(i) >= '0' && unquoted.charAt(i) <= '9'
                     || unquoted.charAt(i) >= 'a' && unquoted.charAt(i) <= 'f'

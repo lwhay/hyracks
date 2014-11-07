@@ -23,7 +23,7 @@ import java.util.Arrays;
 
 import static org.junit.Assert.assertTrue;
 
-public class ByteArrayParserFactoryTest {
+public class ByteArrayHexParserFactoryTest {
 
     public byte[] subArray(byte[] bytes, int start) {
         return Arrays.copyOfRange(bytes, start, bytes.length);
@@ -34,25 +34,25 @@ public class ByteArrayParserFactoryTest {
         byte[] cache = new byte[] { };
 
         String empty = "";
-        cache = ByteArrayParserFactory.extractPointableArrayFromHexString(empty, cache);
+        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(empty, cache);
 
         assertTrue(ByteArrayPointable.getLength(cache, 0) == 0);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(empty));
 
         String everyChar = "ABCDEF0123456789";
-        cache = ByteArrayParserFactory.extractPointableArrayFromHexString(everyChar, cache);
+        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(everyChar, cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == everyChar.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(everyChar));
 
         String lowercase = "0123456789abcdef";
-        cache = ByteArrayParserFactory.extractPointableArrayFromHexString(lowercase, cache);
+        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(lowercase, cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == lowercase.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(lowercase));
 
         char[] maxChars = new char[(ByteArrayPointable.MAX_LENGTH - 1) * 2];
         Arrays.fill(maxChars, 'f');
         String maxString = new String(maxChars);
-        cache = ByteArrayParserFactory.extractPointableArrayFromHexString(maxString, cache);
+        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(maxString, cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == maxString.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(maxString));
     }
