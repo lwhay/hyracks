@@ -20,8 +20,6 @@ import edu.uci.ics.hyracks.data.std.api.IComparable;
 import edu.uci.ics.hyracks.data.std.api.IPointable;
 import edu.uci.ics.hyracks.data.std.api.IPointableFactory;
 
-import java.io.ObjectStreamException;
-
 public class PointableBinaryComparatorFactory implements IBinaryComparatorFactory {
     private static final long serialVersionUID = 1L;
 
