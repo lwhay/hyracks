@@ -25,7 +25,7 @@ import static org.junit.Assert.assertTrue;
 
 public class ByteArrayHexParserFactoryTest {
 
-    public byte[] subArray(byte[] bytes, int start) {
+    public static byte[] subArray(byte[] bytes, int start) {
         return Arrays.copyOfRange(bytes, start, bytes.length);
     }
 
@@ -34,26 +34,55 @@ public class ByteArrayHexParserFactoryTest {
         byte[] cache = new byte[] { };
 
         String empty = "";
-        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(empty, cache);
+        cache = ByteArrayHexParserFactory
+                .extractPointableArrayFromHexString(empty.toCharArray(), 0, empty.length(), cache);
 
         assertTrue(ByteArrayPointable.getLength(cache, 0) == 0);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(empty));
 
         String everyChar = "ABCDEF0123456789";
-        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(everyChar, cache);
+        cache = ByteArrayHexParserFactory
+                .extractPointableArrayFromHexString(everyChar.toCharArray(), 0, everyChar.length(), cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == everyChar.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(everyChar));
 
         String lowercase = "0123456789abcdef";
-        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(lowercase, cache);
+        cache = ByteArrayHexParserFactory
+                .extractPointableArrayFromHexString(lowercase.toCharArray(), 0, lowercase.length(), cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == lowercase.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(lowercase));
 
         char[] maxChars = new char[(ByteArrayPointable.MAX_LENGTH - 1) * 2];
         Arrays.fill(maxChars, 'f');
         String maxString = new String(maxChars);
-        cache = ByteArrayHexParserFactory.extractPointableArrayFromHexString(maxString, cache);
+        cache = ByteArrayHexParserFactory
+                .extractPointableArrayFromHexString(maxString.toCharArray(), 0, maxString.length(), cache);
         assertTrue(ByteArrayPointable.getLength(cache, 0) == maxString.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(maxString));
+    }
+
+    @Test
+    public void testExtractByteArrayFromValidHexString() throws Exception {
+
+        String hexString = "FFAB99213489";
+        byte[] parsed = new byte[hexString.length() / 2];
+        ByteArrayHexParserFactory
+                .extractByteArrayFromValidHexString(hexString.toCharArray(), 0, hexString.length(), parsed, 0);
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString)));
+
+        byte[] parsed2 = new byte[] { };
+        ByteArrayHexParserFactory.extractByteArrayFromValidHexString("".toCharArray(), 0, 0, parsed, 0);
+        assertTrue(Arrays.equals(parsed2, DatatypeConverter.parseHexBinary("")));
+
+        hexString = hexString.toLowerCase();
+        ByteArrayHexParserFactory
+                .extractByteArrayFromValidHexString(hexString.toCharArray(), 0, hexString.length(), parsed, 0);
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString)));
+
+        String mixString = "FFab9921ccCd";
+        parsed = new byte[mixString.length() / 2];
+        ByteArrayHexParserFactory
+                .extractByteArrayFromValidHexString(mixString.toCharArray(), 0, mixString.length(), parsed, 0);
+        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(mixString)));
     }
 }

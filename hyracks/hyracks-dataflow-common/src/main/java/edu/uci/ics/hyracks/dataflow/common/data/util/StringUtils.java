@@ -39,23 +39,5 @@ public class StringUtils {
         dos.write((len >>> 0) & 0xFF);
     }
 
-    public static int getValueFromValidHexChar(char c) {
-        if (c >= '0' && c <= '9') {
-            return c - '0';
-        }
-        if (c >= 'a' && c <= 'f') {
-            return 10 + c - 'a';
-        }
-        return 10 + c - 'A';
-    }
-
-    public static void extractByteArrayFromValidHexString(String str, int start, byte[] output, int offset) {
-        int len = str.length() - start;
-
-        for (int i = 0; i < len; i += 2) {
-            output[offset + i / 2] = (byte) ((getValueFromValidHexChar(str.charAt(start + i)) << 4) +
-                    getValueFromValidHexChar(str.charAt(start + i + 1)));
-        }
-    }
 
 }
