@@ -284,6 +284,7 @@ public class FieldCursorForDelimitedDataParser {
                             start = p + 1;
                             state = State.EOR;
                             lineCount++;
+                            startedQuote = false;
                             return true;
                         }
                     } else if (ch == '\r') {
@@ -302,6 +303,7 @@ public class FieldCursorForDelimitedDataParser {
                             lastDelimiterPosition = p;
                             start = p + 1;
                             state = State.CR;
+                            startedQuote = false;
                             return true;
                         }
                     }
