@@ -34,7 +34,7 @@ public class FieldHashPartitionComputerFamily implements ITuplePartitionComputer
     public ITuplePartitionComputer createPartitioner(int seed) {
         final IBinaryHashFunction[] hashFunctions = new IBinaryHashFunction[hashFunctionGeneratorFactories.length];
         for (int i = 0; i < hashFunctionGeneratorFactories.length; ++i) {
-            hashFunctions[i] = hashFunctionGeneratorFactories[i].createBinaryHashFunction(seed, true);
+            hashFunctions[i] = hashFunctionGeneratorFactories[i].createBinaryHashFunction(seed);
         }
         return new ITuplePartitionComputer() {
             @Override

@@ -29,7 +29,7 @@ public class UTF8StringBinaryHashFunctionFamily implements IBinaryHashFunctionFa
     }
 
     @Override
-    public IBinaryHashFunction createBinaryHashFunction(int seed, boolean numericTypePromotionRequired) {
+    public IBinaryHashFunction createBinaryHashFunction(int seed) {
         final int coefficient = primeCoefficents[seed % primeCoefficents.length];
         final int r = primeCoefficents[(seed + 1) % primeCoefficents.length];
 
