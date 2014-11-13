@@ -102,7 +102,51 @@ public class ByteArrayBase64ParserFactory implements IValueParserFactory {
         return length / 4 * 3 - padSize;
     }
 
-    public static byte[] extractPointableArrayFromBase64String(char [] input, int start, int length, byte[] bufferNeedToReset, byte[] quadruplet)
+    private static int guessLength(byte[] chars, int start, int length) {
+
+        // compute the tail '=' chars
+        int j = length - 1;
+        for (; j >= 0; j--) {
+            byte code = decodeMap[chars[start + j]];
+            if (code == PADDING) {
+                continue;
+            }
+            if (code == -1) // most likely this base64 text is indented. go with the upper bound
+            {
+                return length / 4 * 3;
+            }
+            break;
+        }
+
+        j++;    // text.charAt(j) is now at some base64 char, so +1 to make it the size
+        int padSize = length - j;
+        if (padSize > 2) // something is wrong with base64. be safe and go with the upper bound
+        {
+            return length / 4 * 3;
+        }
+
+        // so far this base64 looks like it's unindented tightly packed base64.
+        // take a chance and create an array with the expected size
+        return length / 4 * 3 - padSize;
+    }
+
+    public static byte[] extractPointableArrayFromBase64String(byte[] input, int start, int length,
+            byte[] bufferNeedToReset, byte[] quadruplet)
+            throws HyracksDataException {
+        int contentOffset = ByteArrayPointable.SIZE_OF_LENGTH;
+        final int buflen = guessLength(input, start, length) + contentOffset;
+        bufferNeedToReset = ByteArrayHexParserFactory.ensureCapacity(buflen, bufferNeedToReset);
+        int byteArrayLength = parseBase64String(input, start, length, bufferNeedToReset, contentOffset,
+                quadruplet);
+        if (byteArrayLength >= ByteArrayPointable.MAX_LENGTH) {
+            throw new HyracksDataException("The decoded byte array is too long.");
+        }
+        ByteArrayPointable.putLength(byteArrayLength, bufferNeedToReset, 0);
+        return bufferNeedToReset;
+    }
+
+    public static byte[] extractPointableArrayFromBase64String(char[] input, int start, int length,
+            byte[] bufferNeedToReset, byte[] quadruplet)
             throws HyracksDataException {
         int contentOffset = ByteArrayPointable.SIZE_OF_LENGTH;
         final int buflen = guessLength(input, start, length) + contentOffset;
@@ -149,4 +193,36 @@ public class ByteArrayBase64ParserFactory implements IValueParserFactory {
         return outLength;
     }
 
+    static int parseBase64String(byte[] input, int start, int length, byte[] out, int offset,
+            byte[] quadruplet) throws HyracksDataException {
+        int outLength = 0;
+
+        int i;
+        int q = 0;
+
+        // convert each quadruplet to three bytes.
+        for (i = 0; i < length; i++) {
+            char ch = (char)input[start + i];
+            byte v = decodeMap[ch];
+
+            if (v == -1) {
+                throw new HyracksDataException("Invalid Base64 character");
+            }
+            quadruplet[q++] = v;
+
+            if (q == 4) {
+                // quadruplet is now filled.
+                out[offset + outLength++] = (byte) ((quadruplet[0] << 2) | (quadruplet[1] >> 4));
+                if (quadruplet[2] != PADDING) {
+                    out[offset + outLength++] = (byte) ((quadruplet[1] << 4) | (quadruplet[2] >> 2));
+                }
+                if (quadruplet[3] != PADDING) {
+                    out[offset + outLength++] = (byte) ((quadruplet[2] << 6) | (quadruplet[3]));
+                }
+                q = 0;
+            }
+        }
+
+        return outLength;
+    }
 }

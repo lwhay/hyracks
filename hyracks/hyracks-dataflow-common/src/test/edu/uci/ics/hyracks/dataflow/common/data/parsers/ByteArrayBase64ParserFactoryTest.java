@@ -57,22 +57,4 @@ public class ByteArrayBase64ParserFactoryTest extends TestCase {
         assertTrue(Arrays.equals(maxBytes, subArray(cache, 2)));
     }
 
-    void printHexStringToBase64(String hexString){
-        byte[] bytes = DatatypeConverter.parseHexBinary(hexString);
-        System.out.println(DatatypeConverter.printBase64Binary(bytes));
-    }
-
-    @Test
-    public void testNothing() {
-        printHexStringToBase64("34126a9a8c6e8ea118216c7b1048dda0");
-        printHexStringToBase64("46b199c4c7fa55085eea0facd6a3c3b8");
-        printHexStringToBase64("4a0450fe08c5421bb342f36e26c67a61");
-        printHexStringToBase64("173d7751e6fa210b9494503247045c9e");
-        printHexStringToBase64("96892c30078964b56082fd00573673e4");
-        printHexStringToBase64("f998bd34cfbe9b742c62e0aa9d06c977");
-        printHexStringToBase64("204d482bc66e368b72a85e0691804626");
-        printHexStringToBase64("3bde012cc94ce1bdb44ade4e38902072");
-        printHexStringToBase64("bb6842ce561ac90e75b033821b34f2bd");
-        printHexStringToBase64("881b39c29a960774f53d31762684abcc");
-    }
 }

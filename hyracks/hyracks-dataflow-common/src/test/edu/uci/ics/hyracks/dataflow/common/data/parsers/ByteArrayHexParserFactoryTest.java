@@ -61,28 +61,4 @@ public class ByteArrayHexParserFactoryTest {
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(maxString));
     }
 
-    @Test
-    public void testExtractByteArrayFromValidHexString() throws Exception {
-
-        String hexString = "FFAB99213489";
-        byte[] parsed = new byte[hexString.length() / 2];
-        ByteArrayHexParserFactory
-                .extractByteArrayFromValidHexString(hexString.toCharArray(), 0, hexString.length(), parsed, 0);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString)));
-
-        byte[] parsed2 = new byte[] { };
-        ByteArrayHexParserFactory.extractByteArrayFromValidHexString("".toCharArray(), 0, 0, parsed, 0);
-        assertTrue(Arrays.equals(parsed2, DatatypeConverter.parseHexBinary("")));
-
-        hexString = hexString.toLowerCase();
-        ByteArrayHexParserFactory
-                .extractByteArrayFromValidHexString(hexString.toCharArray(), 0, hexString.length(), parsed, 0);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(hexString)));
-
-        String mixString = "FFab9921ccCd";
-        parsed = new byte[mixString.length() / 2];
-        ByteArrayHexParserFactory
-                .extractByteArrayFromValidHexString(mixString.toCharArray(), 0, mixString.length(), parsed, 0);
-        assertTrue(Arrays.equals(parsed, DatatypeConverter.parseHexBinary(mixString)));
-    }
 }

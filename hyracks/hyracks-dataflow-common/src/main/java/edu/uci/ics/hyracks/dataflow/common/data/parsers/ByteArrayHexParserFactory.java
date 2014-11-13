@@ -35,10 +35,6 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
             @Override public void parse(char[] input, int start, int length, DataOutput out)
                     throws HyracksDataException {
                 try {
-                    if (!isValidHexBinaryString(input, start, length)) {
-                        throw new HyracksDataException(
-                                "Invalid hex string for binary type: " + new String(input, start, length));
-                    }
                     buffer = extractPointableArrayFromHexString(input, start, length, buffer);
                     out.write(buffer, 0, ByteArrayPointable.getFullLength(buffer, 0));
                 } catch (IOException e) {
@@ -48,32 +44,50 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
         };
     }
 
-    public static boolean isValidHexBinaryString(char[] input, int start, int length) {
-        for (int i = 0; i < length; ++i) {
-            if (input[start + i] >= '0' && input[start + i] <= '9'
-                    || input[start + i] >= 'a' && input[start + i] <= 'f'
-                    || input[start + i] >= 'A' && input[start + i] <= 'F') {
-                continue;
-            }
-            return false;
+    public static boolean isValidHexChar(char c) {
+        if (c >= '0' && c <= '9'
+                || c >= 'a' && c <= 'f'
+                || c >= 'A' && c <= 'F') {
+            return true;
         }
-        return length % 2 == 0;
+        return false;
     }
 
     public static byte[] extractPointableArrayFromHexString(char[] input, int start, int length,
-            byte[] cacheNeedToReset) throws HyracksDataException {
+            byte[] bufferNeedToReset) throws HyracksDataException {
+        if (length % 2 != 0) {
+            throw new HyracksDataException(
+                    "Invalid hex string for binary type: the string length should be a muliple of 2.");
+        }
         int byteLength = length / 2;
-        cacheNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, cacheNeedToReset);
-        extractByteArrayFromValidHexString(input, start, length, cacheNeedToReset,
+        bufferNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, bufferNeedToReset);
+        extractByteArrayFromHexString(input, start, length, bufferNeedToReset,
                 ByteArrayPointable.SIZE_OF_LENGTH);
         if (byteLength >= ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException("The decoded byte array is too long.");
         }
-        ByteArrayPointable.putLength(byteLength, cacheNeedToReset, 0);
-        return cacheNeedToReset;
+        ByteArrayPointable.putLength(byteLength, bufferNeedToReset, 0);
+        return bufferNeedToReset;
     }
 
-    public static byte[] ensureCapacity(int capacity, byte[] original) {
+    public static byte[] extractPointableArrayFromHexString(byte[] input, int start, int length,
+            byte[] bufferNeedToReset) throws HyracksDataException {
+        if (length % 2 != 0) {
+            throw new HyracksDataException(
+                    "Invalid hex string for binary type: the string length should be a muliple of 2.");
+        }
+        int byteLength = length / 2;
+        bufferNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, bufferNeedToReset);
+        extractByteArrayFromHexString(input, start, length, bufferNeedToReset,
+                ByteArrayPointable.SIZE_OF_LENGTH);
+        if (byteLength >= ByteArrayPointable.MAX_LENGTH) {
+            throw new HyracksDataException("The decoded byte array is too long.");
+        }
+        ByteArrayPointable.putLength(byteLength, bufferNeedToReset, 0);
+        return bufferNeedToReset;
+    }
+
+    static byte[] ensureCapacity(int capacity, byte[] original) {
         if (original == null) {
             return new byte[capacity];
         }
@@ -83,7 +97,10 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
         return original;
     }
 
-    public static int getValueFromValidHexChar(char c) {
+    private static int getValueFromValidHexChar(char c) throws HyracksDataException {
+        if (!isValidHexChar(c)) {
+            throw new HyracksDataException("Invalid hex character : " + c);
+        }
         if (c >= '0' && c <= '9') {
             return c - '0';
         }
@@ -93,12 +110,19 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
         return 10 + c - 'A';
     }
 
-    public static void extractByteArrayFromValidHexString(char[] input, int start, int length, byte[] output,
-            int offset) {
-
+    private static void extractByteArrayFromHexString(char[] input, int start, int length, byte[] output,
+            int offset) throws HyracksDataException {
         for (int i = 0; i < length; i += 2) {
             output[offset + i / 2] = (byte) ((getValueFromValidHexChar(input[start + i]) << 4) +
                     getValueFromValidHexChar(input[start + i + 1]));
+        }
+    }
+
+    private static void extractByteArrayFromHexString(byte[] input, int start, int length, byte[] output,
+            int offset) throws HyracksDataException {
+        for (int i = 0; i < length; i += 2) {
+            output[offset + i / 2] = (byte) ((getValueFromValidHexChar((char)input[start + i]) << 4) +
+                    getValueFromValidHexChar((char)input[start + i + 1]));
         }
     }
 }
