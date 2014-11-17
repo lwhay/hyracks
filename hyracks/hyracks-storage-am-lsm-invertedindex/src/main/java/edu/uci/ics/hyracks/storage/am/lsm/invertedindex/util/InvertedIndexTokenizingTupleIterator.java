@@ -42,7 +42,7 @@ public class InvertedIndexTokenizingTupleIterator {
         this.tokenizer = tokenizer;
     }
 
-    public void reset(ITupleReference inputTuple) {
+    public void reset(ITupleReference inputTuple) throws HyracksDataException {
         this.inputTuple = inputTuple;
         tokenizer.reset(inputTuple.getFieldData(DOC_FIELD_INDEX), inputTuple.getFieldStart(DOC_FIELD_INDEX),
                 inputTuple.getFieldLength(DOC_FIELD_INDEX));

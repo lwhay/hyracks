@@ -32,7 +32,7 @@ public class PartitionedInvertedIndexTokenizingTupleIterator extends InvertedInd
         super(tokensFieldCount, invListFieldCount, tokenizer);
     }
 
-    public void reset(ITupleReference inputTuple) {
+    public void reset(ITupleReference inputTuple) throws HyracksDataException {
         super.reset(inputTuple);
         // Run through the tokenizer once to get the total number of tokens.
         numTokens = 0;

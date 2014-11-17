@@ -15,12 +15,14 @@
 
 package edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers;
 
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+
 public interface IBinaryTokenizer {
-	public IToken getToken();
+    public IToken getToken();
 
-	public boolean hasNext();
+    public boolean hasNext();
 
-	public void next();
+    public void next() throws HyracksDataException;
 
-	public void reset(byte[] data, int start, int length);
+    public void reset(byte[] data, int start, int length) throws HyracksDataException;
 }
