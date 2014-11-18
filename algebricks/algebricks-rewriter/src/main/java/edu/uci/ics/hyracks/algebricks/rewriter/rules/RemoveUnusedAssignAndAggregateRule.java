@@ -96,9 +96,9 @@ public class RemoveUnusedAssignAndAggregateRule implements IAlgebraicRewriteRule
                 List<Mutable<ILogicalOperator>> rootsToBeRemoved = new ArrayList<Mutable<ILogicalOperator>>();
                 for (Mutable<ILogicalOperator> r : nestedPlan.getRoots()) {
                     ILogicalOperator topOp = r.getValue();
-                    Set<LogicalVariable> liveVars = new ListSet<LogicalVariable>();
-                    VariableUtilities.getLiveVariables(topOp, liveVars);
-                    if (liveVars.size() == 0) {
+                    Set<LogicalVariable> producedVars = new ListSet<LogicalVariable>();
+                    VariableUtilities.getProducedVariablesInDescendantsAndSelf(topOp, producedVars);
+                    if (producedVars.size() == 0) {
                         rootsToBeRemoved.add(r);
                     }
                 }
