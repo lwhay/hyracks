@@ -17,7 +17,6 @@ package edu.uci.ics.hyracks.dataflow.common.data.normalizers;
 
 import edu.uci.ics.hyracks.api.dataflow.value.INormalizedKeyComputer;
 import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.ByteArraySerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.ByteArraySerializerDeserializerTest;
 import org.junit.Test;
 
@@ -42,10 +41,10 @@ public class ByteArrayNormalizedKeyComputerFactoryTest {
     @Test
     public void testRandomNormalizedKey() {
         for (int i = 0; i < 10; ++i) {
-            ByteArrayPointable pointable1 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH,
+            ByteArrayPointable pointable1 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH + 1,
                     random);
 
-            ByteArrayPointable pointable2 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH,
+            ByteArrayPointable pointable2 = generateRandomByteArrayPointable(ByteArrayPointable.MAX_LENGTH + 1,
                     random);
             assertNormalizeValue(pointable1, pointable2, computer);
         }
@@ -79,12 +78,12 @@ public class ByteArrayNormalizedKeyComputerFactoryTest {
             assertNormalizeValue(pointable1, pointable2, computer);
         }
 
-        byte [] bytes1 = new byte[] { 0, 4, 0, 25, 34,42};
-        byte [] bytes2 = new byte[] { 0, 4, (byte) 130, 25, 34,42};
+        byte[] bytes1 = new byte[] { 0, 4, 0, 25, 34, 42 };
+        byte[] bytes2 = new byte[] { 0, 4, (byte) 130, 25, 34, 42 };
 
         int n1 = computer.normalize(bytes1, 0, bytes1.length);
         int n2 = computer.normalize(bytes2, 0, bytes2.length);
-        assertTrue( n1 < n2);
+        assertTrue(n1 < n2);
 
     }
 }

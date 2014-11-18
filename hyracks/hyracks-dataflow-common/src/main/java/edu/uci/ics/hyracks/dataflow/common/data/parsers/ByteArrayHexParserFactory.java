@@ -63,7 +63,7 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
         bufferNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, bufferNeedToReset);
         extractByteArrayFromHexString(input, start, length, bufferNeedToReset,
                 ByteArrayPointable.SIZE_OF_LENGTH);
-        if (byteLength >= ByteArrayPointable.MAX_LENGTH) {
+        if (byteLength > ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException("The decoded byte array is too long.");
         }
         ByteArrayPointable.putLength(byteLength, bufferNeedToReset, 0);
@@ -80,7 +80,7 @@ public class ByteArrayHexParserFactory implements IValueParserFactory {
         bufferNeedToReset = ensureCapacity(byteLength + ByteArrayPointable.SIZE_OF_LENGTH, bufferNeedToReset);
         extractByteArrayFromHexString(input, start, length, bufferNeedToReset,
                 ByteArrayPointable.SIZE_OF_LENGTH);
-        if (byteLength >= ByteArrayPointable.MAX_LENGTH) {
+        if (byteLength > ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException("The decoded byte array is too long.");
         }
         ByteArrayPointable.putLength(byteLength, bufferNeedToReset, 0);

@@ -52,7 +52,7 @@ public class ByteArrayHexParserFactoryTest {
         assertTrue(ByteArrayPointable.getLength(cache, 0) == lowercase.length() / 2);
         assertTrue(DatatypeConverter.printHexBinary(subArray(cache, 2)).equalsIgnoreCase(lowercase));
 
-        char[] maxChars = new char[(ByteArrayPointable.MAX_LENGTH - 1) * 2];
+        char[] maxChars = new char[ByteArrayPointable.MAX_LENGTH  * 2];
         Arrays.fill(maxChars, 'f');
         String maxString = new String(maxChars);
         cache = ByteArrayHexParserFactory

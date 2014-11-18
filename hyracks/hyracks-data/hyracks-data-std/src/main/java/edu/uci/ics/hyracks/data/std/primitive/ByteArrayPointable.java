@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.data.std.primitive;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
@@ -43,10 +58,10 @@ public class ByteArrayPointable extends AbstractPointable implements IHashable, 
         int thislen = getLength(this.bytes, this.start);
         int thatlen = getLength(bytes, start);
 
-        for (int thisId = 0, thatId = 0; thisId < thislen && thatId < thatlen; ++thisId, ++thatId) {
-            if (this.bytes[this.start + SIZE_OF_LENGTH + thisId] != bytes[start + SIZE_OF_LENGTH + thatId]) {
-                return (0xff & this.bytes[this.start + SIZE_OF_LENGTH + thisId]) - (0xff & bytes[start + SIZE_OF_LENGTH
-                        + thatId]);
+        for (int thisIndex = 0, thatIndex = 0; thisIndex < thislen && thatIndex < thatlen; ++thisIndex, ++thatIndex) {
+            if (this.bytes[this.start + SIZE_OF_LENGTH + thisIndex] != bytes[start + SIZE_OF_LENGTH + thatIndex]) {
+                return (0xff & this.bytes[this.start + SIZE_OF_LENGTH + thisIndex]) - (0xff & bytes[start + SIZE_OF_LENGTH
+                        + thatIndex]);
             }
         }
         return thislen - thatlen;
@@ -68,7 +83,7 @@ public class ByteArrayPointable extends AbstractPointable implements IHashable, 
     }
 
     public static final int SIZE_OF_LENGTH = 2;
-    public static final int MAX_LENGTH = 65536;
+    public static final int MAX_LENGTH = 65535;
 
     public static int getLength(byte[] bytes, int offset) {
         return ((0xFF & bytes[offset]) << 8) + (0xFF & bytes[offset + 1]);

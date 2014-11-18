@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
 package edu.uci.ics.hyracks.dataflow.common.data.marshalling;
 
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -33,7 +48,7 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     @Override
     public void serialize(byte[] instance, DataOutput out) throws HyracksDataException {
 
-        if (instance.length >= ByteArrayPointable.MAX_LENGTH) {
+        if (instance.length > ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException(
                     "encoded byte array too long: " + instance.length + " bytes");
         }
@@ -46,7 +61,7 @@ public class ByteArraySerializerDeserializer implements ISerializerDeserializer<
     }
 
     public void serialize(byte[] instance, int start, int length, DataOutput out) throws HyracksDataException {
-        if (length >= ByteArrayPointable.MAX_LENGTH) {
+        if (length > ByteArrayPointable.MAX_LENGTH) {
             throw new HyracksDataException(
                     "encoded byte array too long: " + instance.length + " bytes");
         }
