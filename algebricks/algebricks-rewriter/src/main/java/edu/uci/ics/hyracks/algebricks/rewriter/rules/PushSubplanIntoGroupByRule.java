@@ -29,6 +29,7 @@
 package edu.uci.ics.hyracks.algebricks.rewriter.rules;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -43,6 +44,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.NestedTupleSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
@@ -58,6 +60,8 @@ import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
  */
 
 public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
+    private final Set<LogicalVariable> usedVarsSoFar = new HashSet<LogicalVariable>();
+
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
             throws AlgebricksException {
@@ -71,10 +75,12 @@ public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
             return false;
         }
         context.addToDontApplySet(this, parentOperator);
+        VariableUtilities.getUsedVariables(parentOperator, usedVarsSoFar);
         if (parentOperator.getInputs().size() <= 0) {
             return false;
         }
         boolean changed = false;
+        GroupByOperator gby = null;
         for (Mutable<ILogicalOperator> ref : parentOperator.getInputs()) {
             AbstractLogicalOperator op = (AbstractLogicalOperator) ref.getValue();
             /** Only processes subplan operator. */
@@ -87,7 +93,7 @@ public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
                 }
                 /** Only processes the case a group-by operator is the input of the subplan operators. */
                 if (op.getOperatorTag() == LogicalOperatorTag.GROUP) {
-                    GroupByOperator gby = (GroupByOperator) op;
+                    gby = (GroupByOperator) op;
                     List<ILogicalPlan> newGbyNestedPlans = new ArrayList<ILogicalPlan>();
                     for (SubplanOperator subplan : subplans) {
                         List<ILogicalPlan> subplanNestedPlans = subplan.getNestedPlans();
@@ -106,24 +112,53 @@ public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
                                 freeVars.removeAll(producedVars);
                                 /** * Checks whether the above freeVars are all contained in live variables * of one nested plan inside the group-by operator. * If yes, then the subplan can be pushed into the nested plan of the group-by. */
                                 for (ILogicalPlan gbyNestedPlanOriginal : gbyNestedPlans) {
+                                    // add a subplan in the original gby
+                                    if (!newGbyNestedPlans.contains(gbyNestedPlanOriginal)) {
+                                        newGbyNestedPlans.add(gbyNestedPlanOriginal);
+                                    }
+
+                                    // add a pushed subplan
                                     ILogicalPlan gbyNestedPlan = OperatorManipulationUtil.deepCopy(
                                             gbyNestedPlanOriginal, context);
                                     List<Mutable<ILogicalOperator>> gbyRootOpRefs = gbyNestedPlan.getRoots();
-                                    for (Mutable<ILogicalOperator> gbyRootOpRef : gbyRootOpRefs) {
+                                    for (int rootIndex = 0; rootIndex < gbyRootOpRefs.size(); rootIndex++) {
+                                        //set the nts for a original subplan
+                                        Mutable<ILogicalOperator> originalGbyRootOpRef = gbyNestedPlanOriginal
+                                                .getRoots().get(rootIndex);
+                                        Mutable<ILogicalOperator> originalGbyNtsRef = downToNts(originalGbyRootOpRef);
+                                        NestedTupleSourceOperator originalNts = (NestedTupleSourceOperator) originalGbyNtsRef
+                                                .getValue();
+                                        originalNts.setDataSourceReference(new MutableObject<ILogicalOperator>(gby));
+
+                                        //push a new subplan if possible
+                                        Mutable<ILogicalOperator> gbyRootOpRef = gbyRootOpRefs.get(rootIndex);
                                         Set<LogicalVariable> liveVars = new ListSet<LogicalVariable>();
                                         VariableUtilities.getLiveVariables(gbyRootOpRef.getValue(), liveVars);
                                         if (liveVars.containsAll(freeVars)) {
                                             /** Does the actual push. */
                                             Mutable<ILogicalOperator> ntsRef = downToNts(rootOpRef);
                                             ntsRef.setValue(gbyRootOpRef.getValue());
+                                            // Removes unused vars.
+                                            AggregateOperator aggOp = (AggregateOperator) gbyRootOpRef.getValue();
+                                            for (int varIndex = aggOp.getVariables().size() - 1; varIndex >= 0; varIndex--) {
+                                                if (!freeVars.contains(aggOp.getVariables().get(varIndex))) {
+                                                    aggOp.getVariables().remove(varIndex);
+                                                    aggOp.getExpressions().remove(varIndex);
+                                                }
+                                            }
+
                                             gbyRootOpRef.setValue(rootOpRef.getValue());
                                             rootOpRefsToRemove.add(rootOpRef);
+
+                                            // Sets the nts for a new pushed plan.
                                             Mutable<ILogicalOperator> oldGbyNtsRef = downToNts(gbyRootOpRef);
                                             NestedTupleSourceOperator nts = (NestedTupleSourceOperator) oldGbyNtsRef
                                                     .getValue();
                                             nts.setDataSourceReference(new MutableObject<ILogicalOperator>(gby));
+
                                             newGbyNestedPlans.add(gbyNestedPlan);
                                             changed = true;
+                                            continue;
                                         }
                                     }
                                 }
@@ -143,7 +178,31 @@ public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
                 }
             }
         }
+        if (changed) {
+            cleanup(gby);
+        }
         return changed;
+    }
+
+    /**
+     * Removes unused aggregation variables (and expressions)
+     * 
+     * @param gby
+     * @throws AlgebricksException
+     */
+    private void cleanup(GroupByOperator gby) throws AlgebricksException {
+        for (ILogicalPlan nestedPlan : gby.getNestedPlans()) {
+            for (Mutable<ILogicalOperator> rootRef : nestedPlan.getRoots()) {
+                AggregateOperator aggOp = (AggregateOperator) rootRef.getValue();
+                for (int varIndex = aggOp.getVariables().size() - 1; varIndex >= 0; varIndex--) {
+                    if (!usedVarsSoFar.contains(aggOp.getVariables().get(varIndex))) {
+                        aggOp.getVariables().remove(varIndex);
+                        aggOp.getExpressions().remove(varIndex);
+                    }
+                }
+            }
+
+        }
     }
 
     private Mutable<ILogicalOperator> downToNts(Mutable<ILogicalOperator> opRef) {
