@@ -60,6 +60,7 @@ import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
  */
 
 public class PushSubplanIntoGroupByRule implements IAlgebraicRewriteRule {
+    /** Stores used variables above the current operator. */
     private final Set<LogicalVariable> usedVarsSoFar = new HashSet<LogicalVariable>();
 
     @Override
