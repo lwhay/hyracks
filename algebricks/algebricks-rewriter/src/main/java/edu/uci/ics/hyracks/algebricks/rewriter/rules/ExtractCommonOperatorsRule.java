@@ -486,7 +486,7 @@ public class ExtractCommonOperatorsRule implements IAlgebraicRewriteRule {
         }
     }
 
-    private boolean worthMaterialization(Mutable<ILogicalOperator> candidate) {
+    protected boolean worthMaterialization(Mutable<ILogicalOperator> candidate) {
         AbstractLogicalOperator aop = (AbstractLogicalOperator) candidate.getValue();
         if (aop.getPhysicalOperator().expensiveThanMaterialization()) {
             return true;
