@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.storage.am.rtree.impls;
 
+import edu.uci.ics.hyracks.data.std.primitive.FloatPointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
@@ -32,7 +33,7 @@ public class FloatPrimitiveValueProviderFactory implements
 		return new IPrimitiveValueProvider() {
 			@Override
 			public double getValue(byte[] bytes, int offset) {
-				return FloatSerializerDeserializer.getFloat(bytes, offset);
+				return FloatPointable.getFloat(bytes, offset);
 			}
 		};
 	}

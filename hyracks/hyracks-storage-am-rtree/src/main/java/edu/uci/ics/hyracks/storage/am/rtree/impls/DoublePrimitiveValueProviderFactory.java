@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.hyracks.storage.am.rtree.impls;
 
+import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
@@ -32,7 +33,7 @@ public class DoublePrimitiveValueProviderFactory implements
 		return new IPrimitiveValueProvider() {
 			@Override
 			public double getValue(byte[] bytes, int offset) {
-				return DoubleSerializerDeserializer.getDouble(bytes, offset);
+				return DoublePointable.getDouble(bytes, offset);
 			}
 		};
 	}
